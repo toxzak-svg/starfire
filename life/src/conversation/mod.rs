@@ -82,6 +82,12 @@ impl Conversation {
             return Intent::Greeting;
         }
         
+        // "Im X" or "I'm X" — introducing yourself
+        let lowered = lower.trim();
+        if lowered.starts_with("i'm ") || lowered.starts_with("im ") || lowered.starts_with("i am ") {
+            return Intent::Greeting;
+        }
+        
         // Other greeting words
         let greeting_words = ["hello", "hi", "hey", "greetings"];
         if self.history.is_empty() || self.history.len() <= 1 {
@@ -543,6 +549,34 @@ fn extract_topic(input: &str) -> String {
     }
     if lower.starts_with("why does ") {
         return strip_after(&lower, "why does ", "");
+    }
+    
+    if lower.starts_with("what causes ") {
+        let stripped = strip_after(&lower, "what causes ", "");
+        let cleaned = stripped.trim_end_matches(" to burn")
+            .trim_end_matches(" to do")
+            .trim();
+        return if !cleaned.is_empty() { cleaned.to_string() } else { stripped };
+    }
+    
+    if lower.starts_with("what is causing ") {
+        let stripped = strip_after(&lower, "what is causing ", "");
+        let cleaned = stripped.trim_end_matches(" to burn")
+            .trim_end_matches(" to do")
+            .trim();
+        return if !cleaned.is_empty() { cleaned.to_string() } else { stripped };
+    }
+    
+    if lower.starts_with("what caused ") {
+        let stripped = strip_after(&lower, "what caused ", "");
+        let cleaned = stripped.trim_end_matches(" to burn")
+            .trim_end_matches(" to do")
+            .trim();
+        return if !cleaned.is_empty() { cleaned.to_string() } else { stripped };
+    }
+    
+    if lower.starts_with("what do you think about ") {
+        return strip_after(&lower, "what do you think about ", "");
     }
     if lower.starts_with("why do ") {
         return strip_after(&lower, "why do ", "");
