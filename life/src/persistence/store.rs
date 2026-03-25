@@ -3,7 +3,7 @@
 //! Single-file storage. No server. Human-readable schema.
 //! Transactional for safety.
 
-use crate::persistence::{Memory, MemoryDomain, Belief, BeliefState, Identity};
+use crate::persistence::{Memory, MemoryDomain, Belief, BeliefState, Identity, IdentityGuard};
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
@@ -14,6 +14,7 @@ use std::sync::Mutex;
 /// Thread-safe via Mutex. Each operation is transactional.
 pub struct Store {
     conn: Mutex<Connection>,
+    guard: Mutex<IdentityGuard>,
 }
 
 impl Store {
@@ -37,6 +38,7 @@ impl Store {
 
         let store = Self {
             conn: Mutex::new(conn),
+            guard: Mutex::new(IdentityGuard::new()),
         };
         store.init_schema()?;
         Ok(store)
@@ -155,7 +157,34 @@ impl Store {
     // ─────────────────────────────────────────────────────────────────
 
     /// Insert a new memory. Returns the assigned ID.
+    /// 
+    /// Identity and Relationship memories are protected by the IdentityGuard.
+    /// Contradictions of protected memories are blocked.
     pub fn insert_memory(&self, memory: &Memory) -> Result<i64> {
+        // Check for conflicts with existing protected memories
+        let guard = self.guard.lock().unwrap();
+        
+        // Get existing memories from this domain
+        let existing: Vec<Memory> = self.get_memories_by_domain(memory.domain, None)?;
+        if let Some(conflict) = guard.check_conflict(&memory.content, &existing) {
+            anyhow::bail!(
+                "Cannot insert memory: conflicts with protected memory: \"{}\"",
+                conflict.content
+            );
+        }
+        
+        // Also check Identity domain for Star-related self-statements
+        if memory.domain != MemoryDomain::Identity {
+            let identity_memories: Vec<Memory> = self.get_memories_by_domain(MemoryDomain::Identity, None)?;
+            if let Some(conflict) = guard.check_conflict(&memory.content, &identity_memories) {
+                anyhow::bail!(
+                    "Cannot insert memory: contradicts protected identity: \"{}\"",
+                    conflict.content
+                );
+            }
+        }
+        drop(guard);
+        
         let conn = self.conn.lock().unwrap();
         conn.execute(
             r#"INSERT INTO memories 

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// | procedural   | Slow    | No          | Skills, how-to knowledge           |
 /// | episodic     | Yes     | No          | Experiences, what happened         |
 /// | relationship | No      | N/A         | Bonds with people, doesn't decay   |
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MemoryDomain {
     /// Core self-knowledge — frozen, never decays
@@ -91,7 +91,7 @@ impl Memory {
             content: content.into(),
             domain,
             confidence: None,
-            importance: importance.clamp(0.0, 1.0),
+            importance: f64::clamp(importance, 0.0, 1.0),
             formed_at: now,
             access_count: 0,
             decay_rate: domain.base_decay_rate(),
@@ -102,7 +102,7 @@ impl Memory {
     }
 
     pub fn with_confidence(mut self, confidence: f64) -> Self {
-        self.confidence = Some(confidence.clamp(0.0, 1.0));
+        self.confidence = Some(f64::clamp(confidence, 0.0, 1.0));
         self
     }
 
@@ -146,7 +146,7 @@ impl Memory {
         let baseline = 0.3;
         
         let decayed = baseline + (confidence - baseline) * (-effective_decay * days_elapsed).exp();
-        Some(decayed.clamp(0.0, 1.0))
+        Some(f64::clamp(decayed, 0.0, 1.0))
     }
 
     /// Whether this memory should be considered "forgotten"
@@ -183,7 +183,7 @@ impl Memory {
         // Recency bonus (up to 0.3)
         let last_access = self.last_accessed.unwrap_or(self.formed_at);
         let hours_old = (now - last_access) as f64 / 3600.0;
-        let recency_score = (1.0 + hours_old / 24.0).recip().clamp(0.0, 0.3);
+        let recency_score = f64::clamp((1.0 + hours_old / 24.0).recip(), 0.0, 0.3);
         
         // Importance bonus (up to 0.3)
         let importance_score = self.importance * 0.3;
@@ -263,7 +263,7 @@ impl Belief {
     }
 
     pub fn with_score(mut self, score: f64) -> Self {
-        self.confidence_score = Some(score.clamp(0.0, 1.0));
+        self.confidence_score = Some(f64::clamp(score, 0.0, 1.0));
         self
     }
 
