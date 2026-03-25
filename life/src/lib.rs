@@ -10,13 +10,16 @@ pub mod metacog;
 pub mod conversation;
 pub mod runtime;
 pub mod context;
+pub mod knowledge;
 pub mod api;
+pub mod training_db;
 
 pub use persistence::{Store, Memory, Identity};
 pub use conversation::Conversation;
 pub use reasoning::ReasoningEngine;
 pub use runtime::Runtime;
 pub use context::{RingState, ReasoningMode, ContextState, OpenQuestion, ContextFuser};
+pub use training_db::TrainingDB;
 
 use anyhow::Result;
 

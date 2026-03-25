@@ -13,6 +13,7 @@ use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use crate::context::{ContextFuser, RingState};
+use crate::training_db::TrainingDB;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -40,6 +41,10 @@ pub struct Runtime {
     ring: RingState,
     /// Context fusion logic
     context_fuser: ContextFuser,
+    /// Training database - all conversations stored for analysis
+    training_db: TrainingDB,
+    /// Current training session ID
+    training_session_id: Mutex<Option<i64>>,
 }
 
 impl Runtime {
@@ -56,6 +61,10 @@ impl Runtime {
         let db_path = data_dir.join("star.db");
         let store = Arc::new(Store::open(&db_path)?);
 
+        // Open training database
+        let training_db_path = data_dir.join("training.db");
+        let training_db = TrainingDB::open(&training_db_path)?;
+
         // Load identity from IDENTITY.md
         let identity_path = data_dir.join("IDENTITY.md");
         let identity = if identity_path.exists() {
@@ -71,6 +80,10 @@ impl Runtime {
         let session_id = store.start_session()?;
         info!("Session {} started", session_id);
 
+        // Start training session
+        let training_session = training_db.start_session()?;
+        info!("Training session {} started", training_session.id);
+
         // Initialize conversation
         let conversation = Conversation::new(Arc::clone(&store));
 
@@ -85,6 +98,8 @@ impl Runtime {
             initialized: true,
             ring: RingState::new(),
             context_fuser: ContextFuser::new(),
+            training_db,
+            training_session_id: Mutex::new(Some(training_session.id)),
         };
 
         // Inject foundational memories about identity
@@ -158,14 +173,55 @@ impl Runtime {
             return Ok(self.identity.summary());
         }
 
+        if input.trim() == "/export" {
+            match self.training_db.export_json() {
+                Ok(json) => return Ok(format!("Exported {} bytes of training data", json.len())),
+                Err(e) => return Ok(format!("Export failed: {}", e)),
+            }
+        }
+
+        if input.trim() == "/stats" {
+            if let Ok((convos, turns, facts, corrections)) = self.training_db.stats() {
+                return Ok(format!(
+                    "Training Database Stats:\n  Conversations: {}\n  Turns: {}\n  Facts: {}\n  Corrections: {}",
+                    convos, turns, facts, corrections
+                ));
+            }
+        }
+
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
         let response = conversation.respond(input);
+
+        // Record turn in training database
+        if let Some(training_id) = *self.training_session_id.lock().unwrap() {
+            let turn_index = conversation.history().iter()
+                .filter(|m| m.speaker == crate::conversation::Speaker::Zachary)
+                .count() as i64;
+            let _ = self.training_db.record_turn(training_id, turn_index, "zachary", input);
+            let _ = self.training_db.record_turn(training_id, turn_index + 1, "star", &response.content);
+        }
 
         // Persist any new memories
         for memory in &response.new_memories {
             let id = self.store.insert_memory(memory)?;
             info!("Memory {} stored: {}", id, &memory.content[..memory.content.len().min(50)]);
+            
+            // Also record in training DB
+            if let Some(training_id) = *self.training_session_id.lock().unwrap() {
+                if memory.content.contains("name is") {
+                    let parts: Vec<&str> = memory.content.split("'s name is ").collect();
+                    if parts.len() == 2 {
+                        let _ = self.training_db.record_fact(
+                            Some(training_id),
+                            parts[0],
+                            "name is",
+                            parts[1],
+                            memory.confidence.unwrap_or(0.5),
+                        );
+                    }
+                }
+            }
         }
 
         // Build final response - append curiosity if present
@@ -217,6 +273,13 @@ impl Runtime {
 
             self.store.end_session(id, Some(&summary))?;
             info!("Session {} ended.", id);
+        }
+
+        // End training session
+        let training_session_id = self.training_session_id.lock().unwrap().take();
+        if let Some(id) = training_session_id {
+            self.training_db.end_session(id)?;
+            info!("Training session {} ended.", id);
         }
 
         self.initialized = false;
