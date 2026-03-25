@@ -4,7 +4,7 @@
 //! Run with: `star chat`
 
 use clap::{Parser, Subcommand};
-use star::Runtime;
+use star::{Runtime, api};
 use std::path::PathBuf;
 use tracing::info;
 
@@ -26,6 +26,15 @@ enum Commands {
     Chat,
     /// Check memory status
     Status,
+    /// Start the HTTP API server (for Jupyter notebooks)
+    Api {
+        /// Host to bind to (default: 127.0.0.1)
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+        /// Port to listen on (default: 8080)
+        #[arg(long, default_value = "8080")]
+        port: u16,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -65,6 +74,12 @@ fn main() -> anyhow::Result<()> {
     match cli.command.unwrap_or(Commands::Chat) {
         Commands::Chat => chat_loop(life_dir),
         Commands::Status => status_check(life_dir),
+        Commands::Api { host, port } => {
+            let runtime = Runtime::new(&life_dir)?;
+            let rt = std::sync::Arc::new(std::sync::Mutex::new(runtime));
+            api::start(rt, &host, port)?;
+            Ok(())
+        }
     }
 }
 

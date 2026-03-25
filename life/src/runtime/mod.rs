@@ -7,7 +7,7 @@
 
 pub mod thinker;
 
-use crate::persistence::{Store, Identity, Memory, MemoryDomain};
+use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot};
 use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
@@ -229,6 +229,25 @@ impl Runtime {
     /// Get Star's relationship to Zachary.
     pub fn relationship_to_zachary(&self) -> String {
         self.identity.relationship_to_zachary()
+    }
+
+    /// Get memories related to a topic.
+    pub fn get_memories(&self, topic: &str, limit: usize) -> Vec<crate::Memory> {
+        self.store
+            .search_memories(topic, limit, None)
+            .unwrap_or_default()
+    }
+
+    /// Get a snapshot of memory stats.
+    pub fn store_snapshot(&self) -> MemorySnapshot {
+        self.store.snapshot().unwrap_or_else(|_| {
+            MemorySnapshot {
+                memory_count: 0,
+                beliefs_count: 0,
+                sessions_count: 0,
+                domain_breakdown: std::collections::HashMap::new(),
+            }
+        })
     }
 }
 

@@ -9,9 +9,11 @@ pub mod reasoning;
 pub mod metacog;
 pub mod conversation;
 pub mod runtime;
+pub mod api;
 
 pub use persistence::{Store, Memory, Identity};
 pub use conversation::Conversation;
+pub use reasoning::ReasoningEngine;
 pub use runtime::Runtime;
 
 use anyhow::Result;

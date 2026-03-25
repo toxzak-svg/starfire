@@ -28,6 +28,9 @@ chrono = { version = "0.4", features = ["serde"] }
 # Async
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 
+# HTTP server
+tiny_http = "0.12"
+
 # CLI
 clap = { version = "4.5", features = ["derive"] }
 

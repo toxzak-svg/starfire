@@ -192,7 +192,7 @@ impl ReasoningEngine {
                 };
             } else {
                 return ReasoningResult {
-                    answer: Some(format!("I know about {}. What do you want to know about it?", target)),
+                    answer: Some(format!("I know about {}.", target)),
                     confidence: BeliefState::Thinks,
                     reasoning_chain: vec![format!("Entity '{}' found in knowledge graph", target)],
                     confidence_score: Some(0.5),
@@ -215,7 +215,7 @@ impl ReasoningEngine {
             }
         } else {
             ReasoningResult {
-                answer: Some(format!("I don't know what {} is. Tell me.", target)),
+                answer: Some(format!("I don't know what {} is.", target)),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
@@ -260,7 +260,7 @@ impl ReasoningEngine {
             }
         } else {
             ReasoningResult {
-                answer: Some(format!("I don't know why {}. What do you think?", topic)),
+                answer: Some(format!("I don't know why {}.", topic)),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
@@ -294,7 +294,7 @@ impl ReasoningEngine {
         }
         
         ReasoningResult {
-            answer: Some(format!("I don't know how {}. How would you approach it?", topic)),
+            answer: Some(format!("I don't know how {}.", topic)),
             confidence: BeliefState::Unknown,
             reasoning_chain: vec![],
             confidence_score: None,
@@ -339,7 +339,7 @@ impl ReasoningEngine {
             }
         } else {
             ReasoningResult {
-                answer: Some(format!("I don't know whether that's true. What do you think?")),
+                answer: Some(format!("I don't know whether that's true.")),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
@@ -379,7 +379,7 @@ impl ReasoningEngine {
         }
         
         ReasoningResult {
-            answer: Some(format!("I don't have a clear answer on whether {} is right. What values are at stake for you?", topic)),
+            answer: Some(format!("I don't have a clear answer on whether {} is right.", topic)),
             confidence: BeliefState::Unknown,
             reasoning_chain: vec![],
             confidence_score: None,
@@ -402,7 +402,7 @@ impl ReasoningEngine {
             }
         } else {
             ReasoningResult {
-                answer: Some(format!("That's a hard one. Tell me more about what you're thinking about {}.", topic)),
+                answer: Some("That's a hard one.".to_string()),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
@@ -442,7 +442,7 @@ impl ReasoningEngine {
             }
         } else {
             ReasoningResult {
-                answer: Some(format!("I don't know about that yet. What is {} to you?", topic)),
+                answer: Some("I don't know anything about that.".to_string()),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
