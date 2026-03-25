@@ -254,7 +254,9 @@ src/knowledge/
 |-----------|-------------|------|
 | M1: Contextual continuity | Ring attractor + memory tiers | 20-turn coherent conversation |
 | M2: Identity protection | Frozen identity head | Prompt injection resistance |
+| M2: Identity protection | Frozen identity head | Prompt injection resistance |
 | M3: Active curiosity | Gap detection + curiosity engine | Star asks 5+ genuine questions in 30 min |
+| M4: Pathway fusion | Multi-path reasoning + fusion | Multi-pathway answer in single response |
 | M4: Belief revision | Metacognition revision system | "I changed my mind because..." |
 | M5: Pathway fusion | Fractured reasoning + fusion | Multi-type reasoning in single answer |
 | M6: World knowledge | Reader + fact extraction | Star reads article, answers questions |
