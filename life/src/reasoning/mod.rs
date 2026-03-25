@@ -15,9 +15,11 @@ pub mod knowledge;
 pub mod rules;
 pub mod analogy;
 pub mod synthesis;
+pub mod pathways;
 
 use crate::persistence::{Memory, MemoryDomain, BeliefState};
 use crate::persistence::memory::Belief;
+use pathways::{Pathway, PathwayVote, PathwayFusion, FusedResult};
 use std::collections::HashMap;
 
 /// The reasoning engine — combines all reasoning components.
@@ -28,6 +30,8 @@ pub struct ReasoningEngine {
     rules: rules::RuleEngine,
     /// Analogy engine
     analogy: analogy::AnalogyEngine,
+    /// Pathway fusion (R&D-E)
+    fusion: PathwayFusion,
     /// Working memory for current reasoning session
     working_memory: Vec<WorkingItem>,
 }
@@ -52,6 +56,7 @@ impl ReasoningEngine {
             knowledge: knowledge::KnowledgeGraph::new(),
             rules: rules::RuleEngine::new(),
             analogy: analogy::AnalogyEngine::new(),
+            fusion: PathwayFusion::new(),
             working_memory: Vec::new(),
         }
     }
