@@ -1,0 +1,358 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.23-2",
+    "lastTouchedAt": "2026-03-24T20:36:58.450Z"
+  },
+  "env": {
+    "shellEnv": {
+      "enabled": true
+    }
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-24T20:24:19.172Z",
+    "lastRunVersion": "2026.3.23-2",
+    "lastRunCommand": "onboard",
+    "lastRunMode": "remote"
+  },
+  "diagnostics": {
+    "cacheTrace": {
+      "includeMessages": true
+    }
+  },
+  "auth": {
+    "profiles": {
+      "minimax-portal:default": {
+        "provider": "minimax-portal",
+        "mode": "oauth"
+      }
+    }
+  },
+  "models": {
+    "providers": {
+      "minimax-portal": {
+        "baseUrl": "https://api.minimax.io/anthropic",
+        "apiKey": "minimax-oauth",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "MiniMax-M2.5",
+            "name": "MiniMax M2.5",
+            "api": "anthropic-messages",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "MiniMax-M2.5-highspeed",
+            "name": "MiniMax M2.5 Highspeed",
+            "api": "anthropic-messages",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "MiniMax-M2.5-Lightning",
+            "name": "MiniMax M2.5 Lightning",
+            "api": "anthropic-messages",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "MiniMax-M2.7",
+            "name": "MiniMax M2.7",
+            "api": "anthropic-messages",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "OpenAI": {
+        "baseUrl": "https://api.openai.com/v1",
+        "apiKey": "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",
+        "auth": "oauth",
+        "api": "openai-responses",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "name": "gpt-4o",
+            "api": "openai-responses",
+            "reasoning": true,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "modal-spark": {
+        "baseUrl": "https://toxzak-svg--spark-ollama-qwen-generate.modal.run",
+        "apiKey": "modal",
+        "api": "ollama",
+        "models": [
+          {
+            "id": "qwen2.5:7b",
+            "name": "Qwen 2.5 7B (Modal T4)",
+            "api": "ollama",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 32768,
+            "maxTokens": 4096
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "minimax-portal/MiniMax-M2.7"
+      },
+      "models": {
+        "minimax-portal/MiniMax-M2.5": {
+          "alias": "minimax-m2.5"
+        },
+        "minimax-portal/MiniMax-M2.5-highspeed": {
+          "alias": "minimax-m2.5-highspeed"
+        },
+        "minimax-portal/MiniMax-M2.5-Lightning": {
+          "alias": "minimax-m2.5-lightning"
+        },
+        "minimax-portal/MiniMax-M2.7": {
+          "alias": "minimax-m2.7"
+        },
+        "modal-spark/qwen2.5:7b": {
+          "alias": "spark-qwen"
+        }
+      },
+      "workspace": "C:\\Users\\Zwmar\\.openclaw\\workspace",
+      "memorySearch": {
+        "enabled": true,
+        "experimental": {
+          "sessionMemory": true
+        }
+      },
+      "contextPruning": {
+        "mode": "cache-ttl",
+        "keepLastAssistants": 2
+      },
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "elevatedDefault": "full",
+      "heartbeat": {
+        "every": "15m",
+        "target": "last",
+        "directPolicy": "allow",
+        "suppressToolErrorWarnings": true,
+        "isolatedSession": true
+      }
+    }
+  },
+  "tools": {
+    "profile": "full",
+    "web": {
+      "search": {
+        "provider": "brave"
+      }
+    },
+    "elevated": {
+      "enabled": true,
+      "allowFrom": {}
+    }
+  },
+  "commands": {
+    "native": true,
+    "nativeSkills": true,
+    "text": true,
+    "bash": true,
+    "config": true,
+    "debug": true,
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "cron": {
+    "enabled": true
+  },
+  "hooks": {
+    "internal": {
+      "enabled": true,
+      "entries": {
+        "boot-md": {
+          "enabled": true
+        },
+        "session-memory": {
+          "enabled": true
+        },
+        "bootstrap-extra-files": {
+          "enabled": true
+        },
+        "last-session": {
+          "enabled": true
+        },
+        "persona-voice": {
+          "enabled": true
+        },
+        "living-persona": {
+          "enabled": true
+        }
+      },
+      "installs": {
+        "living-persona": {
+          "source": "path",
+          "sourcePath": "C:\\Users\\Zwmar\\.openclaw\\workspace\\living-persona",
+          "installPath": "C:\\Users\\Zwmar\\.openclaw\\hooks\\living-persona",
+          "installedAt": "2026-03-23T04:51:02.219Z",
+          "hooks": [
+            "living-persona"
+          ]
+        }
+      }
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "configWrites": true,
+      "dmPolicy": "pairing",
+      "botToken": "8771491861:AAEMTu8nBPrETUos1BA6Mk1ETwMs2cwFD2o",
+      "allowFrom": [
+        8371302588
+      ],
+      "groupPolicy": "allowlist",
+      "streaming": "partial",
+      "heartbeat": {
+        "useIndicator": false
+      },
+      "linkPreview": true
+    }
+  },
+  "discovery": {
+    "wideArea": {
+      "enabled": true
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "remote",
+    "bind": "auto",
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "05a9121e8d27e2ca7f90ec7bab2ddd6b1b111b761aac0fc0"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "remote": {
+      "url": "ws://127.0.0.1:18789",
+      "token": "05a9121e8d27e2ca7f90ec7bab2ddd6b1b111b761aac0fc0"
+    },
+    "http": {
+      "endpoints": {
+        "responses": {
+          "enabled": true
+        }
+      }
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "allow": [
+      "telegram",
+      "minimax-portal-auth",
+      "linkmind-context",
+      "minimax"
+    ],
+    "entries": {
+      "minimax-portal-auth": {
+        "enabled": true
+      },
+      "telegram": {
+        "enabled": true
+      },
+      "linkmind-context": {
+        "enabled": true
+      },
+      "minimax": {
+        "enabled": true
+      }
+    },
+    "installs": {
+      "linkmind-context": {
+        "source": "npm",
+        "spec": "linkmind-context",
+        "installPath": "C:\\Users\\Zwmar\\.openclaw\\extensions\\linkmind-context",
+        "version": "1.0.0",
+        "resolvedName": "linkmind-context",
+        "resolvedVersion": "1.0.0",
+        "resolvedSpec": "linkmind-context@1.0.0",
+        "integrity": "sha512-cjTCBWmIeIsmTnWA2+r4IbdAY0mvAHtM3T/ksqPlA0hhmd+W9QkCLfFJmglLXCut4nT2oOqryqwEWwVApYC7YQ==",
+        "shasum": "13537078e8409cdddbd35160bc5d5027efa6b114",
+        "resolvedAt": "2026-03-23T19:27:07.811Z",
+        "installedAt": "2026-03-23T19:27:10.769Z"
+      }
+    }
+  }
+}

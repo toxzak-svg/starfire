@@ -1,0 +1,52 @@
+# Global Workspace Hive — Hyperparameters
+
+## Architecture
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| `num_processors` | 128 | Configurable 64-256 |
+| `processor_type` | "rnn" | Options: rnn, gru, ssm, tiny_lm |
+| `processor_hidden_dim` | 512 | Per processor |
+| `workspace_dim` | 8192 | Global workspace vector |
+| `router_hidden_dim` | 256 | Lightweight transformer |
+| `router_num_heads` | 4 | For transformer |
+| `competition_k` | 8 | Top-k processors write |
+| `vocab_size` | 50304 | Standard for training |
+
+## Training
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| `learning_rate` | 1e-4 | Base, with warmup |
+| `warmup_steps` | 500 | Linear warmup |
+| `weight_decay` | 0.01 | AdamW |
+| `batch_size` | 64 | Per GPU |
+| `gradient_clip` | 1.0 | Max norm |
+| `seq_length` | 512 | Initial, scale to 2048 |
+| `total_tokens` | 1e12 | Target training tokens |
+
+## Logging
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| `log_interval` | 100 | Steps |
+| `eval_interval` | 1000 | Steps |
+| `save_interval` | 10000 | Steps |
+| `eval_batches` | 100 | For validation |
+
+## Resource
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| `num_gpus` | 8 | For training |
+| `fsdp` | true | Fully sharded data parallel |
+| `megatron` | false | Not needed |
+
+## Ablations
+
+| Ablation | Flag | Description |
+|----------|------|-------------|
+| Single processor | `num_processors=1` | Collapse to baseline |
+| No competition | `competition_k=P` | All processors write |
+| Static routing | `routing_type=fixed` | Fixed topology |
+| Dense router | `routing_sparse=false` | Full attention |

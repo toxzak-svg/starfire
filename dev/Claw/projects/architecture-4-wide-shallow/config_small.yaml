@@ -1,0 +1,65 @@
+# Small config for testing on 30GB VRAM (P5000)
+# Uses 1024 heads instead of 8192
+
+model:
+  # Architecture dimensions - REDUCED for 30GB
+  num_layers: 4
+  num_heads: 64
+  hidden_size: 4096
+  intermediate_size: 11008
+  vocab_size: 50257
+  
+  # Grouped-query attention settings
+  num_kv_heads: 8
+  groups_per_kv: 8
+  
+  # Architecture features
+  max_position_embeddings: 2048  # Reduced
+  use_bias: false
+  activation: "silu"
+  
+  # Residual configuration
+  residual_dropout: 0.0
+  embed_dropout: 0.0
+  
+  # Memory optimization
+  gradient_checkpointing: true
+
+training:
+  # Training hyperparameters
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  beta1: 0.9
+  beta2: 0.95
+  
+  # Learning rate schedule
+  warmup_steps: 500
+  max_steps: 10000  # Quick test
+  min_lr: 1.0e-6
+  
+  # Batch settings
+  batch_size: 2
+  gradient_accumulation_steps: 8
+  max_seq_length: 1024  # Reduced
+  
+  # Optimization
+  max_grad_norm: 1.0
+  mixed_precision: true
+  
+  # Initialization
+  init_method: "small_init"
+  init_std: 0.02
+
+data:
+  train_path: null
+  val_path: null
+  test_path: null
+  tokenizer: "gpt2"
+  preprocessing_num_workers: 4
+
+benchmark:
+  code_completion: true
+  math_reasoning: true
+  long_context: true
+  eval_steps: 500
+  eval_batch_size: 4

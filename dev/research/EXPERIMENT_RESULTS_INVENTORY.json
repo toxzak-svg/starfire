@@ -1,0 +1,957 @@
+{
+  "generated_at": "2026-03-03",
+  "root": "/mnt/c/dev/research",
+  "attention": {
+    "result_bundles": [
+      {
+        "bundle": "diag_dagger",
+        "files": [
+          "diag_dagger_latest.pt"
+        ]
+      },
+      {
+        "bundle": "imitation_run_01",
+        "files": [
+          "arch_a.csv",
+          "arch_b_full.csv",
+          "config.json"
+        ]
+      },
+      {
+        "bundle": "imitation_run_02",
+        "files": [
+          "config.json"
+        ]
+      },
+      {
+        "bundle": "imitation_test",
+        "files": [
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "summary.md"
+        ],
+        "decision": "Insufficient data to determine decision."
+      },
+      {
+        "bundle": "litmus_run_01",
+        "files": [
+          "config.json",
+          "litmus_summary.json",
+          "litmus_tf.csv",
+          "litmus_tf_nomem.csv"
+        ],
+        "litmus": {
+          "n_episodes": 200,
+          "tf_final_acc": 1.0,
+          "nm_final_acc": 0.0225,
+          "gap": 0.9775,
+          "passed": true
+        }
+      },
+      {
+        "bundle": "oracle_sanity",
+        "files": [
+          "config.json",
+          "sanity_check.json"
+        ],
+        "sanity": {
+          "converged": true,
+          "final_accuracy": 0.9,
+          "final_skip_frac": 1.0
+        }
+      },
+      {
+        "bundle": "oracle_sanity_v2",
+        "files": [
+          "config.json",
+          "sanity_check.json"
+        ],
+        "sanity": {
+          "converged": false,
+          "final_accuracy": 1.0,
+          "final_skip_frac": 0.8824
+        }
+      },
+      {
+        "bundle": "oracle_sanity_v3",
+        "files": [
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "sanity_check.json",
+          "summary.md"
+        ],
+        "decision": "Blocked. Three prerequisites must be satisfied before ablation results are meaningful: (1) fix Type K distractor construction, (2) train output head to above-chance accuracy on easy slice, (3) force budget to bind.",
+        "sanity": {
+          "converged": true,
+          "final_accuracy": 0.9,
+          "final_skip_frac": 0.7647
+        }
+      },
+      {
+        "bundle": "oracle_test_10",
+        "files": [
+          "arch_b_force_read.csv",
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_oracle.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "summary.md"
+        ],
+        "decision": "Insufficient data to determine decision."
+      },
+      {
+        "bundle": "oracle_test_40",
+        "files": [
+          "arch_b_full.csv",
+          "config.json"
+        ]
+      },
+      {
+        "bundle": "pretrain_run_01",
+        "files": [
+          "arch_a.csv",
+          "arch_b_force_read.csv",
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_oracle.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "sanity_check.json",
+          "summary.md"
+        ],
+        "decision": "H0 is **not rejected** at the primary test condition (60% Type K distractors, B/T=0.10).  The accuracy gap is 0.6 pp (threshold: 10 pp).  The slope ratio is 0.00 (threshold: 2.0).",
+        "sanity": {
+          "converged": true,
+          "final_accuracy": 0.9,
+          "final_skip_frac": 0.7647
+        }
+      },
+      {
+        "bundle": "test_diagnostic",
+        "files": [
+          "arch_b_force_read.csv",
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_oracle.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "sanity_check.json",
+          "summary.md"
+        ],
+        "decision": "Insufficient data to determine decision.",
+        "sanity": {
+          "converged": false,
+          "final_accuracy": 0.3,
+          "final_skip_frac": 1.0
+        }
+      },
+      {
+        "bundle": "test_dry",
+        "files": [
+          "arch_a.csv",
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "summary.md"
+        ],
+        "decision": "H0 is **not rejected** at the primary test condition (60% Type K distractors, B/T=0.10).  The accuracy gap is -2.5 pp (threshold: 10 pp).  The slope ratio is 0.00 (threshold: 2.0)."
+      },
+      {
+        "bundle": "test_eval_free",
+        "files": [
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "summary.md"
+        ],
+        "decision": "Insufficient data to determine decision."
+      },
+      {
+        "bundle": "train_diagnostic",
+        "files": [
+          "arch_a.csv",
+          "arch_b_full.csv",
+          "arch_b_no_mem.csv",
+          "arch_b_no_sal.csv",
+          "arch_b_rand.csv",
+          "arch_b_sched.csv",
+          "arch_b_zero_h.csv",
+          "config.json",
+          "sanity_check.json",
+          "summary.md"
+        ],
+        "decision": "H0 is **not rejected** at the primary test condition (60% Type K distractors, B/T=0.10).  The accuracy gap is 0.8 pp (threshold: 10 pp).  The slope ratio is 0.00 (threshold: 2.0).",
+        "sanity": {
+          "converged": true,
+          "final_accuracy": 0.9,
+          "final_skip_frac": 0.7647
+        }
+      }
+    ]
+  },
+  "context": {
+    "artifacts": {
+      "top_level_inventory": [
+        {
+          "name": "archive",
+          "kind": "archive",
+          "snapshots": [
+            {
+              "snapshot": "20260218-193707",
+              "run_dir_count": 37,
+              "groups": {
+                "run": 1,
+                "stress_test": 36,
+                "other": 0
+              },
+              "sample_run_dirs": [
+                "run-user-requested-1771393427830",
+                "stress_test_1771400833",
+                "stress_test_1771400835",
+                "stress_test_1771400836",
+                "stress_test_1771400837",
+                "stress_test_1771400838",
+                "stress_test_1771400839",
+                "stress_test_1771400840",
+                "stress_test_1771400841",
+                "stress_test_1771400842",
+                "stress_test_1771400843",
+                "stress_test_1771400844"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "comparison_lorenz",
+          "kind": "artifact_group",
+          "file_count": 2,
+          "files": [
+            "comparison_plot.png",
+            "comparison_results.json"
+          ]
+        },
+        {
+          "name": "comparison_sine",
+          "kind": "artifact_group",
+          "file_count": 2,
+          "files": [
+            "comparison_plot.png",
+            "comparison_results.json"
+          ]
+        },
+        {
+          "name": "gls_smoke",
+          "kind": "artifact_group",
+          "file_count": 3,
+          "files": [
+            "diagnostics.png",
+            "summary.json",
+            "training_records.jsonl"
+          ]
+        },
+        {
+          "name": "lambda_sweep_lorenz",
+          "kind": "artifact_group",
+          "file_count": 2,
+          "files": [
+            "lambda_sweep_plot.png",
+            "lambda_sweep_results.json"
+          ]
+        },
+        {
+          "name": "lambda_sweep_sine",
+          "kind": "artifact_group",
+          "file_count": 2,
+          "files": [
+            "lambda_sweep_plot.png",
+            "lambda_sweep_results.json"
+          ]
+        },
+        {
+          "name": "run-baseline-1772173087430",
+          "kind": "benchmark_run",
+          "files": [
+            "bootstrap_ci.json",
+            "metrics.json",
+            "records.jsonl"
+          ],
+          "system_dirs": 4
+        },
+        {
+          "name": "run-current-anchor-benchmark-1771461512499",
+          "kind": "benchmark_run",
+          "files": [
+            "anchor_comparison.json",
+            "bootstrap_ci.json",
+            "metrics.json",
+            "records.jsonl"
+          ],
+          "system_dirs": 4
+        },
+        {
+          "name": "run-optimized-1772173340687",
+          "kind": "benchmark_run",
+          "files": [
+            "bootstrap_ci.json",
+            "metrics.json",
+            "records.jsonl"
+          ],
+          "system_dirs": 4
+        },
+        {
+          "name": "run-post-opt-1772177238749",
+          "kind": "benchmark_run",
+          "files": [
+            "bootstrap_ci.json",
+            "metrics.json",
+            "records.jsonl"
+          ],
+          "system_dirs": 4
+        },
+        {
+          "name": "smoke_highdim",
+          "kind": "artifact_group",
+          "file_count": 1,
+          "files": [
+            "comparison_results.json"
+          ]
+        },
+        {
+          "name": "smoke_multiseed",
+          "kind": "artifact_group",
+          "file_count": 1,
+          "files": [
+            "comparison_results_multiseed.json"
+          ]
+        },
+        {
+          "name": "smoke_pca",
+          "kind": "artifact_group",
+          "file_count": 2,
+          "files": [
+            "comparison_results.json",
+            "latent_pca.png"
+          ]
+        },
+        {
+          "name": "stress_test_1771461446",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461457",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461459",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461460",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461461",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461462",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461463",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461468",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461477",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1771461478",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300241800",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300250986",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300251990",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300253128",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300254116",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300254420",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300254709",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300255246",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300255777",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300256630",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300257400",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300257787",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300258120",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300263040",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300273080",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300273732",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300274318",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_1772300275093",
+          "kind": "stress_run",
+          "system_dirs": 1
+        },
+        {
+          "name": "stress_test_report_v2.json",
+          "kind": "file"
+        }
+      ]
+    }
+  },
+  "contextual_flux": {
+    "bigger_context_runtime": {
+      "rollup_file": {
+        "generated_at_utc": "2026-02-26T15:12:36.079482+00:00",
+        "results_root": "C:\\dev\\projects\\contextual-flux\\bigger-context-runtime\\results",
+        "overall": {
+          "total_runs": 24,
+          "total_completed": 20,
+          "total_failed": 4,
+          "total_with_error": 4
+        },
+        "by_experiment": [
+          {
+            "experiment_id": "01",
+            "experiment_name": "Latency-Truth Coupling",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "02",
+            "experiment_name": "Congestion-Induced Reasoning Collapse",
+            "runs": 5,
+            "completed": 5,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "03",
+            "experiment_name": "Certificate Bottleneck",
+            "runs": 2,
+            "completed": 2,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "04",
+            "experiment_name": "State Beats Summary",
+            "runs": 4,
+            "completed": 2,
+            "failed": 2,
+            "with_error": 2
+          },
+          {
+            "experiment_id": "05",
+            "experiment_name": "Retrieval Interference",
+            "runs": 3,
+            "completed": 2,
+            "failed": 1,
+            "with_error": 1
+          },
+          {
+            "experiment_id": "06",
+            "experiment_name": "Recompute-Offload Boundary",
+            "runs": 3,
+            "completed": 2,
+            "failed": 1,
+            "with_error": 1
+          },
+          {
+            "experiment_id": "07",
+            "experiment_name": "Adversarial Diversity Conservation",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "08",
+            "experiment_name": "Mechanistic Atom Transportability",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "09",
+            "experiment_name": "Mode-Locking Hypothesis",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "10",
+            "experiment_name": "Hidden Tool-Use",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "11",
+            "experiment_name": "Memory as Control",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          },
+          {
+            "experiment_id": "12",
+            "experiment_name": "Optimal Abstention Frontier",
+            "runs": 1,
+            "completed": 1,
+            "failed": 0,
+            "with_error": 0
+          }
+        ]
+      },
+      "current_metadata_summary": {
+        "total_runs": 31,
+        "completed": 26,
+        "failed": 5,
+        "with_error": 5
+      },
+      "current_by_experiment": {
+        "01-latency-truth-coupling": {
+          "runs": 2,
+          "completed": 2,
+          "failed": 0,
+          "with_error": 0
+        },
+        "02-congestion-reasoning-collapse": {
+          "runs": 6,
+          "completed": 6,
+          "failed": 0,
+          "with_error": 0
+        },
+        "03-certificate-bottleneck": {
+          "runs": 2,
+          "completed": 2,
+          "failed": 0,
+          "with_error": 0
+        },
+        "04-state-beats-summary": {
+          "runs": 4,
+          "completed": 2,
+          "failed": 2,
+          "with_error": 2
+        },
+        "05-retrieval-interference": {
+          "runs": 3,
+          "completed": 2,
+          "failed": 1,
+          "with_error": 1
+        },
+        "06-recompute-offload-boundary": {
+          "runs": 3,
+          "completed": 2,
+          "failed": 1,
+          "with_error": 1
+        },
+        "07-adversarial-diversity-conservation": {
+          "runs": 1,
+          "completed": 1,
+          "failed": 0,
+          "with_error": 0
+        },
+        "08-mechanistic-atom-transportability": {
+          "runs": 1,
+          "completed": 1,
+          "failed": 0,
+          "with_error": 0
+        },
+        "09-mode-locking-hypothesis": {
+          "runs": 6,
+          "completed": 5,
+          "failed": 1,
+          "with_error": 1
+        },
+        "10-hidden-tool-use": {
+          "runs": 1,
+          "completed": 1,
+          "failed": 0,
+          "with_error": 0
+        },
+        "11-memory-as-control": {
+          "runs": 1,
+          "completed": 1,
+          "failed": 0,
+          "with_error": 0
+        },
+        "12-optimal-abstention-frontier": {
+          "runs": 1,
+          "completed": 1,
+          "failed": 0,
+          "with_error": 0
+        }
+      },
+      "runs": [
+        {
+          "experiment": "01-latency-truth-coupling",
+          "run_id": "20260224_101324",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "01-latency-truth-coupling",
+          "run_id": "20260226_102755",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260224_095435",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260224_095710",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260224_095953",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260224_100243",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260224_100652",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "02-congestion-reasoning-collapse",
+          "run_id": "20260226_102850",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "03-certificate-bottleneck",
+          "run_id": "20260224_100423",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "03-certificate-bottleneck",
+          "run_id": "20260224_100832",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "04-state-beats-summary",
+          "run_id": "20260224_100423",
+          "status": "failed",
+          "has_error": true,
+          "error": "'charmap' codec can't encode character '\\u2081' in position 5371: character maps to <undefined>"
+        },
+        {
+          "experiment": "04-state-beats-summary",
+          "run_id": "20260224_100539",
+          "status": "failed",
+          "has_error": true,
+          "error": "'charmap' codec can't encode character '\\u2081' in position 5371: character maps to <undefined>"
+        },
+        {
+          "experiment": "04-state-beats-summary",
+          "run_id": "20260224_100832",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "04-state-beats-summary",
+          "run_id": "20260226_101214",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "05-retrieval-interference",
+          "run_id": "20260224_100428",
+          "status": "failed",
+          "has_error": true,
+          "error": "'charmap' codec can't encode character '\\u2081' in position 6285: character maps to <undefined>"
+        },
+        {
+          "experiment": "05-retrieval-interference",
+          "run_id": "20260224_100833",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "05-retrieval-interference",
+          "run_id": "20260226_101220",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "06-recompute-offload-boundary",
+          "run_id": "20260224_100428",
+          "status": "failed",
+          "has_error": true,
+          "error": "'charmap' codec can't encode character '\\u2192' in position 515: character maps to <undefined>"
+        },
+        {
+          "experiment": "06-recompute-offload-boundary",
+          "run_id": "20260224_100833",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "06-recompute-offload-boundary",
+          "run_id": "20260226_101220",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "07-adversarial-diversity-conservation",
+          "run_id": "20260224_101357",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "08-mechanistic-atom-transportability",
+          "run_id": "20260224_101411",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260224_100833",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260226_103222",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260226_103624",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260226_113031",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260226_113254",
+          "status": "failed",
+          "has_error": true,
+          "error": "Extra data: line 1 column 99 (char 98)"
+        },
+        {
+          "experiment": "09-mode-locking-hypothesis",
+          "run_id": "20260226_113316",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "10-hidden-tool-use",
+          "run_id": "20260224_101428",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "11-memory-as-control",
+          "run_id": "20260224_101439",
+          "status": "completed",
+          "has_error": false
+        },
+        {
+          "experiment": "12-optimal-abstention-frontier",
+          "run_id": "20260224_101456",
+          "status": "completed",
+          "has_error": false
+        }
+      ]
+    }
+  },
+  "future": {
+    "sqlite_tables": [
+      "articles",
+      "cluster_articles",
+      "clusters",
+      "events",
+      "forecast_audit",
+      "forecast_probability_history",
+      "forecasts",
+      "resolution_audit",
+      "schema_migrations"
+    ],
+    "table_counts": {
+      "articles": 185,
+      "cluster_articles": 185,
+      "clusters": 184,
+      "events": 183,
+      "forecast_audit": 106,
+      "forecast_probability_history": 0,
+      "forecasts": 80,
+      "resolution_audit": 9,
+      "schema_migrations": 1
+    },
+    "forecast_status_counts": {
+      "OPEN": 71,
+      "REJECTED": 7,
+      "RESOLVED": 2
+    },
+    "resolved_count_with_brier": 2,
+    "resolved_avg_brier": 0.7224999999999999,
+    "open_due_by_2026_03_03": 67,
+    "domain_counts": {
+      "business": 9,
+      "general": 20,
+      "international": 19,
+      "politics": 8,
+      "sports": 20,
+      "usa": 4
+    }
+  },
+  "214": {
+    "result_files": [
+      "results/expert_interference.png",
+      "results/gpu_baseline/smoke_compare.json",
+      "results/gpu_baseline/smoke_hgsel.json",
+      "results/interference_smoke.json",
+      "results/notebook/interference_smoke.json",
+      "results/notebook/tail_latency_smoke.json",
+      "results/notebook/workset_smoke.json",
+      "results/phase4/ddp_parity_smoke.json",
+      "results/phase4/phase4_gate_report_smoke.json",
+      "results/phase4/phase4_gate_report_smoke_stop_test.json",
+      "results/phase4/phase4_gate_report_smoke_strict.json",
+      "results/phase4/phase4_gate_report_smoke_with_ref.json",
+      "results/tail_latency_decomp.png",
+      "results/tail_latency_decomp_smoke.json",
+      "results/token_exchange_micro/smoke.json",
+      "results/workset_curve.png",
+      "results/workset_smoke.json"
+    ]
+  }
+}

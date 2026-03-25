@@ -1,0 +1,12 @@
+{
+  "name": "temp_1774033138559",
+  "created": "2026-03-20T18:58:58.559Z",
+  "backend": "ollama",
+  "personality": {},
+  "behavior": {},
+  "memory": [],
+  "interactions": 0,
+  "emergentTraits": [],
+  "spawnTask": "write_poem_about_time",
+  "parent": "main"
+}

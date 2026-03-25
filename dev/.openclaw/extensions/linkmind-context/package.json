@@ -1,0 +1,69 @@
+{
+  "name": "linkmind-context",
+  "version": "1.0.0",
+  "description": "LinkMind Context Engine Plugin for OpenClaw",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/landingbj/linkmind-context.git"
+  },
+  "homepage": "https://github.com/landingbj/linkmind-context#readme",
+  "bugs": {
+    "url": "https://github.com/landingbj/linkmind-context/issues"
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "openclaw": {
+    "id": "linkmind-context",
+    "build": {
+      "openclawVersion": "2026.3.8",
+      "pluginSdkVersion": "2026.3.8"
+    },
+    "compat": {
+      "pluginApi": ">=1.0.0",
+      "builtWithOpenClawVersion": "2026.3.8",
+      "pluginSdkVersion": "2026.3.8",
+      "minGatewayVersion": "2026.3.8"
+    },
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "if exist dist rmdir /s /q dist",
+    "dev": "tsx watch src/index.ts",
+    "demo": "tsx test/demo.ts",
+    "prepack": "npm run build",
+    "test": "npm run build"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "context-engine",
+    "context-compression",
+    "linkmind"
+  ],
+  "author": "landingbj",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "esbuild": "^0.27.3",
+    "get-tsconfig": "^4.13.6",
+    "resolve-pkg-maps": "^1.0.0",
+    "undici-types": "^7.18.2"
+  }
+}
