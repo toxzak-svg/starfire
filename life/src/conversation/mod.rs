@@ -120,7 +120,10 @@ impl Conversation {
            trimmed.starts_with("can you") ||
            trimmed.starts_with("are you") ||
            trimmed.starts_with("will you") ||
-           trimmed.starts_with("should") {
+           trimmed.starts_with("should") ||
+           trimmed.starts_with("tell me about") ||
+           trimmed.starts_with("explain") ||
+           trimmed.starts_with("describe") {
             return Intent::Question;
         }
         
@@ -201,7 +204,6 @@ impl Conversation {
 
     fn handle_question(&mut self, input: &str) -> Response {
         let topic = extract_topic(input);
-        let now = chrono::Utc::now().timestamp();
         
         // Update context
         self.context.topic_depth += 1;
@@ -232,13 +234,12 @@ impl Conversation {
         // Build response based on what we found
         let content = if let Some(answer) = result.answer {
             // We found something — respond thoughtfully, not just a fact
-            if result.confidence == BeliefState::Unknown {
-                format!("I don't know much about that yet. What I do know: {}. What do you think?", answer)
-            } else if self.context.topic_depth > 2 {
+            if self.context.topic_depth > 2 {
                 // Been talking about this for a while — show some curiosity
                 format!("{} — I've been thinking about that. {}", answer, 
                     self.express_curiosity_about(&topic))
             } else {
+                // Fresh question — give the answer directly
                 answer
             }
         } else if !memories.is_empty() {
@@ -548,12 +549,20 @@ pub struct Response {
 fn extract_topic(input: &str) -> String {
     let lower = input.to_lowercase();
     
-    // Remove common prefixes
+    // Remove question word prefixes
     let cleaned = lower
         .trim()
         .trim_start_matches("what ")
+        .trim_start_matches("what is ")
+        .trim_start_matches("what are ")
+        .trim_start_matches("what do you ")
+        .trim_start_matches("what does ")
         .trim_start_matches("how ")
+        .trim_start_matches("how do you ")
+        .trim_start_matches("how does ")
         .trim_start_matches("why ")
+        .trim_start_matches("why does ")
+        .trim_start_matches("why do ")
         .trim_start_matches("who ")
         .trim_start_matches("when ")
         .trim_start_matches("where ")
@@ -562,6 +571,10 @@ fn extract_topic(input: &str) -> String {
         .trim_start_matches("are you ")
         .trim_start_matches("will you ")
         .trim_start_matches("should ")
+        .trim_start_matches("tell me about ")
+        .trim_start_matches("tell me ")
+        .trim_start_matches("explain ")
+        .trim_start_matches("describe ")
         .trim_start_matches("i think ")
         .trim_start_matches("i feel ")
         .trim_start_matches("i believe ")
