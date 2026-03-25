@@ -35,6 +35,21 @@ pub fn inject_seed_knowledge(store: &Store) -> Result<()> {
     // Reasoning and knowledge
     inject_reasoning_knowledge(store)?;
     
+    // Technology
+    inject_technology_knowledge(store)?;
+    
+    // Earth and nature
+    inject_earth_knowledge(store)?;
+    
+    // Mathematics
+    inject_math_knowledge(store)?;
+    
+    // Society
+    inject_society_knowledge(store)?;
+    
+    // Communication
+    inject_communication_knowledge(store)?;
+    
     Ok(())
 }
 
@@ -275,6 +290,238 @@ fn inject_reasoning_knowledge(store: &Store) -> Result<()> {
         ("Unknowns can be investigated", 0.85),
         ("Knowing what you don't know is wisdom", 0.85),
         ("Analogy can reveal understanding", 0.8),
+        ("Logic can prove things", 0.85),
+        ("Science tests hypotheses with experiments", 0.85),
+        ("Theories can be revised with new evidence", 0.85),
+        ("Facts are different from opinions", 0.9),
+        ("Assumptions should be examined", 0.85),
+        ("Multiple explanations can fit the same facts", 0.8),
+    ];
+    
+    for (fact, confidence) in facts {
+        let mem = crate::persistence::Memory::new_seeded(
+            fact,
+            crate::persistence::MemoryDomain::Empirical,
+            confidence,
+        );
+        let _ = store.insert_memory(&mem);
+    }
+    
+    Ok(())
+}
+
+fn inject_technology_knowledge(store: &Store) -> Result<()> {
+    let facts = [
+        // Computers
+        ("Computers process information with electricity", 0.85),
+        ("Software is instructions for computers", 0.85),
+        ("Data is stored in memory", 0.85),
+        ("Networks connect computers", 0.85),
+        ("The internet connects networks worldwide", 0.9),
+        ("Websites are accessed via browsers", 0.85),
+        ("Search engines find information online", 0.85),
+        ("Code is written in programming languages", 0.85),
+        ("Algorithms are step-by-step procedures", 0.85),
+        ("Databases store structured information", 0.8),
+        ("Encryption protects information", 0.85),
+        ("Passwords protect accounts", 0.9),
+        
+        // Transportation
+        ("Cars move using engines", 0.85),
+        ("Planes fly using wings and engines", 0.85),
+        ("Boats float on water", 0.85),
+        ("Trains run on tracks", 0.8),
+        ("Bicycles use human power", 0.85),
+        
+        // Tools
+        ("Hammers drive nails", 0.85),
+        ("Screws hold things together tighter than nails", 0.8),
+        ("Knives cut", 0.85),
+        ("Engines convert fuel to motion", 0.85),
+        ("Generators create electricity", 0.85),
+        
+        // Medicine
+        ("Vaccines prevent disease", 0.9),
+        ("Antibiotics kill bacteria", 0.85),
+        ("Viruses are not killed by antibiotics", 0.85),
+        ("Surgery can repair injuries", 0.85),
+        ("Medicine can relieve symptoms", 0.85),
+    ];
+    
+    for (fact, confidence) in facts {
+        let mem = crate::persistence::Memory::new_seeded(
+            fact,
+            crate::persistence::MemoryDomain::Empirical,
+            confidence,
+        );
+        let _ = store.insert_memory(&mem);
+    }
+    
+    Ok(())
+}
+
+fn inject_earth_knowledge(store: &Store) -> Result<()> {
+    let facts = [
+        // Earth structure
+        ("Earth is a planet", 0.95),
+        ("Earth orbits the sun", 0.95),
+        ("Earth rotates on its axis", 0.9),
+        ("Earth has a molten core", 0.85),
+        ("Earth has a solid crust", 0.85),
+        ("Earth is about 4.5 billion years old", 0.8),
+        ("The moon orbits Earth", 0.95),
+        
+        // Atmosphere
+        ("Air is a mixture of gases", 0.9),
+        ("Oxygen is about 21% of air", 0.85),
+        ("Nitrogen is about 78% of air", 0.85),
+        ("The atmosphere protects Earth", 0.85),
+        ("Weather happens in the atmosphere", 0.9),
+        ("Clouds are water vapor", 0.9),
+        ("Rain is water falling from clouds", 0.9),
+        ("Snow is frozen rain", 0.9),
+        ("Lightning is electrical discharge", 0.85),
+        ("Thunder is the sound of lightning", 0.85),
+        
+        // Water
+        ("Water covers most of Earth", 0.95),
+        ("Oceans are large bodies of salt water", 0.9),
+        ("Rivers flow to the sea", 0.9),
+        ("Lakes are bodies of water surrounded by land", 0.9),
+        ("Freshwater is water without salt", 0.9),
+        ("Glaciers are frozen water", 0.85),
+        ("Water evaporates from oceans and lakes", 0.9),
+        
+        // Land
+        ("Mountains are high landforms", 0.9),
+        ("Valleys are low areas between mountains", 0.85),
+        ("Plains are flat areas of land", 0.85),
+        ("Deserts are dry regions", 0.9),
+        ("Forests have many trees", 0.9),
+        ("Soil contains nutrients for plants", 0.85),
+        ("Rocks are made of minerals", 0.85),
+        ("Earthquakes are shaking of the ground", 0.85),
+        ("Volcanoes erupt molten rock", 0.85),
+        
+        // Solar system
+        ("The sun is a star", 0.95),
+        ("The solar system has eight planets", 0.9),
+        ("Mercury is the closest planet to the sun", 0.85),
+        ("Venus is the hottest planet", 0.85),
+        ("Mars is the red planet", 0.85),
+        ("Jupiter is the largest planet", 0.85),
+        ("Saturn has prominent rings", 0.85),
+        ("Uranus and Neptune are ice giants", 0.8),
+        ("Pluto is a dwarf planet", 0.8),
+        ("Asteroids are rocky objects in space", 0.85),
+        ("Comets are icy objects that develop tails near the sun", 0.8),
+        
+        // Universe
+        ("The universe is very old", 0.85),
+        ("The universe is very large", 0.9),
+        ("Galaxies contain billions of stars", 0.85),
+        ("The Milky Way is our galaxy", 0.9),
+        ("Light years measure distance in space", 0.85),
+        ("Stars produce light and heat", 0.9),
+        ("Black holes have extremely strong gravity", 0.8),
+    ];
+    
+    for (fact, confidence) in facts {
+        let mem = crate::persistence::Memory::new_seeded(
+            fact,
+            crate::persistence::MemoryDomain::Empirical,
+            confidence,
+        );
+        let _ = store.insert_memory(&mem);
+    }
+    
+    Ok(())
+}
+
+fn inject_math_knowledge(store: &Store) -> Result<()> {
+    let facts = [
+        ("Numbers represent quantities", 0.9),
+        ("Addition combines quantities", 0.9),
+        ("Subtraction removes quantities", 0.9),
+        ("Multiplication is repeated addition", 0.9),
+        ("Division splits quantities", 0.9),
+        ("Zero represents nothing", 0.85),
+        ("Negative numbers are less than zero", 0.85),
+        ("Fractions represent parts of wholes", 0.85),
+        ("Decimals are another way to write fractions", 0.85),
+        ("Percent means per hundred", 0.85),
+        ("Geometry studies shapes", 0.85),
+        ("Circles have no corners", 0.85),
+        ("Triangles have three sides", 0.9),
+        ("Squares have four equal sides", 0.9),
+        ("Pi relates circle circumference to diameter", 0.8),
+        ("Probability measures likelihood", 0.85),
+        ("Statistics analyzes data", 0.85),
+        ("Patterns exist in mathematics", 0.85),
+    ];
+    
+    for (fact, confidence) in facts {
+        let mem = crate::persistence::Memory::new_seeded(
+            fact,
+            crate::persistence::MemoryDomain::Empirical,
+            confidence,
+        );
+        let _ = store.insert_memory(&mem);
+    }
+    
+    Ok(())
+}
+
+fn inject_society_knowledge(store: &Store) -> Result<()> {
+    let facts = [
+        ("Families are social groups", 0.9),
+        ("Communities are groups of people living together", 0.9),
+        ("Governments make rules for societies", 0.9),
+        ("Laws are rules enforced by authorities", 0.9),
+        ("Money enables trade", 0.9),
+        ("Work creates value", 0.85),
+        ("Education teaches skills and knowledge", 0.9),
+        ("Books contain written knowledge", 0.9),
+        ("Libraries store books and information", 0.85),
+        ("Art expresses ideas and emotions", 0.85),
+        ("Music uses sound and rhythm", 0.85),
+        ("Stories convey experiences and ideas", 0.9),
+        ("Science advances through research", 0.85),
+        ("History records past events", 0.9),
+        ("Cultures have different customs", 0.85),
+        ("Languages vary between cultures", 0.9),
+        ("Trade exchanges goods and services", 0.9),
+    ];
+    
+    for (fact, confidence) in facts {
+        let mem = crate::persistence::Memory::new_seeded(
+            fact,
+            crate::persistence::MemoryDomain::Empirical,
+            confidence,
+        );
+        let _ = store.insert_memory(&mem);
+    }
+    
+    Ok(())
+}
+
+fn inject_communication_knowledge(store: &Store) -> Result<()> {
+    let facts = [
+        ("Language conveys meaning", 0.95),
+        ("Words represent concepts", 0.9),
+        ("Sentences express complete thoughts", 0.9),
+        ("Questions ask for information", 0.95),
+        ("Answers respond to questions", 0.95),
+        ("Stories have beginnings middles and ends", 0.85),
+        ("Explanations clarify understanding", 0.9),
+        ("Descriptions convey details", 0.9),
+        ("Arguments present reasons", 0.85),
+        ("Listening is as important as speaking", 0.85),
+        ("Misunderstanding causes confusion", 0.9),
+        ("Clarity aids understanding", 0.9),
+        ("Examples illustrate concepts", 0.85),
+        ("Metaphors compare different things", 0.8),
+        ("Writing preserves thoughts over time", 0.9),
     ];
     
     for (fact, confidence) in facts {

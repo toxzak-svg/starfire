@@ -14,6 +14,8 @@ use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use crate::context::{ContextFuser, RingState};
 use crate::training_db::TrainingDB;
+use crate::capabilities::FileReader;
+use crate::knowledge::search::WebSearcher;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -45,6 +47,10 @@ pub struct Runtime {
     training_db: TrainingDB,
     /// Current training session ID
     training_session_id: Mutex<Option<i64>>,
+    /// File reader capability
+    file_reader: FileReader,
+    /// Web search capability
+    web_search: WebSearcher,
 }
 
 impl Runtime {
@@ -100,6 +106,8 @@ impl Runtime {
             context_fuser: ContextFuser::new(),
             training_db,
             training_session_id: Mutex::new(Some(training_session.id)),
+            file_reader: FileReader::new(),
+            web_search: WebSearcher::new(),
         };
 
         // Inject foundational memories about identity
@@ -186,6 +194,89 @@ impl Runtime {
                     "Training Database Stats:\n  Conversations: {}\n  Turns: {}\n  Facts: {}\n  Corrections: {}",
                     convos, turns, facts, corrections
                 ));
+            }
+        }
+
+        // Handle /read <filepath> - read a file
+        if input.trim().starts_with("/read ") {
+            let path = input.trim().strip_prefix("/read ").unwrap().trim();
+            let result = self.file_reader.read(path);
+            if result.success {
+                let preview = if result.lines > 20 {
+                    format!("{} ({} lines, showing first 20):\n\n{}\n\n... ({} more lines)",
+                        result.path, result.lines, 
+                        result.content.lines().take(20).collect::<Vec<_>>().join("\n"),
+                        result.lines - 20)
+                } else {
+                    format!("{} ({} lines):\n\n{}", result.path, result.lines, result.content)
+                };
+                return Ok(preview);
+            } else {
+                return Ok(format!("Cannot read {}: {}", path, result.error.unwrap_or_default()));
+            }
+        }
+
+        // Handle /search <query> - search the web
+        if input.trim().starts_with("/search ") {
+            let query = input.trim().strip_prefix("/search ").unwrap().trim();
+            match self.web_search.search(query) {
+                Ok(result) => {
+                    let mut response = format!("Search results for \"{}\":\n\n", query);
+                    if let Some(answer) = &result.answer {
+                        response.push_str(&format!("Answer: {}\n\n", answer));
+                    }
+                    if let Some(url) = &result.url {
+                        response.push_str(&format!("Source: {}\n\n", url));
+                    }
+                    if !result.related.is_empty() {
+                        response.push_str("Related:\n");
+                        for (i, r) in result.related.iter().enumerate() {
+                            response.push_str(&format!("{}. {}\n", i + 1, r));
+                        }
+                    }
+                    return Ok(response);
+                }
+                Err(e) => return Ok(format!("Search failed: {}", e)),
+            }
+        }
+
+        // Handle /find <pattern> - search for files
+        if input.trim().starts_with("/find ") {
+            let pattern = input.trim().strip_prefix("/find ").unwrap().trim();
+            let workspace = "/home/zach/.openclaw/workspace";
+            match self.file_reader.find_files(workspace, pattern) {
+                Ok(files) if !files.is_empty() => {
+                    let mut response = format!("Found {} files matching \"{}\":\n\n", files.len(), pattern);
+                    for (i, f) in files.iter().take(20).enumerate() {
+                        response.push_str(&format!("{}. {}\n", i + 1, f));
+                    }
+                    if files.len() > 20 {
+                        response.push_str(&format!("\n... and {} more", files.len() - 20));
+                    }
+                    return Ok(response);
+                }
+                Ok(_) => return Ok(format!("No files found matching \"{}\"", pattern)),
+                Err(e) => return Ok(format!("Search failed: {}", e)),
+            }
+        }
+
+        // Handle /ls [dir] - list directory
+        if input.trim() == "/ls" || input.trim().starts_with("/ls ") {
+            let dir = if let Some(d) = input.trim().strip_prefix("/ls ") {
+                d.trim()
+            } else {
+                "/home/zach/.openclaw/workspace"
+            };
+            match self.file_reader.list_dir(dir) {
+                Ok(entries) if !entries.is_empty() => {
+                    let mut response = format!("Contents of {}:\n\n", dir);
+                    for entry in entries {
+                        response.push_str(&format!("  {}\n", entry));
+                    }
+                    return Ok(response);
+                }
+                Ok(_) => return Ok(format!("Empty directory: {}", dir)),
+                Err(e) => return Ok(format!("Cannot list {}: {}", dir, e)),
             }
         }
 
