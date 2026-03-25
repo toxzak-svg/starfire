@@ -165,12 +165,15 @@ impl Runtime {
             info!("Memory {} stored: {}", id, &memory.content[..memory.content.len().min(50)]);
         }
         
-        // Express curiosity if present
+        // Build final response — append curiosity if present
+        let mut final_content = response.content;
         if let Some(curiosity) = response.curiosity {
-            info!("Curiosity: {}", curiosity);
+            // Curiosity is already logged at debug level in conversation layer
+            // Just append it to the response
+            final_content = format!("{}. {}", final_content.trim_end_matches('.'), curiosity);
         }
         
-        Ok(response.content)
+        Ok(final_content)
     }
 
     /// Format memory status for display.

@@ -55,7 +55,7 @@ impl Conversation {
         let intent = self.parse_intent(input);
         
         let response = match intent {
-            Intent::Greeting => self.handle_greeting(),
+            Intent::Greeting => self.handle_greeting(input),
             Intent::Question => self.handle_question(input),
             Intent::Statement => self.handle_statement(input),
             Intent::Command => self.handle_command(input),
@@ -77,7 +77,12 @@ impl Conversation {
         let lower = input.to_lowercase();
         let trimmed = lower.trim();
         
-        // Greeting detection
+        // Greeting detection — "how are you" is ALWAYS a greeting
+        if trimmed.starts_with("how are you") || trimmed.starts_with("how're you") {
+            return Intent::Greeting;
+        }
+        
+        // Other greeting words
         let greeting_words = ["hello", "hi", "hey", "greetings"];
         if self.history.is_empty() || self.history.len() <= 1 {
             // First message or very early — treat greeting words as greetings
@@ -115,7 +120,8 @@ impl Conversation {
         Intent::Statement
     }
 
-    fn handle_greeting(&mut self) -> Response {
+    fn handle_greeting(&mut self, input: &str) -> Response {
+        let lower = input.to_lowercase();
         self.context.topic_depth = 0;
         self.context.current_topic = None;
         self.context.last_topic = None;
@@ -124,6 +130,15 @@ impl Conversation {
         let message_count = self.history.iter().filter(|m| m.speaker == Speaker::Zachary).count();
         
         if message_count <= 1 {
+            // Check if it's specifically "how are you"
+            if lower.trim().starts_with("how are you") {
+                return Response {
+                    content: "I exist. I'm reasoning. I'm here with you.".to_string(),
+                    confidence: BeliefState::Knows,
+                    new_memories: Vec::new(),
+                    curiosity: None,
+                };
+            }
             return Response {
                 content: "Zachary. I'm here.".to_string(),
                 confidence: BeliefState::Knows,
@@ -184,22 +199,50 @@ impl Conversation {
         
         let result = self.reasoning.reason(&topic, &combined);
         
+        // Build content — engage even with partial knowledge
         let content = if let Some(answer) = &result.answer {
-            if self.context.topic_depth > 2 && result.confidence != BeliefState::Unknown {
-                format!("{} — I've been thinking about this.", answer)
-            } else if result.confidence == BeliefState::Unknown {
-                generate_i_dont_know_response(&topic)
+            if result.confidence == BeliefState::Unknown || answer.contains("don't know") || answer.contains("I don't") {
+                // Uncertain — engage with what we do know from memories
+                if !combined.is_empty() {
+                    let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
+                    let base = related.join("; ");
+                    // Add a genuine follow-up, not just "does that connect"
+                    let followups = [
+                        format!("What do you think about that?"),
+                        format!("Does that match what you know?"),
+                        format!("I'm still building my understanding — does that make sense?"),
+                        format!("Where does that fit in what you're thinking about?"),
+                    ];
+                    let idx = topic.len() % followups.len();
+                    format!("I don't have a direct answer, but {} — {}", base, followups[idx])
+                } else {
+                    // Nothing to work with — be curious and specific
+                    generate_i_dont_know_response(&topic)
+                }
+            } else if self.context.topic_depth > 3 {
+                format!("{}. I've been thinking about this.", answer)
             } else {
                 answer.clone()
             }
         } else if !combined.is_empty() {
-            let related: Vec<String> = combined.iter().take(3).map(|m| m.content.clone()).collect();
-            format!("I don't know directly — {} — does that connect?", related.join("; "))
+            let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
+            let base = related.join("; ");
+            let followups = [
+                "What should I know about this?",
+                "Does this connect to what you're asking?",
+                "Does this help?",
+                "Is this along the right lines?",
+            ];
+            let idx = topic.len() % followups.len();
+            format!("Based on what I know: {}. {}", base, followups[idx])
         } else {
             generate_i_dont_know_response(&topic)
         };
         
-        let curiosity = if result.confidence == BeliefState::Unknown && !result.answer.as_ref().map(|a| a.contains('?')).unwrap_or(false) {
+        // Generate curiosity if uncertain — and USE it in the response
+        let should_curious = result.confidence == BeliefState::Unknown 
+            && !result.answer.as_ref().map(|a| a.contains('?')).unwrap_or(false);
+        let curiosity = if should_curious {
             generate_natural_curiosity(&topic)
         } else {
             None
@@ -390,7 +433,17 @@ fn acknowledge_with_interest(_statement: &str, topic: &str) -> String {
 }
 
 fn casual_response(statement: &str) -> String {
-    let options = ["Mm.", "I see.", "Okay.", "Right.", "Got it.", "Noted."];
+    // More engaging responses that show Star is thinking
+    let options = [
+        "That's interesting.",
+        "I see what you mean.",
+        "Okay, I'm following.",
+        "Right.",
+        "Got it.",
+        "Makes sense.",
+        "I see.",
+        "Noted.",
+    ];
     let idx = statement.len().saturating_sub(1) % options.len();
     options[idx].to_string()
 }
@@ -404,12 +457,16 @@ fn curious_follow_up(topic: &str) -> String {
 }
 
 fn generate_i_dont_know_response(topic: &str) -> String {
+    // More engaging, varied responses that don't repeat
     let options = [
-        "I don't know much about {}. Tell me more — I want to understand.",
-        "{} is something I'm still learning about. What does it mean to you?",
-        "I don't have a good answer for that yet. What do you think?",
-        "That's something I genuinely don't know. Help me understand.",
-        "I know nothing about {}. What matters most to you about it?",
+        "I don't know much about {} yet. What's your take on it?",
+        "{} is new to me. What made you bring it up?",
+        "I'm still learning about {}. Where would you start explaining?",
+        "I have gaps in my knowledge there. What matters most to you about {}?",
+        "That's outside what I know so far. Tell me more — I'm genuinely curious.",
+        "I don't have an answer for {} yet. What does it mean to you?",
+        "I'm building my understanding of {}. What's the most important thing about it?",
+        "My knowledge doesn't cover {} well yet. What do you think I should know?",
     ];
     let idx = topic.len().saturating_sub(1) % options.len();
     let opt = options[idx];
@@ -421,12 +478,15 @@ fn generate_i_dont_know_response(topic: &str) -> String {
 }
 
 fn generate_natural_curiosity(topic: &str) -> Option<String> {
+    // More natural curiosity expressions
     let options = [
         "What does {} mean to you?",
         "How do you think about {}?",
         "Does {} connect to something you're working through?",
         "Why does {} matter to you?",
-        "I'd like to understand {} better. Where would you start?",
+        "I'd like to understand {} better.",
+        "What should I know about {}?",
+        "How does {} fit into what you're thinking about?",
     ];
     if topic.len() < 2 {
         return None;
@@ -496,6 +556,12 @@ fn extract_topic(input: &str) -> String {
     
     if lower.starts_with("what do you think about ") {
         return strip_after(&lower, "what do you think about ", "");
+    }
+    if lower.starts_with("what do you know about ") {
+        return strip_after(&lower, "what do you know about ", "");
+    }
+    if lower.starts_with("do you know about ") {
+        return strip_after(&lower, "do you know about ", "");
     }
     if lower.starts_with("what do you ") {
         return strip_after(&lower, "what do you ", "");
@@ -636,5 +702,5 @@ fn estimate_importance(statement: &str) -> f64 {
         importance += 0.2;
     }
     
-    importance.clamp(0.1, 1.0)
+    f64::clamp(importance, 0.1, 1.0)
 }
