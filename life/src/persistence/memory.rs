@@ -101,6 +101,15 @@ impl Memory {
         }
     }
 
+    /// Create a seeded memory — pre-existing knowledge with initial confidence.
+    /// Seeded memories have no provenance (they're foundational).
+    pub fn new_seeded(content: impl Into<String>, domain: MemoryDomain, confidence: f64) -> Self {
+        let mut mem = Self::new(content, domain, 0.8);
+        mem.confidence = Some(f64::clamp(confidence, 0.0, 1.0));
+        mem.provenance = Some("seed".to_string());
+        mem
+    }
+
     pub fn with_confidence(mut self, confidence: f64) -> Self {
         self.confidence = Some(f64::clamp(confidence, 0.0, 1.0));
         self

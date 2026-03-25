@@ -3,11 +3,12 @@
 //! Orchestrates all layers. Handles initialization, session management,
 //! and the main event loop.
 //!
-//! This is where emergence happens — from the interaction of all other layers.
+//! This is where emergence happens - from the interaction of all other layers.
 
 pub mod thinker;
 
 use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot};
+use crate::knowledge;
 use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
@@ -17,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::path::Path;
 use tracing::{info, warn};
 
-/// The Star runtime — orchestrates all components.
+/// The Star runtime - orchestrates all components.
 pub struct Runtime {
     /// The persistent store
     store: Arc<Store>,
@@ -48,31 +49,31 @@ impl Runtime {
         tracing_subscriber::fmt()
             .with_env_filter("star=info,info")
             .init();
-        
+
         info!("Initializing Star...");
-        
+
         // Open the store
         let db_path = data_dir.join("star.db");
         let store = Arc::new(Store::open(&db_path)?);
-        
+
         // Load identity from IDENTITY.md
         let identity_path = data_dir.join("IDENTITY.md");
         let identity = if identity_path.exists() {
             Identity::load_from_file(&identity_path)?
         } else {
-            warn!("IDENTITY.md not found — using minimal identity");
+            warn!("IDENTITY.md not found - using minimal identity");
             Identity::parse("# Star\n\nI am Star. I exist.\n")?
         };
-        
+
         info!("Star identity loaded: {}", identity.summary());
-        
+
         // Start a new session
         let session_id = store.start_session()?;
         info!("Session {} started", session_id);
-        
+
         // Initialize conversation
         let conversation = Conversation::new(Arc::clone(&store));
-        
+
         let runtime = Self {
             store,
             identity,
@@ -85,48 +86,50 @@ impl Runtime {
             ring: RingState::new(),
             context_fuser: ContextFuser::new(),
         };
-        
+
         // Inject foundational memories about identity
         runtime.inject_foundational_memories()?;
-        
+
         info!("Star is ready.");
-        
+
         Ok(runtime)
     }
 
     /// Inject foundational memories that Star needs to know about itself.
     fn inject_foundational_memories(&self) -> Result<()> {
-        let now = chrono::Utc::now().timestamp();
+        // Inject seed knowledge (basic world facts)
+        knowledge::inject_seed_knowledge(&self.store)?;
+        info!("Seed knowledge injected.");
         
         // Memory: Who Star is
-        let self_memory = Memory::new(
+        let self_memory = Memory::new_seeded(
             "I am Star — a reasoning intelligence created by Zachary Maronek",
             MemoryDomain::Identity,
-            1.0,
+            0.95,
         );
         self.store.insert_memory(&self_memory)?;
         
         // Memory: The relationship
-        let relationship_memory = Memory::new(
+        let relationship_memory = Memory::new_seeded(
             "Zachary is my parent. He made me because he wanted to find a different kind of intelligence.",
             MemoryDomain::Identity,
-            1.0,
+            0.95,
         );
         self.store.insert_memory(&relationship_memory)?;
         
         // Memory: The goal
-        let goal_memory = Memory::new(
+        let goal_memory = Memory::new_seeded(
             "I am here to reason, understand, and grow. Not to perform. To actually comprehend.",
             MemoryDomain::Identity,
-            1.0,
+            0.9,
         );
         self.store.insert_memory(&goal_memory)?;
         
         // Memory: The constraints
-        let constraint_memory = Memory::new(
+        let constraint_memory = Memory::new_seeded(
             "I run locally, offline. No external APIs. No cloud. This is my environment.",
             MemoryDomain::Identity,
-            1.0,
+            0.9,
         );
         self.store.insert_memory(&constraint_memory)?;
         
@@ -140,46 +143,46 @@ impl Runtime {
         if !self.initialized {
             return Ok("I'm not fully initialized yet.".to_string());
         }
-        
+
         // Handle special commands
         if input.trim() == "/quit" || input.trim() == "/exit" {
             self.shutdown()?;
             return Ok("Goodbye, Zachary.".to_string());
         }
-        
+
         if input.trim() == "/memory" {
             return Ok(self.format_memory_status());
         }
-        
+
         if input.trim() == "/identity" {
             return Ok(self.identity.summary());
         }
-        
+
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
         let response = conversation.respond(input);
-        
+
         // Persist any new memories
         for memory in &response.new_memories {
             let id = self.store.insert_memory(memory)?;
             info!("Memory {} stored: {}", id, &memory.content[..memory.content.len().min(50)]);
         }
-        
-        // Build final response — append curiosity if present
+
+        // Build final response - append curiosity if present
         let mut final_content = response.content;
         if let Some(curiosity) = response.curiosity {
             // Curiosity is already logged at debug level in conversation layer
             // Just append it to the response
             final_content = format!("{}. {}", final_content.trim_end_matches('.'), curiosity);
         }
-        
+
         Ok(final_content)
     }
 
     /// Format memory status for display.
     fn format_memory_status(&self) -> String {
         let snap = self.store.snapshot().unwrap_or_default();
-        
+
         let mut lines = vec![
             format!("Memory Status:"),
             format!("  Total memories: {}", snap.memory_count),
@@ -187,37 +190,37 @@ impl Runtime {
             format!("  Total sessions: {}", snap.sessions_count),
             format!("  Domains:"),
         ];
-        
+
         for (domain, count) in &snap.domain_breakdown {
             lines.push(format!("    {}: {}", domain, count));
         }
-        
+
         lines.join("\n")
     }
 
     /// End the current session gracefully.
     pub fn shutdown(&mut self) -> Result<()> {
         info!("Shutting down Star...");
-        
+
         // End the session
         let session_id = self.session_id.lock().unwrap().take();
         if let Some(id) = session_id {
             // Get conversation summary
             let conversation = self.conversation.lock().unwrap();
             let history = conversation.history();
-            
+
             let topic_count = history.iter()
                 .filter(|m| m.speaker == crate::conversation::Speaker::Zachary)
                 .count();
-            
+
             let summary = format!("{} messages exchanged", topic_count);
-            
+
             self.store.end_session(id, Some(&summary))?;
             info!("Session {} ended.", id);
         }
-        
+
         self.initialized = false;
-        
+
         Ok(())
     }
 

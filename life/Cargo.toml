@@ -28,6 +28,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Async
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 
+# HTTP client
+ureq = "2"
+urlencoding = "2"
+
 # HTTP server
 tiny_http = "0.12"
 
