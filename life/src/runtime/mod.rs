@@ -11,6 +11,7 @@ use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot};
 use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
+use crate::context::{ContextFuser, RingState};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -34,6 +35,10 @@ pub struct Runtime {
     session_id: Mutex<Option<i64>>,
     /// Whether Star has been initialized
     initialized: bool,
+    /// Symbolic ring attractor state (R&D-A)
+    ring: RingState,
+    /// Context fusion logic
+    context_fuser: ContextFuser,
 }
 
 impl Runtime {
@@ -77,6 +82,8 @@ impl Runtime {
             thinker: Mutex::new(None),
             session_id: Mutex::new(Some(session_id)),
             initialized: true,
+            ring: RingState::new(),
+            context_fuser: ContextFuser::new(),
         };
         
         // Inject foundational memories about identity
@@ -248,6 +255,66 @@ impl Runtime {
                 domain_breakdown: std::collections::HashMap::new(),
             }
         })
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Ring Attractor API (R&D-A)
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// Get the current ring state summary.
+    pub fn ring_summary(&self) -> String {
+        self.ring.summary()
+    }
+
+    /// Get the current reasoning mode.
+    pub fn current_mode(&self, query: &str) -> crate::context::ReasoningMode {
+        crate::context::ReasoningMode::from_query_and_ring(
+            query,
+            self.ring.certainty,
+            self.ring.depth,
+        )
+    }
+
+    /// Update the ring from a user query.
+    pub fn update_ring_from_query(&mut self, query: &str, topic: &str) {
+        self.context_fuser.update_ring(&mut self.ring, query, topic);
+    }
+
+    /// Update the ring from Star's response.
+    pub fn update_ring_from_response(&mut self, response: &str, mode: crate::context::ReasoningMode) {
+        self.context_fuser.update_ring_from_response(&mut self.ring, response, mode);
+    }
+
+    /// Get open questions from the ring.
+    pub fn open_questions(&self) -> Vec<crate::context::OpenQuestion> {
+        self.ring.open_questions().to_vec()
+    }
+
+    /// Push a question to the ring.
+    pub fn push_ring_question(&mut self, question: crate::context::OpenQuestion) {
+        self.ring.push_question(question);
+    }
+
+    /// Should Star express curiosity?
+    pub fn should_express_curiosity(&self) -> bool {
+        self.context_fuser.should_express_curiosity(&self.ring)
+    }
+
+    /// Get the curiosity topic, if any.
+    pub fn curiosity_topic(&self) -> Option<String> {
+        self.context_fuser.get_curiosity_topic(&self.ring)
+    }
+
+    /// Get a history reference string, if appropriate.
+    pub fn history_reference(&self, mode: crate::context::ReasoningMode) -> Option<String> {
+        self.context_fuser.should_reference_history(&self.ring, mode).then(|| {
+            self.context_fuser.history_reference(&self.ring)
+        }).flatten()
+    }
+
+    /// Infer the topic from a query and recent memories.
+    pub fn infer_topic(&self, query: &str, memories: &[crate::Memory]) -> String {
+        self.context_fuser.infer_topic(query, memories)
     }
 }
 

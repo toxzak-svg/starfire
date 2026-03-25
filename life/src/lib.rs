@@ -9,12 +9,14 @@ pub mod reasoning;
 pub mod metacog;
 pub mod conversation;
 pub mod runtime;
+pub mod context;
 pub mod api;
 
 pub use persistence::{Store, Memory, Identity};
 pub use conversation::Conversation;
 pub use reasoning::ReasoningEngine;
 pub use runtime::Runtime;
+pub use context::{RingState, ReasoningMode, ContextState, OpenQuestion, ContextFuser};
 
 use anyhow::Result;
 
