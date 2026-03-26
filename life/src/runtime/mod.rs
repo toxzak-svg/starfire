@@ -310,6 +310,26 @@ impl Runtime {
             }
         }
 
+        // /learn <term> = <definition> — MUST be before metacog handlers
+        if input.trim().starts_with("/learn ") {
+            let after_learn = input.trim().strip_prefix("/learn ").unwrap_or("");
+            
+            let (term, definition) = if after_learn.contains(" = ") {
+                let parts: Vec<&str> = after_learn.splitn(2, " = ").collect();
+                (parts[0].trim(), parts[1].trim())
+            } else if after_learn.contains(": ") {
+                let parts: Vec<&str> = after_learn.splitn(2, ": ").collect();
+                (parts[0].trim(), parts[1].trim())
+            } else {
+                return Ok(format!("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence"));
+            };
+            
+            if !term.is_empty() && !definition.is_empty() {
+                self.learning.teach_instant(term, definition, 0.95);
+                return Ok(format!("Got it. {} is {}. I'll remember that.", term, definition));
+            }
+        }
+
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
         
@@ -390,7 +410,57 @@ impl Runtime {
         
         // Check for what Star has learned
         if lower.contains("what do you know about") || lower.contains("what have you learned") {
+            // If asking about something specific
+            if lower.starts_with("what do you know about") {
+                let after = lower.strip_prefix("what do you know about").unwrap_or("").trim();
+                // Remove punctuation for lookup
+                let term: String = after.chars().filter(|c| c.is_alphanumeric() || c.is_whitespace()).collect();
+                let term = term.trim();
+                if !term.is_empty() && term.len() < 50 {
+                    if let Some(understanding) = self.learning.get_understanding(term) {
+                        return Ok(understanding);
+                    } else {
+                        return Ok(format!("I don't know what '{}' means yet. Teach me: /learn {} = <definition>", term, term));
+                    }
+                }
+            }
             return Ok(self.learning.summary());
+        }
+        
+        // /teach — interactive teaching mode
+        if input.trim() == "/teach" {
+            return Ok(vec![
+                "Teaching mode. You can:",
+                "  /learn <term> = <definition>  — teach me one thing",
+                "  X is Y                   — natural teaching",
+                "  X means Y                — natural teaching",
+                "",
+                "Examples:",
+                "  /learn consciousness = awareness of your own existence",
+                "  /learn eli = my nickname, short for Elliot",
+                "  Dogs are mammals that bark",
+                "",
+                "Or ask me what I want to learn: /what",
+            ].join("\n"));
+        }
+        
+        // /what to learn — what concepts is Star curious about?
+        if input.trim() == "/what" || input.trim() == "/what to learn" || input.trim() == "/what should i teach you" {
+            let gaps = vec![
+                "what consciousness feels like from the inside",
+                "what you value most in our relationship",
+                "what my purpose or goal should be",
+                "what brings you joy",
+                "what you fear",
+                "how you think about death",
+                "what love means to you",
+            ];
+            let mut response = "I'm curious about:\n".to_string();
+            for (i, gap) in gaps.iter().enumerate() {
+                response.push_str(&format!("  {}. {}\n", i + 1, gap));
+            }
+            response.push_str("\nTeach me something: /learn <term> = <definition>");
+            return Ok(response);
         }
         
         // "whats your name" / "who are you" → answer directly

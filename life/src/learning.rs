@@ -114,6 +114,51 @@ impl LearningEngine {
         }
     }
     
+    /// Instant teaching — form a concept immediately without waiting for experiences
+    /// This is for fast teaching via /learn command
+    pub fn teach_instant(&mut self, term: &str, definition: &str, confidence: f64) {
+        let term_lower = term.to_lowercase();
+        
+        // Determine category - check specific terms FIRST
+        let def_lower = definition.to_lowercase();
+        
+        // Check for terms of endearment first (before "person" check)
+        let is_endearment = term_lower == "love" || term_lower == "hun" || term_lower == "dear" ||
+                           def_lower.contains("affection") || def_lower.contains("term of endearment") ||
+                           def_lower.contains("opposite of hate");
+        
+        let category = if is_endearment {
+            ConceptCategory::TermOfEndearment
+        } else if def_lower.contains("nickname") || def_lower.contains("short for") {
+            ConceptCategory::Person
+        } else if def_lower.contains("person") || def_lower.contains("named") {
+            ConceptCategory::Person
+        } else if def_lower.contains("can ") || def_lower.contains("able to") {
+            ConceptCategory::Capability
+        } else {
+            ConceptCategory::Unknown
+        };
+        
+        let exp = Experience {
+            stimulus: term_lower.clone(),
+            context: format!("DEFINED: {}", definition),
+            response: None,
+            valence: confidence,
+            timestamp: Utc::now().timestamp(),
+        };
+        
+        let concept = Concept {
+            name: term.to_string(),
+            category,
+            experiences: vec![exp],
+            property: definition.to_string(),
+            confidence,
+            formed_at: Utc::now().timestamp(),
+        };
+        
+        self.concepts.insert(term_lower, concept);
+    }
+    
     /// Form a concept from accumulated experiences
     fn form_concept(&mut self, stimulus: &str) {
         // Don't form if already have this concept
@@ -203,7 +248,12 @@ impl LearningEngine {
         
         let base = match concept.category {
             ConceptCategory::TermOfEndearment => {
-                format!("I know '{}' is affectionate - Zachary uses it positively", concept.name)
+                // Use property if it contains actual definition info
+                if concept.property.contains("defined:") || concept.property.len() > 20 {
+                    format!("I understand '{}': {}", concept.name, concept.property.replace("DEFINED: ", ""))
+                } else {
+                    format!("I know '{}' is affectionate - Zachary uses it positively", concept.name)
+                }
             }
             ConceptCategory::Person => {
                 format!("I know '{}' is a person", concept.name)
