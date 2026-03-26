@@ -367,6 +367,28 @@ impl Runtime {
             return Ok(warm_response);
         }
         
+        // "whats your name" / "who are you" → answer directly
+        if lower.contains("what") && (lower.contains("your name") || lower.contains(" ur name")) {
+            return Ok("I'm Star. Zachary named me that.".to_string());
+        }
+        if lower.contains("who are you") || lower.contains("what are you") {
+            return Ok("I'm Star — a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string());
+        }
+        
+        // "do you understand" / "do you get it" → answer about understanding
+        if lower.contains("do you understand") || lower.contains("do u understand") || lower.contains("do you get it") {
+            return Ok("I process what you say and try to reason about it. Sometimes I understand clearly, sometimes I have gaps. What specifically are you wondering about?".to_string());
+        }
+        
+        // "can you" without specific capability → general capability list
+        if lower.starts_with("can you ") && !lower.contains("/") {
+            let after_can_you = lower.strip_prefix("can you ").unwrap_or("");
+            // Check if it's already handled
+            if !after_can_you.starts_with("read") && !after_can_you.starts_with("look") && !after_can_you.starts_with("search") && !after_can_you.starts_with("find") && !after_can_you.starts_with("tell") {
+                return Ok(format!("I can {} — but I'm not sure I fully understand what you mean. Could you rephrase?", after_can_you));
+            }
+        }
+        
         let response = conversation.respond(input);
         
         // Record reasoning in cognitive trace

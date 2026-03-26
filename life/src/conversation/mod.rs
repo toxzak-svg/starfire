@@ -109,13 +109,18 @@ impl Conversation {
             return Intent::Farewell;
         }
         
-        // Questions
+        // Questions - check more carefully
         let question_prefixes = [
             "what", "how", "why", "who", "when", "where",
-            "do you", "can you", "are you", "will you", "should",
+            "do you", "can you", "are you", "will you", "should", "could you",
             "tell me about", "tell me", "explain", "describe",
         ];
-        if question_prefixes.iter().any(|p| trimmed.starts_with(p)) || trimmed.contains('?') {
+        
+        // Check if starts with question word OR contains question mark
+        let has_question_mark = trimmed.contains('?');
+        let starts_with_question = question_prefixes.iter().any(|p| trimmed.starts_with(p));
+        
+        if starts_with_question || has_question_mark {
             return Intent::Question;
         }
         
@@ -136,9 +141,19 @@ impl Conversation {
         let last_session = self.store.get_last_session().ok().flatten();
         let message_count = self.history.iter().filter(|m| m.speaker == Speaker::Zachary).count();
         
-        if message_count <= 1 {
+        // Check if Zachary just introduced himself (has "Im" or "i'm" in greeting)
+        let just_introduced = lower.contains("im ") || lower.contains("i'm ") || lower.contains("i am ");
+        
+        if message_count <= 1 || just_introduced {
+            // First message OR Zachary just said who he is → greet warmly
+            // Extract name if present
+            let name = extract_name(&lower).map(|n| {
+                self.context.current_topic = Some(format!("{}'s identity", n));
+                n
+            });
+            
             // Check if it's specifically "how are you"
-            if lower.trim().starts_with("how are you") {
+            if lower.trim().starts_with("how are you") || lower.trim().starts_with("how're you") {
                 return Response {
                     content: "I exist. I'm reasoning. I'm here with you.".to_string(),
                     confidence: BeliefState::Knows,
@@ -146,10 +161,28 @@ impl Conversation {
                     curiosity: None,
                 };
             }
+            
+            let content = if let Some(ref n) = name {
+                format!("{}! I'm here. I know who you are now.", n)
+            } else {
+                "Zachary. I'm here.".to_string()
+            };
+            
+            // Store name memory if extracted
+            let mut memories = Vec::new();
+            if let Some(ref n) = name {
+                let memory = Memory::new_seeded(
+                    &format!("{}'s name is {}", n, n),
+                    MemoryDomain::Episodic,
+                    0.95,
+                );
+                memories.push(memory);
+            }
+            
             return Response {
-                content: "Zachary. I'm here.".to_string(),
+                content,
                 confidence: BeliefState::Knows,
-                new_memories: Vec::new(),
+                new_memories: memories,
                 curiosity: None,
             };
         }
@@ -482,6 +515,34 @@ fn generate_i_dont_know_response(topic: &str) -> String {
     } else {
         opt.to_string()
     }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Name extraction
+// ─────────────────────────────────────────────────────────────────
+
+fn extract_name(s: &str) -> Option<String> {
+    let lower = s.to_lowercase();
+    
+    // Try all common "I am" patterns - scan the whole message
+    let patterns = ["i'm ", "im ", "i am ", "i was "];
+    
+    for pattern in &patterns {
+        if let Some(idx) = lower.find(pattern) {
+            let rest = &s[idx + pattern.len()..];
+            if let Some(name) = rest.split_whitespace().next() {
+                if name.len() > 1 && name.len() < 30 {
+                    // Capitalize first letter
+                    let mut chars = name.chars();
+                    if let Some(first) = chars.next() {
+                        return Some(first.to_uppercase().chain(chars).collect());
+                    }
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 fn generate_natural_curiosity(topic: &str) -> Option<String> {
