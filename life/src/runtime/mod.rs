@@ -17,6 +17,7 @@ use crate::training_db::TrainingDB;
 use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
+use crate::learning::LearningEngine;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -54,6 +55,8 @@ pub struct Runtime {
     web_search: WebSearcher,
     /// Self-model and metacognition
     cognition: CognitiveState,
+    /// Learning engine - genuine concept formation
+    learning: LearningEngine,
 }
 
 impl Runtime {
@@ -112,6 +115,7 @@ impl Runtime {
             file_reader: FileReader::new(),
             web_search: WebSearcher::new(),
             cognition: CognitiveState::default(),
+            learning: LearningEngine::new(),
         };
 
         // Inject foundational memories about identity
@@ -361,10 +365,32 @@ impl Runtime {
             return Ok("Yes. I'm listening.".to_string());
         }
         
-        // "hun" or terms of endearment → acknowledge warmly (LOWEST PRIORITY metacog)
+        // "hun" or terms of endearment → LEARN and respond based on understanding
         if lower.contains(" hun") || lower.ends_with("hun") {
+            // Record this experience for learning
+            self.learning.experience("hun", input, None, 0.8);
+            
+            // Check what Star has learned about "hun"
+            if let Some(understanding) = self.learning.get_understanding("hun") {
+                return Ok(format!("I hear you. {}", understanding));
+            }
+            
+            // Fallback if not yet learned
             let warm_response = self.cognition.emotional_response("I hear you.");
             return Ok(warm_response);
+        }
+        
+        // Learning: when Zachary corrects or teaches Star
+        if lower.contains(" means ") || lower.contains(" is a ") || lower.contains(" called ") {
+            // Star is being taught something - record it
+            if let Some(term) = extract_teaching(input) {
+                self.learning.experience(&term, input, None, 0.9);
+            }
+        }
+        
+        // Check for what Star has learned
+        if lower.contains("what do you know about") || lower.contains("what have you learned") {
+            return Ok(self.learning.summary());
         }
         
         // "whats your name" / "who are you" → answer directly
@@ -609,6 +635,43 @@ impl Runtime {
     pub fn infer_topic(&self, query: &str, memories: &[crate::Memory]) -> String {
         self.context_fuser.infer_topic(query, memories)
     }
+}
+
+/// Extract what Star is being taught from a statement like "X is a Y" or "X means Y"
+fn extract_teaching(input: &str) -> Option<String> {
+    let lower = input.to_lowercase();
+    
+    // "X is a term of endearment" or "X is a person"
+    if let Some(idx) = lower.find(" is a ") {
+        let term = input[..idx].trim().to_string();
+        if term.len() > 1 && term.len() < 50 {
+            return Some(term);
+        }
+    }
+    
+    // "X means Y"
+    if let Some(idx) = lower.find(" means ") {
+        let rest = &input[idx + 8..];
+        if let Some(end) = rest.find('.') {
+            let term = rest[..end].trim().to_string();
+            if term.len() > 1 && term.len() < 50 {
+                return Some(term);
+            }
+        }
+    }
+    
+    // "X called Y"
+    if let Some(idx) = lower.find(" called ") {
+        let term = input[idx + 9..].trim().to_string();
+        if let Some(end) = term.find(' ') {
+            let term = term[..end].trim().to_string();
+            if term.len() > 1 && term.len() < 50 {
+                return Some(term);
+            }
+        }
+    }
+    
+    None
 }
 
 impl Drop for Runtime {

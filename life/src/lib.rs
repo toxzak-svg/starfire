@@ -15,6 +15,7 @@ pub mod api;
 pub mod training_db;
 pub mod capabilities;
 pub mod cognition;
+pub mod learning;
 
 pub use persistence::{Store, Memory, Identity};
 pub use conversation::Conversation;
@@ -24,6 +25,7 @@ pub use context::{RingState, ReasoningMode, ContextState, OpenQuestion, ContextF
 pub use training_db::TrainingDB;
 pub use capabilities::{FileReader, WebSearch};
 pub use cognition::CognitiveState;
+pub use learning::{LearningEngine, Concept, ConceptCategory};
 
 use anyhow::Result;
 
