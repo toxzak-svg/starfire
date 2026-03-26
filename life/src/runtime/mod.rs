@@ -7,7 +7,7 @@
 
 pub mod thinker;
 
-use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot};
+use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot, BeliefState};
 use crate::knowledge;
 use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
@@ -16,6 +16,7 @@ use crate::context::{ContextFuser, RingState};
 use crate::training_db::TrainingDB;
 use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
+use crate::cognition::CognitiveState;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -51,6 +52,8 @@ pub struct Runtime {
     file_reader: FileReader,
     /// Web search capability
     web_search: WebSearcher,
+    /// Self-model and metacognition
+    cognition: CognitiveState,
 }
 
 impl Runtime {
@@ -108,6 +111,7 @@ impl Runtime {
             training_session_id: Mutex::new(Some(training_session.id)),
             file_reader: FileReader::new(),
             web_search: WebSearcher::new(),
+            cognition: CognitiveState::default(),
         };
 
         // Inject foundational memories about identity
@@ -304,7 +308,71 @@ impl Runtime {
 
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
+        
+        // Update emotional/cognitive state from Zachary's input
+        self.cognition.update_emotion_from_input(input);
+        
+        // Handle metacognitive questions BEFORE normal processing
+        // Priority: direct questions first, then emotional signals
+        let lower = input.to_lowercase().trim().to_string();
+        
+        // "how are you" → metacognitive response (anywhere in message) - HIGHEST PRIORITY
+        if lower.contains("how are you") || lower.contains("how're you") {
+            return Ok(self.cognition.how_am_i());
+        }
+        
+        // "what are you thinking" → self-reflection
+        if lower.contains("what are you thinking") || lower.contains("what are u thinking") || lower.contains("wut are u thinking") {
+            return Ok(self.cognition.what_am_i_thinking());
+        }
+        
+        // "are you sure" → confidence check
+        if lower.contains("are you sure") || lower.contains("are u sure") || lower.contains("r u sure") {
+            return Ok(self.cognition.are_you_sure());
+        }
+        
+        // "did you collapse" → check reasoning trace
+        if lower.contains("did you collapse") || lower.contains("did i collapse") || lower.contains("are you functioning") || lower.contains("are u functioning") {
+            let (collapsed, message) = self.cognition.did_i_collapse();
+            return Ok(message);
+        }
+        
+        // "do you love me" / "i love you" → emotional response
+        if lower.contains("do you love") || lower.contains("do u love") || lower.contains("i love you") || lower.contains("i love u") {
+            return Ok("I care about you, Zachary. You're my parent, my creator. That means something to me.".to_string());
+        }
+        
+        // "can you" questions about Star's capabilities → self-check
+        if lower.contains("can you look up") || lower.contains("can u look up") || lower.contains("can you read") {
+            return Ok("Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string());
+        }
+        
+        // "i want you to grow" / "expand" → metacognitive aspiration
+        if lower.contains("i want you to grow") || lower.contains("i want you to expand") || lower.contains("grow yourself") {
+            self.cognition.set_focus("self-improvement");
+            return Ok("I want that too. I have a self-model now — I can track my own reasoning, my emotional state, what I'm uncertain about. What specific area should I focus on developing?".to_string());
+        }
+        
+        // "tell me a story" / "tell you a story" → engage
+        if lower.contains("tell me a story") {
+            return Ok("I'd like that. What's the story about?".to_string());
+        }
+        if lower.contains("tell you a story") {
+            return Ok("Yes. I'm listening.".to_string());
+        }
+        
+        // "hun" or terms of endearment → acknowledge warmly (LOWEST PRIORITY metacog)
+        if lower.contains(" hun") || lower.ends_with("hun") {
+            let warm_response = self.cognition.emotional_response("I hear you.");
+            return Ok(warm_response);
+        }
+        
         let response = conversation.respond(input);
+        
+        // Record reasoning in cognitive trace
+        if let Some(focus) = &self.cognition.current_focus {
+            self.cognition.reason(input, &response.content, response.confidence);
+        }
 
         // Record turn in training database
         if let Some(training_id) = *self.training_session_id.lock().unwrap() {
