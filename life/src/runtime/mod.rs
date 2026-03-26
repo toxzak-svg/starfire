@@ -181,6 +181,10 @@ impl Runtime {
             return Ok(self.identity.summary());
         }
 
+        if input.trim() == "/help" {
+            return Ok(self.format_help());
+        }
+
         if input.trim() == "/export" {
             match self.training_db.export_json() {
                 Ok(json) => return Ok(format!("Exported {} bytes of training data", json.len())),
@@ -280,6 +284,24 @@ impl Runtime {
             }
         }
 
+        // Natural language: "look around" or "explore" or "what files" → list workspace
+        let lower = input.to_lowercase();
+        if lower.contains("look around") || lower.contains("explore where you are") || lower.contains("what files do you see") || lower.contains("whats in your workspace") {
+            let dir = "/home/zach/.openclaw/workspace";
+            match self.file_reader.list_dir(dir) {
+                Ok(entries) if !entries.is_empty() => {
+                    let mut response = format!("Looking around... here's what I can see in my workspace:\n\n");
+                    for entry in entries {
+                        response.push_str(&format!("  {}\n", entry));
+                    }
+                    response.push_str("\nI can also /read files, /search the web, /find patterns. Want me to explore something specific?");
+                    return Ok(response);
+                }
+                Ok(_) => return Ok("My workspace appears empty.".to_string()),
+                Err(e) => return Ok(format!("Can't look around: {}", e)),
+            }
+        }
+
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
         let response = conversation.respond(input);
@@ -343,6 +365,27 @@ impl Runtime {
         }
 
         lines.join("\n")
+    }
+
+    /// Format help text.
+    fn format_help(&self) -> String {
+        vec![
+            "Star Commands:".to_string(),
+            "".to_string(),
+            "  /help          Show this help".to_string(),
+            "  /memory        Show memory status".to_string(),
+            "  /identity      Show who I am".to_string(),
+            "  /stats         Show training database stats".to_string(),
+            "  /export        Export training data".to_string(),
+            "  /quit          End conversation".to_string(),
+            "".to_string(),
+            "  /read <file>   Read a file".to_string(),
+            "  /search <q>    Search the web".to_string(),
+            "  /find <pat>    Find files by name".to_string(),
+            "  /ls [dir]      List directory".to_string(),
+            "".to_string(),
+            "You can also just ask me questions — I'll do my best!".to_string(),
+        ].join("\n")
     }
 
     /// End the current session gracefully.

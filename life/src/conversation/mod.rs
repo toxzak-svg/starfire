@@ -102,9 +102,10 @@ impl Conversation {
             }
         }
         
-        // Farewell
-        let farewell_words = ["bye", "goodbye", "see you", "later", "goodnight", "that's all"];
-        if farewell_words.iter().any(|g| trimmed.contains(g)) {
+        // Farewell — only if it ENDS with farewell words (not just contains them)
+        let farewell_words = ["bye", "goodbye", "later", "goodnight", "that's all", "see you later", "talk soon", "until next time"];
+        let is_farewell = farewell_words.iter().any(|g| trimmed.ends_with(g) || trimmed == *g);
+        if is_farewell && trimmed.len() < 50 {
             return Intent::Farewell;
         }
         
