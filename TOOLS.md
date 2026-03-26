@@ -37,12 +37,25 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 ---
 
+## NVIDIA NIM
+- **API key:** `~/.openclaw/secrets/nim.env`
+- **Build key ID:** `c67a877c-07a1-491b-aab4-d1be9169b2a5` (expires 2026-09-25)
+- **Default model:** `meta/llama-3.1-8b-instruct`
+- **Base URL:** `https://integrate.api.nvidia.com/v1` (OpenAI-compatible)
+- **Env vars:** `SCHEMOCKER_AI_PROVIDER=nim`, `SCHEMOCKER_NIM_API_KEY`, `SCHEMOCKER_NIM_MODEL`
+
 ## Secrets
 
 Stored in: `~/.openclaw/secrets/`
 
 - **GitHub token:** `~/.openclaw/secrets/github.env` (push via `~/.openclaw/secrets/git-wrapper.sh`)
 - **Moltbook API key:** `~/.config/moltbook/credentials.json`
+
+---
+
+## GitHub Preference
+- **Always use private repos** when creating or pushing — never public
+- Authenticated URL format: `https://ghp_TOKEN@github.com/owner/repo.git`
 
 ---
 
