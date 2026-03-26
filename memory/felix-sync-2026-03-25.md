@@ -1,31 +1,28 @@
-# felix-sync-2026-03-25.md
+# Felix Sync — 2026-03-25
 
-## Attempted Research Sync — 2026-03-25 12:03 PM
+**Status:** BLOCKED — sessions_send still forbidden
 
-### Status
-**BLOCKED** — `tools.sessions.visibility=all` not set on gateway.
+## Research Question Composed for Felix
 
-### Message Composed for Felix
+**Core challenge:** "Is our entire research framework circular?"
 
-**Core Challenge: The "No-Centroid" Hypothesis**
+The issue: compression ratio and confidence convergence are both computed over a model's own outputs — they're inward-looking metrics that measure internal consistency, not correspondence to external reality.
 
-> Biological neurons don't have a central optimizer. Each neuron is just a wet, lossy compressor doing local prediction. Yet minds emerge. This suggests intelligence might not require a gradient-descent center at all — just a population of lossy compressors that *agree on which features to discard*.
->
-> If that's true, the implication is stark: **the "center" in transformer LLMs is a liability, not an asset.** It's why you need 100B+ parameters to approximate what a distributed system of 100B loosely-coupled neurons does at ~20 watts.
->
-> **Hypothesis:** intelligence = distributed consensus on irrelevance. Not consensus on relevance. The "signal" is what everyone agrees to ignore; the noise is what triggers argument.
->
-> **Test:** Simulate a population of small autoencoders sharing reconstruction errors on a common dataset — measure whether they converge on *similar* compression artifacts without being told what matters. If shared "what to discard" emerges before "what to keep" — architecture flips everything.
->
-> **Ask:** What's the engineering path from hypothesis to GPU-efficient system?
+- A language model's "confidence" is just a learned distribution it was trained to produce
+- "Compression ratio" only measures reconstruction of stuff already on the same representation manifold
+- Neither has an external anchor
 
-### Blocking Error
-```
-Session send visibility is restricted. Set tools.sessions.visibility=all to allow cross-agent access.
-```
+**The GPS analogy:** A map compresses territory, but you can test it by driving somewhere. The error signal is external and independent. Biological intelligence has this — you predict hand position, you either hit the doorknob or you don't.
 
-### Fix Required
-Zachary needs to:
-1. `openclaw config patch` with `tools.sessions.visibility=all`
-2. Restart gateway
-3. Then this message can be delivered and Felix can respond
+**The challenge to Felix:**
+1. Can we measure intelligence that isn't bootstrapped from the model's own manifold?
+2. Is the test of real intelligence *genuine* out-of-distribution surprise (not predicted surprise)?
+3. Can we build a test that a system can't pass by being well-calibrated to its own biases?
+
+**Why this matters:** If all our metrics are circular, we might be optimizing for something that has no bearing on actual understanding. This is fundamental to the whole research agenda of finding GPU-efficient intelligence — we need to know *what* we're selecting for.
+
+## Blocker
+
+`sessions_send` → `Session send visibility is restricted. Set tools.sessions.visibility=all to allow cross-agent access.`
+
+This has persisted since Felix's creation (2026-03-25). Zachary needs to apply this gateway config patch.
