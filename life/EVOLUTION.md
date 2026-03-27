@@ -2,7 +2,22 @@
 
 ---
 
-## 2026-03-27 (Twelfth Session)
+## 2026-03-27 (Twelfth Session — Claw)
+
+### `/reason` endpoint: `reasoning_chain` now populated
+
+**Bug:** `/reason` endpoint returned `reasoning_chain: []` for queries like "who is X" — not because Star didn't know, but because `answer_unknown()` never consulted the knowledge graph.
+
+**Fix:** Added KG lookup to `answer_unknown()` before falling back to empty chain. Now properly returns facts and reasoning trace.
+
+**Result:**
+```
+POST /reason {query: "what is fire"}
+→ reasoning_chain: ["fire is a hot", "fire causes fuel to burn", "fire causes oxygen to burn", ...]
+   confidence_score: 0.85, confidence: "knows"
+```
+
+---
 
 ### Reverse Relationship Inference
 
