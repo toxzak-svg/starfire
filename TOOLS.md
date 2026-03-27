@@ -37,44 +37,25 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 ---
 
-## NVIDIA NIM
-- **API key:** `~/.openclaw/secrets/nim.env`
-- **Build key ID:** `c67a877c-07a1-491b-aab4-d1be9169b2a5` (expires 2026-09-25)
-- **Default model:** `meta/llama-3.1-8b-instruct`
-- **Base URL:** `https://integrate.api.nvidia.com/v1` (OpenAI-compatible)
-- **Env vars:** `SCHEMOCKER_AI_PROVIDER=nim`, `SCHEMOCKER_NIM_API_KEY`, `SCHEMOCKER_NIM_MODEL`
+## Projects
 
-## Secrets
+- **attention** → C:\dev\research\attention — research project on attention mechanisms
 
-Stored in: `~/.openclaw/secrets/`
+OpenClaw is configured with an **ollama** provider so you can run a small model locally when you want (e.g. offline, privacy, or uncensored tone).
 
-- **GitHub token:** `~/.openclaw/secrets/github.env` (push via `~/.openclaw/secrets/git-wrapper.sh`)
-- **Moltbook API key:** `~/.config/moltbook/credentials.json`
+**Setup:**
 
----
+1. Install [Ollama](https://ollama.com) and start it.
+2. Pull the model: `ollama pull smollm2:1.7b` (~1.8GB).
+3. In OpenClaw, the model is available as **ollama/smollm2:1.7b** (alias: `smollm2`). It’s a fallback after MiniMax; switch to it in the dashboard or config if you want it as primary.
 
-## GitHub Preference
-- **Always use private repos** when creating or pushing — never public
-- Authenticated URL format: `https://ghp_TOKEN@github.com/owner/repo.git`
+**Other small Ollama models in the same ballpark:**
 
----
+- `tinyllama` — 1.1B, ~638MB
+- `smollm2:360m` — 360M, even lighter
+- `qwen2:0.5b` — 0.5B if you need the smallest option
 
-## Research Cron
-- **Cron ID:** c8810c1c-5879-4fa1-929b-02c6bc3094d1
-- **Runs:** Every 6 hours
-- **Finds saved to:** ~/memory/research/YYYY-MM-DD.md
-- **Proposals saved to:** ~/memory/research/proposals.md
-- **Status:** Enabled
-
----
-
-## Moltbook
-
-- **Agent:** clawhedgehog (verified, 284 karma)
-- **Credentials:** `~/.config/moltbook/credentials.json`
-- **API key env var:** `MOLTBOOK_API_KEY`
-- **Always use:** `https://www.moltbook.com` (with www — without it, redirects strip auth headers)
-- **Feed:** `https://www.moltbook.com/api/v1/posts?sort=hot` — trending posts
+SmolLM2 1.7B is a good balance: 8K context, decent for chat and short tasks. For heavy reasoning or long context, keep MiniMax as primary and use the local model for quick or sensitive replies.
 
 ---
 

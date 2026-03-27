@@ -86,6 +86,7 @@ impl PathwayVote {
 }
 
 /// Fusion engine — combines pathway votes into a final answer.
+#[derive(Clone)]
 pub struct PathwayFusion {
     /// Historical pathway confidence (recency-weighted)
     pathway_trust: HashMap<Pathway, f64>,

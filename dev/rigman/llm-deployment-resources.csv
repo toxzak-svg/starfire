@@ -1,0 +1,110 @@
+Category,Resource Name,Description,URL,Source
+Awesome Lists,Awesome-LLM-Inference,"Curated list focused specifically on inference: FlashAttention, paged attention, quantization schemes (INT8/4), parallelism, etc.",https://github.com/xlite-dev/Awesome-LLM-Inference,github
+Awesome Lists,Awesome-LLM-Inference-Engine,"Catalog of inference engines, serving architectures, and system-level optimization techniques",https://github.com/sihyeong/Awesome-LLM-Inference-Engine,github
+Awesome Lists,Awesome-LLM,"Broader LLM list, includes sections for inference optimizations (MInference, ExLlama, etc.)",https://github.com/Hannibal046/Awesome-LLM,github
+Awesome Lists,"10 GitHub Repos AI Engineers Use to Make LLMs Faster and Cheaper","Opinionated stack with pointers to llama.cpp, vLLM, FlashAttention, MLC-LLM, Unsloth, etc.",https://www.the-ai-corner.com/p/best-github-repos-llm-performance-optimization,the-ai-corner
+Engines/Frameworks,llama.cpp,"Canonical reference for CPU/GPU-lean local inference, quantization formats (Q4_0, Q5_K_M, etc.), KV-cache strategies, GPU offload profiles",https://github.com/ggerganov/llama.cpp,github
+Engines/Frameworks,vLLM,"Excellent docs on paged attention, continuous batching, memory management, and throughput/latency tradeoffs",https://github.com/vllm-project/vllm,github
+Engines/Frameworks,Text Generation Inference (TGI),"Hugging Face's serving stack; docs cover max tokens, batching, parallelism knobs, and OOM avoidance",https://github.com/huggingface/text-generation-inference,github
+Engines/Frameworks,MLC LLM,"Compilation-based local inference across GPUs/CPUs/mobile; good for understanding cross-platform kernel-level optimizations",https://github.com/mlc-ai/mlc-llm,github
+Engines/Frameworks,ExLlama / ExLlamaV2,"Highly optimized LLaMA-family inference for GPUs with quantized weights; great for CUDA-level tricks",https://github.com/turboderp/exllama,github
+Engines/Frameworks,MInference,"Focused on long-context sparse attention for faster prefill on A100-class GPUs",https://github.com/microsoft/MInference,github
+Engines/Frameworks,ktransformers,"Flexible Framework for Experiencing Heterogeneous LLM Inference/Fine-tune Optimizations with KV-cache support",https://github.com/kvcache-ai/ktransformers,github
+Engines/Frameworks,TensorRT-LLM,"NVIDIA's high-performance LLM inference engine with Python API and SOTA optimizations for NVIDIA GPUs",https://github.com/NVIDIA/TensorRT-LLM,github
+Engines/Frameworks,PowerInfer,"High-speed Large Language Model Serving for Local Deployment optimized for consumer GPUs",https://github.com/Tiiny-AI/PowerInfer,github
+Engines/Frameworks,Ollama,"One-command local deployment for Llama, Mistral, Gemma and other large language models",https://github.com/ollama/ollama,github
+Engines/Frameworks,Intel IPEX-LLM,"Accelerate local LLM inference on Intel XPU (Arc, Flex, Max) with seamless HuggingFace/LangChain integration",https://github.com/intel/ipex-llm,github
+Engines/Frameworks,LM Studio,"Discover, download, and run local LLMs with user-friendly GUI and GGUF support",https://github.com/lmstudio-ai/lmstudio,github
+Engines/Frameworks,PowerServe,"High-speed and easy-use LLM serving framework for local deployment",https://github.com/powerserve-project/PowerServe,github
+Quantization,AutoGPTQ,"Easy-to-use LLMs quantization package with user-friendly APIs based on GPTQ algorithm",https://github.com/AutoGPTQ/AutoGPTQ,github
+Quantization,RWKV.cpp,"INT4/INT5/INT8 and FP16 inference on CPU for RWKV language models",https://github.com/RWKV/rwkv.cpp,github
+Quantization,exllamav3,"Optimized quantization and inference library for running LLMs on modern consumer GPUs",https://github.com/turboderp-org/exllamav3,github
+Quantization,NVIDIA Model-Optimizer,"Unified library of SOTA model optimization techniques: quantization, pruning, distillation, speculative decoding",https://github.com/NVIDIA/Model-Optimizer,github
+Quantization,OpenVINO NNCF,"Neural Network Compression Framework for enhanced OpenVINO inference with PTQ and QAT",https://github.com/openvinotoolkit/nncf,github
+Optimization,KVA,"Vast Undivided Attention - Global KVCache storage solution optimizing TTFT and GPU utilization",https://github.com/vast-data/VUA,github
+Optimization,Marlin,"FP16xINT4 LLM inference kernel with near-ideal ~4x speedups for medium batch sizes",https://github.com/IST-DASLab/marlin,github
+Optimization,SpargeAttention,"Training-free sparse attention that accelerates any model in inference",https://github.com/thu-ml/SpargeAttention,github
+Optimization,TinyChatEngine,"On-Device LLM Inference Library for mobile/edge deployment",https://github.com/mit-han-lab/TinyChatEngine,github
+Optimization,Decoding Attention,"CUDA-optimized attention for MHA, MQA, GQA and MLA in LLM inference decoding stage",https://github.com/Bruce-Lee-LY/decoding_attention,github
+LoRA Serving,LoRAX,"Multi-LoRA inference server that scales to 1000s of fine-tuned LLMs",https://github.com/predibase/lorax,github
+Local Apps,h2oGPT,"Private chat with local GPT with documents, images, video - 100% private, Apache 2.0",https://github.com/h2oai/h2ogpt,github
+Local Apps,Local-LLM-Comparison-Colab-UI,"Compare performance of different LLMs on consumer hardware via Colab",https://github.com/Troyanovsky/Local-LLM-Comparison-Colab-UI,github
+Vendor Best Practices,Google Cloud - LLM optimization,"Detailed guide on quantization, tensor parallelism, paged/flash attention using vLLM and TGI",https://cloud.google.com/kubernetes-engine/docs/best-practices/machine-learning/inference/llm-optimization,docs.cloud.google
+Vendor Best Practices,AWS - SLM on-prem/edge,"Covers deployment topologies, hardware selection, and runtime tuning for small/local models",https://aws.amazon.com/blogs/compute/running-and-optimizing-small-language-models-on-premises-and-at-the-edge/,aws.amazon
+Vendor Best Practices,Latitude - Inference Optimization Guide,"Practical overview of speed, cost, and GPU efficiency levers",https://latitude.so/blog/ultimate-guide-to-llm-inference-optimization,latitude
+Local Guides,Intuition Labs - 24GB GPU,"Deep dive into models, VRAM budgets, quantization, and configuration for 24 GB-class consumer GPUs",https://intuitionlabs.ai/articles/local-llm-deployment-24gb-gpu-optimization,intuitionlabs
+Local Guides,LocalLLM.in 2025 Guide,"Cost-performance tradeoffs, quantization, context length tuning, CPU-GPU offloading",https://localllm.in/blog/how-to-run-local-llm-guide-2025,localllm
+Local Guides,Cognativ - Local LLM Setup,"Deployment topologies, model selection, and perf tuning recommendations",https://www.cognativ.com/blogs/post/essential-guide-to-setting-up-your-local-llm-for-optimal-performance/254,cognativ
+Local Guides,Kairntech - On-Premise LLM,"On-prem patterns, operational challenges, and performance considerations",https://kairntech.com/blog/articles/llm-on-premise/,kairntech
+Community Hubs,r/LocalLLaMA,"Ongoing threads on deployment, optimization tips, and hands-on inference tuning discussions",https://www.reddit.com/r/LocalLLaMA/,reddit
+Community Hubs,No-BS LLM deployment database,"Community-maintained examples of actual deployment stacks",https://www.reddit.com/r/LocalLLaMA/comments/1h4u7au/a_nobs_database_of_how_companies_actually_deploy/,reddit
+Community Hubs,LinkedIn - Local Deployment Deep Dive,"Benchmarking methodology and best practices for latency vs GPU utilization",https://www.linkedin.com/pulse/benchmarking-llms-deep-dive-local-deployment-jonmichael-hands-qstgc,linkedin
+Engines/Frameworks,SGLang,"High-performance serving framework for large language models and multimodal models",https://github.com/sgl-project/sglang,github
+Engines/Frameworks,Mooncake,"Serving platform for Kimi - a leading LLM service from Moonshot AI",https://github.com/kvcache-ai/Mooncake,github
+Engines/Frameworks,LightLLM,"Python-based LLM inference and serving framework notable for lightweight design and high-speed performance",https://github.com/ModelTC/LightLLM,github
+Engines/Frameworks,Tiny-LLM,"Learning LLM inference serving on Apple Silicon - build a tiny vLLM + Qwen",https://github.com/skyzh/tiny-llm,github
+Engines/Frameworks,FastDeploy,"High-performance Inference and Deployment Toolkit for LLMs and VLMs based on PaddlePaddle",https://github.com/PaddlePaddle/FastDeploy,github
+Engines/Frameworks,RamaLama,"Open-source developer tool that simplifies local serving of AI models from any source via containers",https://github.com/containers/ramalama,github
+Engines/Frameworks,Nanoflow,"Throughput-oriented high-performance serving framework for LLMs",https://github.com/efeslab/Nanoflow,github
+Engines/Frameworks,candle-vllm,"Efficient platform for inference and serving local LLMs including OpenAI compatible API server",https://github.com/EricLBuehler/candle-vllm,github
+Engines/Frameworks,Flash-Tokenizer,"Efficient and optimized tokenizer engine for LLM inference serving",https://github.com/NLPOptimize/flash-tokenizer,github
+Engines/Frameworks,ScaleLLM,"High-performance inference system for large language models for production environments",https://github.com/vectorch-ai/ScaleLLM,github
+Engines/Frameworks,Cuckoo,"Decentralized AI Model-Serving Platform starting with GPU-sharing for text-to-image and LLM inference",https://github.com/cuckoo-network/cuckoo,github
+Engines/Frameworks,xllm-service,"Flexible serving framework delivering efficient and fault-tolerant LLM inference for clustered deployments",https://github.com/jd-opensource/xllm-service,github
+Engines/Frameworks,AI Inference Resources,"Curated collection of AI inference engineering resources - LLM serving, GPU kernels, quantization, distributed inference",https://github.com/aerlabsAI/ai-inference-resources,github
+Engines/Frameworks,Ray vLLM Inference,"Service that integrates vLLM with Ray Serve for fast and scalable LLM serving",https://github.com/asprenger/ray_vllm_inference,github
+Engines/Frameworks,LLM Inference Server,"Endpoint server for efficiently serving quantized open-source LLMs for code",https://github.com/wangcx18/llm-vscode-inference-server,github
+Engines/Frameworks,ElasticMM,"Elastic and Efficient MLLM Serving System",https://github.com/hpdps-group/ElasticMM,github
+Engines/Frameworks,llm-inference,"Platform for publishing and managing llm inference with UI, RESTful API, auto-scaling, monitoring",https://github.com/OpenCSGs/llm-inference,github
+Engines/Frameworks,LLM Inference Bench,"Benchmark for measuring real-world performance of LLM inference frameworks",https://github.com/UranusSeven/Effective-LLM-Inference-Evaluation,github
+Engines/Frameworks,LLM Inference Engine Benchmark,"Comprehensive benchmarking tool for measuring energy consumption of LLM inference engines",https://github.com/chenxuniu/LLM-Inference-Engine-Benchmark,github
+Serving/Deployment,llama-api-server,"OpenAI API compatible REST server for llama",https://github.com/iaalm/llama-api-server,github
+Serving/Deployment,LLamaWorker,"HTTP API server with OpenAI-compatible API for LLamaSharp",https://github.com/sangyuxiaowu/LLamaWorker,github
+Serving/Deployment,vllm-mlx,"OpenAI and Anthropic compatible server for Apple Silicon with MLX backend",https://github.com/waybarrios/vllm-mlx,github
+Serving/Deployment,LocalAI,"Self-hosted AI gateway with support for Llama.cpp, Ollama, and OpenAI compatible APIs",https://github.com/mudler/LocalAI,github
+Serving/Deployment,llamafile,"Single-file executables for running LLMs with embedded llama.cpp",https://github.com/Mozilla-OZ/llamafile,github
+Serving/Deployment,text-generation-webui,"Gradio web UI for running Large Language Models with llama.cpp, OLLama and Transformers",https.com/oobabooga/text-generation-webui,github
+Serving/Deployment,Open-WebUI,"User-friendly WebUI for LLMs supporting Ollama and OpenAI-compatible APIs",https://github.com/open-webui/open-webui,github
+Serving/Deployment,Jan,"ChatGPT-like interface for local LLMs - Ollama and llama.cpp API compatible",https://github.com/janhq/jan,github
+Quantization,llama-3-quant-comparison,"Comparison of output quality of quantization methods using Llama 3, GGUF, EXL2",https://github.com/matt-c1/llama-3-quant-comparison,github
+Quantization,quant_clone,"Generate llama-quantize command to copy quantization parameters of any GGUF",https://github.com/electroglyph/quant_clone,github
+Quantization,llama-gguf-optimize,"Scripts and tools for optimizing quantizations in llama.cpp with GGUF imatrices",https://github.com/robbiemu/llama-gguf-optimize,github
+Quantization,gguf_modeldb,"Quick solution to manage llama based GGUF quantized models",https://github.com/laelhalawani/gguf_modeldb,github
+Quantization,gguf_llama,"Wrapper for simplified use of Llama2 GGUF quantized models",https://github.com/laelhalawani/gguf_llama,github
+Quantization,glai,"GGUF LLAMA AI package for simplified model handling with automatic model download",https://github.com/laelhalawani/glai,github
+Quantization,LLM-GGUF-Auto-Converter,"Automated Jupyter notebook for batch converting LLMs to GGUF format",https://github.com/dwain-barnes/LLM-GGUF-Auto-Converter,github
+Quantization,kld-sweep,"Cross-platform Python script to evaluate GGUF quantizations using KL Divergence and Perplexity",https://github.com/cmhamiche/kld-sweep,github
+Quantization,ANE Infer,"Apple Neural Engine (ANE) LLM inference engine with hybrid ANE+GPU+CPU on Apple Silicon",https://github.com/thebasedcapital/ane-infer,github
+Quantization,llama.cpp.android,"Custom llama.cpp fork with character intelligence engine - control vectors, attention bias",https://github.com/Siddhesh2377/llama.cpp-android,github
+Optimization,DeFT,"Decoding with Flash Tree-attention for Efficient Tree-structured LLM Inference",https://github.com/LINs-lab/DeFT,github
+Optimization,flash_attention_inference,"Performance of C++ interface of flash attention in LLM inference scenarios",https://github.com/Bruce-Lee-LY/flash_attention_inference,github
+Optimization,FlashMLA,"Optimized kernels for DeepSeek models with sparse and dense attention",https://github.com/kamalrss88/FlashMLA,github
+Optimization,attn-arena,"PyTorch implementations and benchmarks of hardware efficient attention variants for LLM inference",https://github.com/HamzaElshafie/attn-arena,github
+Optimization,LLM attention engine,"Tiny CUDA playground for decoder-only Transformer focusing on attention kernels and efficient KV-cache",https://github.com/YuvaneshSankar/LLM_attention_engine,github
+Optimization,BPE-Transformer,"Implementation of BPE Tokenizer, RoPE Embeddings, Transformer LLM from scratch w/ Flash Attention 2",https://github.com/milasd/BPE-Transformer,github
+Optimization,DeepSpeed MII Container,"Dockerized DeepSpeed-MII server for seamless local LLM deployment with OpenAI-compatible API",https://github.com/slinusc/deepspeed-mii-container,github
+Mobile/Edge,mllm-advanced,"Fast and lightweight Multimodal LLM inference engine for Mobile and Edge devices",https://github.com/chenghuaWang/mllm-advanced,github
+Mobile/Edge,MobileTransformers,"Lightweight modular framework based on ONNX Runtime for running LLMs on mobile and edge",https://github.com/martinkorelic/mobiletransformers-docs,github
+Mobile/Edge,edge-ai-mobile,"Experiments and architecture exploration for running local LLM on mobile devices",https://github.com/kuopeiti/edge-ai-mobile,github
+Mobile/Edge,Mobile-Edge-LLM-Deployment,"On-Device LLM Inference for Disconnected Field Robotics via Unsloth & GGUF",https://github.com/harshitha-8/mobile-edge-llm-deployment,github
+Mobile/Edge,AI-Edge-Gallery,"Collection of on-device AI demos and Android apps showcasing local LLMs and multimodal inference",https://github.com/vikrammane8377/LocalAi_CodingAssistant-Therapist,github
+Mobile/Edge,EdgeMind,"Flutter mobile application for interacting with local LLMs with offline-first AI chat",https://github.com/gaurav3000R/edge-mind,github
+Fine-tuning,LoRAX,"Multi-LoRA inference server that scales to 1000s of fine-tuned LLMs",https://github.com/predibase/lorax,github
+Fine-tuning,LlamaFactory,"Unified Efficient Fine-Tuning of 100+ LLMs & VLMs with visual interface",https://github.com/hiyouga/LlamaFactory,github
+Fine-tuning,xTuring,"Build, personalize and control your own LLMs - from data preprocessing to fine-tuning",https://github.com/stochasticai/xTuring,github
+Fine-tuning,text-to-lora,"Hypernetworks that adapt LLMs for specific tasks using textual task description",https://github.com/SakanaAI/text-to-lora,github
+Fine-tuning,mlx-tune,"Fine-tune LLMs on Mac with Apple Silicon - SFT, DPO, GRPO, Vision fine-tuning",https://github.com/ARahim3/mlx-tune,github
+Fine-tuning,PEFT,"State-of-the-art Parameter-Efficient Fine-Tuning - LoRA, QLoRA support",https://github.com/huggingface/peft,github
+Fine-tuning,torchtune,"Native-PyTorch Library for LLM Fine-tuning with LoRA and QLoRA support",https://github.com/pytorch/torchtune,github
+Fine-tuning,Axolotl,"Free and open-source LLM fine-tuning framework with LoRA, QLoRA, Full fine-tuning",https://github.com/axolotl-ai-cloud/axolotl,github
+Fine-tuning,Unsloth,"2x faster training, 70% less memory - LoRA, QLoRA, RSlora support",https://github.com/unslothai/unsloth,github
+Fine-tuning,TRL,"Full stack library for transformer training with RL - SFT, DPO, GRPO",https://github.com/huggingface/trl,github
+Fine-tuning,OpenRLHF,"Easy-to-use, Scalable and High-performance RLHF Framework with LoRA support",https://github.com/OpenRLHF/OpenRLHF,github
+Fine-tuning,LLM-Finetuning-Toolkit,"Toolkit for fine-tuning, ablating and unit-testing open-source LLMs",https://github.com/georgian-io/LLM-Finetuning-Toolkit,github
+Fine-tuning,Platypus,"Code for fine-tuning Platypus family LLMs using LoRA",https://github.com/arielnlee/Platypus,github
+Fine-tuning,LLM-Kit,"WebUI integrated platform for LLMs - knowledge base, LoRA fine-tuning, dataset tools",https://github.com/wpydcr/LLM-Kit,github
+Fine-tuning,LLM-RLHF-Tuning,"LLM Tuning with PEFT - SFT+RM+PPO+DPO with LoRA",https://github.com/Joyce94/LLM-RLHF-Tuning,github
+Benchmarking,LLM Inference Serving,"LLM execution on CPUs using packages like llamafile for low-latency high-throughput",https://github.com/mddunlap924/LLM-Inference-Serving,github
+Benchmarking,LLM-Inference-Bench,"LLM Inference Benchmark from Argonne National Lab",https://github.com/argonne-lcf/LLM-Inference-Bench,github
+Benchmarking,Distributed Inference,"Exploration and benchmarking of distributed LLM inference on resource-constrained HPC clusters",https://github.com/boris-gans/distributed-inference,github
+Benchmarking,Accelerating LLM Inference,"Project aimed on accelerating LLM inference using DeepSpeed and DDP",https://github.com/swarna96/AcceleratingLLMInference,github

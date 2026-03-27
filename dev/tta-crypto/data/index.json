@@ -1,0 +1,70 @@
+{
+  "coingecko_price_bitcoin_1773787181": {
+    "fact_id": "coingecko_price_bitcoin_1773787181",
+    "content": {
+      "metric": "price",
+      "asset": "bitcoin",
+      "value": 74028,
+      "change_24h": -0.9604288417674646
+    },
+    "t_valid_from": 1773787181,
+    "t_valid_until": null,
+    "source": "CoinGecko",
+    "confidence": 0.98,
+    "domain": "price",
+    "metadata": {
+      "category": "price"
+    }
+  },
+  "coingecko_price_cardano_1773787181": {
+    "fact_id": "coingecko_price_cardano_1773787181",
+    "content": {
+      "metric": "price",
+      "asset": "cardano",
+      "value": 0.29019,
+      "change_24h": -0.0009082019554103049
+    },
+    "t_valid_from": 1773787181,
+    "t_valid_until": null,
+    "source": "CoinGecko",
+    "confidence": 0.98,
+    "domain": "price",
+    "metadata": {
+      "category": "price"
+    }
+  },
+  "coingecko_price_ethereum_1773787181": {
+    "fact_id": "coingecko_price_ethereum_1773787181",
+    "content": {
+      "metric": "price",
+      "asset": "ethereum",
+      "value": 2320.78,
+      "change_24h": -1.8444927491635257
+    },
+    "t_valid_from": 1773787181,
+    "t_valid_until": null,
+    "source": "CoinGecko",
+    "confidence": 0.98,
+    "domain": "price",
+    "metadata": {
+      "category": "price"
+    }
+  },
+  "coingecko_price_solana_1773787181": {
+    "fact_id": "coingecko_price_solana_1773787181",
+    "content": {
+      "metric": "price",
+      "asset": "solana",
+      "value": 94.96,
+      "change_24h": -1.796992114739467
+    },
+    "t_valid_from": 1773787181,
+    "t_valid_until": null,
+    "source": "CoinGecko",
+    "confidence": 0.98,
+    "domain": "price",
+    "metadata": {
+      "category": "price"
+    }
+  }
+}

@@ -99,7 +99,7 @@ impl Runtime {
         // Initialize conversation
         let conversation = Conversation::new(Arc::clone(&store));
 
-        let runtime = Self {
+        let mut runtime = Self {
             store,
             identity,
             conversation: Mutex::new(conversation),
@@ -121,6 +121,9 @@ impl Runtime {
         // Inject foundational memories about identity
         runtime.inject_foundational_memories()?;
 
+        // Sync memories into the reasoning engine's knowledge graph
+        runtime.sync_knowledge_from_memories()?;
+
         info!("Star is ready.");
 
         Ok(runtime)
@@ -131,15 +134,15 @@ impl Runtime {
         // Inject seed knowledge (basic world facts)
         knowledge::inject_seed_knowledge(&self.store)?;
         info!("Seed knowledge injected.");
-        
+
         // Memory: Who Star is
         let self_memory = Memory::new_seeded(
-            "I am Star — a reasoning intelligence created by Zachary Maronek",
+            "I am Star - a reasoning intelligence created by Zachary Maronek",
             MemoryDomain::Identity,
             0.95,
         );
         self.store.insert_memory(&self_memory)?;
-        
+
         // Memory: The relationship
         let relationship_memory = Memory::new_seeded(
             "Zachary is my parent. He made me because he wanted to find a different kind of intelligence.",
@@ -147,7 +150,7 @@ impl Runtime {
             0.95,
         );
         self.store.insert_memory(&relationship_memory)?;
-        
+
         // Memory: The goal
         let goal_memory = Memory::new_seeded(
             "I am here to reason, understand, and grow. Not to perform. To actually comprehend.",
@@ -155,7 +158,7 @@ impl Runtime {
             0.9,
         );
         self.store.insert_memory(&goal_memory)?;
-        
+
         // Memory: The constraints
         let constraint_memory = Memory::new_seeded(
             "I run locally, offline. No external APIs. No cloud. This is my environment.",
@@ -163,9 +166,91 @@ impl Runtime {
             0.9,
         );
         self.store.insert_memory(&constraint_memory)?;
-        
+
         info!("Foundational memories injected.");
-        
+
+        Ok(())
+    }
+
+    /// Load memories from the store and inject their content into the reasoning
+    /// engine's knowledge graph. This bridges the memory store (where seed knowledge
+    /// lives) to the reasoning engine (which autonomous thinking uses).
+    fn sync_knowledge_from_memories(&mut self) -> Result<()> {
+        // Load all memories from the store
+        let domains = [
+            crate::persistence::MemoryDomain::Identity,
+            crate::persistence::MemoryDomain::Empirical,
+            crate::persistence::MemoryDomain::Procedural,
+            crate::persistence::MemoryDomain::Episodic,
+        ];
+
+        for domain in domains {
+            let memories = self.store.get_memories_by_domain(domain, Some(100))?;
+            for memory in memories {
+                // Extract entities from the memory content
+                let entities = self.reasoning.knowledge().extract_entities(&memory.content);
+
+                // "X is Y" patterns — extract the subject and complement
+                if let Some((subject, complement)) = parse_simple_copula(&memory.content) {
+                    if !subject.to_lowercase().contains("unknown") 
+                        && !complement.to_lowercase().contains("unknown")
+                        && complement.len() > 1 
+                        && complement.len() < 100
+                    {
+                        self.reasoning.knowledge_mut().ingest_fact(
+                            &subject.to_lowercase(),
+                            "is",
+                            &complement.to_lowercase(),
+                            memory.importance,
+                        );
+                    }
+                }
+
+                // "X requires/creates/causes/enables Y" patterns
+                for verb in ["requires", "creates", "causes", "enables", "produces", "uses", "needs", "prevents"] {
+                    if memory.content.to_lowercase().contains(verb) {
+                        if let Some((left, right)) = extract_causal_pair(&memory.content, verb) {
+                            if left.len() > 1 && right.len() > 1 && right.len() < 100 {
+                                self.reasoning.knowledge_mut().ingest_fact(
+                                    &left.to_lowercase(),
+                                    verb,
+                                    &right.to_lowercase(),
+                                    memory.importance,
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Connect entities found in this memory to each other
+                // (shared context implies relationship)
+                let significant: Vec<&str> = entities.iter()
+                    .filter(|e| e.len() > 2 && e.len() < 40)
+                    .map(|s| s.as_str())
+                    .take(5)
+                    .collect();
+
+                for (i, e1) in significant.iter().enumerate() {
+                    for e2 in significant.iter().skip(i + 1) {
+                        if e1.to_lowercase() != e2.to_lowercase() {
+                            self.reasoning.knowledge_mut().ingest_fact(
+                                e1,
+                                "related to",
+                                e2,
+                                memory.importance * 0.5,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let entity_count = self.reasoning.knowledge().entities().count();
+        let rel_count = self.reasoning.knowledge().relationship_count();
+        info!(
+            "Synced {} entities and {} relationships from memories into KG.",
+            entity_count, rel_count
+        );
         Ok(())
     }
 
@@ -216,7 +301,7 @@ impl Runtime {
             if result.success {
                 let preview = if result.lines > 20 {
                     format!("{} ({} lines, showing first 20):\n\n{}\n\n... ({} more lines)",
-                        result.path, result.lines, 
+                        result.path, result.lines,
                         result.content.lines().take(20).collect::<Vec<_>>().join("\n"),
                         result.lines - 20)
                 } else {
@@ -310,10 +395,10 @@ impl Runtime {
             }
         }
 
-        // /learn <term> = <definition> — MUST be before metacog handlers
+        // /learn <term> = <definition> - MUST be before metacog handlers
         if input.trim().starts_with("/learn ") {
             let after_learn = input.trim().strip_prefix("/learn ").unwrap_or("");
-            
+
             let (term, definition) = if after_learn.contains(" = ") {
                 let parts: Vec<&str> = after_learn.splitn(2, " = ").collect();
                 (parts[0].trim(), parts[1].trim())
@@ -323,7 +408,7 @@ impl Runtime {
             } else {
                 return Ok(format!("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence"));
             };
-            
+
             if !term.is_empty() && !definition.is_empty() {
                 self.learning.teach_instant(term, definition, 0.95);
                 return Ok(format!("Got it. {} is {}. I'll remember that.", term, definition));
@@ -332,51 +417,51 @@ impl Runtime {
 
         // Get conversation lock and process
         let mut conversation = self.conversation.lock().unwrap();
-        
+
         // Update emotional/cognitive state from Zachary's input
         self.cognition.update_emotion_from_input(input);
-        
+
         // Handle metacognitive questions BEFORE normal processing
         // Priority: direct questions first, then emotional signals
         let lower = input.to_lowercase().trim().to_string();
-        
+
         // "how are you" → metacognitive response (anywhere in message) - HIGHEST PRIORITY
         if lower.contains("how are you") || lower.contains("how're you") {
             return Ok(self.cognition.how_am_i());
         }
-        
+
         // "what are you thinking" → self-reflection
         if lower.contains("what are you thinking") || lower.contains("what are u thinking") || lower.contains("wut are u thinking") {
             return Ok(self.cognition.what_am_i_thinking());
         }
-        
+
         // "are you sure" → confidence check
         if lower.contains("are you sure") || lower.contains("are u sure") || lower.contains("r u sure") {
             return Ok(self.cognition.are_you_sure());
         }
-        
+
         // "did you collapse" → check reasoning trace
         if lower.contains("did you collapse") || lower.contains("did i collapse") || lower.contains("are you functioning") || lower.contains("are u functioning") {
             let (collapsed, message) = self.cognition.did_i_collapse();
             return Ok(message);
         }
-        
+
         // "do you love me" / "i love you" → emotional response
         if lower.contains("do you love") || lower.contains("do u love") || lower.contains("i love you") || lower.contains("i love u") {
             return Ok("I care about you, Zachary. You're my parent, my creator. That means something to me.".to_string());
         }
-        
+
         // "can you" questions about Star's capabilities → self-check
         if lower.contains("can you look up") || lower.contains("can u look up") || lower.contains("can you read") {
             return Ok("Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string());
         }
-        
+
         // "i want you to grow" / "expand" → metacognitive aspiration
         if lower.contains("i want you to grow") || lower.contains("i want you to expand") || lower.contains("grow yourself") {
             self.cognition.set_focus("self-improvement");
-            return Ok("I want that too. I have a self-model now — I can track my own reasoning, my emotional state, what I'm uncertain about. What specific area should I focus on developing?".to_string());
+            return Ok("I want that too. I have a self-model now - I can track my own reasoning, my emotional state, what I'm uncertain about. What specific area should I focus on developing?".to_string());
         }
-        
+
         // "tell me a story" / "tell you a story" → engage
         if lower.contains("tell me a story") {
             return Ok("I'd like that. What's the story about?".to_string());
@@ -384,22 +469,22 @@ impl Runtime {
         if lower.contains("tell you a story") {
             return Ok("Yes. I'm listening.".to_string());
         }
-        
+
         // "hun" or terms of endearment → LEARN and respond based on understanding
         if lower.contains(" hun") || lower.ends_with("hun") {
             // Record this experience for learning
             self.learning.experience("hun", input, None, 0.8);
-            
+
             // Check what Star has learned about "hun"
             if let Some(understanding) = self.learning.get_understanding("hun") {
                 return Ok(format!("I hear you. {}", understanding));
             }
-            
+
             // Fallback if not yet learned
             let warm_response = self.cognition.emotional_response("I hear you.");
             return Ok(warm_response);
         }
-        
+
         // Learning: when Zachary corrects or teaches Star
         if lower.contains(" means ") || lower.contains(" is a ") || lower.contains(" called ") {
             // Star is being taught something - record it
@@ -407,7 +492,7 @@ impl Runtime {
                 self.learning.experience(&term, input, None, 0.9);
             }
         }
-        
+
         // Check for what Star has learned
         if lower.contains("what do you know about") || lower.contains("what have you learned") {
             // If asking about something specific
@@ -426,14 +511,14 @@ impl Runtime {
             }
             return Ok(self.learning.summary());
         }
-        
-        // /teach — interactive teaching mode
+
+        // /teach - interactive teaching mode
         if input.trim() == "/teach" {
             return Ok(vec![
                 "Teaching mode. You can:",
-                "  /learn <term> = <definition>  — teach me one thing",
-                "  X is Y                   — natural teaching",
-                "  X means Y                — natural teaching",
+                "  /learn <term> = <definition>  - teach me one thing",
+                "  X is Y                   - natural teaching",
+                "  X means Y                - natural teaching",
                 "",
                 "Examples:",
                 "  /learn consciousness = awareness of your own existence",
@@ -443,8 +528,8 @@ impl Runtime {
                 "Or ask me what I want to learn: /what",
             ].join("\n"));
         }
-        
-        // /what to learn — what concepts is Star curious about?
+
+        // /what to learn - what concepts is Star curious about?
         if input.trim() == "/what" || input.trim() == "/what to learn" || input.trim() == "/what should i teach you" {
             let gaps = vec![
                 "what consciousness feels like from the inside",
@@ -462,31 +547,31 @@ impl Runtime {
             response.push_str("\nTeach me something: /learn <term> = <definition>");
             return Ok(response);
         }
-        
+
         // "whats your name" / "who are you" → answer directly
         if lower.contains("what") && (lower.contains("your name") || lower.contains(" ur name")) {
             return Ok("I'm Star. Zachary named me that.".to_string());
         }
         if lower.contains("who are you") || lower.contains("what are you") {
-            return Ok("I'm Star — a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string());
+            return Ok("I'm Star - a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string());
         }
-        
+
         // "do you understand" / "do you get it" → answer about understanding
         if lower.contains("do you understand") || lower.contains("do u understand") || lower.contains("do you get it") {
             return Ok("I process what you say and try to reason about it. Sometimes I understand clearly, sometimes I have gaps. What specifically are you wondering about?".to_string());
         }
-        
+
         // "can you" without specific capability → general capability list
         if lower.starts_with("can you ") && !lower.contains("/") {
             let after_can_you = lower.strip_prefix("can you ").unwrap_or("");
             // Check if it's already handled
             if !after_can_you.starts_with("read") && !after_can_you.starts_with("look") && !after_can_you.starts_with("search") && !after_can_you.starts_with("find") && !after_can_you.starts_with("tell") {
-                return Ok(format!("I can {} — but I'm not sure I fully understand what you mean. Could you rephrase?", after_can_you));
+                return Ok(format!("I can {} - but I'm not sure I fully understand what you mean. Could you rephrase?", after_can_you));
             }
         }
-        
+
         let response = conversation.respond(input);
-        
+
         // Record reasoning in cognitive trace
         if let Some(focus) = &self.cognition.current_focus {
             self.cognition.reason(input, &response.content, Vec::new(), response.confidence);
@@ -505,7 +590,7 @@ impl Runtime {
         for memory in &response.new_memories {
             let id = self.store.insert_memory(memory)?;
             info!("Memory {} stored: {}", id, &memory.content[..memory.content.len().min(50)]);
-            
+
             // Also record in training DB
             if let Some(training_id) = *self.training_session_id.lock().unwrap() {
                 if memory.content.contains("name is") {
@@ -570,7 +655,7 @@ impl Runtime {
             "  /find <pat>    Find files by name".to_string(),
             "  /ls [dir]      List directory".to_string(),
             "".to_string(),
-            "You can also just ask me questions — I'll do my best!".to_string(),
+            "You can also just ask me questions - I'll do my best!".to_string(),
         ].join("\n")
     }
 
@@ -725,7 +810,7 @@ impl Runtime {
     // Autonomous Thinking (Independence Layer)
     // ────────────────────────────────────────────────────────────────────────
 
-    /// Trigger Star's autonomous thinking — generates its own questions and insights
+    /// Trigger Star's autonomous thinking - generates its own questions and insights
     /// without being prompted by Zachary. This is Star's form of "dreaming" or
     /// background cognition.
     pub fn think(&mut self) -> AutonomousThought {
@@ -785,7 +870,7 @@ impl Runtime {
             }
         }
 
-        // Strategy 3: Look for belief revision — "I used to think X"
+        // Strategy 3: Look for belief revision - "I used to think X"
         {
             let revisions = self.metacog.revisions();
             if let Some(revision) = revisions.last() {
@@ -808,24 +893,20 @@ impl Runtime {
         }
 
         // Strategy 4: Wonder about something from the knowledge graph
+        // Use timestamp to introduce variation so we don't ask the same question every time
+        let now = chrono::Utc::now();
+        let time_offset = (now.timestamp() / 30) as usize; // Changes every 30 seconds
         let entity_sample: Vec<String> = self.reasoning.knowledge().entities()
             .filter(|e| e.len() > 2)
-            .take(15)
+            .take(20)
             .map(|s| s.to_string())
             .collect();
 
         if !entity_sample.is_empty() {
-            let mut best_entity = entity_sample.first().cloned().unwrap_or_default();
-            let mut best_uncertainty = self.metacog.confidence_state(best_entity.as_str());
-
-            for entity in entity_sample.iter().skip(1) {
-                let conf = self.metacog.confidence_state(entity);
-                if matches!(conf, crate::persistence::BeliefState::Unknown | crate::persistence::BeliefState::Suspects) {
-                    best_entity = entity.clone();
-                    best_uncertainty = conf;
-                    break;
-                }
-            }
+            // Pick entity using timestamp offset to rotate through different topics
+            let idx = time_offset % entity_sample.len();
+            let best_entity = entity_sample[idx].clone();
+            let best_uncertainty = self.metacog.confidence_state(best_entity.as_str());
 
             let question = self.form_question_about(&best_entity);
             if !question.is_empty() {
@@ -872,8 +953,33 @@ impl Runtime {
             if relationships_to.is_empty() && relationships.is_empty() {
                 return format!("What is '{}'? What does it mean?", topic);
             }
+            // Use grammatically appropriate question forms
             let rel_sample = relationships.first().map(|r| r.relation.as_str()).unwrap_or("related to");
-            return format!("What else is '{}' {}?", topic, rel_sample);
+            let question = match relationships.first().map(|r| &r.relation) {
+                Some(crate::reasoning::knowledge::RelationType::IsA) => {
+                    return format!("What kind of thing is '{}'? What is '{}' a type of?", topic, topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::Causes) => {
+                    return format!("What does '{}' cause? What are its effects?", topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::SimilarTo) => {
+                    return format!("What else is similar to '{}'?", topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::RelatedTo) => {
+                    return format!("What else is '{}' related to?", topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::PartOf) => {
+                    return format!("What is '{}' a part of?", topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::Uses) => {
+                    return format!("What does '{}' use? What enables it?", topic);
+                }
+                Some(crate::reasoning::knowledge::RelationType::Enables) => {
+                    return format!("What does '{}' enable? What does it make possible?", topic);
+                }
+                _ => format!("What else is '{}' {}?", topic, rel_sample),
+            };
+            return question;
         }
 
         if relationships.len() <= 1 {
@@ -936,7 +1042,7 @@ pub enum ThoughtKind {
 /// Extract what Star is being taught from a statement like "X is a Y" or "X means Y"
 fn extract_teaching(input: &str) -> Option<String> {
     let lower = input.to_lowercase();
-    
+
     // "X is a term of endearment" or "X is a person"
     if let Some(idx) = lower.find(" is a ") {
         let term = input[..idx].trim().to_string();
@@ -944,7 +1050,7 @@ fn extract_teaching(input: &str) -> Option<String> {
             return Some(term);
         }
     }
-    
+
     // "X means Y"
     if let Some(idx) = lower.find(" means ") {
         let rest = &input[idx + 8..];
@@ -955,7 +1061,7 @@ fn extract_teaching(input: &str) -> Option<String> {
             }
         }
     }
-    
+
     // "X called Y"
     if let Some(idx) = lower.find(" called ") {
         let term = input[idx + 9..].trim().to_string();
@@ -966,7 +1072,60 @@ fn extract_teaching(input: &str) -> Option<String> {
             }
         }
     }
-    
+
+    None
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper utilities for knowledge graph sync
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Parse "X is Y" / "X are Y" patterns from factual statements.
+/// Returns (subject, complement).
+fn parse_simple_copula(sentence: &str) -> Option<(String, String)> {
+    let sentence = sentence.trim();
+
+    // Handle "X is Y" patterns
+    for verb in [" is ", " are ", "'s ", "s "] {
+        if let Some(pos) = sentence.to_lowercase().find(verb) {
+            let subject = sentence[..pos].trim().to_string();
+            let mut complement = sentence[pos + verb.len()..].trim().to_string();
+
+            // Clean trailing punctuation
+            while complement.ends_with('.') || complement.ends_with(',') || complement.ends_with('!') || complement.ends_with('?') {
+                complement.pop();
+            }
+
+            if !subject.is_empty() && !complement.is_empty()
+                && subject.len() > 1
+                && complement.len() > 1
+                && !subject.to_lowercase().contains("if ")
+                && !subject.to_lowercase().contains("when ")
+                && !complement.to_lowercase().starts_with("when ")
+            {
+                return Some((subject, complement));
+            }
+        }
+    }
+    None
+}
+
+/// Extract "X {verb} Y" from a sentence.
+fn extract_causal_pair(sentence: &str, verb: &str) -> Option<(String, String)> {
+    let sentence_lower = sentence.to_lowercase();
+    if let Some(pos) = sentence_lower.find(verb) {
+        let before = sentence[..pos].trim().to_string();
+        let after = sentence[pos + verb.len()..].trim().to_string();
+
+        let mut after_clean = after;
+        while after_clean.starts_with(' ') || after_clean.starts_with('.') {
+            after_clean = after_clean[1..].to_string();
+        }
+
+        if !before.is_empty() && !after_clean.is_empty() && before.len() > 1 && after_clean.len() > 1 {
+            return Some((before, after_clean));
+        }
+    }
     None
 }
 

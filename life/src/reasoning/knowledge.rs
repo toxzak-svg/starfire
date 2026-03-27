@@ -109,6 +109,104 @@ impl KnowledgeGraph {
         Self::default()
     }
 
+    /// Ingest a simple factual statement as a relationship.
+    /// Parses "subject verb object" into a relationship between entities.
+    /// 
+    /// Examples:
+    /// - ingest_fact("fire", "causes", "heat", 0.9)
+    /// - ingest_fact("star", "is", "reasoning intelligence", 0.95)
+    pub fn ingest_fact(&mut self, subject: &str, verb: &str, object: &str, confidence: f64) {
+        // Normalize
+        let subject = subject.trim().to_lowercase();
+        let verb = verb.trim().to_lowercase();
+        let object = object.trim().to_lowercase();
+
+        if subject.len() < 2 || object.len() < 2 { return; }
+        if verb.is_empty() { return; }
+
+        // Map common verbs to relation types (only valid enum variants)
+        let rel_type = match verb.as_str() {
+            "is" | "are" | "'s" | "was" | "be" => RelationType::IsA,
+            "causes" | "cause" | "lead to" | "leads to" => RelationType::Causes,
+            "requires" | "need" | "needs" | "depend on" => RelationType::Causes, // closest match
+            "produces" | "create" | "creates" | "make" | "makes" => RelationType::Causes,
+            "enables" | "allow" | "allows" => RelationType::Enables,
+            "uses" | "use" | "using" => RelationType::Uses,
+            "related to" | "related" | "like" | "similar to" | "similar" => RelationType::SimilarTo,
+            "part of" | "part" => RelationType::PartOf,
+            "has" | "have" | "having" => RelationType::HasProperty,
+            "can" | "able to" => RelationType::Enables,
+            "prevents" | "stop" | "stops" => RelationType::Prevents,
+            _ => RelationType::RelatedTo,
+        };
+
+        // Create the relationship
+        let rel = Relationship {
+            from: subject.clone(),
+            to: object.clone(),
+            relation: rel_type,
+            confidence,
+            source: Some(format!("{} {} {}", subject, verb, object)),
+        };
+
+        // Add entities
+        self.add_entity(&subject);
+        self.add_entity(&object);
+
+        // Deduplicate: only add if not already present
+        let key = format!("{}:{}:{}", rel.from, rel.relation.as_str(), rel.to);
+        let exists = self.relationships.iter().any(|r| 
+            format!("{}:{}:{}", r.from, r.relation.as_str(), r.to) == key
+        );
+        if !exists {
+            self.relationships.push(rel);
+        }
+    }
+
+    /// Extract entities (nouns and noun phrases) from text using simple pattern matching.
+    pub fn extract_entities(&self, text: &str) -> Vec<String> {
+        let mut entities = Vec::new();
+        
+        // Pattern 1: Capitalized words (proper nouns)
+        let mut prev_was_cap = false;
+        let mut current_phrase = String::new();
+        for word in text.split_whitespace() {
+            let first_char = word.chars().next().unwrap_or(' ');
+            if first_char.is_uppercase() && first_char.is_alphabetic() {
+                if prev_was_cap && !current_phrase.is_empty() {
+                    current_phrase.push(' ');
+                }
+                current_phrase.push_str(word);
+                prev_was_cap = true;
+            } else {
+                if !current_phrase.is_empty() && current_phrase.len() > 1 {
+                    entities.push(current_phrase.clone());
+                }
+                current_phrase.clear();
+                prev_was_cap = false;
+            }
+        }
+        if !current_phrase.is_empty() && current_phrase.len() > 1 {
+            entities.push(current_phrase);
+        }
+        
+        // Pattern 2: Quoted phrases
+        for (i, ch) in text.char_indices() {
+            if ch == '"' {
+                if let Some(end) = text[i+1..].find('"') {
+                    let phrase = &text[i+1..i+1+end];
+                    if phrase.len() > 2 {
+                        entities.push(phrase.to_string());
+                    }
+                }
+                break;
+            }
+        }
+        
+        entities.dedup();
+        entities
+    }
+
     /// Add an entity.
     pub fn add_entity(&mut self, name: &str) {
         if name.len() < 2 { return; }

@@ -1,0 +1,375 @@
+{
+  "metadata": {
+    "title": "LTX 2.3 Image-to-Video Deployment Knowledge Base",
+    "description": "Comprehensive RAG knowledge base for deploying LTX 2.3 on single RTX 5090 for image-to-video generation",
+    "target_hardware": "NVIDIA RTX 5090 (32GB VRAM)",
+    "use_case": "Image-to-Video (I2V) Generation",
+    "curated_date": "2026-03",
+    "total_entries": 45
+  },
+  "hardware_requirements": {
+    "gpu": {
+      "model": "NVIDIA RTX 5090",
+      "vram": "32GB GDDR7",
+      "architecture": "Blackwell",
+      "notes": "32GB VRAM fits LTX 2.3 in FP16 without quantization"
+    },
+    "system_ram": {
+      "minimum": "32GB",
+      "recommended": "32GB+ DDR5",
+      "notes": "Buffer memory for video processing"
+    },
+    "storage": {
+      "minimum": "2TB NVMe SSD",
+      "notes": "Models, temp frames, output videos"
+    },
+    "power": {
+      "psu": "1000W+",
+      "notes": "RTX 5090 can draw up to 600W"
+    },
+    "cooling": {
+      "type": "High-performance AIO or case airflow",
+      "notes": "Significant heat output during generation"
+    }
+  },
+  "software_stack": {
+    "core_framework": [
+      {
+        "name": "ComfyUI",
+        "purpose": "Primary GUI for LTX-Video generation",
+        "url": "https://github.com/comfyanonymous/ComfyUI"
+      },
+      {
+        "name": "ComfyUI-Manager",
+        "purpose": "Custom node management",
+        "url": "https://github.com/ltdrdata/ComfyUI-Manager"
+      }
+    ],
+    "model_dependencies": [
+      {
+        "name": "LTX-Video",
+        "purpose": "LTX 2.3 video generation model",
+        "url": "https://huggingface.co/Lightricks/LTX-Video"
+      },
+      {
+        "name": "PyTorch 2.x",
+        "purpose": "Deep learning framework",
+        "url": "https://pytorch.org/"
+      },
+      {
+        "name": "CUDA 12.x",
+        "purpose": "GPU compute toolkit",
+        "url": "https://developer.nvidia.com/cuda-downloads"
+      },
+      {
+        "name": "FFmpeg",
+        "purpose": "Video encoding/output",
+        "url": "https://ffmpeg.org/"
+      }
+    ],
+    "optimization_libraries": [
+      {
+        "name": "Flash Attention",
+        "purpose": "Memory-efficient attention mechanism"
+      },
+      {
+        "name": "xFormers",
+        "purpose": "Additional attention optimizations"
+      },
+      {
+        "name": "PyTorch compile",
+        "purpose": "Graph optimization for inference (~10-20% speedup)"
+      }
+    ]
+  },
+  "deployment_steps": [
+    {
+      "step": 1,
+      "title": "Environment Setup",
+      "commands": [
+        "Install CUDA 12.x + cuDNN",
+        "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121"
+      ]
+    },
+    {
+      "step": 2,
+      "title": "ComfyUI Installation",
+      "commands": [
+        "git clone https://github.com/comfyanonymous/ComfyUI",
+        "pip install -r requirements.txt",
+        "python main.py"
+      ]
+    },
+    {
+      "step": 3,
+      "title": "Install Custom Nodes",
+      "actions": [
+        "Open ComfyUI",
+        "Open ComfyUI-Manager",
+        "Search and install LTX or Video related nodes",
+        "Restart ComfyUI"
+      ]
+    },
+    {
+      "step": 4,
+      "title": "Download Model",
+      "actions": [
+        "Get LTX-Video weights from HuggingFace",
+        "Place in ComfyUI/models/ directory",
+        "Verify model loads correctly"
+      ]
+    },
+    {
+      "step": 5,
+      "title": "Configure Output",
+      "actions": [
+        "Install FFmpeg for video encoding",
+        "Set up output directory structure"
+      ]
+    }
+  ],
+  "i2v_workflow": {
+    "pipeline": [
+      {
+        "stage": 1,
+        "name": "Load Image",
+        "description": "Upload conditioning frame to ComfyUI"
+      },
+      {
+        "stage": 2,
+        "name": "Configure Parameters",
+        "parameters": [
+          "Number of frames",
+          "FPS (typically 24-30)",
+          "Guidance scale",
+          "Seed for reproducibility"
+        ]
+      },
+      {
+        "stage": 3,
+        "name": "Run Inference",
+        "description": "Generate video frames"
+      },
+      {
+        "stage": 4,
+        "name": "Compile Video",
+        "description": "Use FFmpeg to combine frames into video"
+      }
+    ],
+    "comfyui_nodes": [
+      "Load Image node",
+      "LTX Video Generate node",
+      "Video Combine node",
+      "Save Video node"
+    ]
+  },
+  "optimization_guide": {
+    "vram_optimization": [
+      {
+        "technique": "FP16 (default)",
+        "use_case": "Recommended for RTX 5090 - no quantization needed"
+      },
+      {
+        "technique": "INT8 Quantization",
+        "use_case": "If memory issues arise"
+      },
+      {
+        "technique": "CPU Offload",
+        "use_case": "If VRAM still insufficient"
+      }
+    ],
+    "performance_tuning": [
+      {
+        "parameter": "Batch Size",
+        "recommendation": "1 (single image to video)"
+      },
+      {
+        "parameter": "Attention",
+        "recommendation": "Flash Attention enabled"
+      },
+      {
+        "parameter": "Compilation",
+        "recommendation": "torch.compile() for 10-20% speedup"
+      },
+      {
+        "parameter": "Prefill",
+        "recommendation": "Optimize for prefill over decoding"
+      }
+    ],
+    "troubleshooting": [
+      {
+        "issue": "OOM Errors",
+        "solution": "Reduce frame count, check batch size"
+      },
+      {
+        "issue": "Slow Generation",
+        "solution": "Enable torch.compile(), use SSD for temp storage"
+      },
+      {
+        "issue": "Black Output",
+        "solution": "Check FFmpeg installation, verify model weights"
+      }
+    ]
+  },
+  "model_specifications": {
+    "ltx_video_2_3": {
+      "architecture": "Transformer-based video diffusion",
+      "input": "Image (conditioning frame) + text prompts",
+      "output": "Video frames",
+      "context": "Supports various frame lengths",
+      "precision": "FP16 recommended on 32GB VRAM"
+    },
+    "vram_estimates": [
+      {
+        "config": "FP16 (24 frames)",
+        "usage": "~20-28GB"
+      },
+      {
+        "config": "FP16 (50 frames)",
+        "usage": "~28-32GB"
+      },
+      {
+        "config": "INT8 (24 frames)",
+        "usage": "~14-18GB"
+      }
+    ]
+  },
+  "related_resources": {
+    "video_generation_models": [
+      {
+        "name": "Stable Video Diffusion",
+        "description": "Latent consistency video generation",
+        "url": "https://github.com/Stability-AI/generative-models"
+      },
+      {
+        "name": "ZeroScope",
+        "description": "Consumer GPU optimized",
+        "url": "https://github.com/cerspense/zeroscope"
+      },
+      {
+        "name": "ModelScope",
+        "description": "Alibaba T2V framework",
+        "url": "https://github.com/modelscope/modelscope"
+      },
+      {
+        "name": "AnimateDiff",
+        "description": "SD-based video animation",
+        "url": "https://github.com/guoyww/AnimateDiff"
+      }
+    ],
+    "inference_engines": [
+      {
+        "name": "llama.cpp",
+        "best_for": "CPU+GPU lean inference"
+      },
+      {
+        "name": "vLLM",
+        "best_for": "High-throughput serving"
+      },
+      {
+        "name": "TensorRT-LLM",
+        "best_for": "NVIDIA-optimized inference"
+      },
+      {
+        "name": "Ollama",
+        "best_for": "Easy local deployment"
+      }
+    ],
+    "quantization_tools": [
+      {
+        "name": "AutoGPTQ",
+        "use_case": "GPTQ quantization"
+      },
+      {
+        "name": "exllamav2/v3",
+        "use_case": "Optimized quantized inference"
+      },
+      {
+        "name": "GGUF",
+        "use_case": "llama.cpp format"
+      }
+    ]
+  },
+  "reference_links": {
+    "official": [
+      {
+        "name": "LTX-Video HuggingFace",
+        "url": "https://huggingface.co/Lightricks/LTX-Video"
+      },
+      {
+        "name": "ComfyUI Documentation",
+        "url": "https://docs.comfy.org/"
+      },
+      {
+        "name": "NVIDIA TensorRT-LLM",
+        "url": "https://github.com/NVIDIA/TensorRT-LLM"
+      }
+    ],
+    "community": [
+      {
+        "name": "r/LocalLLaMA",
+        "url": "https://www.reddit.com/r/LocalLLaMA/"
+      },
+      {
+        "name": "ComfyUI Discord",
+        "url": "https://discord.gg/comfyui"
+      },
+      {
+        "name": "HuggingFace Spaces",
+        "url": "https://huggingface.co/spaces"
+      }
+    ],
+    "hardware_reviews": [
+      {
+        "name": "RTX 5090 TechPowerUp Review",
+        "url": "https://www.techpowerup.com/review/nvidia-geforce-rtx-5090-founders-edition"
+      },
+      {
+        "name": "RTX 5090 Tom's Hardware",
+        "url": "https://www.tomshardware.com/nvidia/nvidia-rtx-5090-review"
+      }
+    ]
+  },
+  "checklist": {
+    "hardware_setup": [
+      "RTX 5090 installed",
+      "32GB+ system RAM",
+      "2TB+ NVMe SSD",
+      "1000W+ PSU"
+    ],
+    "software_setup": [
+      "CUDA 12.x installed",
+      "PyTorch 2.x with CUDA",
+      "ComfyUI installed",
+      "ComfyUI-Manager installed",
+      "LTX custom nodes installed",
+      "FFmpeg installed",
+      "LTX-Video model downloaded"
+    ],
+    "testing": [
+      "Verify GPU detection (nvidia-smi)",
+      "Test ComfyUI loads",
+      "Test LTX model loads",
+      "Generate test video",
+      "Verify output plays correctly"
+    ]
+  },
+  "faq": [
+    {
+      "question": "Why RTX 5090 for LTX 2.3?",
+      "answer": "The RTX 5090's 32GB VRAM allows running LTX 2.3 at full FP16 precision without quantization, providing maximum quality. The GDDR7 memory bandwidth and Blackwell tensor cores are optimized for transformer-based video diffusion models."
+    },
+    {
+      "question": "Do I need quantization?",
+      "answer": "No, with 32GB VRAM you can run at FP16 full precision. Quantization (INT8) would only be needed if you were running on GPUs with less than 16GB VRAM."
+    },
+    {
+      "question": "How many frames can I generate?",
+      "answer": "With 32GB VRAM at FP16, you can typically generate 24-50 frames depending on resolution. Start with 24 frames and increase if you have headroom."
+    },
+    {
+      "question": "What about multiple GPUs?",
+      "answer": "This guide focuses on single RTX 5090 deployment. For multi-GPU setups, you would need to look into tensor parallelism or model distribution frameworks."
+    }
+  ]
+}

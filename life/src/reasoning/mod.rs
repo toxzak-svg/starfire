@@ -58,6 +58,11 @@ impl ReasoningEngine {
         &self.knowledge
     }
 
+    /// Get a mutable reference to the knowledge graph (for syncing from memory store).
+    pub fn knowledge_mut(&mut self) -> &mut knowledge::KnowledgeGraph {
+        &mut self.knowledge
+    }
+
     pub fn new() -> Self {
         let knowledge = knowledge::KnowledgeGraph::new();
         let kg_arc = std::sync::Arc::new(std::sync::RwLock::new(knowledge.clone()));

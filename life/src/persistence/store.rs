@@ -234,18 +234,20 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let now = chrono::Utc::now().timestamp();
         
-        // Simple relevance: content match + importance + recency
-        // In a full implementation, this would use proper scoring
         let domain_filter = domain.map(|d| format!("AND domain = '{}'", format!("{:?}", d).to_lowercase())).unwrap_or_default();
-        
         let sql = format!(
             "SELECT * FROM memories WHERE content LIKE ?1 {} ORDER BY importance DESC, last_accessed DESC LIMIT ?2",
             domain_filter
         );
         
-        let pattern = format!("%{}%", query);
+        // Use word boundaries to avoid matching "brain" when searching for "rain"
+        // Match: "rain " or " rain" or " rain " at word boundaries
+        let exact_pattern = format!("% {} %", query);
+        let partial_pattern = format!("%{}%", query);
+        
+        // Try exact word match first (surrounded by spaces)
         let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map(params![pattern, limit as i64], |row| row_to_memory(row))?;
+        let rows = stmt.query_map(params![exact_pattern, limit as i64], |row| row_to_memory(row))?;
         
         let mut results = Vec::new();
         for row in rows {
@@ -253,6 +255,22 @@ impl Store {
             mem.record_access(now);
             results.push(mem);
         }
+        
+        // If no exact matches and query is long enough, try partial match
+        if results.is_empty() && query.len() > 4 {
+            // Avoid matching substrings in common words
+            let skip_substrings = ["the ", "and ", "for ", "brain", "drain", "train", "grain", "plain", "remain", "contain", "about", "which"];
+            if !skip_substrings.contains(&query.to_lowercase().as_str()) {
+                let mut stmt = conn.prepare(&sql)?;
+                let rows = stmt.query_map(params![partial_pattern, limit as i64], |row| row_to_memory(row))?;
+                for row in rows {
+                    let mut mem = row?;
+                    mem.record_access(now);
+                    results.push(mem);
+                }
+            }
+        }
+        
         Ok(results)
     }
 

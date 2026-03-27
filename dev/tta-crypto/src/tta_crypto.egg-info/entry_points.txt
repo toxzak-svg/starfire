@@ -1,0 +1,2 @@
+[console_scripts]
+tta-crypto = tta_crypto.cli:main

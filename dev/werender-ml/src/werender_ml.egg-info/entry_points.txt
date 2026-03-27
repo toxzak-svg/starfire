@@ -1,0 +1,2 @@
+[console_scripts]
+werender-ml = werender_ml.main:main
