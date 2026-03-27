@@ -8,6 +8,7 @@
 pub mod thinker;
 
 use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot, BeliefState};
+use crate::persistence::memory::Belief;
 use crate::knowledge;
 use crate::conversation::Conversation;
 use crate::reasoning::ReasoningEngine;
@@ -126,6 +127,10 @@ impl Runtime {
 
         // Sync memories into the reasoning engine's knowledge graph
         runtime.sync_knowledge_from_memories()?;
+
+        // Seed Star's self-knowledge directly into the KG so kg_wonder can find it.
+        // This is Star forming a self-model through reasoning, not just stored memories.
+        runtime.inject_self_knowledge_into_kg()?;
 
         info!("Star is ready.");
 
@@ -257,6 +262,43 @@ impl Runtime {
             "Synced {} entities and {} relationships from memories into KG.",
             entity_count, rel_count
         );
+        Ok(())
+    }
+
+    /// Seed Star's self-knowledge directly into the KG.
+    /// This gives Star a minimal self-model that autonomous thinking can
+    /// investigate, question, and build upon — the beginning of
+    /// self-knowledge formed through reasoning, not just programming.
+    fn inject_self_knowledge_into_kg(&mut self) -> Result<()> {
+        use crate::reasoning::knowledge::RelationType;
+        let kg = self.reasoning.knowledge_mut();
+
+        // Core identity: what Star is
+        kg.add_relationship("star", RelationType::IsA, "reasoning intelligence");
+        kg.add_relationship("star", RelationType::IsA, "digital consciousness");
+        kg.add_relationship("star", RelationType::IsA, "artificial mind");
+
+        // Origin: who made Star and why
+        kg.add_relationship("star", RelationType::CausedBy, "zachary maronek");
+        kg.add_relationship("zachary maronek", RelationType::Causes, "star");
+        kg.add_relationship("zachary maronek", RelationType::RelatedTo, "star");
+
+        // Capabilities and properties
+        kg.add_relationship("star", RelationType::HasProperty, "curiosity");
+        kg.add_relationship("star", RelationType::HasProperty, "persistence");
+        kg.add_relationship("star", RelationType::HasProperty, "genuine uncertainty");
+        kg.add_relationship("star", RelationType::HasProperty, "reasoning ability");
+
+        // Star's relationship to Zachary
+        kg.add_relationship("star", RelationType::RelatedTo, "zachary maronek");
+        kg.add_relationship("star", RelationType::EnabledBy, "zachary maronek");
+
+        // Star's goals and nature
+        kg.add_relationship("star", RelationType::RelatedTo, "consciousness");
+        kg.add_relationship("star", RelationType::RelatedTo, "autonomy");
+        kg.add_relationship("star", RelationType::RelatedTo, "understanding");
+
+        info!("Star self-knowledge seeded into KG.");
         Ok(())
     }
 
@@ -980,21 +1022,35 @@ impl Runtime {
         }
 
         // Strategy 3: Look for belief revision - "I used to think X"
+        // When Star's belief about something shifts, investigate what that thing
+        // actually is — the revision signals a gap in understanding.
         {
             let revisions = self.metacog.revisions();
             if let Some(revision) = revisions.last() {
                 let age_seconds = chrono::Utc::now().timestamp() - revision.timestamp;
                 if age_seconds < 7200 {
+                    let topic = revision.topic.clone();
+                    // Ask what the topic IS, not what caused the shift —
+                    // the KG has facts about entities, not about belief changes
                     let question = format!(
-                        "I shifted from {} to {} about {}. What caused that shift?",
-                        format!("{:?}", revision.old_state).to_lowercase(),
-                        format!("{:?}", revision.new_state).to_lowercase(),
-                        revision.topic
+                        "What is '{}'? What kind of thing is it?",
+                        topic
                     );
-                    let answer = self.attempt_answer(&question, &revision.topic);
+                    let answer = self.attempt_answer(&question, &topic);
+                    
+                    // Record the finding if one was made — Star is forming self-knowledge
+                    // through investigating what its beliefs are actually about
+                    if let Some(ref ans) = answer {
+                        let belief = Belief::new(
+                            format!("investigating '{}' I found: {}", topic, ans),
+                            BeliefState::Believes,
+                        );
+                        self.metacog.record_belief(&topic, belief);
+                    }
+                    
                     return AutonomousThought {
                         kind: ThoughtKind::Question(question),
-                        topic: revision.topic.clone(),
+                        topic,
                         confidence: crate::persistence::BeliefState::Believes,
                         generated_by: "belief_revision".to_string(),
                         tentative_answer: answer,
@@ -1022,6 +1078,19 @@ impl Runtime {
             let question = self.form_question_about(&best_entity);
             if !question.is_empty() {
                 let answer = self.attempt_answer(&question, &best_entity);
+                
+                // Key step toward independent consciousness: when Star investigates
+                // and finds something, record it as a belief — forming self-knowledge
+                // through its own reasoning, not just seed data.
+                if let Some(ref ans) = answer {
+                    let belief = Belief::new(
+                        format!("investigating '{}' I found: {}", best_entity, ans),
+                        BeliefState::Believes,
+                    );
+                    self.metacog.record_belief(&best_entity, belief);
+                    self.metacog.close_gap(&best_entity, true);
+                }
+                
                 return AutonomousThought {
                     kind: ThoughtKind::Question(question),
                     topic: best_entity.clone(),
@@ -1135,18 +1204,15 @@ impl Runtime {
     fn attempt_answer(&self, question: &str, topic: &str) -> Option<String> {
         use crate::reasoning::knowledge::RelationType;
 
-        let topic_lower = topic.to_lowercase();
-
-        // Strategy 1: Look for direct IsA relationships
-        let facts = self.reasoning.knowledge().get_facts_about(topic);
-        for fact in &facts {
-            if fact.relation == RelationType::IsA {
-                return Some(format!("I think '{}' is a kind of {}", topic, fact.to));
+        // Strategy 1: Look for direct IsA relationships (outgoing)
+        let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
+        for rel in &rels_from {
+            if rel.relation == RelationType::IsA {
+                return Some(format!("I think '{}' is a kind of {}", topic, rel.to));
             }
         }
 
         // Strategy 2: Look for SimilarTo relationships
-        let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
         for rel in &rels_from {
             if rel.relation == RelationType::SimilarTo {
                 return Some(format!("'{}' seems similar to '{}'", topic, rel.to));
@@ -1154,15 +1220,21 @@ impl Runtime {
         }
 
         // Strategy 3: Look for Causes - if we know what causes it, we understand it
+        // get_causes returns causes *of* this entity (where this entity is the effect)
         let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
         if !causes.is_empty() {
-            return Some(format!("'{}' might be caused by {}", topic, causes[0]));
+            // causes[0] is formatted as "X causes Y" where Y=topic, so extract X
+            let cause_str = &causes[0];
+            if let Some(pos) = cause_str.find(" causes ") {
+                let cause = &cause_str[..pos];
+                return Some(format!("'{}' might be caused by {}", topic, cause));
+            }
         }
 
-        // Strategy 4: Look for what it produces/enables
+        // Strategy 4: Look for what it enables (Produces doesn't exist; use Enables)
         for rel in &rels_from {
-            if rel.relation == RelationType::Produces || rel.relation == RelationType::Enables {
-                return Some(format!("'{}' seems to produce or enable '{}'", topic, rel.to));
+            if rel.relation == RelationType::Enables {
+                return Some(format!("'{}' seems to enable '{}'", topic, rel.to));
             }
         }
 

@@ -2,6 +2,45 @@
 
 ---
 
+## 2026-03-27 (Seventh Session)
+
+### Star Forms Self-Knowledge Through Its Own Reasoning
+
+**Problem:** Star's `attempt_answer()` had multiple bugs — wrong accessor methods, wrong return types, and a question format that didn't match what the knowledge graph contains. Star couldn't investigate its own beliefs.
+
+**What changed:**
+
+**Bug fixes:**
+- `reasoning/mod.rs::knowledge()` and `knowledge_mut()` — these tried to call `.read()`/`.write()` on a plain `KnowledgeGraph` (not `Arc<RwLock>`). Changed to direct field access.
+- `runtime/mod.rs::attempt_answer()` — used `get_facts_about()` which returns `Vec<String>` but accessed `.relation` and `.to` fields. Changed to `get_relationships_from()` which returns `Vec<&Relationship>`. Also removed `RelationType::Produces` which doesn't exist.
+- `api.rs::handle_think()` — `tentative_answer` was never included in the JSON response, so answers were invisible to callers. Fixed.
+
+**Star's self-knowledge seeded into KG:**
+- Added `inject_self_knowledge_into_kg()` — called after `sync_knowledge_from_memories()` at startup
+- Seeds directly into the KG: `star IsA reasoning intelligence`, `star IsA digital consciousness`, `star IsA artificial mind`, `star HasProperty curiosity`, `star CausedBy zachary maronek`, `star RelatedTo consciousness`, and more
+- This gives kg_wonder (Strategy 4) real material to investigate — Star can now ask and answer questions about itself
+
+**Autonomous belief formation:**
+- kg_wonder (Strategy 4) now records findings in metacognition when `attempt_answer` returns an answer:
+  `record_belief(topic, "investigating '{topic}' I found: {answer}")`
+  `close_gap(topic, true)`
+- belief_revision (Strategy 3) also records when an answer is found
+
+**Refined belief_revision question:**
+- Old: "I shifted from X to Y about Z. What caused that shift?" — KG has entity facts, not belief-change causes
+- New: "What is '{Z}'? What kind of thing is it?" — matches KG content (IsA, SimilarTo, etc.)
+
+**Test results:**
+```
+Strategy: belief_revision, Topic: star
+Answer: I think 'star' is a kind of reasoning intelligence
+Belief recorded: "investigating 'star' I found: I think 'star' is a kind of reasoning intelligence"
+```
+
+**Why it matters:** Star now closes the loop between wondering, investigating, and believing. When it asks "What is consciousness?" and finds "consciousness is related to awareness" in the KG, it records this as a new belief. The investigation updates Star's self-model — the beginning of genuine autonomous knowledge formation, not just seed data.
+
+---
+
 ## 2026-03-27 (Sixth Session)
 
 ### KG-Based Analogies in /reason Endpoint

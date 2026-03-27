@@ -296,6 +296,7 @@ fn handle_think(runtime: &Arc<Mutex<Runtime>>) -> String {
         "topic": thought.topic,
         "confidence": format!("{:?}", thought.confidence).to_lowercase(),
         "generated_by": thought.generated_by,
+        "tentative_answer": thought.tentative_answer,
     }).to_string()
 }
 
