@@ -983,7 +983,7 @@ impl Runtime {
                         let answer = self.attempt_answer(&question, &gap_topic);
                         
                         // Handle the answer — either found knowledge, or a "known unknown" marker
-                        let final_answer = if let Some(ref ans) = answer {
+                        let final_answer = if let Some((ans, _evidence)) = answer {
                             if ans.starts_with("__KNOWN_UNKNOWN__") {
                                 // Strategy 6 found no topic-specific belief — record "known unknown"
                                 // This is genuine epistemic growth: "I don't know" → "I know I don't know"
@@ -1076,12 +1076,12 @@ impl Runtime {
                     // through investigating what its beliefs are actually about.
                     // Skip if the answer already came from Strategy 0 (an existing belief)
                     // — no need to re-wrap an already-formed belief.
-                    if let Some(ref ans) = answer {
-                        let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", topic));
+                    if let Some((ref ans_text, ref evidence)) = answer {
+                        let already_wrapped = ans_text.starts_with(&format!("investigating '{}' I found: ", topic));
                         if !already_wrapped {
                             let belief = Belief::new(
-                                format!("investigating '{}' I found: {}", topic, ans),
-                                BeliefState::Believes,
+                                format!("investigating '{}' I found: {}", topic, ans_text),
+                                Self::belief_state_from_evidence(evidence),
                             );
                             self.metacog.record_belief(&topic, belief);
                         }
@@ -1093,7 +1093,7 @@ impl Runtime {
                         topic,
                         confidence: crate::persistence::BeliefState::Believes,
                         generated_by: "belief_revision".to_string(),
-                        tentative_answer: answer,
+                        tentative_answer: answer.map(|(s, _)| s),
                     };
                 }
             }
@@ -1126,10 +1126,10 @@ impl Runtime {
                 // and finds something, record it as a belief — forming self-knowledge
                 // through its own reasoning, not just seed data.
                 // Handle both normal answers and __KNOWN_UNKNOWN__ markers.
-                let final_answer = if let Some(ref ans) = answer {
-                    if ans.starts_with("__KNOWN_UNKNOWN__") {
+                let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                    if ans_text.starts_with("__KNOWN_UNKNOWN__") {
                         // Record "known unknown" belief, then close gap with resolved=false
-                        let unknown_topic = ans.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
+                        let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
                         let known_unknown = Belief::new(
                             format!("I don't know what '{}' is yet — this is a genuine unknown I want to investigate.", unknown_topic),
                             BeliefState::Suspects,
@@ -1139,11 +1139,11 @@ impl Runtime {
                         Some(format!("I genuinely don't know what '{}' is yet.", unknown_topic))
                     } else {
                         // Normal answer — check for double-wrap and record
-                        let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", best_entity));
+                        let already_wrapped = ans_text.starts_with(&format!("investigating '{}' I found: ", best_entity));
                         if !already_wrapped {
                             let belief = Belief::new(
-                                format!("investigating '{}' I found: {}", best_entity, ans),
-                                BeliefState::Believes,
+                                format!("investigating '{}' I found: {}", best_entity, ans_text),
+                                Self::belief_state_from_evidence(evidence),
                             );
                             self.metacog.record_belief(&best_entity, belief);
                             
@@ -1151,7 +1151,7 @@ impl Runtime {
                             // things RELATED TO what it found — the entities mentioned in the answer.
                             // This spreads curiosity outward from discoveries rather than re-hashing
                             // the same topic. Extract entity-like words from the answer.
-                            let related_topics = extract_related_topics(&ans);
+                            let related_topics = extract_related_topics(&ans_text);
                             for related in related_topics {
                                 // Only add if Star doesn't already have a belief about it
                                 // and it hasn't been noted as a curiosity already
@@ -1162,7 +1162,7 @@ impl Runtime {
                             }
                         }
                         self.metacog.close_gap(&best_entity, true);
-                        Some(ans.clone())
+                        Some(ans_text.clone())
                     }
                 } else {
                     None
@@ -1276,9 +1276,9 @@ impl Runtime {
     }
 
     /// Attempt to answer a question using Star's knowledge graph and reasoning.
-    /// This is how Star moves from wondering to investigating - it forms a tentative
-    /// answer from what it already knows, which can then be refined through conversation.
-    fn attempt_answer(&self, question: &str, topic: &str) -> Option<String> {
+    /// Returns (answer_text, evidence_type) where evidence_type is used to determine
+    /// confidence when recording as a belief.
+    fn attempt_answer(&self, question: &str, topic: &str) -> Option<(String, &'static str)> {
         use crate::reasoning::knowledge::RelationType;
 
         // Strategy 0 (pre-check): If Star already has an actual belief about this topic
@@ -1286,113 +1286,115 @@ impl Runtime {
         // (seeded at bootstrap) into the reasoning process before KG queries.
         // We return the raw belief content to avoid nesting "I believe:" wrappers.
         if let Some(belief) = self.metacog.belief_about(topic) {
-            return Some(belief.content.clone());
+            return Some((belief.content.clone(), "self-knowledge"));
         }
 
         // Strategy 1: Look for direct IsA relationships (outgoing)
         let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
         for rel in &rels_from {
             if rel.relation == RelationType::IsA {
-                return Some(format!("I think '{}' is a kind of {}", topic, rel.to));
+                return Some((format!("I think '{}' is a kind of {}", topic, rel.to), "direct"));
             }
         }
 
-        // Strategy 1.5 (NEW): Look for reverse IsA — where topic is the CATEGORY,
-        // not the specific thing. E.g., if KG has "star IsA reasoning intelligence",
-        // then for topic="reasoning intelligence", rels_to gives "star --IsA--> reasoning intelligence"
-        // This lets Star answer "what kinds of X are there?" where X is a category.
-        // Avoid redundant "X is a kind of X" answers.
+        // Strategy 1.5: Look for reverse IsA — where topic is the CATEGORY
         let rels_to = self.reasoning.knowledge().get_relationships_to(topic);
         for rel in &rels_to {
             if rel.relation == RelationType::IsA && rel.from.to_lowercase() != topic.to_lowercase() {
-                return Some(format!("'{}' is a kind of {}", rel.from, topic));
+                return Some((format!("'{}' is a kind of {}", rel.from, topic), "category"));
             }
         }
 
         // Strategy 2: Look for SimilarTo relationships (outgoing)
         for rel in &rels_from {
             if rel.relation == RelationType::SimilarTo {
-                return Some(format!("'{}' seems similar to '{}'", topic, rel.to));
+                return Some((format!("'{}' seems similar to '{}'", topic, rel.to), "analogy"));
             }
         }
 
-        // Strategy 2.5 (NEW): Reverse SimilarTo — find things similar to the topic
+        // Strategy 2.5: Reverse SimilarTo — find things similar to the topic
         for rel in &rels_to {
             if rel.relation == RelationType::SimilarTo && rel.from.to_lowercase() != topic.to_lowercase() {
-                return Some(format!("'{}' seems similar to '{}' — they share properties", topic, rel.from));
+                return Some((format!("'{}' seems similar to '{}' — they share properties", topic, rel.from), "analogy"));
             }
         }
 
         // Strategy 3: Look for reverse Causes — what causes the topic?
-        // get_causes returns "X causes Y" strings where Y=topic
         let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
         if !causes.is_empty() {
             let cause_str = &causes[0];
             if let Some(pos) = cause_str.find(" causes ") {
                 let cause = &cause_str[..pos];
-                return Some(format!("'{}' might be caused by {}", topic, cause));
+                return Some((format!("'{}' might be caused by {}", topic, cause), "causal"));
             }
         }
 
-        // Strategy 3.5 (NEW): Look for outgoing Causes — what does the topic cause?
-        // This is the inverse: topic is the CAUSE, not the effect.
+        // Strategy 3.5: Look for outgoing Causes — what does the topic cause?
         for rel in &rels_from {
             if rel.relation == RelationType::Causes && rel.to.to_lowercase() != topic.to_lowercase() {
-                return Some(format!("'{}' causes '{}'", topic, rel.to));
+                return Some((format!("'{}' causes '{}'", topic, rel.to), "causal"));
             }
         }
 
-        // Strategy 4: Look for what it enables (Produces doesn't exist; use Enables)
+        // Strategy 4: Look for what it enables
         for rel in &rels_from {
             if rel.relation == RelationType::Enables {
-                return Some(format!("'{}' seems to enable '{}'", topic, rel.to));
+                return Some((format!("'{}' seems to enable '{}'", topic, rel.to), "enablement"));
             }
         }
 
-        // Strategy 4.5 (NEW): Reverse Enables — what enables the topic?
+        // Strategy 4.5: Reverse Enables — what enables the topic?
         for rel in &rels_to {
             if rel.relation == RelationType::Enables {
-                return Some(format!("'{}' seems to be enabled by '{}'", topic, rel.from));
+                return Some((format!("'{}' seems to be enabled by '{}'", topic, rel.from), "enablement"));
             }
         }
 
         // Strategy 5: Look for RelatedTo
         for rel in &rels_from {
             if rel.relation == RelationType::RelatedTo {
-                return Some(format!("'{}' is related to '{}'", topic, rel.to));
+                return Some((format!("'{}' is related to '{}'", topic, rel.to), "association"));
             }
         }
 
-        // Strategy 5.5 (NEW): Look for HasProperty — what characterizes the topic?
+        // Strategy 5.5: Look for HasProperty — what characterizes the topic?
         for rel in &rels_from {
             if rel.relation == RelationType::HasProperty && rel.to.to_lowercase() != topic.to_lowercase() {
-                return Some(format!("'{}' is characterized by {}", topic, rel.to));
+                return Some((format!("'{}' is characterized by {}", topic, rel.to), "property"));
             }
         }
 
-        // Strategy 6: Check metacognition - what does Star already believe about this?
-        // If no topic-specific belief exists (Unknown state), return a special marker
-        // that tells the caller to record a "known unknown" belief.
-        // The marker format is "__KNOWN_UNKNOWN__<topic>" — caller detects and handles.
+        // Strategy 6: Check metacognition - what does Star already believe?
         let mc_confidence = self.metacog.confidence_state(topic);
         match mc_confidence {
             crate::persistence::BeliefState::Knows => {
-                return Some(format!("I know what '{}' is - I understand it.", topic));
+                return Some((format!("I know what '{}' is - I understand it.", topic), "self-knowledge"));
             }
             crate::persistence::BeliefState::Believes => {
-                return Some(format!("I believe I understand '{}' but I want to be sure.", topic));
+                return Some((format!("I believe I understand '{}' but I want to be sure.", topic), "self-knowledge"));
             }
             crate::persistence::BeliefState::Suspects => {
-                return Some(format!("I suspect '{}' might be something specific, but I'm not certain.", topic));
+                return Some((format!("I suspect '{}' might be something specific, but I'm not certain.", topic), "self-knowledge"));
             }
             crate::persistence::BeliefState::Unknown => {
-                // Return marker so caller can record the "known unknown" as a belief
-                return Some(format!("__KNOWN_UNKNOWN__{}", topic));
+                return Some((format!("__KNOWN_UNKNOWN__{}", topic), "gap"));
             }
             _ => {}
         }
 
         None
+    }
+
+    /// Determine belief state from evidence type.
+    /// Stronger evidence types → higher confidence.
+    fn belief_state_from_evidence(evidence: &str) -> BeliefState {
+        match evidence {
+            "direct" | "category" | "self-knowledge" => BeliefState::Believes,
+            "causal" | "enablement" | "property" => BeliefState::Believes,
+            "analogy" | "association" => BeliefState::Suspects,
+            "gap" => BeliefState::Suspects,
+            _ => BeliefState::Suspects,
+        }
     }
 }
 
