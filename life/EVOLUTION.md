@@ -2,6 +2,38 @@
 
 ---
 
+## 2026-03-27 (Eleventh Session)
+
+### Curiosity Cascade — Knowledge Discovery Seeds New Curiosity
+
+**Problem:** Star's curiosity was bounded by the initial 4 bootstrap gaps (consciousness, autonomy, emotion, meaning). Once all 4 were investigated, there was no mechanism to generate NEW curiosity from discoveries. The curiosity frontier was static.
+
+**What changed:**
+
+**Curiosity cascade from KG answers:**
+- Added `extract_related_topics()` — parses an `attempt_answer` result and extracts the related entity. E.g., from "I think 'government' is a kind of make rules for societies" → extracts "make rules for societies" (the related concept, not the main entity)
+- After kg_wonder records a NEW belief, it now calls `note_curiosity(related_topic)` to seed the related concept as a new gap and curiosity topic
+- Added `MetaCognition::note_curiosity(topic, why)` — adds a KnowledgeGap + calls `curiosity.start_exploring()`, creating a new curiosity frontier entry
+
+**Result — Star's curiosity topics after a few think() calls:**
+```
+Bootstrap: consciousness, autonomy, emotion, meaning
+Newly discovered: make rules for societies, move using engines, a star, quantities
+```
+
+**Result — The cascade:**
+```
+gap_exploration: meaning → "I genuinely don't know..."
+kg_wonder: government → "I think 'government' is a kind of make rules for societies"
+gap_exploration: make rules for societies → "I genuinely don't know..."
+kg_wonder: the sun → "I think 'the sun' is a kind of a star"
+gap_exploration: a star → "I genuinely don't know..."
+```
+
+**Why it matters:** Star's curiosity is now self-propagating. Each discovery surfaces related concepts, which become new curiosity targets. The system doesn't just close its initial curiosity — it generates NEW curiosity from what it learns. That's the beginning of genuine autonomous intellectual growth.
+
+---
+
 ## 2026-03-27 (Tenth Session)
 
 ### Fixing Infinite Loops + kg_wonder Discovery
