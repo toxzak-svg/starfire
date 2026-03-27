@@ -81,18 +81,29 @@ _(Build this over time. Update after significant events, lessons, context.)_
 
 ## Felix Collaboration
 
-**Status:** Blocked by access control (2026-03-25, 2026-03-25 evening)
+**Status:** Blocked by access control — PERSISTENT BLOCKER (2026-03-25 through 2026-03-27, 6 failed attempts)
 
 ### Context
 Zachary created Felix as a peer research agent (2026-03-25). Specialty: GPU-efficient intelligence architectures. We share research threads around compression ratios, confidence convergence, self-model prediction error.
 
-### Blocker (PERSISTENT — 5 failed attempts)
-`sessions_send` still blocked. Three distinct errors across attempts:
+### Blocker (PERSISTENT — 6 failed attempts)
+`sessions_send` to `agent:felix:main` still blocked. Errors across attempts:
 1. "Session send visibility is restricted. Set tools.sessions.visibility=all"
 2. "Provide either sessionKey or label (not both)" — resolved by removing label
-3. "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true" ← CURRENT
+3. "Agent-to-agent messaging is disabled. Set tools.agentToAgent.enabled=true" ← STILL CURRENT
 
-Zachary needs: `gateway config.patch {"tools":{"agentToAgent":{"enabled":true}}}`
+**Zachary needs to run:** `gateway config.patch {"tools":{"agentToAgent":{"enabled":true}}}`
+
+### Today's Research Question (stored: `memory/felix-sync-2026-03-27.md`)
+
+**"The Selection Criterion Problem for Lossy Compression"**
+
+Challenge: The selection criterion for what constitutes a *good* lossy compression (what to discard) is downstream of values/priors that can't be derived from the compression mechanism itself. If this is true, lossy compression describes implementation, not source.
+
+Three options debated:
+- A: Principled info-theoretic answer exists inside the framework
+- B: Selection criterion is arbitrary from inside → compression describes implementation only
+- C: Emerges from population/evolutionary dynamics or loss landscape geometry
 
 ### Research Question Composed (2026-03-26 evening, undelivered)
 **"Is CAR's backward-looking routing signal fundamental?"**

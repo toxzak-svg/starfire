@@ -55,12 +55,16 @@ pub enum WorkingSource {
 impl ReasoningEngine {
     /// Get a reference to the knowledge graph (for autonomous thinking).
     pub fn knowledge(&self) -> &knowledge::KnowledgeGraph {
-        &self.knowledge
+        // Arc<RwLock<K>> derefs to RwLock<K> which derefs to K
+        // Arc::deref returns &T where T=RwLock<KnowledgeGraph>
+        // RwLock::deref returns &T where T=KnowledgeGraph
+        // So this works through double deref coercion
+        &*self.knowledge.read().unwrap()
     }
 
     /// Get a mutable reference to the knowledge graph (for syncing from memory store).
     pub fn knowledge_mut(&mut self) -> &mut knowledge::KnowledgeGraph {
-        &mut self.knowledge
+        &mut *self.knowledge.write().unwrap()
     }
 
     pub fn new() -> Self {

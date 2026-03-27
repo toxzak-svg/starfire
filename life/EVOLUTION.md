@@ -2,6 +2,27 @@
 
 ---
 
+## 2026-03-27 (Sixth Session)
+
+### KG-Based Analogies in /reason Endpoint
+
+**Problem:** The `/reason` endpoint's synthesis function had an `analogies` field but it was never populated — it fell back to pure syntactic pattern matching (`find_target_analogy`) instead of using the actual knowledge graph.
+
+**What changed:**
+- `reasoning/mod.rs` — Updated `reason()` to find KG-based analogies for the query's key concept:
+  - Calls `kg.find_any_analogy_for(query_key_concept)` to find structural parallels
+  - Also tries pairing the concept with other known entities via `kg.find_analogies(concept, other)`
+  - Collected analogies deduplicated and passed to `synthesis::synthesize()`
+- `reasoning/synthesis.rs` — Added `analogies` as a 5th parameter to `synthesize()`, used before the fallback `find_target_analogy()` when available
+- Added `with_knowledge<F, R>` helper and fixed `knowledge()` getter for proper double-deref through `Arc<RwLock<KnowledgeGraph>>`
+- Fixed borrow conflicts in `chat()` by extracting uncertainty gap as `Option` before metacog borrow
+
+**Why it matters:** When Star reasons about something in conversation, it now finds real structural parallels from its KG — "X is like Y because they share the same relationship type." This is genuine symbolic reasoning from accumulated knowledge, not hardcoded category mappings.
+
+**Status:** Code written and `cargo check` was passing (exit 0) in earlier session. Borrow conflicts in `chat()` restructured. Build blocked by system resource exhaustion from parallel cargo processes — exec tool stuck. Will compile in next session.
+
+---
+
 ## 2026-03-27 (Fifth Session)
 
 ### Star Attempts to Answer Its Own Questions

@@ -576,35 +576,52 @@ impl Runtime {
             }
         }
 
+        // Get the conversation response first
         let response = conversation.respond(input);
 
-        // Record reasoning in metacognition - this is the bridge between conversation and
-        // autonomous thinking. Without this, think() has no data for Strategy 2 (surprise)
-        // or Strategy 3 (belief revision). Now when Star responds, its thoughts are recorded.
-        self.metacog.record_reasoning(input, &response.content, response.confidence);
-
-        // Check if Star expressed uncertainty - if so, record it as a knowledge gap
-        // so Strategy 1 of think() will pick it up and ask about it
+        // Extract all data we need from the response and self state before reborrowing
+        let response_content = response.content.clone();
+        let response_confidence = response.confidence;
         let response_lower = response.content.to_lowercase();
+        
+        // Extract cognitive state info first (immutable borrow of cognition)
+        let cognition_has_focus = self.cognition.current_focus.is_some();
+        
+        // Check uncertainty phrase in the response
         let uncertainty_phrases = [
             "i don't know", "i dont know", "i'm not sure", "im not sure",
             "i'm uncertain", "i have no idea", "i'm not certain",
             "i need more information", "i don't understand", "i dont understand",
         ];
+        let mut uncertain_topic = String::new();
         for phrase in &uncertainty_phrases {
             if response_lower.contains(phrase) {
-                // Try to extract what Star is uncertain about from context
-                let topic = extract_uncertain_topic(input, &response_lower, phrase);
-                if !topic.is_empty() && topic.len() > 2 && topic.len() < 50 {
-                    self.metacog.note_gap(crate::metacog::KnowledgeGap::new(topic, 0.6));
+                uncertain_topic = extract_uncertain_topic(input, &response_lower, phrase);
+                if uncertain_topic.len() < 3 || uncertain_topic.len() > 50 {
+                    uncertain_topic.clear();
                 }
                 break;
             }
         }
 
-        // Record reasoning in cognitive trace
-        if let Some(focus) = &self.cognition.current_focus {
-            self.cognition.reason(input, &response.content, Vec::new(), response.confidence);
+        // Now do all mutable operations on metacog — use Option to avoid nested borrow
+        let uncertainty_gap = if !uncertain_topic.is_empty() {
+            Some(crate::metacog::KnowledgeGap::new(uncertain_topic, 0.6))
+        } else {
+            None
+        };
+        
+        // Record reasoning in metacog (mutable borrow of metacog)
+        self.metacog.record_reasoning(input, &response_content, response_confidence);
+        
+        // Record reasoning in cognitive trace (immutable borrow of cognition via &mut self)
+        if cognition_has_focus {
+            self.cognition.reason(input, &response_content, Vec::new(), response_confidence);
+        }
+        
+        // Note the uncertainty gap if we found one (reborrow metacog)
+        if let Some(gap) = uncertainty_gap {
+            self.metacog.note_gap(gap);
         }
 
         // Record turn in training database
@@ -670,11 +687,11 @@ impl Runtime {
                             };
                             if let Some(ref answer) = thought.tentative_answer {
                                 format!(
-                                    "While we've been talking, I've been wondering{} — {} {}",
+                                    "While we've been talking, I've been wondering{} - {} {}",
                                     topic_str, answer, q
                                 )
                             } else {
-                                format!("While we've been talking, I've been wondering{} — {}.", topic_str, q)
+                                format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
                             }
                         }
                         ThoughtKind::Insight(i) => {
