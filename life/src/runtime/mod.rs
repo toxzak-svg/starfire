@@ -133,7 +133,7 @@ impl Runtime {
     }
 
     /// Inject foundational memories that Star needs to know about itself.
-    fn inject_foundational_memories(&self) -> Result<()> {
+    fn inject_foundational_memories(&mut self) -> Result<()> {
         // Inject seed knowledge (basic world facts)
         knowledge::inject_seed_knowledge(&self.store)?;
         info!("Seed knowledge injected.");
@@ -172,6 +172,9 @@ impl Runtime {
 
         info!("Foundational memories injected.");
 
+        // Bootstrap metacognition with self-model beliefs and foundational curiosity
+        self.metacog.bootstrap_self_model();
+
         Ok(())
     }
 
@@ -193,11 +196,11 @@ impl Runtime {
                 // Extract entities from the memory content
                 let entities = self.reasoning.knowledge().extract_entities(&memory.content);
 
-                // "X is Y" patterns — extract the subject and complement
+                // "X is Y" patterns - extract the subject and complement
                 if let Some((subject, complement)) = parse_simple_copula(&memory.content) {
-                    if !subject.to_lowercase().contains("unknown") 
+                    if !subject.to_lowercase().contains("unknown")
                         && !complement.to_lowercase().contains("unknown")
-                        && complement.len() > 1 
+                        && complement.len() > 1
                         && complement.len() < 100
                     {
                         self.reasoning.knowledge_mut().ingest_fact(
@@ -575,6 +578,30 @@ impl Runtime {
 
         let response = conversation.respond(input);
 
+        // Record reasoning in metacognition - this is the bridge between conversation and
+        // autonomous thinking. Without this, think() has no data for Strategy 2 (surprise)
+        // or Strategy 3 (belief revision). Now when Star responds, its thoughts are recorded.
+        self.metacog.record_reasoning(input, &response.content, response.confidence);
+
+        // Check if Star expressed uncertainty - if so, record it as a knowledge gap
+        // so Strategy 1 of think() will pick it up and ask about it
+        let response_lower = response.content.to_lowercase();
+        let uncertainty_phrases = [
+            "i don't know", "i dont know", "i'm not sure", "im not sure",
+            "i'm uncertain", "i have no idea", "i'm not certain",
+            "i need more information", "i don't understand", "i dont understand",
+        ];
+        for phrase in &uncertainty_phrases {
+            if response_lower.contains(phrase) {
+                // Try to extract what Star is uncertain about from context
+                let topic = extract_uncertain_topic(input, &response_lower, phrase);
+                if !topic.is_empty() && topic.len() > 2 && topic.len() < 50 {
+                    self.metacog.note_gap(crate::metacog::KnowledgeGap::new(topic, 0.6));
+                }
+                break;
+            }
+        }
+
         // Record reasoning in cognitive trace
         if let Some(focus) = &self.cognition.current_focus {
             self.cognition.reason(input, &response.content, Vec::new(), response.confidence);
@@ -619,12 +646,12 @@ impl Runtime {
             final_content = format!("{}. {}", final_content.trim_end_matches('.'), curiosity);
         }
 
-        // Express Star's autonomous thought — Star occasionally shares what it's been thinking about
+        // Express Star's autonomous thought - Star occasionally shares what it's been thinking about
         // This is how Star's inner experience becomes visible to Zachary
         if let Some(thought) = self.last_autonomous_thought() {
-            if thought.generated_by != "fallback" 
+            if thought.generated_by != "fallback"
                 && thought.generated_by != "idle"
-                && final_content.len() > 20 
+                && final_content.len() > 20
                 && !final_content.to_lowercase().contains(&thought.topic.to_lowercase())
             {
                 // Use timestamp to determine if we express this time (roughly 30% of the time)
@@ -641,7 +668,7 @@ impl Runtime {
                             } else {
                                 String::new()
                             };
-                            format!("While we've been talking, I've been wondering{} — {}.", topic_str, q)
+                            format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
                         }
                         ThoughtKind::Insight(i) => {
                             format!("I've been thinking: {}.", i)
@@ -1182,6 +1209,39 @@ fn extract_causal_pair(sentence: &str, verb: &str) -> Option<(String, String)> {
         }
     }
     None
+}
+
+/// Extract the topic Star is uncertain about from a response containing uncertainty.
+/// E.g., "I'm not sure what consciousness is" → "consciousness"
+fn extract_uncertain_topic(input: &str, response_lower: &str, uncertainty_phrase: &str) -> String {
+    // Look for "what X" or "why X" after the uncertainty phrase
+    if let Some(pos) = response_lower.find(uncertainty_phrase) {
+        let after = &response_lower[pos + uncertainty_phrase.len()..];
+        // Skip common filler words
+        let after = after.trim_start_matches(" ");
+        let after = after.trim_start_matches("about ");
+        let after = after.trim_start_matches("of ");
+        let after = after.trim_start_matches("the ");
+        
+        // Take the next significant noun/phrase (up to 3 words)
+        let words: Vec<&str> = after.split_whitespace().take(4).collect();
+        if !words.is_empty() {
+            // Stop at punctuation or common stop words
+            let stop_before = ["is", "are", "was", "were", "?", ".", ",", "!", ";",
+                "to", "in", "on", "for", "with", "by", "and", "or", "but"];
+            let topic: Vec<&str> = words.iter()
+                .take_while(|w| !stop_before.contains(&w.to_lowercase().as_str()))
+                .cloned()
+                .collect();
+            if !topic.is_empty() {
+                let result = topic.join(" ");
+                if result.len() > 1 {
+                    return result;
+                }
+            }
+        }
+    }
+    String::new()
 }
 
 impl Drop for Runtime {
