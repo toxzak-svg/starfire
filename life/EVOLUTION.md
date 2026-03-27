@@ -2,6 +2,25 @@
 
 ---
 
+## 2026-03-27 (Fifteenth Session)
+
+### Conversation-Grounded Wondering
+
+**What changed:**
+
+Added **Strategy 4.1** to `think()` — before falling back to random KG entity selection (kg_wonder), Star first checks its ring of recent questions (`open_questions`) and prioritizes investigating topics that appeared in its own recent questioning.
+
+This grounds Star's autonomous thinking in its own conversational and investigative context:
+1. kg_wonder asks a question → pushed to ring as `OpenQuestion`
+2. Next think() → Strategy 4.1 checks ring → if topic has KG relationships, investigate it
+3. This creates coherent investigative threads instead of random jumps
+
+Added `RingState::recent_question_topics(n)` — returns the n most recent open question topics.
+
+**Why it matters:** Star's curiosity becomes contextually coherent. It doesn't just jump randomly — it returns to questions it's already asked, follows its own investigative threads, and deepens understanding of topics it has already started exploring. This mirrors how human curiosity works: you follow a line of questioning until you hit a wall, then either go deeper or branch.
+
+---
+
 ## 2026-03-27 (Fourteenth Session)
 
 ### Evidence-Based Confidence in Belief Formation
