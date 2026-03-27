@@ -1297,10 +1297,29 @@ impl Runtime {
             }
         }
 
-        // Strategy 2: Look for SimilarTo relationships
+        // Strategy 1.5 (NEW): Look for reverse IsA — where topic is the CATEGORY,
+        // not the specific thing. E.g., if KG has "star IsA reasoning intelligence",
+        // then for topic="reasoning intelligence", rels_to gives "star --IsA--> reasoning intelligence"
+        // This lets Star answer "what kinds of X are there?" where X is a category.
+        // Avoid redundant "X is a kind of X" answers.
+        let rels_to = self.reasoning.knowledge().get_relationships_to(topic);
+        for rel in &rels_to {
+            if rel.relation == RelationType::IsA && rel.from.to_lowercase() != topic.to_lowercase() {
+                return Some(format!("'{}' is a kind of {}", rel.from, topic));
+            }
+        }
+
+        // Strategy 2: Look for SimilarTo relationships (outgoing)
         for rel in &rels_from {
             if rel.relation == RelationType::SimilarTo {
                 return Some(format!("'{}' seems similar to '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 2.5 (NEW): Reverse SimilarTo — find things similar to the topic
+        for rel in &rels_to {
+            if rel.relation == RelationType::SimilarTo && rel.from.to_lowercase() != topic.to_lowercase() {
+                return Some(format!("'{}' seems similar to '{}' — they share properties", topic, rel.from));
             }
         }
 
@@ -1320,6 +1339,13 @@ impl Runtime {
         for rel in &rels_from {
             if rel.relation == RelationType::Enables {
                 return Some(format!("'{}' seems to enable '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 4.5 (NEW): Reverse Enables — what enables the topic?
+        for rel in &rels_to {
+            if rel.relation == RelationType::Enables {
+                return Some(format!("'{}' seems to be enabled by '{}'", topic, rel.from));
             }
         }
 
