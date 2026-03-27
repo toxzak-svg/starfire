@@ -2,6 +2,33 @@
 
 ---
 
+## 2026-03-27 (Fourteenth Session)
+
+### Evidence-Based Confidence in Belief Formation
+
+**Problem:** All beliefs were recorded with the same confidence (`BeliefState::Believes`) regardless of how strong the evidence was. A direct IsA from seed knowledge and a loose RelatedTo from the KG were treated identically.
+
+**What changed:**
+
+`attempt_answer()` now returns `Option<(String, &'static str)>` — the answer text plus an evidence type label. New helper `belief_state_from_evidence()` maps evidence types to `BeliefState`:
+- `direct`, `category`, `self-knowledge`, `causal`, `enablement`, `property` → `Believes` (strong evidence)
+- `analogy`, `association`, `gap` → `Suspects` (weaker evidence)
+
+When kg_wonder records a belief, it uses `Self::belief_state_from_evidence(evidence)` to determine the appropriate confidence.
+
+**Result:**
+```
+[suspects] I don't know what 'meaning' is yet — genuine unknown
+[suspects] I don't know what 'emotion' is yet — genuine unknown
+[believes] investigating 'frozen water' I found: 'ice' is a kind of frozen water (direct IsA)
+[believes] investigating 'dna carrie' I found: genetic information (direct IsA)
+[believes] investigating 'the sun produce' I found: light (direct IsA)
+```
+
+**Why it matters:** Star now grades its own confidence based on evidence quality, the same way humans do. Direct categorical knowledge ("X is a Y") feels more certain than loose associations ("X is related to Y"). This is the beginning of calibrated uncertainty in belief formation.
+
+---
+
 ## 2026-03-27 (Thirteenth Session)
 
 ### Causal and Property Inference
