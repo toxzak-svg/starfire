@@ -60,6 +60,7 @@ impl MetaCognition {
                     new_state: belief.confidence_state,
                     reason: format!("Evidence shifted confidence: {:?}", belief.confidence_state),
                     timestamp: chrono::Utc::now().timestamp(),
+                    investigated: false,
                 });
             }
         }
@@ -246,6 +247,13 @@ impl MetaCognition {
     /// Get all belief revision events (for autonomous thinking).
     pub fn revisions(&self) -> &[BeliefRevision] {
         &self.revisions
+    }
+
+    /// Mark a revision as investigated (so Strategy 3 won't fire on it again).
+    pub fn mark_revision_investigated(&mut self, topic: &str) {
+        if let Some(rev) = self.revisions.iter_mut().rev().find(|r| r.topic == topic) {
+            rev.investigated = true;
+        }
     }
 
     /// Generate a revision statement.
@@ -585,6 +593,9 @@ pub struct BeliefRevision {
     pub new_state: BeliefState,
     pub reason: String,
     pub timestamp: i64,
+    /// Whether this revision has been investigated by Star's autonomous thinking.
+    /// Once true, Strategy 3 won't keep firing on the same revision endlessly.
+    pub investigated: bool,
 }
 
 /// A gap in Star's knowledge.

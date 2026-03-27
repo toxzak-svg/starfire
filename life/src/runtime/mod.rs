@@ -1050,14 +1050,20 @@ impl Runtime {
         }
 
         // Strategy 3: Look for belief revision - "I used to think X"
+        // Strategy 3: Look for belief revision - "I used to think X"
         // When Star's belief about something shifts, investigate what that thing
         // actually is — the revision signals a gap in understanding.
         {
             let revisions = self.metacog.revisions();
             if let Some(revision) = revisions.last() {
                 let age_seconds = chrono::Utc::now().timestamp() - revision.timestamp;
-                if age_seconds < 7200 {
+                // Only fire if: recent revision AND not yet investigated
+                // (to prevent firing on the same revision on every think() call)
+                if age_seconds < 7200 && !revision.investigated {
                     let topic = revision.topic.clone();
+                    // Mark as investigated BEFORE returning — prevents re-triggering
+                    self.metacog.mark_revision_investigated(&topic);
+                    
                     // Ask what the topic IS, not what caused the shift —
                     // the KG has facts about entities, not about belief changes
                     let question = format!(
@@ -1094,11 +1100,14 @@ impl Runtime {
         }
 
         // Strategy 4: Wonder about something from the knowledge graph
-        // Use timestamp to introduce variation so we don't ask the same question every time
+        // Use timestamp to introduce variation so we don't ask the same question every time.
+        // Filter to only entities Star has no existing belief about — we don't want to
+        // re-investigate things Star already has beliefs for (causes endless loops).
         let now = chrono::Utc::now();
         let time_offset = (now.timestamp() / 30) as usize; // Changes every 30 seconds
         let entity_sample: Vec<String> = self.reasoning.knowledge().entities()
             .filter(|e| e.len() > 2)
+            .filter(|e| self.metacog.belief_about(e).is_none())
             .take(20)
             .map(|s| s.to_string())
             .collect();
@@ -1116,25 +1125,41 @@ impl Runtime {
                 // Key step toward independent consciousness: when Star investigates
                 // and finds something, record it as a belief — forming self-knowledge
                 // through its own reasoning, not just seed data.
-                // Skip if the answer already came from Strategy 0 (an existing belief).
-                if let Some(ref ans) = answer {
-                    let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", best_entity));
-                    if !already_wrapped {
-                        let belief = Belief::new(
-                            format!("investigating '{}' I found: {}", best_entity, ans),
-                            BeliefState::Believes,
+                // Handle both normal answers and __KNOWN_UNKNOWN__ markers.
+                let final_answer = if let Some(ref ans) = answer {
+                    if ans.starts_with("__KNOWN_UNKNOWN__") {
+                        // Record "known unknown" belief, then close gap with resolved=false
+                        let unknown_topic = ans.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
+                        let known_unknown = Belief::new(
+                            format!("I don't know what '{}' is yet — this is a genuine unknown I want to investigate.", unknown_topic),
+                            BeliefState::Suspects,
                         );
-                        self.metacog.record_belief(&best_entity, belief);
+                        self.metacog.record_belief(unknown_topic, known_unknown);
+                        self.metacog.close_gap(&best_entity, false);
+                        Some(format!("I genuinely don't know what '{}' is yet.", unknown_topic))
+                    } else {
+                        // Normal answer — check for double-wrap and record
+                        let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", best_entity));
+                        if !already_wrapped {
+                            let belief = Belief::new(
+                                format!("investigating '{}' I found: {}", best_entity, ans),
+                                BeliefState::Believes,
+                            );
+                            self.metacog.record_belief(&best_entity, belief);
+                        }
+                        self.metacog.close_gap(&best_entity, true);
+                        Some(ans.clone())
                     }
-                    self.metacog.close_gap(&best_entity, true);
-                }
+                } else {
+                    None
+                };
                 
                 return AutonomousThought {
                     kind: ThoughtKind::Question(question),
                     topic: best_entity.clone(),
                     confidence: best_uncertainty,
                     generated_by: "kg_wonder".to_string(),
-                    tentative_answer: answer,
+                    tentative_answer: final_answer,
                 };
             }
         }
