@@ -97,6 +97,12 @@ impl MetaCognition {
         }
     }
 
+    /// Note a new gap AND tell the curiosity engine to start exploring it.
+    pub fn note_curiosity(&mut self, topic: &str, why: &str) {
+        self.note_gap(KnowledgeGap::new(topic, 0.5));
+        self.curiosity.start_exploring(topic, why);
+    }
+
     /// Bootstrap metacognition with foundational self-model beliefs.
     /// This seeds beliefs from what Star knows about itself, so that Strategy 3
     /// (belief revision reflection) and Strategy 4 (KG wandering) have real data.

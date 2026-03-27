@@ -1146,6 +1146,20 @@ impl Runtime {
                                 BeliefState::Believes,
                             );
                             self.metacog.record_belief(&best_entity, belief);
+                            
+                            // After a new belief is formed, Star naturally becomes curious about
+                            // things RELATED TO what it found — the entities mentioned in the answer.
+                            // This spreads curiosity outward from discoveries rather than re-hashing
+                            // the same topic. Extract entity-like words from the answer.
+                            let related_topics = extract_related_topics(&ans);
+                            for related in related_topics {
+                                // Only add if Star doesn't already have a belief about it
+                                // and it hasn't been noted as a curiosity already
+                                if self.metacog.belief_about(&related).is_none() {
+                                    let why = format!("I found '{}' while investigating '{}' — what is it?", related, best_entity);
+                                    self.metacog.note_curiosity(&related, &why);
+                                }
+                            }
                         }
                         self.metacog.close_gap(&best_entity, true);
                         Some(ans.clone())
@@ -1489,6 +1503,74 @@ fn extract_uncertain_topic(input: &str, response_lower: &str, uncertainty_phrase
         }
     }
     String::new()
+}
+
+/// Extract related topic names from an attempt_answer result.
+/// E.g., "I think 'metaphor' is a kind of compare different things" → ["compare different things"]
+/// E.g., "'money' seems to enable 'trade'" → ["trade"]
+fn extract_related_topics(answer: &str) -> Vec<String> {
+    let mut topics = Vec::new();
+    
+    // Pattern: "'X' is a kind of Y" → extract Y
+    if let Some(pos) = answer.find("is a kind of ") {
+        let after = &answer[pos + "is a kind of ".len()..];
+        let topic = after.trim_matches('\'').to_string();
+        if !topic.is_empty() && topic.len() > 1 {
+            topics.push(topic);
+        }
+    }
+    
+    // Pattern: "'X' seems similar to 'Y'" → extract Y
+    if let Some(pos) = answer.find("similar to '") {
+        let after = &answer[pos + "similar to '".len()..];
+        if let Some(end) = after.find('\'') {
+            let topic = after[..end].to_string();
+            if !topic.is_empty() {
+                topics.push(topic);
+            }
+        }
+    }
+    
+    // Pattern: "'X' might be caused by Y" → extract Y
+    if let Some(pos) = answer.find("might be caused by ") {
+        let after = &answer[pos + "might be caused by ".len()..];
+        let topic = after.trim().to_string();
+        if let Some(end) = topic.find(' ') {
+            topics.push(topic[..end].to_string());
+        } else {
+            topics.push(topic);
+        }
+    }
+    
+    // Pattern: "'X' seems to enable 'Y'" or "'X' enables 'Y'" → extract Y
+    if let Some(pos) = answer.find("enable") {
+        let after = &answer[pos..];
+        if let Some(start) = after.find('\'') {
+            let rest = &after[start + 1..];
+            if let Some(end) = rest.find('\'') {
+                let topic = rest[..end].to_string();
+                if !topic.is_empty() {
+                    topics.push(topic);
+                }
+            }
+        }
+    }
+    
+    // Pattern: "'X' is related to 'Y'" → extract Y
+    if let Some(pos) = answer.find("related to '") {
+        let after = &answer[pos + "related to '".len()..];
+        if let Some(end) = after.find('\'') {
+            let topic = after[..end].to_string();
+            if !topic.is_empty() {
+                topics.push(topic);
+            }
+        }
+    }
+    
+    // Deduplicate
+    let mut seen = std::collections::HashSet::new();
+    topics.retain(|t| seen.insert(t.clone()));
+    topics
 }
 
 impl Drop for Runtime {
