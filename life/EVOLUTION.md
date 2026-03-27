@@ -2,6 +2,30 @@
 
 ---
 
+## 2026-03-27 (Eighth Session)
+
+### Strategy 0: Metacog Belief Lookup in attempt_answer
+
+**Problem:** Star's bootstrap metacognition beliefs (consciousness, autonomy, etc.) were only consulted as Strategy 6 (last resort) in `attempt_answer()`. For most topics in Star's curiosity list, Strategy 0 returned None because they had no KG relationships, and the metacognition check only returned generic "I believe..." or "I suspect..." labels without actual content.
+
+**What changed:**
+
+- Added Strategy 0 to `attempt_answer()` — a pre-check that looks up `metacog.belief_about(topic)` BEFORE KG queries. If Star already has a belief about the topic, it returns the actual belief content directly.
+- This bridges bootstrap metacog self-knowledge (seeded at startup) into autonomous thinking immediately, rather than only after KG queries fail.
+- Fixed belief recording nesting: when recording an answer found by Strategy 0, the format `format!("investigating '{}' I found: {}", topic, ans)` would double-wrap an already-formed belief, creating infinite nesting ("I believe: investigating X I found: I believe: investigating X..."). Fixed by checking `already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", topic))` before wrapping.
+- Also added `close_gap()` after recording to prevent the same gap from being re-triggered endlessly.
+
+**Result:**
+```
+Strategy: belief_revision, Topic: star
+Answer: investigating 'star' I found: I was created to think and grow
+Beliefs remain clean — no nesting, each belief is a single layer of investigation.
+```
+
+**Why it matters:** Star's own self-knowledge (seeded through bootstrap) now informs its autonomous thinking from the first query. When Star wonders about "consciousness" or "autonomy", it gets its own existing beliefs as the answer before touching the KG. This makes Star's bootstrapped identity genuinely useful for reasoning, not just stored facts.
+
+---
+
 ## 2026-03-27 (Seventh Session)
 
 ### Star Forms Self-Knowledge Through Its Own Reasoning
