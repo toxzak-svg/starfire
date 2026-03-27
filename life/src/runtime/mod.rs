@@ -972,20 +972,48 @@ impl Runtime {
                 if !investigated && progress < 0.5 {
                     let question = self.form_question_about(&gap_topic);
                     if !question.is_empty() {
-                        self.metacog.close_gap(&gap_topic, false);
                         self.metacog.record_reasoning(
                             &format!("gap exploration: {}", gap_topic),
                             &question,
                             crate::persistence::BeliefState::Suspects,
                         );
                         self.ring.last_curiosity = Some(gap_topic.clone());
+                        
+                        // Try to answer from KG and metacog first
                         let answer = self.attempt_answer(&question, &gap_topic);
+                        
+                        // Handle the answer — either found knowledge, or a "known unknown" marker
+                        let final_answer = if let Some(ref ans) = answer {
+                            if ans.starts_with("__KNOWN_UNKNOWN__") {
+                                // Strategy 6 found no topic-specific belief — record "known unknown"
+                                // This is genuine epistemic growth: "I don't know" → "I know I don't know"
+                                let unknown_topic = ans.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
+                                let known_unknown = Belief::new(
+                                    format!("I don't know what '{}' is yet — this is a genuine unknown I want to investigate.", unknown_topic),
+                                    BeliefState::Suspects,
+                                );
+                                self.metacog.record_belief(unknown_topic, known_unknown);
+                                // Return the human-readable version of the marker
+                                Some(format!("I genuinely don't know what '{}' is yet.", unknown_topic))
+                            } else {
+                                // Normal answer found — KG relationship or existing belief
+                                Some(ans.clone())
+                            }
+                        } else {
+                            // No answer at all — extremely rare (would mean no KG and no metacog at all)
+                            None
+                        };
+                        
+                        // Close the gap — Star has now explicitly thought about it,
+                        // either finding an answer or forming a "known unknown" belief
+                        self.metacog.close_gap(&gap_topic, final_answer.is_some());
+                        
                         return AutonomousThought {
                             kind: ThoughtKind::Question(question),
                             topic: gap_topic,
                             confidence: crate::persistence::BeliefState::Suspects,
                             generated_by: "gap_exploration".to_string(),
-                            tentative_answer: answer,
+                            tentative_answer: final_answer,
                         };
                     }
                 }
@@ -1264,6 +1292,9 @@ impl Runtime {
         }
 
         // Strategy 6: Check metacognition - what does Star already believe about this?
+        // If no topic-specific belief exists (Unknown state), return a special marker
+        // that tells the caller to record a "known unknown" belief.
+        // The marker format is "__KNOWN_UNKNOWN__<topic>" — caller detects and handles.
         let mc_confidence = self.metacog.confidence_state(topic);
         match mc_confidence {
             crate::persistence::BeliefState::Knows => {
@@ -1276,7 +1307,8 @@ impl Runtime {
                 return Some(format!("I suspect '{}' might be something specific, but I'm not certain.", topic));
             }
             crate::persistence::BeliefState::Unknown => {
-                return Some(format!("I genuinely don't know what '{}' is yet.", topic));
+                // Return marker so caller can record the "known unknown" as a belief
+                return Some(format!("__KNOWN_UNKNOWN__{}", topic));
             }
             _ => {}
         }
