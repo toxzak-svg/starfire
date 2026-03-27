@@ -554,7 +554,7 @@ impl ReasoningEngine {
     }
 
     fn answer_unknown(&mut self, query: &str) -> ReasoningResult {
-        // Fallback for unknown query types
+        // Fallback for unknown query types — but still consult the knowledge graph.
         let topic = query.replace("?", "").trim().to_string();
         
         if topic.len() < 5 {
@@ -566,11 +566,37 @@ impl ReasoningEngine {
             };
         }
         
-        // Try to find anything relevant
+        // Try the knowledge graph first (handles "who is X", "where is Y", etc.)
+        let lower_topic = topic.to_lowercase();
+        let entities = self.knowledge.get_entity(&lower_topic);
+        if let Some(entity) = entities {
+            let facts = self.knowledge.get_facts_about(&lower_topic);
+            if !facts.is_empty() {
+                let answer = format!("{} — {}", 
+                    entity.description.as_deref().unwrap_or(&topic), 
+                    facts.join("; ")
+                );
+                return ReasoningResult {
+                    answer: Some(answer),
+                    confidence: BeliefState::Knows,
+                    reasoning_chain: facts,
+                    confidence_score: Some(0.85),
+                };
+            } else {
+                return ReasoningResult {
+                    answer: Some(format!("I know about {}.", topic)),
+                    confidence: BeliefState::Thinks,
+                    reasoning_chain: vec![format!("Entity '{}' found in knowledge graph", topic)],
+                    confidence_score: Some(0.5),
+                };
+            }
+        }
+        
+        // Try to find anything relevant in working memory
         let relevant: Vec<_> = self.working_memory.iter()
             .filter(|w| {
-                w.content.to_lowercase().contains(&topic.to_lowercase()) ||
-                topic.to_lowercase().contains(&w.content.to_lowercase())
+                w.content.to_lowercase().contains(&lower_topic) ||
+                lower_topic.contains(&w.content.to_lowercase())
             })
             .take(3)
             .collect();
@@ -580,7 +606,7 @@ impl ReasoningEngine {
             ReasoningResult {
                 answer: Some(format!("I don't know directly, but: {}", contents.join("; "))),
                 confidence: BeliefState::Believes,
-                reasoning_chain: contents,
+                reasoning_chain: contents.clone(),
                 confidence_score: Some(0.3),
             }
         } else {
