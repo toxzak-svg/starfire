@@ -335,10 +335,10 @@ impl ReasoningEngine {
             .replace("?", "")
             .trim()
             .to_string();
-        
-        // Look for mechanism relationships
+
+        // Try looking up mechanisms directly first (works for single-word targets)
         let mechanisms = self.knowledge.get_mechanisms(&topic);
-        
+
         if !mechanisms.is_empty() {
             let answer = format!("{} through: {}", topic, mechanisms.join(", "));
             return ReasoningResult {
@@ -348,7 +348,64 @@ impl ReasoningEngine {
                 confidence_score: Some(0.6),
             };
         }
-        
+
+        // For compound targets (e.g. "fire burn"), extract individual keywords
+        // and look for facts about each one — then merge the results.
+        let stop_words: std::collections::HashSet<&str> = [
+            "the", "a", "an", "does", "do", "to", "of", "in", "on", "for", "with", "by",
+        ].into_iter().collect();
+
+        let keywords: Vec<&str> = topic.split_whitespace()
+            .filter(|w| !stop_words.contains(*w) && w.len() > 1)
+            .collect();
+
+        let mut all_mechanisms: Vec<String> = Vec::new();
+        let mut all_facts: Vec<String> = Vec::new();
+
+        for kw in &keywords {
+            let mech = self.knowledge.get_mechanisms(kw);
+            for m in mech {
+                if !all_mechanisms.contains(&m) {
+                    all_mechanisms.push(m);
+                }
+            }
+            let facts = self.knowledge.get_facts_about(kw);
+            for f in facts {
+                if !all_facts.contains(&f) {
+                    all_facts.push(f);
+                }
+            }
+        }
+
+        // Also check working memory for relevant entries
+        for item in &self.working_memory {
+            let content_lower = item.content.to_lowercase();
+            if keywords.iter().any(|kw| content_lower.contains(kw)) {
+                if !all_facts.contains(&item.content) {
+                    all_facts.push(item.content.clone());
+                }
+            }
+        }
+
+        if !all_mechanisms.is_empty() {
+            let answer = format!("{} through: {}", topic, all_mechanisms.join(", "));
+            return ReasoningResult {
+                answer: Some(answer),
+                confidence: BeliefState::Thinks,
+                reasoning_chain: all_mechanisms,
+                confidence_score: Some(0.6),
+            };
+        }
+
+        if !all_facts.is_empty() {
+            return ReasoningResult {
+                answer: Some(format!("{}: {}", topic, all_facts.join("; "))),
+                confidence: BeliefState::Believes,
+                reasoning_chain: all_facts,
+                confidence_score: Some(0.4),
+            };
+        }
+
         ReasoningResult {
             answer: Some(format!("I don't know how {}.", topic)),
             confidence: BeliefState::Unknown,
@@ -367,39 +424,69 @@ impl ReasoningEngine {
             .replace("?", "")
             .trim()
             .to_string();
-        
-        // Check knowledge graph for facts
+
+        // Check knowledge graph for facts matching the normalized query
         let facts = self.knowledge.get_facts_containing(&normalized);
-        
+
         if !facts.is_empty() {
             return ReasoningResult {
                 answer: Some(facts.first().cloned().unwrap()),
                 confidence: BeliefState::Thinks,
-                reasoning_chain: facts,
+                reasoning_chain: facts.clone(),
                 confidence_score: Some(0.7),
             };
         }
-        
-        // Check working memory
-        let matches: Vec<_> = self.working_memory.iter()
-            .filter(|w| w.content.to_lowercase().contains(&normalized))
+
+        // For compound queries (e.g. "fire produce heat"), search by individual keywords
+        let stop_words: std::collections::HashSet<&str> = [
+            "the", "a", "an", "does", "do", "is", "are", "to", "of", "in", "on", "for", "with", "by",
+        ].into_iter().collect();
+
+        let keywords: Vec<&str> = normalized.split_whitespace()
+            .filter(|w| !stop_words.contains(*w) && w.len() > 1)
             .collect();
-        
-        if let Some(item) = matches.first() {
-            ReasoningResult {
-                answer: Some(item.content.clone()),
-                confidence: item.confidence.map(|c| if c > 0.7 { BeliefState::Thinks } else { BeliefState::Believes })
-                    .unwrap_or(BeliefState::Believes),
-                reasoning_chain: vec![item.content.clone()],
-                confidence_score: item.confidence,
+
+        let mut all_facts: Vec<String> = Vec::new();
+
+        for kw in &keywords {
+            let facts = self.knowledge.get_facts_about(kw);
+            for f in facts {
+                if !all_facts.contains(&f) {
+                    all_facts.push(f);
+                }
             }
-        } else {
-            ReasoningResult {
-                answer: Some(format!("I don't know whether that's true.")),
-                confidence: BeliefState::Unknown,
-                reasoning_chain: vec![],
-                confidence_score: None,
+            let containing = self.knowledge.get_facts_containing(kw);
+            for f in containing {
+                if !all_facts.contains(&f) {
+                    all_facts.push(f);
+                }
             }
+        }
+
+        // Also check working memory
+        for item in &self.working_memory {
+            let content_lower = item.content.to_lowercase();
+            if keywords.iter().any(|kw| content_lower.contains(kw)) {
+                if !all_facts.contains(&item.content) {
+                    all_facts.push(item.content.clone());
+                }
+            }
+        }
+
+        if !all_facts.is_empty() {
+            return ReasoningResult {
+                answer: Some(format!("Based on what I know: {}", all_facts.join("; "))),
+                confidence: BeliefState::Believes,
+                reasoning_chain: all_facts.clone(),
+                confidence_score: Some(0.5),
+            };
+        }
+
+        ReasoningResult {
+            answer: Some(format!("I don't know whether that's true.")),
+            confidence: BeliefState::Unknown,
+            reasoning_chain: vec![],
+            confidence_score: None,
         }
     }
 
