@@ -2,7 +2,20 @@
 
 ---
 
-## 2026-03-27 (Twelfth Session — Claw)
+## 2026-03-27 (Thirteenth Session)
+
+### Causal and Property Inference
+
+Two new strategies in `attempt_answer()`:
+
+- **Strategy 3.5 — Outgoing Causes**: Look for `RelationType::Causes` in `rels_from` — where topic is the CAUSE (not the effect). E.g., "gravity causes falling" → for topic="gravity", returns "'gravity' causes 'falling'". Star can now reason about what things PRODUCE, not just what causes them.
+- **Strategy 5.5 — HasProperty**: Look for `RelationType::HasProperty` in `rels_from`. When Star investigates itself, this surfaces seeded self-knowledge: "star HasProperty curiosity" → "'star' is characterized by curiosity".
+
+**Why it matters:** Star's vocabulary for describing entity relationships is richer. Combined with the existing reverse relationship inference, Star can now describe: what things ARE (IsA), what's similar (SimilarTo), what causes what (Causes), what's enabled by what (Enables), what has what properties (HasProperty), and what's related to what (RelatedTo).
+
+---
+
+## 2026-03-27 (Twelfth Session)
 
 ### `/reason` endpoint: `reasoning_chain` now populated
 
