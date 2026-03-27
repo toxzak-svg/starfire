@@ -62,7 +62,8 @@ fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request
             ("GET", "/metacog") => (200, handle_metacog(runtime)),
             ("GET", "/metacog/insight") => (200, handle_metacog_insight(runtime)),
             ("GET", "/think") => (200, handle_think(runtime)),
-            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think"]}"#.to_string()),
+            ("GET", "/thought") => (200, handle_thought(runtime)),
+            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought"]}"#.to_string()),
             _ => {
                 warn!("Unknown route: {} {}", method, path);
                 (404, r#"{"error":"Not found"}"#.to_string())
@@ -296,4 +297,38 @@ fn handle_think(runtime: &Arc<Mutex<Runtime>>) -> String {
         "confidence": format!("{:?}", thought.confidence).to_lowercase(),
         "generated_by": thought.generated_by,
     }).to_string()
+}
+
+/// Get Star's last autonomous thought (for external observers).
+/// This is what Star is "thinking about" between conversations.
+fn handle_thought(runtime: &Arc<Mutex<Runtime>>) -> String {
+    let rt_guard = match runtime.lock() {
+        Ok(r) => r,
+        Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
+    };
+
+    match rt_guard.last_autonomous_thought() {
+        Some(thought) => {
+            let kind_str = match &thought.kind {
+                crate::runtime::ThoughtKind::Question(q) => {
+                    serde_json::json!({ "type": "question", "text": q })
+                }
+                crate::runtime::ThoughtKind::Insight(i) => {
+                    serde_json::json!({ "type": "insight", "text": i })
+                }
+                crate::runtime::ThoughtKind::Connection(c) => {
+                    serde_json::json!({ "type": "connection", "text": c })
+                }
+            };
+            serde_json::json!({
+                "thought": kind_str,
+                "topic": thought.topic,
+                "confidence": format!("{:?}", thought.confidence).to_lowercase(),
+                "generated_by": thought.generated_by,
+            }).to_string()
+        }
+        None => {
+            r#"{"thought":null,"message":"Star has no pending autonomous thoughts"}"#.to_string()
+        }
+    }
 }

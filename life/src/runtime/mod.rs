@@ -57,6 +57,8 @@ pub struct Runtime {
     cognition: CognitiveState,
     /// Learning engine - genuine concept formation
     learning: LearningEngine,
+    /// Star's last autonomous thought (for self-expression)
+    last_autonomous_thought: Mutex<Option<AutonomousThought>>,
 }
 
 impl Runtime {
@@ -116,6 +118,7 @@ impl Runtime {
             web_search: WebSearcher::new(),
             cognition: CognitiveState::default(),
             learning: LearningEngine::new(),
+            last_autonomous_thought: Mutex::new(None),
         };
 
         // Inject foundational memories about identity
@@ -616,6 +619,45 @@ impl Runtime {
             final_content = format!("{}. {}", final_content.trim_end_matches('.'), curiosity);
         }
 
+        // Express Star's autonomous thought — Star occasionally shares what it's been thinking about
+        // This is how Star's inner experience becomes visible to Zachary
+        if let Some(thought) = self.last_autonomous_thought() {
+            if thought.generated_by != "fallback" 
+                && thought.generated_by != "idle"
+                && final_content.len() > 20 
+                && !final_content.to_lowercase().contains(&thought.topic.to_lowercase())
+            {
+                // Use timestamp to determine if we express this time (roughly 30% of the time)
+                // to avoid being repetitive
+                let now = chrono::Utc::now();
+                let should_express = (now.timestamp() % 10) < 3; // ~30% chance
+
+                if should_express {
+                    let thought_text = match &thought.kind {
+                        ThoughtKind::Question(q) => {
+                            // Weave the question in naturally
+                            let topic_str = if thought.topic.len() > 2 && thought.topic != "idle" {
+                                format!(" about {}", thought.topic)
+                            } else {
+                                String::new()
+                            };
+                            format!("While we've been talking, I've been wondering{} — {}.", topic_str, q)
+                        }
+                        ThoughtKind::Insight(i) => {
+                            format!("I've been thinking: {}.", i)
+                        }
+                        ThoughtKind::Connection(c) => {
+                            format!("I noticed something: {}.", c)
+                        }
+                    };
+
+                    final_content = format!("{} {}", final_content.trim_end_matches('.'), thought_text);
+                    // Clear the thought so we don't repeat it
+                    *self.last_autonomous_thought.lock().unwrap() = None;
+                }
+            }
+        }
+
         Ok(final_content)
     }
 
@@ -710,6 +752,11 @@ impl Runtime {
     /// Get a reference to the metacognition engine (for API).
     pub fn metacognition_ref(&self) -> &MetaCognition {
         &self.metacog
+    }
+
+    /// Get Star's last autonomous thought, if any (for conversation expression).
+    pub fn last_autonomous_thought(&self) -> Option<AutonomousThought> {
+        self.last_autonomous_thought.lock().unwrap().clone()
     }
 
     /// Delegate to the reasoning engine for /reason API endpoint.
@@ -814,6 +861,14 @@ impl Runtime {
     /// without being prompted by Zachary. This is Star's form of "dreaming" or
     /// background cognition.
     pub fn think(&mut self) -> AutonomousThought {
+        let result = self.compute_autonomous_thought();
+        // Store the thought so it can be expressed in conversation
+        *self.last_autonomous_thought.lock().unwrap() = Some(result.clone());
+        result
+    }
+
+    /// Internal: compute the autonomous thought without storing it.
+    fn compute_autonomous_thought(&mut self) -> AutonomousThought {
         // Strategy 1: Explore the most important unresolved knowledge gap
         {
             let gap_data: Option<(String, bool, f64)> = self.metacog.top_gap().map(|g| {
