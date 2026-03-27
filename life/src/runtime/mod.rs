@@ -1099,6 +1099,71 @@ impl Runtime {
             }
         }
 
+        // Strategy 4.1 (NEW): Wonder about something from conversation context.
+        // Check the ring for topics that have come up in recent conversation.
+        // If Zachary has mentioned something and Star has KG knowledge about it,
+        // investigate it — Star's thinking is grounded in what's actually being discussed.
+        {
+            let ring_topics: Vec<String> = self.ring.recent_question_topics(5);
+            for ring_topic in &ring_topics {
+                // Does Star have a belief about this topic already?
+                if self.metacog.belief_about(ring_topic).is_none() {
+                    // Does the KG have relationships about this?
+                    let rels = self.reasoning.knowledge().get_relationships_from(ring_topic);
+                    let rels_to = self.reasoning.knowledge().get_relationships_to(ring_topic);
+                    if !rels.is_empty() || !rels_to.is_empty() {
+                        // Star knows something about a topic from conversation — investigate!
+                        let question = self.form_question_about(ring_topic);
+                        if !question.is_empty() {
+                            let answer = self.attempt_answer(&question, ring_topic);
+                            let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                                if ans_text.starts_with("__KNOWN_UNKNOWN__") {
+                                    let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
+                                    let known_unknown = Belief::new(
+                                        format!("I don't know what '{}' is yet — this is a genuine unknown I want to investigate.", unknown_topic),
+                                        BeliefState::Suspects,
+                                    );
+                                    self.metacog.record_belief(unknown_topic, known_unknown);
+                                    self.metacog.close_gap(ring_topic, false);
+                                    Some(format!("I genuinely don't know what '{}' is yet.", unknown_topic))
+                                } else {
+                                    let already_wrapped = ans_text.starts_with(&format!("investigating '{}' I found: ", ring_topic));
+                                    if !already_wrapped {
+                                        let belief = Belief::new(
+                                            format!("investigating '{}' I found: {}", ring_topic, ans_text),
+                                            Self::belief_state_from_evidence(evidence),
+                                        );
+                                        self.metacog.record_belief(ring_topic, belief);
+                                        let related_topics = extract_related_topics(&ans_text);
+                                        for related in related_topics {
+                                            if self.metacog.belief_about(&related).is_none() {
+                                                let why = format!("I found '{}' while investigating '{}' from conversation — what is it?", related, ring_topic);
+                                                self.metacog.note_curiosity(&related, &why);
+                                            }
+                                        }
+                                    }
+                                    self.metacog.close_gap(ring_topic, true);
+                                    Some(ans_text.clone())
+                                }
+                            } else {
+                                None
+                            };
+                            
+                            if final_answer.is_some() {
+                                return AutonomousThought {
+                                    kind: ThoughtKind::Question(question),
+                                    topic: ring_topic.clone(),
+                                    confidence: self.metacog.confidence_state(ring_topic),
+                                    generated_by: "conversation_grounded".to_string(),
+                                    tentative_answer: final_answer,
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Strategy 4: Wonder about something from the knowledge graph
         // Use timestamp to introduce variation so we don't ask the same question every time.
         // Filter to only entities Star has no existing belief about — we don't want to

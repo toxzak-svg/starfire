@@ -147,6 +147,11 @@ impl RingState {
         &self.open_questions
     }
 
+    /// Get the n most recent question topics (from open_questions).
+    pub fn recent_question_topics(&self, n: usize) -> Vec<String> {
+        self.open_questions.iter().rev().take(n).map(|q| q.topic.clone()).collect()
+    }
+
     /// Get the current topic string.
     pub fn current_topic(&self) -> String {
         match &self.topic_phase {
