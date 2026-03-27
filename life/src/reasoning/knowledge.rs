@@ -167,7 +167,15 @@ impl KnowledgeGraph {
 
     /// Get an entity by name.
     pub fn get_entity(&self, name: &str) -> Option<&Entity> {
+        // Case-insensitive lookup
         self.entities.get(name)
+            .or_else(|| self.entities.get(&name.to_lowercase()))
+            .or_else(|| {
+                // Try case-insensitive search through all entities
+                self.entities.iter()
+                    .find(|(k, _)| k.to_lowercase() == name.to_lowercase())
+                    .map(|(_, v)| v)
+            })
     }
 
     /// Get all entity names.
@@ -175,24 +183,30 @@ impl KnowledgeGraph {
         self.entities.keys().map(|s| s.as_str())
     }
 
-    /// Get all relationships from an entity.
+    /// Get all relationships from an entity (case-insensitive).
     pub fn get_relationships_from(&self, entity: &str) -> Vec<&Relationship> {
-        self.relationships.iter().filter(|r| r.from == entity).collect()
+        let entity_lower = entity.to_lowercase();
+        self.relationships.iter()
+            .filter(|r| r.from.to_lowercase() == entity_lower)
+            .collect()
     }
 
-    /// Get all relationships to an entity.
+    /// Get all relationships to an entity (case-insensitive).
     pub fn get_relationships_to(&self, entity: &str) -> Vec<&Relationship> {
-        self.relationships.iter().filter(|r| r.to == entity).collect()
+        let entity_lower = entity.to_lowercase();
+        self.relationships.iter()
+            .filter(|r| r.to.to_lowercase() == entity_lower)
+            .collect()
     }
 
     /// Get all facts about an entity.
     pub fn get_facts_about(&self, entity: &str) -> Vec<String> {
         let mut facts = Vec::new();
         
-        // Properties
-        if let Some(e) = self.entities.get(entity) {
+        // Use case-insensitive entity lookup
+        if let Some(e) = self.get_entity(entity) {
             for (prop, val) in &e.properties {
-                facts.push(format!("{} has {}", entity, val));
+                facts.push(format!("{} has {}", e.name, val));
             }
             if let Some(desc) = &e.description {
                 facts.push(desc.clone());
@@ -353,6 +367,221 @@ impl KnowledgeGraph {
     /// Number of relationships.
     pub fn relationship_count(&self) -> usize {
         self.relationships.len()
+    }
+
+    /// Find analogies between two concepts by exploring shared relational structure.
+    /// 
+    /// This is the core of dynamic analogy-making: instead of hardcoded categories,
+    /// we inspect the *actual* relationships in the knowledge graph and look for
+    /// structural parallels. "A:B :: C:D" when A→X and C→Y are the same *type*
+    /// of relationship, even if X≠Y.
+    /// 
+    /// Returns a list of discovered analogies sorted by confidence.
+    pub fn find_analogies(&self, concept_a: &str, concept_b: &str) -> Vec<DynamicAnalogy> {
+        let mut analogies = Vec::new();
+        let a_lower = concept_a.to_lowercase();
+        let b_lower = concept_b.to_lowercase();
+
+        // Get all relationships from A and B
+        let rels_from_a: Vec<_> = self.relationships.iter()
+            .filter(|r| r.from.to_lowercase() == a_lower)
+            .collect();
+        let rels_from_b: Vec<_> = self.relationships.iter()
+            .filter(|r| r.from.to_lowercase() == b_lower)
+            .collect();
+
+        for rel_a in &rels_from_a {
+            for rel_b in &rels_from_b {
+                // Same relation type → structural parallel
+                if rel_a.relation == rel_b.relation {
+                    let target_same = rel_a.to.to_lowercase() == rel_b.to.to_lowercase();
+                    
+                    let analogy = DynamicAnalogy {
+                        source: concept_a.to_string(),
+                        source_relation: format!("{} {}", rel_a.relation.as_str(), rel_a.to),
+                        source_rel_type: rel_a.relation,
+                        target: concept_b.to_string(),
+                        target_relation: format!("{} {}", rel_b.relation.as_str(), rel_b.to),
+                        target_rel_type: rel_b.relation,
+                        is_parallel: target_same,
+                        confidence: if target_same { 0.9 } else { 0.7 },
+                    };
+                    analogies.push(analogy);
+                }
+                
+                // Inverse relation → potential contrast/opposite
+                if let Some(inv) = rel_a.relation.inverse() {
+                    if inv == rel_b.relation && rel_a.from.to_lowercase() != rel_b.from.to_lowercase() {
+                        analogies.push(DynamicAnalogy {
+                            source: concept_a.to_string(),
+                            source_relation: format!("{} {}", rel_a.relation.as_str(), rel_a.to),
+                            source_rel_type: rel_a.relation,
+                            target: concept_b.to_string(),
+                            target_relation: format!("{} {}", rel_b.relation.as_str(), rel_b.to),
+                            target_rel_type: rel_b.relation,
+                            is_parallel: false,
+                            confidence: 0.5,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Sort by confidence and deduplicate
+        analogies.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        analogies.dedup_by(|a, b| 
+            a.source == b.source && a.target == b.target 
+            && a.source_rel_type == b.source_rel_type
+        );
+
+        analogies
+    }
+
+    /// Find the best analogy connecting two arbitrary concepts by traversing the graph.
+    /// 
+    /// Unlike `find_analogies` which takes two specific concepts, this one searches
+    /// the graph for any two concepts that share structural similarity — useful when
+    /// we want to understand "what is X like?" without knowing Y in advance.
+    pub fn find_any_analogy_for(&self, concept: &str) -> Vec<DynamicAnalogy> {
+        let concept_lower = concept.to_lowercase();
+        let mut all_analogies = Vec::new();
+
+        // Find concepts that share a relationship with this one
+        let rels_from = self.relationships.iter()
+            .filter(|r| r.from.to_lowercase() == concept_lower || r.to.to_lowercase() == concept_lower)
+            .collect::<Vec<_>>();
+
+        for rel in &rels_from {
+            // Find another relationship of the SAME type
+            let others: Vec<_> = self.relationships.iter()
+                .filter(|r| r.relation == rel.relation && r.from != rel.from && r.to != rel.to)
+                .collect();
+
+            for other in others {
+                let shared_targets = rel.to.to_lowercase() == other.to.to_lowercase();
+                let shared_sources = rel.from.to_lowercase() == other.from.to_lowercase();
+                
+                if !shared_targets && !shared_sources {
+                    // Genuinely different — might be an analogy
+                    let (src, tgt, oth_src, oth_tgt) = if rel.from.to_lowercase() == concept_lower {
+                        (&rel.from, &rel.to, &other.from, &other.to)
+                    } else {
+                        (&rel.to, &rel.from, &other.from, &other.to)
+                    };
+
+                    all_analogies.push(DynamicAnalogy {
+                        source: src.clone(),
+                        source_relation: format!("{} {}", rel.relation.as_str(), tgt),
+                        source_rel_type: rel.relation,
+                        target: oth_src.clone(),
+                        target_relation: format!("{} {}", other.relation.as_str(), oth_tgt),
+                        target_rel_type: other.relation,
+                        is_parallel: false,
+                        confidence: 0.5,
+                    });
+                }
+            }
+        }
+
+        // Also try transitive analogies: if A→X→Y and B→Z→W, and X≈Z, then A:Y :: B:W
+        let rels_from_concept: Vec<_> = self.relationships.iter()
+            .filter(|r| r.from.to_lowercase() == concept_lower)
+            .collect();
+        
+        for rel in &rels_from_concept {
+            let second_hop: Vec<_> = self.relationships.iter()
+                .filter(|r| r.from.to_lowercase() == rel.to.to_lowercase())
+                .collect();
+            
+            for sh in &second_hop {
+                // Find another chain of same length with same relation type at both hops
+                let matches: Vec<_> = self.relationships.iter()
+                    .filter(|r| r.relation == rel.relation && r.from.to_lowercase() != concept_lower)
+                    .collect();
+                
+                for m in &matches {
+                    let m2: Vec<_> = self.relationships.iter()
+                        .filter(|r| r.from.to_lowercase() == m.to.to_lowercase() && r.relation == sh.relation)
+                        .collect();
+                    
+                    for m2 in m2 {
+                        if rel.to.to_lowercase() != m.to.to_lowercase() {
+                            all_analogies.push(DynamicAnalogy {
+                                source: concept.to_string(),
+                                source_relation: format!("{} → {} {}", rel.relation.as_str(), rel.to, sh.relation.as_str()),
+                                source_rel_type: rel.relation,
+                                target: m.from.clone(),
+                                target_relation: format!("{} → {} {}", m.relation.as_str(), m.to, m2.relation.as_str()),
+                                target_rel_type: m.relation,
+                                is_parallel: false,
+                                confidence: 0.6,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        all_analogies.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        all_analogies.truncate(5);
+        all_analogies
+    }
+
+    /// Get concepts that are related to the given concept (1-hop neighbors).
+    pub fn neighbors(&self, concept: &str) -> Vec<(&Relationship, String)> {
+        let concept_lower = concept.to_lowercase();
+        let mut result = Vec::new();
+
+        for rel in &self.relationships {
+            if rel.from.to_lowercase() == concept_lower {
+                result.push((rel, rel.to.clone()));
+            }
+            if rel.to.to_lowercase() == concept_lower {
+                if let Some(inv) = rel.relation.inverse() {
+                    result.push((rel, rel.from.clone()));
+                }
+            }
+        }
+
+        result
+    }
+}
+
+/// A dynamically discovered analogy from the knowledge graph.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DynamicAnalogy {
+    /// The source concept
+    pub source: String,
+    /// How the source relates (e.g., "causes heat")
+    pub source_relation: String,
+    /// The type of the source relationship
+    pub source_rel_type: RelationType,
+    /// The target concept
+    pub target: String,
+    /// How the target relates
+    pub target_relation: String,
+    /// The type of the target relationship
+    pub target_rel_type: RelationType,
+    /// Whether this is a parallel (same thing) or contrast (different)
+    pub is_parallel: bool,
+    /// Confidence in this analogy
+    pub confidence: f64,
+}
+
+impl DynamicAnalogy {
+    /// Human-readable explanation of this analogy.
+    pub fn explanation(&self) -> String {
+        if self.is_parallel {
+            format!(
+                "{} is to {} as {} is to {} — they share the same relational structure",
+                self.source, self.source_relation, self.target, self.target_relation
+            )
+        } else {
+            format!(
+                "{} is like {}: {} — parallel structure across different domains",
+                self.source, self.target, self.source_relation
+            )
+        }
     }
 }
 

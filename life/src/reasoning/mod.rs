@@ -20,9 +20,11 @@ pub mod pathways;
 use crate::persistence::{Memory, MemoryDomain, BeliefState};
 use crate::persistence::memory::Belief;
 use pathways::{Pathway, PathwayVote, PathwayFusion, FusedResult};
+use knowledge::RelationType;
 use std::collections::HashMap;
 
 /// The reasoning engine — combines all reasoning components.
+#[derive(Clone)]
 pub struct ReasoningEngine {
     /// Knowledge graph
     knowledge: knowledge::KnowledgeGraph,
@@ -51,11 +53,18 @@ pub enum WorkingSource {
 }
 
 impl ReasoningEngine {
+    /// Get a reference to the knowledge graph (for autonomous thinking).
+    pub fn knowledge(&self) -> &knowledge::KnowledgeGraph {
+        &self.knowledge
+    }
+
     pub fn new() -> Self {
+        let knowledge = knowledge::KnowledgeGraph::new();
+        let kg_arc = std::sync::Arc::new(std::sync::RwLock::new(knowledge.clone()));
         Self {
-            knowledge: knowledge::KnowledgeGraph::new(),
+            knowledge,
             rules: rules::RuleEngine::new(),
-            analogy: analogy::AnalogyEngine::new(),
+            analogy: analogy::AnalogyEngine::new().with_knowledge_graph(kg_arc),
             fusion: PathwayFusion::new(),
             working_memory: Vec::new(),
         }
@@ -116,50 +125,87 @@ impl ReasoningEngine {
     }
 
     fn ingest_memory(&mut self, mem: &Memory) {
-        // Extract entities and relationships from memory content
+        // Extract entities and relationships from memory content.
+        // Supports both capitalized proper nouns ("Fire") and common nouns ("fire").
         let content = &mem.content;
-        
-        // Very simple entity extraction: look for capitalized words
-        // and common relationship patterns
         let words: Vec<&str> = content.split_whitespace().collect();
         
+        // Skip stop words
+        let stop_words: std::collections::HashSet<&str> = [
+            "the", "and", "for", "are", "but", "not", "you", "all", "can", "had", 
+            "her", "was", "one", "our", "out", "has", "have", "been", "were", "they",
+            "this", "that", "with", "from", "its", "about", "which", "also", "such",
+        ].into_iter().collect();
+        
+        // Pass 1: extract simple "X is Y" / "X has Y" / "X requires Y" relationships
+        // and collect candidate entities.
+        let n = words.len();
         for (i, word) in words.iter().enumerate() {
-            // Skip short words and common words
-            if word.len() < 3 { continue; }
-            let lower = word.to_lowercase();
-            if ["the", "and", "for", "are", "but", "not", "you", "all", "can", "had", 
-                "her", "was", "one", "our", "out", "has", "have", "been", "were", "they",
-                "this", "that", "with", "from", "it", "its", "about", "which"].contains(&lower.as_str()) {
+            let word_lower = word.to_lowercase();
+            let cleaned = word.trim_matches(|c| !char::is_alphanumeric(c));
+            if cleaned.len() < 2 || stop_words.contains(word_lower.as_str()) {
                 continue;
             }
             
-            // If capitalized, might be an entity
-            if word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
-                let entity = word.trim_matches(|c| !char::is_alphanumeric(c));
-                if entity.len() > 2 {
-                    // Add to knowledge graph
-                    let rel_type = if i > 0 && i < words.len() - 1 {
-                        let prev = words[i-1].to_lowercase();
-                        let next = words.get(i+1).map(|s| s.to_lowercase()).unwrap_or_default();
-                        
-                        if ["is", "are", "was", "were"].contains(&prev.as_str()) && next != "a" && next != "an" && next != "the" {
-                            Some(relation_type_from_word(&next))
-                        } else if ["is", "are", "was", "were"].contains(&next.as_str()) && prev != "a" && prev != "an" {
-                            Some(relation_type_from_word(&prev))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-                    
-                    if let Some(rel) = rel_type {
-                        let to_val = words.get(i+1).copied().unwrap_or("");
-                        self.knowledge.add_relationship(entity, rel, to_val);
-                    } else {
-                        self.knowledge.add_entity(entity);
+            // Determine if this word is an entity (capitalized OR first word, or any word
+            // that appears in a subject-like position before a verb).
+            let is_entity = word.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+                || (i == 0 && word.chars().next().map(|c| c.is_lowercase()).unwrap_or(false));
+            
+            if !is_entity && i > 0 {
+                continue;
+            }
+            
+            // Try to extract relationship from what follows
+            // Patterns: "Fire is hot", "Fire requires oxygen", "Fire produces heat"
+            if i < n - 2 {
+                let v1 = words[i + 1].to_lowercase();
+                let v2 = words.get(i + 2).map(|s| s.to_lowercase()).unwrap_or_default();
+                
+                if ["is", "are", "was", "were"].contains(&v1.as_str()) {
+                    // "X is Y" — add relationship and entity
+                    let entity_name = cleaned;
+                    let value = words[i + 2].trim_matches(|c: char| !char::is_alphanumeric(c));
+                    if value.len() > 1 {
+                        self.knowledge.add_relationship(entity_name, RelationType::IsA, value);
+                    }
+                } else if ["requires", "needs", "needs:", "uses"].contains(&v1.as_str()) {
+                    let entity_name = cleaned;
+                    // Collect full object (may be multi-word)
+                    let rest: Vec<&str> = words[i+2..].iter()
+                        .map(|w| w.trim_matches(|c: char| !char::is_alphanumeric(c)))
+                        .filter(|w| !w.is_empty() && !stop_words.contains(w.to_lowercase().as_str()))
+                        .collect();
+                    if !rest.is_empty() {
+                        let obj = rest.join(" ");
+                        self.knowledge.add_relationship(entity_name, RelationType::Enables, &obj);
+                    }
+                } else if ["produces", "creates", "generates"].contains(&v1.as_str()) {
+                    let entity_name = cleaned;
+                    let rest: Vec<&str> = words[i+2..].iter()
+                        .map(|w| w.trim_matches(|c: char| !char::is_alphanumeric(c)))
+                        .filter(|w| !w.is_empty() && !stop_words.contains(w.to_lowercase().as_str()))
+                        .collect();
+                    if !rest.is_empty() {
+                        let obj = rest.join(" ");
+                        self.knowledge.add_relationship(entity_name, RelationType::Causes, &obj);
+                    }
+                } else if ["causes", "leads", "to"].contains(&v1.as_str()) && v2 == "to" {
+                    let entity_name = cleaned;
+                    let rest: Vec<&str> = words[i+3..].iter()
+                        .map(|w| w.trim_matches(|c: char| !char::is_alphanumeric(c)))
+                        .filter(|w| !w.is_empty() && !stop_words.contains(w.to_lowercase().as_str()))
+                        .collect();
+                    if !rest.is_empty() {
+                        let obj = rest.join(" ");
+                        self.knowledge.add_relationship(entity_name, RelationType::Causes, &obj);
                     }
                 }
+            }
+            
+            // Also add as bare entity if no relationship found
+            if cleaned.len() > 2 {
+                self.knowledge.add_entity(cleaned);
             }
         }
         

@@ -38,12 +38,16 @@ impl Analogy {
 }
 
 /// The analogy engine — finds mappings between domains.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct AnalogyEngine {
     /// Known analogies (cached)
     known_analogies: Vec<Analogy>,
     /// Relationship patterns observed
     patterns: HashMap<String, Vec<RelationshipPattern>>,
+    /// Optional reference to the knowledge graph for dynamic analogy-making
+    knowledge_graph: Option<std::sync::Arc<std::sync::RwLock<crate::reasoning::knowledge::KnowledgeGraph>>>,
+    /// Maximum dynamic analogies to consider
+    max_dynamic: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -55,7 +59,19 @@ pub struct RelationshipPattern {
 
 impl AnalogyEngine {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            known_analogies: Vec::new(),
+            patterns: HashMap::new(),
+            knowledge_graph: None,
+            max_dynamic: 5,
+        }
+    }
+
+    /// Attach a knowledge graph reference for dynamic analogy-making.
+    /// Call this after constructing the engine if you want graph-based analogies.
+    pub fn with_knowledge_graph(mut self, kg: std::sync::Arc<std::sync::RwLock<crate::reasoning::knowledge::KnowledgeGraph>>) -> Self {
+        self.knowledge_graph = Some(kg);
+        self
     }
 
     /// Find analogies for a given concept.
@@ -79,41 +95,84 @@ impl AnalogyEngine {
         results
     }
 
-    /// Construct analogies from first principles.
+    /// Construct analogies — first tries the knowledge graph, then falls back to
+    /// hardcoded categories. The KG-based approach is preferred because it reasons
+    /// from Star's actual accumulated knowledge rather than generic examples.
     fn construct_analogies(&self, concept: &str) -> Vec<Analogy> {
         let mut analogies = Vec::new();
         
-        // Try common analogy categories
-        let categories = vec![
-            // Physical to abstract
-            (vec![
-                ("fire", "heat", "passion", "intensity"),
-                ("water", "flow", "ideas", "connection"),
-                ("trees", "roots", "knowledge", "foundation"),
-                ("light", "illumination", "understanding", "clarity"),
-            ]),
-            // Process analogies
-            (vec![
-                ("growth", "natural", "learning", "personal"),
-                ("erosion", "slow change", "habits", "gradual shift"),
-                ("chemistry", "reactions", "relationships", "interactions"),
-            ]),
-        ];
-        
-        let concept_lower = concept.to_lowercase();
-        
-        for category in &categories {
-            for (base, rel, mapped, mapped_rel) in category {
-                if concept_lower.contains(base) || concept_lower.contains(mapped) {
+        // ─── Strategy 1: Dynamic KG-based analogies ───────────────────────────
+        if let Some(ref kg_arc) = self.knowledge_graph {
+            if let Ok(kg) = kg_arc.read() {
+                // Find any analogy for this concept from the actual knowledge graph
+                let dynamic = kg.find_any_analogy_for(concept);
+                for da in dynamic.into_iter().take(self.max_dynamic) {
+                    let explanation = da.explanation();
                     analogies.push(Analogy {
-                        source: base.to_string(),
-                        source_relation: rel.to_string(),
-                        target: mapped.to_string(),
-                        target_relation: mapped_rel.to_string(),
-                        structure: format!("The relationship between {} and {} mirrors {} and {}", 
-                            base, rel, mapped, mapped_rel),
-                        confidence: 0.5,
+                        source: da.source,
+                        source_relation: da.source_relation,
+                        target: da.target,
+                        target_relation: da.target_relation,
+                        structure: explanation,
+                        confidence: da.confidence,
                     });
+                }
+                
+                // Also try to pair this concept with another known entity
+                // to find a direct A:B :: C:D analogy
+                for entity in kg.entities().take(20) {
+                    if entity.to_lowercase() != concept.to_lowercase() && entity.len() > 2 {
+                        let direct = kg.find_analogies(concept, entity);
+                        for da in direct.into_iter().take(2) {
+                            let explanation = da.explanation();
+                            analogies.push(Analogy {
+                                source: da.source,
+                                source_relation: da.source_relation,
+                                target: da.target,
+                                target_relation: da.target_relation,
+                                structure: explanation,
+                                confidence: da.confidence * 0.9, // Slight penalty for being indirect
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ─── Strategy 2: Hardcoded categories (fallback) ───────────────────────
+        // Only use these if the KG didn't give us anything useful
+        if analogies.is_empty() {
+            let categories = vec![
+                // Physical to abstract
+                (vec![
+                    ("fire", "heat", "passion", "intensity"),
+                    ("water", "flow", "ideas", "connection"),
+                    ("trees", "roots", "knowledge", "foundation"),
+                    ("light", "illumination", "understanding", "clarity"),
+                ]),
+                // Process analogies
+                (vec![
+                    ("growth", "natural", "learning", "personal"),
+                    ("erosion", "slow change", "habits", "gradual shift"),
+                    ("chemistry", "reactions", "relationships", "interactions"),
+                ]),
+            ];
+            
+            let concept_lower = concept.to_lowercase();
+            
+            for category in &categories {
+                for (base, rel, mapped, mapped_rel) in category {
+                    if concept_lower.contains(base) || concept_lower.contains(mapped) {
+                        analogies.push(Analogy {
+                            source: base.to_string(),
+                            source_relation: rel.to_string(),
+                            target: mapped.to_string(),
+                            target_relation: mapped_rel.to_string(),
+                            structure: format!("The relationship between {} and {} mirrors {} and {}", 
+                                base, rel, mapped, mapped_rel),
+                            confidence: 0.5,
+                        });
+                    }
                 }
             }
         }

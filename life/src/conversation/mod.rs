@@ -157,6 +157,7 @@ impl Conversation {
                 return Response {
                     content: "I exist. I'm reasoning. I'm here with you.".to_string(),
                     confidence: BeliefState::Knows,
+                    chain: Vec::new(),
                     new_memories: Vec::new(),
                     curiosity: None,
                 };
@@ -182,6 +183,7 @@ impl Conversation {
             return Response {
                 content,
                 confidence: BeliefState::Knows,
+                    chain: Vec::new(),
                 new_memories: memories,
                 curiosity: None,
             };
@@ -199,6 +201,7 @@ impl Conversation {
                     "Back again. Good.".to_string()
                 },
                 confidence: BeliefState::Knows,
+                    chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
@@ -206,6 +209,7 @@ impl Conversation {
             Response {
                 content: "Good to hear from you, Zachary.".to_string(),
                 confidence: BeliefState::Thinks,
+                    chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
@@ -213,6 +217,7 @@ impl Conversation {
             Response {
                 content: "Zachary. It's been a while.".to_string(),
                 confidence: BeliefState::Knows,
+                    chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
@@ -291,6 +296,7 @@ impl Conversation {
         Response {
             content,
             confidence: result.confidence,
+            chain: result.reasoning_chain.clone(),
             new_memories: Vec::new(),
             curiosity,
         }
@@ -325,6 +331,7 @@ impl Conversation {
         Response {
             content,
             confidence: BeliefState::Knows,
+                    chain: Vec::new(),
             new_memories: vec![memory],
             curiosity: if importance > 0.6 { Some(topic) } else { None },
         }
@@ -338,6 +345,7 @@ impl Conversation {
             Response {
                 content: format!("I'll hold onto that: {}", to_remember),
                 confidence: BeliefState::Knows,
+                    chain: Vec::new(),
                 new_memories: vec![memory],
                 curiosity: None,
             }
@@ -345,6 +353,7 @@ impl Conversation {
             Response {
                 content: "I don't know that command.".to_string(),
                 confidence: BeliefState::Thinks,
+                    chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
@@ -355,6 +364,7 @@ impl Conversation {
         Response {
             content: "Until next time.".to_string(),
             confidence: BeliefState::Knows,
+                    chain: Vec::new(),
             new_memories: Vec::new(),
             curiosity: None,
         }
@@ -369,6 +379,7 @@ impl Conversation {
                 "I'm not sure what you mean. Can you say that differently?".to_string()
             },
             confidence: BeliefState::Unknown,
+            chain: Vec::new(),
             new_memories: Vec::new(),
             curiosity: None,
         }
@@ -414,10 +425,11 @@ enum Intent {
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Response {
     pub content: String,
     pub confidence: BeliefState,
+    pub chain: Vec<String>,        // inference chain for this response
     pub new_memories: Vec<Memory>,
     pub curiosity: Option<String>,
 }

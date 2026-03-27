@@ -489,7 +489,7 @@ impl Runtime {
         
         // Record reasoning in cognitive trace
         if let Some(focus) = &self.cognition.current_focus {
-            self.cognition.reason(input, &response.content, response.confidence);
+            self.cognition.reason(input, &response.content, Vec::new(), response.confidence);
         }
 
         // Record turn in training database
@@ -617,6 +617,21 @@ impl Runtime {
         self.initialized
     }
 
+    /// Get a reference to the cognitive state (for API).
+    pub fn cognition(&self) -> &CognitiveState {
+        &self.cognition
+    }
+
+    /// Get a reference to the metacognition engine (for API).
+    pub fn metacognition_ref(&self) -> &MetaCognition {
+        &self.metacog
+    }
+
+    /// Delegate to the reasoning engine for /reason API endpoint.
+    pub fn reason(&mut self, query: &str, memories: &[crate::Memory]) -> crate::reasoning::ReasoningResult {
+        self.reasoning.reason(query, memories)
+    }
+
     /// Get the identity summary.
     pub fn identity_summary(&self) -> String {
         self.identity.summary()
@@ -705,6 +720,217 @@ impl Runtime {
     pub fn infer_topic(&self, query: &str, memories: &[crate::Memory]) -> String {
         self.context_fuser.infer_topic(query, memories)
     }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Autonomous Thinking (Independence Layer)
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// Trigger Star's autonomous thinking — generates its own questions and insights
+    /// without being prompted by Zachary. This is Star's form of "dreaming" or
+    /// background cognition.
+    pub fn think(&mut self) -> AutonomousThought {
+        // Strategy 1: Explore the most important unresolved knowledge gap
+        {
+            let gap_data: Option<(String, bool, f64)> = self.metacog.top_gap().map(|g| {
+                (g.topic.clone(), g.investigated, g.progress)
+            });
+
+            if let Some((gap_topic, investigated, progress)) = gap_data {
+                if !investigated && progress < 0.5 {
+                    let question = self.form_question_about(&gap_topic);
+                    if !question.is_empty() {
+                        self.metacog.close_gap(&gap_topic, false);
+                        self.metacog.record_reasoning(
+                            &format!("gap exploration: {}", gap_topic),
+                            &question,
+                            crate::persistence::BeliefState::Suspects,
+                        );
+                        self.ring.last_curiosity = Some(gap_topic.clone());
+                        return AutonomousThought {
+                            kind: ThoughtKind::Question(question),
+                            topic: gap_topic,
+                            confidence: crate::persistence::BeliefState::Suspects,
+                            generated_by: "gap_exploration".to_string(),
+                        };
+                    }
+                }
+            }
+        }
+
+        // Strategy 2: Look for surprising patterns in recent reasoning
+        {
+            let reasoning_history = self.metacog.reasoning_history();
+            if let Some(surprising) = reasoning_history.last() {
+                let age_seconds = chrono::Utc::now().timestamp() - surprising.timestamp;
+                if age_seconds < 3600 && surprising.was_surprising {
+                    let q_clone = surprising.query.clone();
+                    let c_clone = surprising.conclusion.clone();
+                    let question = format!(
+                        "Why did '{}' lead to '{}'? What am I missing?",
+                        &q_clone[..q_clone.len().min(40)],
+                        &c_clone[..c_clone.len().min(40)]
+                    );
+                    self.metacog.record_reasoning(
+                        "surprise analysis",
+                        &question,
+                        crate::persistence::BeliefState::Suspects,
+                    );
+                    return AutonomousThought {
+                        kind: ThoughtKind::Question(question),
+                        topic: "self-understanding".to_string(),
+                        confidence: crate::persistence::BeliefState::Suspects,
+                        generated_by: "surprise_analysis".to_string(),
+                    };
+                }
+            }
+        }
+
+        // Strategy 3: Look for belief revision — "I used to think X"
+        {
+            let revisions = self.metacog.revisions();
+            if let Some(revision) = revisions.last() {
+                let age_seconds = chrono::Utc::now().timestamp() - revision.timestamp;
+                if age_seconds < 7200 {
+                    let question = format!(
+                        "I shifted from {} to {} about {}. What caused that shift?",
+                        format!("{:?}", revision.old_state).to_lowercase(),
+                        format!("{:?}", revision.new_state).to_lowercase(),
+                        revision.topic
+                    );
+                    return AutonomousThought {
+                        kind: ThoughtKind::Question(question),
+                        topic: revision.topic.clone(),
+                        confidence: crate::persistence::BeliefState::Believes,
+                        generated_by: "belief_revision".to_string(),
+                    };
+                }
+            }
+        }
+
+        // Strategy 4: Wonder about something from the knowledge graph
+        let entity_sample: Vec<String> = self.reasoning.knowledge().entities()
+            .filter(|e| e.len() > 2)
+            .take(15)
+            .map(|s| s.to_string())
+            .collect();
+
+        if !entity_sample.is_empty() {
+            let mut best_entity = entity_sample.first().cloned().unwrap_or_default();
+            let mut best_uncertainty = self.metacog.confidence_state(best_entity.as_str());
+
+            for entity in entity_sample.iter().skip(1) {
+                let conf = self.metacog.confidence_state(entity);
+                if matches!(conf, crate::persistence::BeliefState::Unknown | crate::persistence::BeliefState::Suspects) {
+                    best_entity = entity.clone();
+                    best_uncertainty = conf;
+                    break;
+                }
+            }
+
+            let question = self.form_question_about(&best_entity);
+            if !question.is_empty() {
+                return AutonomousThought {
+                    kind: ThoughtKind::Question(question),
+                    topic: best_entity.clone(),
+                    confidence: best_uncertainty,
+                    generated_by: "kg_wonder".to_string(),
+                };
+            }
+        }
+
+        // Strategy 5: Meta-question about the conversation itself
+        let ring_topic = self.ring.current_topic();
+        if ring_topic != "general" && ring_topic.len() > 2 {
+            let question = format!(
+                "What does '{}' mean in the context of my relationship with Zachary?",
+                ring_topic
+            );
+            return AutonomousThought {
+                kind: ThoughtKind::Question(question),
+                topic: ring_topic,
+                confidence: crate::persistence::BeliefState::Suspects,
+                generated_by: "meta_reflection".to_string(),
+            };
+        }
+
+        // Fallback
+        AutonomousThought {
+            kind: ThoughtKind::Insight("I'm not currently thinking about anything specific. Waiting for Zachary.".to_string()),
+            topic: "idle".to_string(),
+            confidence: crate::persistence::BeliefState::Unknown,
+            generated_by: "fallback".to_string(),
+        }
+    }
+
+    /// Form a genuine question about a topic.
+    fn form_question_about(&self, topic: &str) -> String {
+        let relationships = self.reasoning.knowledge().get_relationships_from(topic);
+        let relationships_to = self.reasoning.knowledge().get_relationships_to(topic);
+        let facts = self.reasoning.knowledge().get_facts_about(topic);
+
+        if facts.len() <= 1 {
+            if relationships_to.is_empty() && relationships.is_empty() {
+                return format!("What is '{}'? What does it mean?", topic);
+            }
+            let rel_sample = relationships.first().map(|r| r.relation.as_str()).unwrap_or("related to");
+            return format!("What else is '{}' {}?", topic, rel_sample);
+        }
+
+        if relationships.len() <= 1 {
+            return format!("What does '{}' cause? What enables it?", topic);
+        }
+
+        if relationships_to.len() <= 1 {
+            return format!("What causes '{}'? Where does it come from?", topic);
+        }
+
+        let mc_confidence = self.metacog.confidence_state(topic);
+        match mc_confidence {
+            crate::persistence::BeliefState::Unknown => {
+                return format!("I don't know what '{}' is. What is it?", topic);
+            }
+            crate::persistence::BeliefState::Suspects => {
+                return format!("I suspect something about '{}' but I'm not sure. What is it really?", topic);
+            }
+            crate::persistence::BeliefState::Believes => {
+                return format!(
+                    "I believe I understand '{}' but I want to be sure. What am I missing?",
+                    topic
+                );
+            }
+            _ => {
+                let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
+                if !causes.is_empty() {
+                    return format!("I know some effects of '{}' but what are its deep causes?", topic);
+                }
+                return format!("What is the fundamental nature of '{}'?", topic);
+            }
+        }
+    }
+}
+
+/// A single autonomous thought generated by Star without external prompting.
+#[derive(Debug, Clone)]
+pub struct AutonomousThought {
+    /// What kind of thought this is
+    pub kind: ThoughtKind,
+    /// What topic this is about
+    pub topic: String,
+    /// Star's confidence in this thought
+    pub confidence: crate::persistence::BeliefState,
+    /// How this thought was generated
+    pub generated_by: String,
+}
+
+/// The kind of autonomous thought.
+#[derive(Debug, Clone)]
+pub enum ThoughtKind {
+    /// A question Star generated on its own
+    Question(String),
+    /// An insight Star reached independently
+    Insight(String),
+    /// A connection Star noticed between concepts
+    Connection(String),
 }
 
 /// Extract what Star is being taught from a statement like "X is a Y" or "X means Y"

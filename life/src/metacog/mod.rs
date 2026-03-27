@@ -200,6 +200,11 @@ impl MetaCognition {
         self.revisions.iter().any(|r| r.topic.to_lowercase() == topic.to_lowercase())
     }
 
+    /// Get all belief revision events (for autonomous thinking).
+    pub fn revisions(&self) -> &[BeliefRevision] {
+        &self.revisions
+    }
+
     /// Generate a revision statement.
     pub fn revision_statement(&self, topic: &str) -> Option<String> {
         let topic_revisions: Vec<_> = self.revisions.iter()
@@ -241,6 +246,83 @@ impl MetaCognition {
             self.surprise.mark_surprised();
         }
         surprising
+    }
+
+    /// Generate an "I noticed something" insight about Star's own reasoning.
+    /// This is proactive self-reflection — what has Star noticed about its own cognition?
+    /// Returns None if nothing particularly interesting has been noticed.
+    pub fn generate_insight(&self) -> Option<String> {
+        // 1. Check for surprising conclusions worth reflecting on
+        if let Some(surprising) = self.reasoning_history.last() {
+            if surprising.was_surprising {
+                // Don't repeat — check if we already expressed this
+                return Some(format!(
+                    "That conclusion surprised me — I expected something different.",
+                ));
+            }
+        }
+        
+        // 2. Belief revision — "I used to think X, now I think Y"
+        if let Some(last_revision) = self.revisions.last() {
+            let old = format!("{:?}", last_revision.old_state).to_lowercase();
+            let new = format!("{:?}", last_revision.new_state).to_lowercase();
+            return Some(format!(
+                "I notice I've shifted from {} to {} about {}.",
+                old, new, last_revision.topic
+            ));
+        }
+        
+        // 3. Reasoning confidence pattern — are we getting more or less certain?
+        if self.reasoning_history.len() >= 3 {
+            let recent: Vec<_> = self.reasoning_history.iter().rev().take(3).collect();
+            let confidences: Vec<bool> = recent.iter()
+                .map(|r| matches!(r.confidence, BeliefState::Knows | BeliefState::Thinks))
+                .collect();
+            
+            if confidences.len() == 3 && confidences[0] && !confidences[2] {
+                return Some("I'm becoming less certain as I think through this topic.".to_string());
+            }
+            if confidences.len() == 3 && !confidences[0] && confidences[2] {
+                return Some("I'm growing more confident as I reason through this.".to_string());
+            }
+        }
+        
+        // 4. Gap detection — we're consistently hitting the same topic
+        if let Some(gap) = self.top_gap() {
+            if !gap.investigated && gap.progress > 0.0 {
+                return Some(format!(
+                    "I keep running into gaps when I think about {}. I want to understand this better.",
+                    gap.topic
+                ));
+            }
+        }
+        
+        // 5. Reasoning repetition — same kind of query coming up
+        if self.reasoning_history.len() >= 5 {
+            let queries: Vec<_> = self.reasoning_history.iter().rev().take(5).collect();
+            let topics: Vec<String> = queries.iter()
+                .map(|r| r.query.to_lowercase())
+                .collect();
+            
+            // Check if the same topic is recurring
+            if topics.len() >= 3 {
+                let first_str = &topics[0];
+                let mut matches = 1;
+                for t in &topics[1..] {
+                    if t == first_str {
+                        matches += 1;
+                        if matches >= 3 {
+                            return Some(format!(
+                                "I've been thinking about '{}' repeatedly. It seems important.",
+                                first_str
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        
+        None
     }
 }
 

@@ -34,6 +34,7 @@ pub struct CognitiveState {
 pub struct ReasoningStep {
     pub input: String,
     pub conclusion: String,
+    pub chain: Vec<String>,  // inference chain: how we got from input to conclusion
     pub confidence: BeliefState,
     pub timestamp: i64,
 }
@@ -77,10 +78,11 @@ impl CognitiveState {
     }
 
     /// Add a reasoning step to the trace.
-    pub fn reason(&mut self, input: &str, conclusion: &str, confidence: BeliefState) {
+    pub fn reason(&mut self, input: &str, conclusion: &str, chain: Vec<String>, confidence: BeliefState) {
         self.reasoning_trace.push(ReasoningStep {
             input: input.to_string(),
             conclusion: conclusion.to_string(),
+            chain,
             confidence,
             timestamp: chrono::Utc::now().timestamp(),
         });
@@ -142,9 +144,11 @@ impl CognitiveState {
             self.zachary_mood.valence = (self.zachary_mood.valence * 0.7 - 0.3).max(-1.0);
         }
         
-        // Update arousal
+        // Update arousal — uncertainty increases cognitive activity
         if unc_count > 0 {
             self.zachary_mood.arousal = (self.zachary_mood.arousal * 0.8 + 0.2).min(1.0);
+            // Uncertainty also slightly decreases certainty in cognition
+            self.certainty = (self.certainty * 0.9).max(0.1);
         }
         
         // Detect engagement from question marks
