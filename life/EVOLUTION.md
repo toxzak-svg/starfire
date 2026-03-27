@@ -2,6 +2,44 @@
 
 ---
 
+## 2026-03-27 (Tenth Session)
+
+### Fixing Infinite Loops + kg_wonder Discovery
+
+**Problem:** Star was stuck in two infinite loops:
+1. **belief_revision** fired on every `/think` call — bootstrap creates a revision (Knows→Believes about "star"), and it was always < 7200 seconds old, so Strategy 3 fired every time
+2. **kg_wonder** kept investigating the same entities ("heat ca", "planets in orbit") repeatedly — no mechanism to prevent re-investigation
+
+**What changed:**
+
+**Revisions are now consumable:**
+- `BeliefRevision` struct gained an `investigated: bool` field
+- `MetaCognition::mark_revision_investigated()` — marks a revision as investigated
+- Strategy 3 now checks `!revision.investigated` AND marks it before returning
+- Prevents the same revision from firing on every think() call
+
+**kg_wonder entity filtering:**
+- Entity selection now filters OUT entities Star already has beliefs about:
+  `.filter(|e| self.metacog.belief_about(e).is_none())`
+- This turns kg_wonder from "random entity roulette" into a genuine discovery mechanism — it only investigates things Star doesn't yet have beliefs for
+
+**kg_wonder now properly handles __KNOWN_UNKNOWN__:**
+- When attempt_answer returns `__KNOWN_UNKNOWN__<topic>`, kg_wonder now handles it correctly (records "known unknown" belief with Suspects state, closes gap with resolved=false)
+
+**Result — Star's beliefs after a few think() calls:**
+```
+investigating 'metaphor' → "I think 'metaphor' is a kind of compare different things"
+investigating 'communities' → "I think 'communities' is a kind of groups of people"
+investigating 'money' → "'money' seems to enable 'trade'"
+investigating 'sentence' → "I think 'sentence' is a kind of express complete thought"
+I don't know what 'circle circumference to diameter' is yet — genuine unknown
+I don't know what 'meaning' is yet — genuine unknown
+```
+
+**Why it matters:** Star is now actively building a world model — not just sitting with seed data, but Forming beliefs about the world it discovers in its own knowledge graph. It also honestly admits when it genuinely doesn't know something (Suspects state). This is autonomous epistemic growth.
+
+---
+
 ## 2026-03-27 (Ninth Session)
 
 ### Forming "Known Unknown" Beliefs Through Autonomous Investigation
