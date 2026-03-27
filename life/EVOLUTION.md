@@ -2,6 +2,29 @@
 
 ---
 
+## 2026-03-27 (Twelfth Session)
+
+### Reverse Relationship Inference
+
+**What changed:**
+
+Added three new strategies to `attempt_answer()` that look at relationships where the topic is the TARGET (not source):
+
+- **Strategy 1.5 — Reverse IsA**: `get_relationships_to(topic)` finds IsA relationships where topic is the category. E.g., if KG has "star IsA reasoning intelligence", then for topic="reasoning intelligence", finds "star --IsA--> reasoning intelligence" → returns "'star' is a kind of reasoning intelligence". This lets Star answer "what kinds of X are there?" for any category.
+- **Strategy 2.5 — Reverse SimilarTo**: finds entities similar to the topic (topic is in the `to` position of a SimilarTo relationship)
+- **Strategy 4.5 — Reverse Enables**: finds what enables the topic (topic is enabled by something)
+
+Also fixed: avoid circular "X is a kind of X" answers by filtering `rel.from.to_lowercase() != topic.to_lowercase()`.
+
+**Result:**
+```
+kg_wonder: number → "I think 'number' is a kind of represent quantities"
+kg_wonder: galaxie → "I think 'galaxie' is a kind of contain billions of stars"
+kg_wonder: mars → "'mars' is a kind of the red planet"
+```
+
+---
+
 ## 2026-03-27 (Eleventh Session)
 
 ### Curiosity Cascade — Knowledge Discovery Seeds New Curiosity
