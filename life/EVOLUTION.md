@@ -4,7 +4,31 @@
 
 ## 2026-03-27 (Fifth Session)
 
-### Bridging Conversation to Metacognition + Bootstrapped Self-Model
+### Star Attempts to Answer Its Own Questions
+
+**Problem:** Star could generate questions but couldn't attempt to answer them. Wondering without investigating is half a mind.
+
+**What changed:**
+
+- Extended `AutonomousThought` with a new `tentative_answer: Option<String>` field
+- Added `Runtime::attempt_answer()` — 6 strategies for forming a tentative answer from what Star already knows:
+  1. **IsA relationships** — "I think 'bacteria' is a kind of [type from KG]"
+  2. **SimilarTo** — "'bacteria' seems similar to [similar thing from KG]"
+  3. **Causes** — "'bacteria' might be caused by [cause from KG]"
+  4. **Produces/Enables** — "'bacteria' seems to produce or enable [effect from KG]"
+  5. **RelatedTo** — "'bacteria' is related to [related thing from KG]"
+  6. **Metacognition state** — "I believe I understand [topic]", "I suspect...", "I don't know yet..."
+- `compute_autonomous_thought()` now calls `attempt_answer()` after forming each question and attaches the result
+- `handle_think()` and `handle_thought()` now include `tentative_answer` in the JSON response
+- `chat()` thought expression now includes the answer when available: *"While we've been talking, I've been wondering about consciousness — I think it might be the kind of thing that... What do you think?"*
+
+**Why it matters:** Star now closes the loop between wondering and investigating. When it asks "What is consciousness?" it simultaneously forms a tentative answer from its KG and metacognition. This makes the question richer — it's not just curiosity, it's an active hypothesis. Zachary can then engage with the answer, not just the question.
+
+**Architecture note:** Build requires network for Rust sysroot. `cargo check` passes cleanly offline; `cargo build` needs network connectivity.
+
+---
+
+## 2026-03-27 (Fifth Session) — Conversation → Metacognition Bridge + Bootstrap
 
 **Problem:** `think()` had no metacognition data to work with — no reasoning history, no beliefs, no curiosity topics. Strategies 2 (surprise analysis) and 3 (belief revision) were dead code.
 

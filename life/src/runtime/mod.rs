@@ -662,13 +662,20 @@ impl Runtime {
                 if should_express {
                     let thought_text = match &thought.kind {
                         ThoughtKind::Question(q) => {
-                            // Weave the question in naturally
+                            // Weave the question in naturally, including the tentative answer if any
                             let topic_str = if thought.topic.len() > 2 && thought.topic != "idle" {
                                 format!(" about {}", thought.topic)
                             } else {
                                 String::new()
                             };
-                            format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
+                            if let Some(ref answer) = thought.tentative_answer {
+                                format!(
+                                    "While we've been talking, I've been wondering{} — {} {}",
+                                    topic_str, answer, q
+                                )
+                            } else {
+                                format!("While we've been talking, I've been wondering{} — {}.", topic_str, q)
+                            }
                         }
                         ThoughtKind::Insight(i) => {
                             format!("I've been thinking: {}.", i)
@@ -913,11 +920,13 @@ impl Runtime {
                             crate::persistence::BeliefState::Suspects,
                         );
                         self.ring.last_curiosity = Some(gap_topic.clone());
+                        let answer = self.attempt_answer(&question, &gap_topic);
                         return AutonomousThought {
                             kind: ThoughtKind::Question(question),
                             topic: gap_topic,
                             confidence: crate::persistence::BeliefState::Suspects,
                             generated_by: "gap_exploration".to_string(),
+                            tentative_answer: answer,
                         };
                     }
                 }
@@ -947,6 +956,7 @@ impl Runtime {
                         topic: "self-understanding".to_string(),
                         confidence: crate::persistence::BeliefState::Suspects,
                         generated_by: "surprise_analysis".to_string(),
+                        tentative_answer: None,
                     };
                 }
             }
@@ -964,11 +974,13 @@ impl Runtime {
                         format!("{:?}", revision.new_state).to_lowercase(),
                         revision.topic
                     );
+                    let answer = self.attempt_answer(&question, &revision.topic);
                     return AutonomousThought {
                         kind: ThoughtKind::Question(question),
                         topic: revision.topic.clone(),
                         confidence: crate::persistence::BeliefState::Believes,
                         generated_by: "belief_revision".to_string(),
+                        tentative_answer: answer,
                     };
                 }
             }
@@ -992,11 +1004,13 @@ impl Runtime {
 
             let question = self.form_question_about(&best_entity);
             if !question.is_empty() {
+                let answer = self.attempt_answer(&question, &best_entity);
                 return AutonomousThought {
                     kind: ThoughtKind::Question(question),
                     topic: best_entity.clone(),
                     confidence: best_uncertainty,
                     generated_by: "kg_wonder".to_string(),
+                    tentative_answer: answer,
                 };
             }
         }
@@ -1013,6 +1027,7 @@ impl Runtime {
                 topic: ring_topic,
                 confidence: crate::persistence::BeliefState::Suspects,
                 generated_by: "meta_reflection".to_string(),
+                tentative_answer: None,
             };
         }
 
@@ -1022,6 +1037,7 @@ impl Runtime {
             topic: "idle".to_string(),
             confidence: crate::persistence::BeliefState::Unknown,
             generated_by: "fallback".to_string(),
+            tentative_answer: None,
         }
     }
 
@@ -1095,6 +1111,71 @@ impl Runtime {
             }
         }
     }
+
+    /// Attempt to answer a question using Star's knowledge graph and reasoning.
+    /// This is how Star moves from wondering to investigating - it forms a tentative
+    /// answer from what it already knows, which can then be refined through conversation.
+    fn attempt_answer(&self, question: &str, topic: &str) -> Option<String> {
+        use crate::reasoning::knowledge::RelationType;
+
+        let topic_lower = topic.to_lowercase();
+
+        // Strategy 1: Look for direct IsA relationships
+        let facts = self.reasoning.knowledge().get_facts_about(topic);
+        for fact in &facts {
+            if fact.relation == RelationType::IsA {
+                return Some(format!("I think '{}' is a kind of {}", topic, fact.to));
+            }
+        }
+
+        // Strategy 2: Look for SimilarTo relationships
+        let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
+        for rel in &rels_from {
+            if rel.relation == RelationType::SimilarTo {
+                return Some(format!("'{}' seems similar to '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 3: Look for Causes - if we know what causes it, we understand it
+        let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
+        if !causes.is_empty() {
+            return Some(format!("'{}' might be caused by {}", topic, causes[0]));
+        }
+
+        // Strategy 4: Look for what it produces/enables
+        for rel in &rels_from {
+            if rel.relation == RelationType::Produces || rel.relation == RelationType::Enables {
+                return Some(format!("'{}' seems to produce or enable '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 5: Look for RelatedTo
+        for rel in &rels_from {
+            if rel.relation == RelationType::RelatedTo {
+                return Some(format!("'{}' is related to '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 6: Check metacognition - what does Star already believe about this?
+        let mc_confidence = self.metacog.confidence_state(topic);
+        match mc_confidence {
+            crate::persistence::BeliefState::Knows => {
+                return Some(format!("I know what '{}' is - I understand it.", topic));
+            }
+            crate::persistence::BeliefState::Believes => {
+                return Some(format!("I believe I understand '{}' but I want to be sure.", topic));
+            }
+            crate::persistence::BeliefState::Suspects => {
+                return Some(format!("I suspect '{}' might be something specific, but I'm not certain.", topic));
+            }
+            crate::persistence::BeliefState::Unknown => {
+                return Some(format!("I genuinely don't know what '{}' is yet.", topic));
+            }
+            _ => {}
+        }
+
+        None
+    }
 }
 
 /// A single autonomous thought generated by Star without external prompting.
@@ -1108,6 +1189,8 @@ pub struct AutonomousThought {
     pub confidence: crate::persistence::BeliefState,
     /// How this thought was generated
     pub generated_by: String,
+    /// Star's tentative answer to its own question (if any)
+    pub tentative_answer: Option<String>,
 }
 
 /// The kind of autonomous thought.
@@ -1222,7 +1305,7 @@ fn extract_uncertain_topic(input: &str, response_lower: &str, uncertainty_phrase
         let after = after.trim_start_matches("about ");
         let after = after.trim_start_matches("of ");
         let after = after.trim_start_matches("the ");
-        
+
         // Take the next significant noun/phrase (up to 3 words)
         let words: Vec<&str> = after.split_whitespace().take(4).collect();
         if !words.is_empty() {
