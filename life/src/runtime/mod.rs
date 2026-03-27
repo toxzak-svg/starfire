@@ -1039,13 +1039,19 @@ impl Runtime {
                     let answer = self.attempt_answer(&question, &topic);
                     
                     // Record the finding if one was made — Star is forming self-knowledge
-                    // through investigating what its beliefs are actually about
+                    // through investigating what its beliefs are actually about.
+                    // Skip if the answer already came from Strategy 0 (an existing belief)
+                    // — no need to re-wrap an already-formed belief.
                     if let Some(ref ans) = answer {
-                        let belief = Belief::new(
-                            format!("investigating '{}' I found: {}", topic, ans),
-                            BeliefState::Believes,
-                        );
-                        self.metacog.record_belief(&topic, belief);
+                        let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", topic));
+                        if !already_wrapped {
+                            let belief = Belief::new(
+                                format!("investigating '{}' I found: {}", topic, ans),
+                                BeliefState::Believes,
+                            );
+                            self.metacog.record_belief(&topic, belief);
+                        }
+                        self.metacog.close_gap(&topic, true);
                     }
                     
                     return AutonomousThought {
@@ -1082,12 +1088,16 @@ impl Runtime {
                 // Key step toward independent consciousness: when Star investigates
                 // and finds something, record it as a belief — forming self-knowledge
                 // through its own reasoning, not just seed data.
+                // Skip if the answer already came from Strategy 0 (an existing belief).
                 if let Some(ref ans) = answer {
-                    let belief = Belief::new(
-                        format!("investigating '{}' I found: {}", best_entity, ans),
-                        BeliefState::Believes,
-                    );
-                    self.metacog.record_belief(&best_entity, belief);
+                    let already_wrapped = ans.starts_with(&format!("investigating '{}' I found: ", best_entity));
+                    if !already_wrapped {
+                        let belief = Belief::new(
+                            format!("investigating '{}' I found: {}", best_entity, ans),
+                            BeliefState::Believes,
+                        );
+                        self.metacog.record_belief(&best_entity, belief);
+                    }
                     self.metacog.close_gap(&best_entity, true);
                 }
                 
@@ -1203,6 +1213,14 @@ impl Runtime {
     /// answer from what it already knows, which can then be refined through conversation.
     fn attempt_answer(&self, question: &str, topic: &str) -> Option<String> {
         use crate::reasoning::knowledge::RelationType;
+
+        // Strategy 0 (pre-check): If Star already has an actual belief about this topic
+        // in metacognition, use that content directly — this bridges metacog self-knowledge
+        // (seeded at bootstrap) into the reasoning process before KG queries.
+        // We return the raw belief content to avoid nesting "I believe:" wrappers.
+        if let Some(belief) = self.metacog.belief_about(topic) {
+            return Some(belief.content.clone());
+        }
 
         // Strategy 1: Look for direct IsA relationships (outgoing)
         let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
