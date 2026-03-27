@@ -1323,15 +1323,22 @@ impl Runtime {
             }
         }
 
-        // Strategy 3: Look for Causes - if we know what causes it, we understand it
-        // get_causes returns causes *of* this entity (where this entity is the effect)
+        // Strategy 3: Look for reverse Causes — what causes the topic?
+        // get_causes returns "X causes Y" strings where Y=topic
         let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
         if !causes.is_empty() {
-            // causes[0] is formatted as "X causes Y" where Y=topic, so extract X
             let cause_str = &causes[0];
             if let Some(pos) = cause_str.find(" causes ") {
                 let cause = &cause_str[..pos];
                 return Some(format!("'{}' might be caused by {}", topic, cause));
+            }
+        }
+
+        // Strategy 3.5 (NEW): Look for outgoing Causes — what does the topic cause?
+        // This is the inverse: topic is the CAUSE, not the effect.
+        for rel in &rels_from {
+            if rel.relation == RelationType::Causes && rel.to.to_lowercase() != topic.to_lowercase() {
+                return Some(format!("'{}' causes '{}'", topic, rel.to));
             }
         }
 
@@ -1353,6 +1360,13 @@ impl Runtime {
         for rel in &rels_from {
             if rel.relation == RelationType::RelatedTo {
                 return Some(format!("'{}' is related to '{}'", topic, rel.to));
+            }
+        }
+
+        // Strategy 5.5 (NEW): Look for HasProperty — what characterizes the topic?
+        for rel in &rels_from {
+            if rel.relation == RelationType::HasProperty && rel.to.to_lowercase() != topic.to_lowercase() {
+                return Some(format!("'{}' is characterized by {}", topic, rel.to));
             }
         }
 
