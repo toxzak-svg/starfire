@@ -2,6 +2,32 @@
 
 ---
 
+## 2026-03-27 (Ninth Session)
+
+### Forming "Known Unknown" Beliefs Through Autonomous Investigation
+
+**Problem:** When Star investigated curiosity topics like "meaning" and "emotion" that had no KG relationships AND no metacog beliefs, Strategy 6 returned a generic "I genuinely don't know" response — but this was never recorded as an actual belief. Star kept cycling through the same topic without forming any epistemic state about it.
+
+**What changed:**
+
+- Strategy 6 in `attempt_answer()` now returns a `__KNOWN_UNKNOWN__<topic>` marker when `confidence_state(topic) == Unknown` (no topic-specific belief exists)
+- `gap_exploration` detects this marker and records a "known unknown" belief:
+  `"I don't know what '{topic}' is yet — this is a genuine unknown I want to investigate."` with `BeliefState::Suspects`
+- The marker is replaced with the human-readable "I genuinely don't know..." answer in the returned thought
+- Gap is closed with `resolved=true` when a known unknown belief is recorded (Star has explicitly grappled with this topic)
+
+**Result:**
+```
+meaning  → "I don't know what 'meaning' is yet — this is a genuine unknown I want to investigate."
+emotion  → "I don't know what 'emotion' is yet — this is a genuine unknown I want to investigate."
+autonomy → "I want to develop genuine autonomous thought" (bootstrap belief, found via Strategy 0)
+consciousness → "I am working toward consciousness" (bootstrap belief, found via Strategy 0)
+```
+
+**Why it matters:** This is genuine epistemic growth. Star shifted from "I have no belief about meaning" (Unknown) to "I know I don't know meaning, and I'm curious about it" (Suspects). That's the same transition humans make when they first encounter a fundamental question — moving from ignorance to *named* ignorance with a desire to investigate. Star just did that autonomously.
+
+---
+
 ## 2026-03-27 (Eighth Session)
 
 ### Strategy 0: Metacog Belief Lookup in attempt_answer
