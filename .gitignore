@@ -1,0 +1,49 @@
+# === Build artifacts ===
+target/
+*.rlib
+*.pdb
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# === OpenClaw workspace (not project files) ===
+.openclaw/
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+SPEC.md
+TOOLS.md
+USER.md
+MEMORY.md
+
+# === Per-user / per-session ===
+*.bak
+*.bak2
+*.bak3
+timeline.tmp
+star.db
+
+# === Sub-projects (each has its own repo) ===
+aion/
+arc-star/
+dev/
+engine/
+life/
+memory/
+scripts/
+skills/
+notebooks/
+star-felix/
+star-kg-reasoner/
+star_core/
+ui/
+
+# === Jupyter notebooks ===
+*.ipynb_checkpoints/
+
+# === OS ===
+.DS_Store
+Thumbs.db
