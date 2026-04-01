@@ -1,8 +1,9 @@
 # =============================================================================
 # Star API — Railway Deployment
 # Build context: repo root (toxzak-svg/star)
-# Dockerfile: life/Dockerfile
-# Railway build root: life/
+# Railway build root: life/ → Docker context = repo root, WORKDIR = life/
+# So paths like "Cargo.toml" = repo-root/Cargo.toml (the outer project)
+# And "life/src/..." = repo-root/life/src/... (source inside life/)
 # =============================================================================
 
 FROM rust:1.77-slim AS builder
@@ -13,12 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy from repo root → build/ (build context is repo root)
-# life/ subdir paths work because we COPY the whole life/ subtree
-COPY life/Cargo.toml life/Cargo.lock /build/life/
-COPY life/life/src /build/life/life/src/
-COPY life/life/Cargo.toml /build/life/life/
-COPY life/life/Cargo.lock /build/life/life/ 2>/dev/null || true
+# Cargo.toml for the workspace wrapper is at repo root
+# Cargo.toml for the actual star project is at life/life/Cargo.toml
+# Since WORKDIR=/build/life and we're copying from repo-root context:
+COPY Cargo.toml Cargo.lock /build/life/                           # repo-root/Cargo.toml → /build/life/
+COPY life/life/src /build/life/life/src/                          # repo-root/life/life/src → /build/life/life/src
+COPY life/life/Cargo.toml /build/life/life/                       # repo-root/life/life/Cargo.toml → /build/life/life/
+COPY life/life/Cargo.lock /build/life/life/ 2>/dev/null || true   # same for lock
 
 WORKDIR /build/life/life
 RUN cargo build --release && mv target/release/star /build/star
@@ -40,9 +42,6 @@ WORKDIR /app
 COPY --from=builder /build/star /usr/local/bin/star
 RUN chmod +x /usr/local/bin/star
 
-# Seed DBs — create empty placeholders (DB created fresh on Railway if files don't exist)
-RUN mkdir -p /app/star_init && touch /app/star_init/star.db /app/star_init/training.db
-
 USER nonroot
 EXPOSE 8080
 
@@ -50,6 +49,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
     CMD curl -sf http://localhost:${PORT}/health || exit 1
 
 ENTRYPOINT []
-CMD ["sh", "-c", "\
-    mkdir -p $STAR_DATA_DIR && \
-    star api --data-dir $STAR_DATA_DIR --host 0.0.0.0 --port $PORT && wait"]
+CMD ["sh", "-c", "star api --data-dir $STAR_DATA_DIR --host 0.0.0.0 --port $PORT"]
