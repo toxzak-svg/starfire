@@ -48,5 +48,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
     CMD curl -sf http://localhost:${PORT}/health || exit 1
 
-ENTRYPOINT []
-CMD ["sh", "-c", "star api --data-dir $STAR_DATA_DIR --host 0.0.0.0 --port $PORT"]
+CMD ["/usr/local/bin/star", "api", "--data-dir", "/data/star", "--host", "0.0.0.0", "--port", "8080"]
