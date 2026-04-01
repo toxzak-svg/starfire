@@ -1,0 +1,23 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "repo": "https://github.com/toxzak-svg/star",
+  "services": {
+    "star": {
+      "source": {
+        "root": "life"
+      },
+      "port": 8080,
+      "persist": true,
+      "path": "/data/star"
+    },
+    "aion": {
+      "source": {
+        "root": "aion-deploy"
+      },
+      "port": 8081,
+      "env": {
+        "STAR_API_URL": "https://star.up.railway.app"
+      }
+    }
+  }
+}
