@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/aion-core",
+    "crates/aion-cli",
+    "crates/aion-macros",
+    "crates/aion-drivers",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Zachary Maronek"]
+license = "MIT"
+description = "A durable execution runtime for AI agents"
