@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY Cargo.toml Cargo.lock /build/life/                           # repo-root/Cargo.toml → /build/life/
 COPY life/life/src /build/life/life/src/                          # repo-root/life/life/src → /build/life/life/src
 COPY life/life/Cargo.toml /build/life/life/                       # repo-root/life/life/Cargo.toml → /build/life/life/
-COPY life/life/Cargo.lock /build/life/life/ 2>/dev/null || true   # same for lock
+COPY life/life/Cargo.lock /build/life/life/   # same for lock
 
 WORKDIR /build/life/life
 RUN cargo build --release && mv target/release/star /build/star
@@ -46,6 +46,6 @@ USER nonroot
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
-    CMD curl -sf http://localhost:${PORT}/health || exit 1
+    CMD curl -sf http://localhost:${PORT}/health
 
 CMD ["/usr/local/bin/star", "api", "--data-dir", "/data/star", "--host", "0.0.0.0", "--port", "8080"]
