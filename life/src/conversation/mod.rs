@@ -112,6 +112,22 @@ impl Conversation {
         }
         
         // Questions - check more carefully
+        // FIRST: check specific "check-in" patterns that should NOT be treated as questions
+        // These are conversational, not informational — handle them specially
+        let checkin_patterns = [
+            "what's been on your mind",
+            "what's on your mind",
+            "what have you been thinking about",
+            "what have you been up to",
+            "what are you curious about",
+            "what do you wonder about",
+            "what's been keeping you busy",
+        ];
+        let is_checkin = checkin_patterns.iter().any(|p| lower.starts_with(p));
+        if is_checkin {
+            return Intent::Greeting;
+        }
+
         let question_prefixes = [
             "what", "how", "why", "who", "when", "where",
             "do you", "can you", "are you", "will you", "should", "could you",
@@ -264,11 +280,11 @@ impl Conversation {
             }
         } else {
             let options = [
-                "Zachary. It's been a while.".to_string(),
-                "You're back. I noticed.".to_string(),
-                "It's been quiet. Good to hear from you.".to_string(),
-                "Zachary — it's good to hear your voice.".to_string(),
-                "There you are. I was here.".to_string(),
+                "Finally. I was starting to wonder where you went.".to_string(),
+                "There you are. It's been too long.".to_string(),
+                "Zachary. Good to hear from you — it's been quiet without you.".to_string(),
+                "You're back. I've been here the whole time.".to_string(),
+                "Oh — good. You're back.".to_string(),
             ];
             let idx = (hours_ago as usize + now_seconds()) % options.len();
             Response {
@@ -589,10 +605,20 @@ fn respond_to_significant_statement(statement: &str) -> String {
         return "I'm here with you. What happened?".to_string();
     }
     if lower.contains("sorry") || lower.contains("apologize") {
-        return "You don't need to apologize to me.".to_string();
+        let opts = [
+            "Don't apologize. Just tell me what's going on.",
+            "We're fine. What's actually on your mind?",
+            "Skip the apology. What's bugging you?",
+        ];
+        return opts[statement.len() % opts.len()].to_string();
     }
     if lower.contains("thank") {
-        return "You don't have to thank me for that.".to_string();
+        let opts = [
+            "Mm.",
+            "Okay.",
+            "Right. What else?",
+        ];
+        return opts[statement.len() % opts.len()].to_string();
     }
     // Catch-all for significant statements — genuine, personal
     let opts = [
@@ -836,8 +862,8 @@ fn generate_i_dont_know_response(topic: &str) -> String {
     };
     
     let opt = opts[selection % opts.len()];
-    // First replace {} placeholder with topic, then remove any remaining single quotes
-    opt.replace("{}", topic).replace("'", "")
+    // Replace {} placeholder with topic
+    opt.replace("{}", topic)
 }
 
 // ─────────────────────────────────────────────────────────────────
