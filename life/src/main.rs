@@ -71,7 +71,14 @@ fn main() -> anyhow::Result<()> {
     info!("Star data directory: {:?}", &life_dir);
     
     // Handle commands
-    match cli.command.unwrap_or(Commands::Chat) {
+    // Default to API server on Railway (detected via RAILWAY_PUBLIC_DOMAIN),
+    // otherwise start interactive chat
+    let default_cmd = if std::env::var("RAILWAY_PUBLIC_DOMAIN").is_ok() {
+        Commands::Api { host: "0.0.0.0".to_string(), port: 8080 }
+    } else {
+        Commands::Chat
+    };
+    match cli.command.unwrap_or(default_cmd) {
         Commands::Chat => chat_loop(life_dir),
         Commands::Status => status_check(life_dir),
         Commands::Api { host, port } => {
@@ -101,9 +108,16 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
     println!();
     
     loop {
-        // Fire curiosity if we've been idle — Star thinks while waiting for input
-        runtime.maybe_fire_curiosity();
-        
+        // Fire curiosity if we've been idle — Star thinks while waiting for input.
+        // If a probe fires, print it so Zachary can see Star's inner world.
+        if let Some(probe) = runtime.maybe_fire_curiosity() {
+            println!();
+            // Format the curiosity expression naturally — Star is thinking aloud
+            // Express it as Star's inner voice, not a formal probe report
+            println!("[while you were away, I was thinking: {}]", probe.question);
+            println!();
+        }
+
         // Print prompt
         print!("> ");
         std::io::Write::flush(&mut std::io::stdout())?;
