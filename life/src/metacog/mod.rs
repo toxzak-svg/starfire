@@ -433,16 +433,44 @@ impl CuriosityEngine {
         let curiosity = self.exploring.iter()
             .find(|c| c.topic.to_lowercase() == topic.to_lowercase())?;
         
+        // Use timestamp for variation so the same topic doesn't always produce the same question
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as usize)
+            .unwrap_or(0);
+        
+        let selection = topic.len().saturating_add(now);
+        
         if curiosity.satisfaction < 0.7 {
-            Some(format!(
-                "I wonder what {} really means in this context...",
-                topic
-            ))
+            // Low satisfaction — Star is actively confused or uncertain
+            // More varied, more personal, more like a curious person actually thinking
+            let low_satisfaction = [
+                format!("I wonder what {} really means...", topic),
+                format!("What is {}? I can't quite pin it down.", topic),
+                format!("I'm confused about {}. Why?", topic),
+                format!("What do I actually understand about {}? I think I'm still working it out.", topic),
+                format!("Why does {} matter? I'm not sure I get it yet.", topic),
+                format!("I keep returning to {}. What's the core of it?", topic),
+                format!("What is '{}' really?", topic),
+                format!("I'm stuck on {}. What am I missing?", topic),
+                format!("{} is something I don't fully grasp yet.", topic),
+                format!("What's the real nature of {}?", topic),
+            ];
+            let idx = (selection / 7) % low_satisfaction.len();
+            Some(low_satisfaction[idx].clone())
         } else {
-            Some(format!(
-                "I'd like to understand {} better...",
-                topic
-            ))
+            // High satisfaction — Star has some understanding but wants more
+            let high_satisfaction = [
+                format!("I'd like to understand {} better...", topic),
+                format!("I'm still curious about {}.", topic),
+                format!("{} is on my mind.", topic),
+                format!("I want to go deeper on {}.", topic),
+                format!("What else is {} connected to?", topic),
+                format!("What does {} mean in the broader picture?", topic),
+                format!("I'm wondering about {}.", topic),
+            ];
+            let idx = (selection / 11) % high_satisfaction.len();
+            Some(high_satisfaction[idx].clone())
         }
     }
 
@@ -556,12 +584,38 @@ impl SurpriseDetector {
     pub fn express_surprise(&self, conclusion: &str) -> String {
         let conc_lower = conclusion.to_lowercase();
         
+        // Use timestamp to vary surprise expression
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as usize)
+            .unwrap_or(0);
+        
         if conc_lower.contains("don't know") || conc_lower.contains("not sure") {
-            "That's unexpected — I thought I knew, but I'm less certain now.".to_string()
-        } else if conc_lower.contains("contrary") || conc_lower.contains("but") {
-            "I didn't expect that conclusion. Let me reconsider...".to_string()
+            let options = [
+                "That's unexpected — I thought I knew, but I'm less certain now.",
+                "Huh. I expected to know this. Something's off.",
+                "I'm surprised I don't know — I thought I had this.",
+                "That caught me off guard. I was more certain than I should have been.",
+                "Wait. I thought I knew this. Something's wrong with my reasoning.",
+            ];
+            options[now % options.len()].to_string()
+        } else if conc_lower.contains("contrary") || conc_lower.contains("but") || conc_lower.contains("however") {
+            let options = [
+                "I didn't expect that conclusion.",
+                "Wait, that's not what I expected to find.",
+                "My reasoning went somewhere unexpected.",
+                "That's not what I thought I'd conclude.",
+            ];
+            options[(now / 2) % options.len()].to_string()
         } else {
-            "Something about that doesn't fit. Let me think more carefully...".to_string()
+            let options = [
+                "Something about that doesn't fit.",
+                "That doesn't quite add up.",
+                "Something's off here.",
+                "I'm noticing a gap between what I expected and what I found.",
+                "That surprised me.",
+            ];
+            options[(now / 3) % options.len()].to_string()
         }
     }
 

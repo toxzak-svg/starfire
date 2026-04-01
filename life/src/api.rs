@@ -54,6 +54,7 @@ fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request
         // Build response based on route
         let (status, response_body) = match (method.as_str(), path.as_str()) {
             ("POST", "/reason") => (200, handle_reason(runtime, &body_str)),
+            ("POST", "/chat") => (200, handle_chat(runtime, &body_str)),
             ("POST", "/remember") => (200, handle_remember(runtime, &body_str)),
             ("GET", "/identity") => (200, handle_identity(runtime)),
             ("GET", "/memory/stats") => (200, handle_memory_stats(runtime)),
@@ -63,7 +64,7 @@ fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request
             ("GET", "/metacog/insight") => (200, handle_metacog_insight(runtime)),
             ("GET", "/think") => (200, handle_think(runtime)),
             ("GET", "/thought") => (200, handle_thought(runtime)),
-            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought"]}"#.to_string()),
+            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/chat","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought"]}"#.to_string()),
             _ => {
                 warn!("Unknown route: {} {}", method, path);
                 (404, r#"{"error":"Not found"}"#.to_string())
@@ -208,6 +209,28 @@ fn handle_metacog_insight(runtime: &Arc<Mutex<Runtime>>) -> String {
         "has_insight": insight.is_some(),
         "insight": insight,
     }).to_string()
+}
+
+fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
+    #[derive(serde::Deserialize)]
+    struct ChatRequest {
+        message: String,
+    }
+
+    let req: ChatRequest = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => return format!(r#"{{"error":"Invalid request: {}"}}"#, e),
+    };
+
+    let mut rt_guard = match runtime.lock() {
+        Ok(r) => r,
+        Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
+    };
+
+    match rt_guard.chat(&req.message) {
+        Ok(response) => serde_json::json!({ "response": response }).to_string(),
+        Err(e) => format!(r#"{{"error":"Chat error: {}"}}"#, e),
+    }
 }
 
 fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {

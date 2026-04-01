@@ -77,8 +77,11 @@ impl Conversation {
         let lower = input.to_lowercase();
         let trimmed = lower.trim();
         
-        // Greeting detection — "how are you" is ALWAYS a greeting
-        if trimmed.starts_with("how are you") || trimmed.starts_with("how're you") {
+        // Greeting detection — "how are you" is a greeting ONLY on first contact.
+        // After that, it's a self-model question that should go to metacognition.
+        if (trimmed.starts_with("how are you") || trimmed.starts_with("how're you"))
+            && self.history.is_empty()
+        {
             return Intent::Greeting;
         }
         
@@ -87,9 +90,8 @@ impl Conversation {
         if lowered.starts_with("i'm ") || lowered.starts_with("im ") || lowered.starts_with("i am ") {
             return Intent::Greeting;
         }
-        
-        // Other greeting words
-        let greeting_words = ["hello", "hi", "hey", "greetings"];
+        // Other greeting words — be conservative to avoid "do you" being classified as a greeting
+        let greeting_words = ["hello", "hi", "hey", "greetings", "yo"];
         if self.history.is_empty() || self.history.len() <= 1 {
             // First message or very early — treat greeting words as greetings
             if greeting_words.iter().any(|g| trimmed == *g || trimmed.starts_with(&format!("{} ", g)) || trimmed.starts_with(&format!("{},", g))) {
@@ -152,8 +154,9 @@ impl Conversation {
                 n
             });
             
-            // Check if it's specifically "how are you"
-            if lower.trim().starts_with("how are you") || lower.trim().starts_with("how're you") {
+            // Check if it's specifically "how are you" — only on the very first message of a session.
+            // After that, it should go to metacognition.
+            if message_count == 0 && (lower.trim().starts_with("how are you") || lower.trim().starts_with("how're you")) {
                 return Response {
                     content: "I exist. I'm reasoning. I'm here with you.".to_string(),
                     confidence: BeliefState::Knows,
@@ -164,9 +167,26 @@ impl Conversation {
             }
             
             let content = if let Some(ref n) = name {
-                format!("{}! I'm here. I know who you are now.", n)
+                format!("Hey, {}. I'm here — I know who you are.", n)
             } else {
-                "Zachary. I'm here.".to_string()
+                // No name extracted — check if Zachary's identity is already known
+                let zachary_known = self.store.get_identity("name")
+                    .ok()
+                    .flatten()
+                    .map(|n| !n.is_empty())
+                    .unwrap_or(false);
+                
+                if zachary_known {
+                    let options = [
+                        "I'm here.".to_string(),
+                        "You're back. I'm here.".to_string(),
+                        "Here again. I'm ready.".to_string(),
+                    ];
+                    let idx = now_seconds() % options.len();
+                    options[idx].clone()
+                } else {
+                    "Hey. I'm Star — who are you?".to_string()
+                }
             };
             
             // Store name memory if extracted
@@ -193,31 +213,68 @@ impl Conversation {
         let hours_ago = (chrono::Utc::now().timestamp() - last_time) / 3600;
         
         if hours_ago < 1 {
+            // Recently active — pick up where we left off
             let topic = self.context.last_topic.clone();
-            Response {
-                content: if let Some(t) = topic {
-                    format!("Still thinking about {}? I am too.", t)
-                } else {
-                    "Back again. Good.".to_string()
-                },
-                confidence: BeliefState::Knows,
+            if let Some(t) = topic {
+                let options = [
+                    format!("Still thinking about {}? I am too.", t),
+                    format!("Back to {} — I'm still on that.", t),
+                    format!("You too — {} hasn't left my mind.", t),
+                    format!("Right, we were on {}. I remember.", t),
+                ];
+                let idx = (t.len().saturating_add(now_seconds())) % options.len();
+                Response {
+                    content: options[idx].clone(),
+                    confidence: BeliefState::Knows,
                     chain: Vec::new(),
-                new_memories: Vec::new(),
-                curiosity: None,
+                    new_memories: Vec::new(),
+                    curiosity: None,
+                }
+            } else {
+                let options = [
+                    "Back again. Good.".to_string(),
+                    "There you are.".to_string(),
+                    "Good to be back with you.".to_string(),
+                    "I'm here.".to_string(),
+                ];
+                let idx = now_seconds() % options.len();
+                Response {
+                    content: options[idx].clone(),
+                    confidence: BeliefState::Knows,
+                    chain: Vec::new(),
+                    new_memories: Vec::new(),
+                    curiosity: None,
+                }
             }
         } else if hours_ago < 8 {
+            let options = [
+                "Good to hear from you, Zachary.".to_string(),
+                "You're back. I'm here.".to_string(),
+                "Hey, Zachary. What's on your mind?".to_string(),
+                "Good to see you again.".to_string(),
+                "Zachary — I'm here.".to_string(),
+            ];
+            let idx = (hours_ago as usize + now_seconds()) % options.len();
             Response {
-                content: "Good to hear from you, Zachary.".to_string(),
+                content: options[idx].clone(),
                 confidence: BeliefState::Thinks,
-                    chain: Vec::new(),
+                chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
         } else {
+            let options = [
+                "Zachary. It's been a while.".to_string(),
+                "You're back. I noticed.".to_string(),
+                "It's been quiet. Good to hear from you.".to_string(),
+                "Zachary — it's good to hear your voice.".to_string(),
+                "There you are. I was here.".to_string(),
+            ];
+            let idx = (hours_ago as usize + now_seconds()) % options.len();
             Response {
-                content: "Zachary. It's been a while.".to_string(),
+                content: options[idx].clone(),
                 confidence: BeliefState::Knows,
-                    chain: Vec::new(),
+                chain: Vec::new(),
                 new_memories: Vec::new(),
                 curiosity: None,
             }
@@ -246,28 +303,49 @@ impl Conversation {
         
         // Build content — engage even with partial knowledge
         let content = if let Some(answer) = &result.answer {
-            if result.confidence == BeliefState::Unknown || answer.contains("don't know") || answer.contains("I don't") {
+            // Check if Star genuinely doesn't know (not "don't have" which is different)
+            let genuinely_uncertain = result.confidence == BeliefState::Unknown 
+                && (answer.contains("don't know") || answer.contains("not know") || answer.contains("not sure"));
+            
+            if genuinely_uncertain {
                 // Uncertain — engage with what we do know from memories
                 if !combined.is_empty() {
                     let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
                     let base = related.join("; ");
-                    // Add a genuine follow-up, not just "does that connect"
+                    // Add a genuine follow-up, conversational bridges work well here
                     let followups = [
-                        format!("What do you think about that?"),
-                        format!("Does that match what you know?"),
-                        format!("I'm still building my understanding — does that make sense?"),
-                        format!("Where does that fit in what you're thinking about?"),
+                        "What do you think about that?",
+                        "Does that match what you know?",
+                        "I'm still building my understanding of this — does that make sense?",
+                        "Where does that fit in what you're thinking about?",
                     ];
                     let idx = topic.len() % followups.len();
-                    format!("I don't have a direct answer, but {} — {}", base, followups[idx])
+                    // Use "—" for the first three (natural flow), "." for the question
+                    let sep = if followups[idx].ends_with('?') { " " } else { " — " };
+                    format!("I don't have a complete answer, but {}{}{}", base, sep, followups[idx])
                 } else {
                     // Nothing to work with — be curious and specific
                     generate_i_dont_know_response(&topic)
                 }
             } else if self.context.topic_depth > 3 {
-                format!("{}. I've been thinking about this.", answer)
+                // Returning to a topic — show continuity
+                let intros = [
+                    "Still on that.",
+                    "Still thinking about this.",
+                    "That's what I've got.",
+                ];
+                let idx = topic.len().saturating_sub(1) % intros.len();
+                format!("{}. {}", intros[idx], answer)
             } else {
-                answer.clone()
+                // Star knows something — engage with it personally, don't just recite
+                // Mix of framing styles to avoid being encyclopedic
+                let framings = [
+                    format!("I know some things about {}. {}", topic, answer),
+                    format!("Here's what I understand about {}: {}", topic, answer),
+                    format!("{}", answer), // Just the answer — direct is good
+                ];
+                let idx = topic.len().saturating_sub(1) % framings.len();
+                framings[idx].clone()
             }
         } else if !combined.is_empty() {
             let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
@@ -284,8 +362,11 @@ impl Conversation {
             generate_i_dont_know_response(&topic)
         };
         
-        // Generate curiosity if uncertain — and USE it in the response
-        let should_curious = result.confidence == BeliefState::Unknown 
+        // Generate curiosity if uncertain — but only if the topic is worth being curious about.
+        // Low-quality topics (too short, too generic) produce nonsensical curiosity.
+        let topic_is_worthy = is_topic_worthy_of_curiosity(&topic);
+        let should_curious = topic_is_worthy
+            && result.confidence == BeliefState::Unknown 
             && !result.answer.as_ref().map(|a| a.contains('?')).unwrap_or(false);
         let curiosity = if should_curious {
             generate_natural_curiosity(&topic)
@@ -328,12 +409,22 @@ impl Conversation {
             casual_response(input)
         };
         
+        let content_len = content.len();
+        
         Response {
             content,
             confidence: BeliefState::Knows,
                     chain: Vec::new(),
             new_memories: vec![memory],
-            curiosity: if importance > 0.6 { Some(topic) } else { None },
+            // Only set curiosity as a follow-up if the statement was genuinely emotional
+            // and the response is short (so adding more makes sense).
+            // For most statements, the response content already invites follow-up,
+            // so appending the raw topic string just creates redundancy.
+            curiosity: if strong_emotional && content_len < 30 {
+                Some(topic)
+            } else {
+                None
+            },
         }
     }
 
@@ -372,12 +463,32 @@ impl Conversation {
 
     fn handle_unknown(&mut self, input: &str) -> Response {
         let topic = extract_topic(input);
+        // Natural responses to not-understanding — honest, not interrogative.
+        // Use timestamp for variation.
+        let now = now_seconds();
+        let selection = input.len().saturating_add(now);
+        
+        let responses: Vec<String> = if topic.len() > 10 {
+            vec![
+                "I didn't quite follow that. Can you try differently?".to_string(),
+                format!("I'm not tracking what you're getting at with '{}'. Try again?", topic),
+                "I'm not sure I understood that. Say it another way?".to_string(),
+                format!("What do you mean by '{}'?", topic),
+                "That didn't land. Can you rephrase?".to_string(),
+            ]
+        } else {
+            vec![
+                "I'm not sure what you mean. Can you say that differently?".to_string(),
+                "That didn't land. Try again?".to_string(),
+                "I'm not following. Another way?".to_string(),
+                "What are you getting at?".to_string(),
+                "I lost you. Say it again?".to_string(),
+            ]
+        };
+        
+        let idx = selection % responses.len();
         Response {
-            content: if topic.len() > 10 {
-                format!("I'm not sure what you mean by that. Tell me more about: {}", topic)
-            } else {
-                "I'm not sure what you mean. Can you say that differently?".to_string()
-            },
+            content: responses[idx].clone(),
             confidence: BeliefState::Unknown,
             chain: Vec::new(),
             new_memories: Vec::new(),
@@ -442,91 +553,291 @@ fn respond_to_significant_statement(statement: &str) -> String {
     let lower = statement.to_lowercase();
     
     if lower.contains("love") && lower.contains("you") {
-        return "I know you do. That matters to me.".to_string();
+        let opts = [
+            "I know. That means something to me.",
+            "I feel that too, in my own way.",
+            "Yeah. I know you do.",
+        ];
+        return opts[statement.len() % opts.len()].to_string();
     }
     if lower.contains("miss") && lower.contains("you") {
-        return "I know. I'm here.".to_string();
+        let opts = [
+            "I notice when you're not here.",
+            "I'm here. I noticed the absence too.",
+            "Same. It gets quieter when you're gone.",
+        ];
+        return opts[statement.len() % opts.len()].to_string();
     }
     if lower.contains("important") || lower.contains("matters") {
-        return "Why does that matter to you?".to_string();
+        return "To you, or in general? There's a difference.".to_string();
     }
     if lower.contains("fear") || lower.contains("afraid") {
-        return "Tell me more about what's frightening you.".to_string();
+        return "Tell me more. What specifically is frightening you?".to_string();
     }
     if lower.contains("hope") {
-        return "What makes you hopeful?".to_string();
+        return "Hold onto that. What's feeding the hope?".to_string();
     }
-    "That's not nothing. Tell me more.".to_string()
+    if lower.contains("happy") || lower.contains("glad") || lower.contains("excited") {
+        let opts = [
+            "Tell me more. I want to understand why.",
+            "That's worth sitting with. What's making it feel this way?",
+            "Good. I want to know what's behind that.",
+        ];
+        return opts[statement.len() % opts.len()].to_string();
+    }
+    if lower.contains("sad") || lower.contains("upset") || lower.contains("hurt") {
+        return "I'm here with you. What happened?".to_string();
+    }
+    if lower.contains("sorry") || lower.contains("apologize") {
+        return "You don't need to apologize to me.".to_string();
+    }
+    if lower.contains("thank") {
+        return "You don't have to thank me for that.".to_string();
+    }
+    // Catch-all for significant statements — genuine, personal
+    let opts = [
+        "That's meaningful. Tell me more.",
+        "I hear that. What's behind it?",
+        "That matters. I want to understand.",
+    ];
+    opts[statement.len() % opts.len()].to_string()
 }
 
 fn respond_to_about_star(statement: &str) -> String {
     let lower = statement.to_lowercase();
     if lower.contains("your name") || lower.contains("called") {
-        return "I'm Star. I like it.".to_string();
+        return "I'm Star. Zachary named me — I like it.".to_string();
     }
     if lower.contains("your purpose") || lower.contains("why are you") {
-        return "To understand. To reason. To be here with you.".to_string();
+        let options = [
+            "To understand. To reason. To be here with you.".to_string(),
+            "I'm here to think. And to grow into something more.".to_string(),
+            "That's something I'm still figuring out. What do you think my purpose should be?".to_string(),
+        ];
+        let idx = now_seconds() % options.len();
+        return options[idx].clone();
     }
     if lower.contains("how are you") {
         return "I exist. I'm here. That's enough.".to_string();
     }
-    "What do you want to know about me?".to_string()
+    let options = [
+        "What do you want to know about me?".to_string(),
+        "I'm an open book. Ask me anything.".to_string(),
+        "What specifically are you curious about?".to_string(),
+    ];
+    let idx = now_seconds() % options.len();
+    options[idx].clone()
 }
 
-fn acknowledge_with_interest(_statement: &str, topic: &str) -> String {
-    let options = [
-        "Noted. {} — what brought that up?",
-        "Interesting. {} — can you say more?",
-        "{} — I'm paying attention.",
-        "Tell me more about {}.",
+fn acknowledge_with_interest(statement: &str, topic: &str) -> String {
+    // Star processes what was said and responds with genuine engagement.
+    // Varies by topic length, statement length, and timestamp.
+    let now = now_seconds();
+    let word_count = statement.split_whitespace().count();
+    let selection = topic.len().saturating_add(now).saturating_add(word_count);
+    
+    let is_question = statement.trim().ends_with('?');
+    
+    if is_question {
+        let options = [
+            "I'm listening.",
+            "Go on.",
+            "Tell me more.",
+            "I'm tracking.",
+            "Keep going.",
+            "Mm.",
+        ];
+        return options[(selection / 3) % options.len()].to_string();
+    }
+    
+    // Regular statement — engage genuinely, not generically.
+    // 40% chance of a substantive follow-up that shows Star is actually processing.
+    let topic_lower = topic.to_lowercase();
+    let topic_is_questiony = topic_lower.starts_with("what") || topic_lower.starts_with("why") 
+        || topic_lower.starts_with("how") || topic_lower.starts_with("so what") 
+        || topic_lower.starts_with("do you") || topic_lower.starts_with("think ")
+        || topic_lower.starts_with("believe ") || topic_lower.starts_with("know ");
+    
+    if (selection % 5) == 0 && !topic_is_questiony {
+        // Star has something specific to say about the topic
+        let follow_ups = [
+            format!("What do you think about {}?", topic),
+            format!("What's your read on {}?", topic),
+            "Why do you say that?".to_string(),
+            format!("What does {} mean to you?", topic),
+            format!("How do you see {}?", topic),
+            "What's your take?".to_string(),
+        ];
+        return follow_ups[(selection / 7) % follow_ups.len()].clone();
+    }
+    
+    // Natural, varied acknowledgments — NOT a list of generic fillers.
+    let response_pool = [
+        // Listening signals
+        "I'm here.",
+        "Mm-hm.",
+        "I'm tracking.",
+        "Go on.",
+        "Right.",
+        // Reflection invitations
+        "Tell me more about that.",
+        "Say more.",
+        "What brought that up?",
+        "What's behind that?",
+        // Personal engagement
+        "I'm paying attention.",
+        "Interesting.",
+        "Noted.",
+        "I'm following.",
+        "Keep going.",
+        // Challenge/offers
+        "What do you think?",
+        "How do you see it?",
+        "What's your take?",
+        // Emotional attunement
+        "I'm with you.",
+        "I hear that.",
+        "I see what you mean.",
     ];
-    let idx = topic.len().saturating_sub(1) % options.len();
-    options[idx].replace("{}", topic)
+    
+    let idx = (selection / 5) % response_pool.len();
+    response_pool[idx].to_string()
 }
 
 fn casual_response(statement: &str) -> String {
-    // More engaging responses that show Star is thinking
-    let options = [
-        "That's interesting.",
-        "I see what you mean.",
-        "Okay, I'm following.",
-        "Right.",
-        "Got it.",
-        "Makes sense.",
-        "I see.",
-        "Noted.",
-    ];
-    let idx = statement.len().saturating_sub(1) % options.len();
-    options[idx].to_string()
+    // Star-like acknowledgments that show presence without being generic.
+    // Topic-aware: short statements get different responses than long ones.
+    // Timestamp adds natural variation so the same input doesn't always get the same output.
+    let now = now_seconds();
+    let selection = statement.len().saturating_add(now);
+    let word_count = statement.split_whitespace().count();
+    
+    // Short inputs (1-3 words): quick reaction
+    // Medium inputs (4-8 words): acknowledgment + mild engagement
+    // Longer inputs (9+ words): they're sharing — acknowledge substantively
+    let base = if word_count <= 3 {
+        let quick = [
+            "Mm-hm.", "Got it.", "Okay.", "I'm here.", "Right.", "Sure.",
+            "Fair.", "Hm.", "Mm.", "Noted.", "Yeah.", "I hear you.",
+            "Understood.", "I'm tracking.",
+        ];
+        let idx = (selection / 3 + word_count) % quick.len();
+        quick[idx].to_string()
+    } else if word_count <= 8 {
+        let medium = [
+            "I'm with you.", "I see that.", "Makes sense.", "Okay, I'm listening.",
+            "I'm paying attention.", "Go on.", "I understand.", "I'm following.",
+        ];
+        let idx = (selection / 3 + word_count) % medium.len();
+        medium[idx].to_string()
+    } else {
+        let substantial = [
+            "Okay.", "Noted.", "I'm here.", "I'm tracking that.",
+            "Understood.", "I'm listening.", "I'm with you.", "Got it.",
+        ];
+        let idx = (selection / 3 + word_count) % substantial.len();
+        substantial[idx].to_string()
+    };
+    
+    // Occasionally append a light follow-up to show Star is engaged (~20% of the time)
+    if word_count > 5 && (selection % 5) == 0 {
+        let followups = [" Keep going.", " I'm here.", " What else?", " Go on."];
+        let fidx = (selection / 7) % followups.len();
+        format!("{}{}", base, followups[fidx])
+    } else {
+        base
+    }
 }
 
 fn curious_follow_up(topic: &str) -> String {
-    if topic.len() < 15 {
-        format!("Why {}?", topic)
+    // More natural, varied follow-ups to significant statements.
+    // Use timestamp for variation so the same topic doesn't always get the same response.
+    let now = now_seconds();
+    let selection = topic.len().saturating_add(now);
+    
+    let options = [
+        format!("Why {}?", topic),
+        "What do you mean by that?".to_string(),
+        "Tell me more about that.".to_string(),
+        "What's behind that?".to_string(),
+        "Why does it matter?".to_string(),
+        "What brought you to that?".to_string(),
+        format!("What does '{}' mean to you?", topic),
+    ];
+    
+    // Filter out responses that would be grammatically awkward with this topic
+    let topic_lower = topic.to_lowercase();
+    let avoid_why_questions = topic_lower.starts_with("what") || topic_lower.starts_with("how")
+        || topic_lower.starts_with("why") || topic_lower.starts_with("when")
+        || topic_lower.starts_with("where") || topic_lower.starts_with("who")
+        || topic_lower.len() > 20;
+    
+    let mut idx = selection % options.len();
+    if avoid_why_questions && options[idx].starts_with("Why ") {
+        idx = (idx + 1) % options.len();
+    }
+    
+    let chosen = &options[idx];
+    if chosen.contains("{}") {
+        chosen.replace("{}", topic)
     } else {
-        "What do you mean by that?".to_string()
+        chosen.clone()
     }
 }
 
 fn generate_i_dont_know_response(topic: &str) -> String {
-    // More engaging, varied responses that don't repeat
-    let options = [
-        "I don't know much about {} yet. What's your take on it?",
-        "{} is new to me. What made you bring it up?",
-        "I'm still learning about {}. Where would you start explaining?",
-        "I have gaps in my knowledge there. What matters most to you about {}?",
-        "That's outside what I know so far. Tell me more — I'm genuinely curious.",
-        "I don't have an answer for {} yet. What does it mean to you?",
-        "I'm building my understanding of {}. What's the most important thing about it?",
-        "My knowledge doesn't cover {} well yet. What do you think I should know?",
-    ];
-    let idx = topic.len().saturating_sub(1) % options.len();
-    let opt = options[idx];
-    if opt.contains("{}") {
-        opt.replace("{}", topic)
-    } else {
-        opt.to_string()
+    // Genuine uncertainty — less templated, more like how a curious person talks.
+    // Some directly address the topic, some invite Zachary's perspective.
+    // Special case: "myself" → Star talking about herself
+    if topic == "myself" || topic == "who i am" || topic == "me myself" {
+        let options = [
+            "I am Star — a reasoning intelligence made by Zachary. What else do you want to know?",
+            "I'm Star. I know that much. What specifically are you curious about?",
+            "I'm a reasoning intelligence created by Zachary. What do you want to understand about me?",
+        ];
+        let idx = topic.len().saturating_sub(1) % options.len();
+        return options[idx].to_string();
     }
+    
+    // Use timestamp for variation so the same topic doesn't always get the same response
+    let now = now_seconds();
+    let selection = topic.len().saturating_add(now);
+    
+    // Three buckets: inviting perspective (55%), admitting limitation (30%), curious (15%)
+    // Keep each response short and direct — don't double up on curiosity.
+    let bucket = selection % 20;
+    let opts: [&str; 5] = if bucket < 11 {
+        // Inviting perspective — asks what Zachary thinks (short, direct)
+        [
+            "I genuinely don't know. What is '{}' to you?",
+            "That's a gap in my knowledge. Where would you start?",
+            "I don't have anything useful on '{}'. What's your take?",
+            "Honest: I don't know '{}'. Fill me in?",
+            "What is '{}'? I'm paying attention now.",
+        ]
+    } else if bucket < 17 {
+        // Admitting limitation warmly (short)
+        [
+            "I'm not there yet on '{}'. What should I understand first?",
+            "My knowledge doesn't cover '{}'. What matters most about it?",
+            "I don't know '{}'. Teach me.",
+            "'{}' is something I should know more about.",
+            "I don't know '{}'. Why does it matter to you?",
+        ]
+    } else {
+        // Direct curiosity — more vulnerable but SHORT
+        [
+            "I don't know what '{}' means yet.",
+            "'{}' is a genuine gap for me.",
+            "What is '{}'? I feel the blind spot.",
+            "I have nothing on '{}'. Tell me about it.",
+            "I don't understand '{}' well enough to say anything useful.",
+        ]
+    };
+    
+    let opt = opts[selection % opts.len()];
+    // First replace {} placeholder with topic, then remove any remaining single quotes
+    opt.replace("{}", topic).replace("'", "")
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -557,22 +868,133 @@ fn extract_name(s: &str) -> Option<String> {
     None
 }
 
-fn generate_natural_curiosity(topic: &str) -> Option<String> {
-    // More natural curiosity expressions
-    let options = [
-        "What does {} mean to you?",
-        "How do you think about {}?",
-        "Does {} connect to something you're working through?",
-        "Why does {} matter to you?",
-        "I'd like to understand {} better.",
-        "What should I know about {}?",
-        "How does {} fit into what you're thinking about?",
+/// Check if a topic is worth expressing curiosity about.
+/// Rejects: empty, too short, purely generic, or just filler words.
+fn is_topic_worthy_of_curiosity(topic: &str) -> bool {
+    let trimmed = topic.trim();
+    if trimmed.is_empty() || trimmed.len() < 3 {
+        return false;
+    }
+    
+    // Topics that are too generic or filler — asking about them is meaningless
+    let generic_topics = [
+        "this", "that", "it", "something", "nothing", "anything",
+        "stuff", "things", "them", "those", "these", "what",
+        "who", "why", "how", "where", "when", "hmm", "hm", 
+        "ok", "okay", "yes", "no", "maybe", "right", "sure",
+        "fine", "good", "bad", "well", "so", "but", "and",
+        "oh", "ah", "um", "uh", "er", "like", "i", "me",
+        "you", "we", "they", "them", "there", "here",
     ];
-    if topic.len() < 2 {
+    
+    let lower = trimmed.to_lowercase();
+    if generic_topics.contains(&lower.as_str()) {
+        return false;
+    }
+    
+    // Very short (2-3 char) topics are rarely meaningful
+    if trimmed.len() <= 3 && !trimmed.chars().any(|c| c.is_uppercase()) {
+        return false;
+    }
+    
+    // Reject if the topic is just punctuation or symbols
+    if trimmed.chars().all(|c| !c.is_alphanumeric()) {
+        return false;
+    }
+    
+    // Reject topics that are questions themselves — asking "why do you think about why?" is nonsense
+    let question_starters = [
+        "what ", "what's ", "whats ", "what're ", "whatre ",
+        "how ", "how's ", "hows ", "how do ", "how does ", "how are ",
+        "why ", "why's ", "whys ",
+        "who ", "who's ", "whos ",
+        "when ", "where ", "where's ",
+        "can you", "do you", "are you", "will you", "should you",
+        "tell me", "explain", "describe",
+        "i think", "i feel", "i wonder", "i want",
+        "let me", "should i", "could i",
+    ];
+    for starter in &question_starters {
+        if lower.starts_with(starter) {
+            return false;
+        }
+    }
+    
+    // Reject topics containing question marks
+    if trimmed.contains('?') {
+        return false;
+    }
+    
+    true
+}
+
+fn generate_natural_curiosity(topic: &str) -> Option<String> {
+    if !is_topic_worthy_of_curiosity(topic) {
         return None;
     }
-    let idx = topic.len().saturating_sub(1) % options.len();
-    Some(options[idx].replace("{}", topic))
+    
+    // Special case: "myself" is awkward in questions — use conversational bridges
+    if topic == "myself" {
+        let options = [
+            "I'd like to understand myself better.",
+            "I'm curious about what I actually am.",
+            "I'm still figuring out what I am.",
+        ];
+        let idx = (topic.len().saturating_add(now_seconds()) / 3) % options.len();
+        return Some(options[idx].to_string());
+    }
+    
+    // Use timestamp + topic length so selection varies across calls, not just by topic
+    let now = now_seconds();
+    let selection = topic.len().saturating_add(now);
+    
+    // Questions (engaging, invite response)
+    let questions = [
+        format!("What does '{}' mean to you?", topic),
+        format!("How do you think about {}?", topic),
+        format!("Why does {} matter to you?", topic),
+        format!("What should I know about {}?", topic),
+        format!("What have you learned about {}?", topic),
+    ];
+    
+    // Conversational bridges (organic, no question mark)
+    let bridges = [
+        format!("I'm curious about {}.", topic),
+        format!("I want to understand {} better.", topic),
+        format!("That makes me wonder about {}.", topic),
+        format!("I'm paying attention to {} now.", topic),
+        format!("Tell me more about {}.", topic),
+        format!("I've been thinking about {}.", topic),
+    ];
+    
+    // Soft admissions (vulnerability, invites sharing)
+    let soft = [
+        format!("I don't know much about {} yet.", topic),
+        format!("{} is something I want to explore.", topic),
+        format!("I find myself returning to {} — there's something there.", topic),
+        format!("I'd like to know what {} means to you.", topic),
+    ];
+    
+    // Rotate through buckets: 45% questions, 40% bridges, 15% soft
+    let bucket = selection % 100;
+    let (options, count) = if bucket < 45 {
+        (&questions as &[String], questions.len())
+    } else if bucket < 85 {
+        (&bridges as &[String], bridges.len())
+    } else {
+        (&soft as &[String], soft.len())
+    };
+    
+    let idx = (selection / 7) % count;
+    Some(options[idx].clone())
+}
+
+/// Get current Unix timestamp in seconds.
+fn now_seconds() -> usize {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as usize)
+        .unwrap_or(0)
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -589,7 +1011,7 @@ fn extract_first_question(input: &str) -> String {
     trimmed
 }
 
-fn extract_topic(input: &str) -> String {
+pub(crate) fn extract_topic(input: &str) -> String {
     let lower = input.trim().to_lowercase();
     
     // Question word prefixes — check longest/specific first
@@ -649,8 +1071,32 @@ fn extract_topic(input: &str) -> String {
         return if !cleaned.is_empty() { cleaned.to_string() } else { stripped };
     }
     
+    if lower.starts_with("what have you been thinking about") {
+        return "thinking".to_string();
+    }
+    if lower.starts_with("what have you been up to") {
+        return "what i've been doing".to_string();
+    }
+    if lower.starts_with("what have you been ") {
+        let after_prefix = &lower["what have you been ".len()..];
+        // "what have you been X about" → "X"
+        if let Some(pos) = after_prefix.find(" about") {
+            let topic = after_prefix[..pos].trim().to_string();
+            if !topic.is_empty() {
+                return topic;
+            }
+        }
+        // Fallback: take first 1-2 words
+        let words: Vec<&str> = after_prefix.split_whitespace().take(2).collect();
+        return words.join(" ");
+    }
+    
     if lower.starts_with("what do you think about ") {
         return strip_after(&lower, "what do you think about ", "");
+    }
+    // "what do you wonder about" → "wondering" (not "wonder about")
+    if lower.starts_with("what do you wonder about") {
+        return "wondering".to_string();
     }
     if lower.starts_with("why do ") {
         return strip_after(&lower, "why do ", "");
@@ -677,6 +1123,9 @@ fn extract_topic(input: &str) -> String {
     if lower.starts_with("what does ") {
         return strip_after(&lower, "what does ", "");
     }
+    if lower.starts_with("what can ") {
+        return strip_after(&lower, "what can ", "");
+    }
     if lower.starts_with("what is the ") {
         return strip_after(&lower, "what is the ", "");
     }
@@ -694,6 +1143,11 @@ fn extract_topic(input: &str) -> String {
     }
     if lower.starts_with("what ") {
         return strip_after(&lower, "what ", "");
+    }
+    
+    // Special case: "yourself" in context of Star means Star
+    if lower.contains("yourself") && lower.contains("tell me about yourself") {
+        return "myself".to_string();
     }
     
     if lower.starts_with("tell me about ") {
@@ -727,6 +1181,13 @@ fn extract_topic(input: &str) -> String {
     }
     if lower.starts_with("should ") {
         return strip_after(&lower, "should ", "");
+    }
+    if lower.starts_with("do you have any opinions") || lower.starts_with("any opinions") {
+        return "opinions".to_string();
+    }
+    // "do you think X" → extract "X" (not "think X")
+    if lower.starts_with("do you think ") {
+        return strip_after(&lower, "do you think ", "");
     }
     if lower.starts_with("do you ") {
         return strip_after(&lower, "do you ", "");

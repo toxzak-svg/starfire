@@ -263,7 +263,7 @@ impl ReasoningEngine {
         
         if let Some(item) = relevant.first() {
             ReasoningResult {
-                answer: Some(format!("Based on what I know: {}", item.content)),
+                answer: Some(format!("{}", item.content)),
                 confidence: item.confidence.map(|c| if c > 0.7 { BeliefState::Thinks } else { BeliefState::Believes })
                     .unwrap_or(BeliefState::Believes),
                 reasoning_chain: vec![item.content.clone()],
@@ -604,7 +604,7 @@ impl ReasoningEngine {
         if !relevant.is_empty() {
             let contents: Vec<_> = relevant.iter().map(|w| w.content.clone()).collect();
             ReasoningResult {
-                answer: Some(format!("I don't know directly, but: {}", contents.join("; "))),
+                answer: Some(contents.join("; ")),
                 confidence: BeliefState::Believes,
                 reasoning_chain: contents.clone(),
                 confidence_score: Some(0.3),
@@ -688,7 +688,7 @@ impl ReasoningEngine {
         
         // Check against knowledge graph
         for entity in self.knowledge.entities() {
-            let facts = self.knowledge.get_facts_about(entity);
+            let facts = self.knowledge.get_facts_about(&entity);
             for fact in facts {
                 // Simple contradiction detection
                 if lower.contains("not") && fact.to_lowercase().contains("is ") && fact.to_lowercase().contains(&lower[..lower.find(' ').unwrap_or(0)]) {

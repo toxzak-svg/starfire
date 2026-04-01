@@ -101,6 +101,9 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
     println!();
     
     loop {
+        // Fire curiosity if we've been idle — Star thinks while waiting for input
+        runtime.maybe_fire_curiosity();
+        
         // Print prompt
         print!("> ");
         std::io::Write::flush(&mut std::io::stdout())?;

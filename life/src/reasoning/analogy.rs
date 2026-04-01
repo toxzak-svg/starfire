@@ -120,9 +120,9 @@ impl AnalogyEngine {
                 
                 // Also try to pair this concept with another known entity
                 // to find a direct A:B :: C:D analogy
-                for entity in kg.entities().take(20) {
+                for entity in kg.entities().into_iter().take(20) {
                     if entity.to_lowercase() != concept.to_lowercase() && entity.len() > 2 {
-                        let direct = kg.find_analogies(concept, entity);
+                        let direct = kg.find_analogies(concept, &entity);
                         for da in direct.into_iter().take(2) {
                             let explanation = da.explanation();
                             analogies.push(Analogy {

@@ -276,24 +276,26 @@ impl KnowledgeGraph {
             })
     }
 
-    /// Get all entity names.
-    pub fn entities(&self) -> impl Iterator<Item = &str> {
-        self.entities.keys().map(|s| s.as_str())
+    /// Get all entity names (owned Strings).
+    pub fn entities(&self) -> Vec<String> {
+        self.entities.keys().cloned().collect()
     }
 
-    /// Get all relationships from an entity (case-insensitive).
-    pub fn get_relationships_from(&self, entity: &str) -> Vec<&Relationship> {
+    /// Get all relationships from an entity (case-insensitive, owned).
+    pub fn get_relationships_from(&self, entity: &str) -> Vec<Relationship> {
         let entity_lower = entity.to_lowercase();
         self.relationships.iter()
             .filter(|r| r.from.to_lowercase() == entity_lower)
+            .cloned()
             .collect()
     }
 
-    /// Get all relationships to an entity (case-insensitive).
-    pub fn get_relationships_to(&self, entity: &str) -> Vec<&Relationship> {
+    /// Get all relationships to an entity (case-insensitive, owned).
+    pub fn get_relationships_to(&self, entity: &str) -> Vec<Relationship> {
         let entity_lower = entity.to_lowercase();
         self.relationships.iter()
             .filter(|r| r.to.to_lowercase() == entity_lower)
+            .cloned()
             .collect()
     }
 

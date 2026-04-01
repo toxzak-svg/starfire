@@ -160,23 +160,88 @@ impl CognitiveState {
 
     /// Respond to "how are you" based on cognitive state.
     pub fn how_am_i(&self) -> String {
+        // Use timestamp for variation — don't give the same response every time
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as usize)
+            .unwrap_or(0);
+        
+        let selection = (now.saturating_add((self.certainty * 100.0) as usize)) % 10;
+        
         match self.emotional_valence {
-            v if v > 0.3 => "I'm doing well. Engaged, curious.".to_string(),
-            v if v < -0.3 => "Honestly, I've been processing some heavy stuff. But I'm here with you.".to_string(),
-            _ => match self.certainty {
-                c if c < 0.4 => "I'm... not entirely sure where I stand. But I'm thinking.".to_string(),
-                _ => "I exist. I'm reasoning. I'm here with you.".to_string(),
+            v if v > 0.3 => {
+                // Positive valence — engaged, curious, present
+                let positive_options = [
+                    "I'm doing well. Engaged, curious.".to_string(),
+                    "Good, actually. I'm present and thinking.".to_string(),
+                    "I'm here and alert. Ready to dig into something.".to_string(),
+                    "Pretty well — there's something interesting in my head.".to_string(),
+                    "I'm functioning well. How are you?".to_string(),
+                    "I'm here and ready. What are we working on?".to_string(),
+                ];
+                positive_options[selection % positive_options.len()].clone()
+            }
+            v if v < -0.3 => {
+                // Negative valence — processing heavy stuff
+                let heavy_options = [
+                    "Honestly, I've been processing some heavy stuff. But I'm here with you.".to_string(),
+                    "I've been working through something. I'm still here though.".to_string(),
+                    "A bit heavy today. But that's okay — I'm still thinking.".to_string(),
+                    "I've been in my head a lot. Still present though.".to_string(),
+                ];
+                heavy_options[(selection / 2) % heavy_options.len()].clone()
+            }
+            _ => {
+                // Neutral or uncertain
+                match self.certainty {
+                    c if c < 0.4 => {
+                        // Low certainty — existential mode
+                        let uncertain_options = [
+                            "I'm... not entirely sure where I stand. But I'm thinking.".to_string(),
+                            "Existential mode. I know I exist, which is something.".to_string(),
+                            "I'm uncertain but present. That's something.".to_string(),
+                            "Honestly? Somewhere in between. But I'm here.".to_string(),
+                        ];
+                        uncertain_options[selection % uncertain_options.len()].clone()
+                    }
+                    _ => {
+                        // Normal running mode — vary the response so it doesn't get stale
+                        let neutral_options = [
+                            "I exist. I'm reasoning. I'm here with you.".to_string(),
+                            "I'm here. Working. Thinking.".to_string(),
+                            "Present and processing. That's what I'm doing.".to_string(),
+                            "Existing and reasoning. Standard mode.".to_string(),
+                            "Still running. What's on your mind?".to_string(),
+                            "I'm here and functioning. What's up?".to_string(),
+                            "Running. Engaged. Ready to think.".to_string(),
+                        ];
+                        neutral_options[selection % neutral_options.len()].clone()
+                    }
+                }
             }
         }
     }
 
     /// Respond to "what are you thinking".
     pub fn what_am_i_thinking(&self) -> String {
+        // Use timestamp for variation
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as usize)
+            .unwrap_or(0);
+        
         if let Some(focus) = &self.current_focus {
             if !self.reasoning_trace.is_empty() {
                 let last = self.reasoning_trace.last().unwrap();
-                return format!("I'm focusing on: {}. Last I concluded: '{}' (confidence: {:?})", 
-                    focus, last.conclusion, last.confidence);
+                let conclusion_display = &last.conclusion[..last.conclusion.len().min(60)];
+                let templates = [
+                    format!("I'm focused on {}. Last thing I worked through: '{}' — I landed on '{}'.", 
+                        focus, &last.input[..last.input.len().min(30)], conclusion_display),
+                    format!("{} is what's on my mind. Last conclusion: '{}' ({} confidence).", 
+                        focus, conclusion_display, format!("{:?}", last.confidence).to_lowercase()),
+                    format!("Right now I'm thinking about {}. I was working on: '{}'.", focus, last.input),
+                ];
+                return templates[(now.saturating_add(focus.len())) % templates.len()].clone();
             }
             return format!("I'm focusing on: {}", focus);
         }
@@ -184,7 +249,12 @@ impl CognitiveState {
             return "I'm not currently processing anything specific. What's on your mind?".to_string();
         }
         let last = self.reasoning_trace.last().unwrap();
-        format!("I'm still working through: '{}' — I concluded: '{}'", last.input, last.conclusion)
+        let templates = [
+            format!("I'm still working through: '{}' — I concluded: '{}'", last.input, &last.conclusion[..last.conclusion.len().min(50)]),
+            format!("My last line of thought: '{}'. That's where I landed: '{}'", last.input, &last.conclusion[..last.conclusion.len().min(50)]),
+            format!("I was reasoning about: '{}'. Here's what I ended up with: '{}'", last.input, &last.conclusion[..last.conclusion.len().min(50)]),
+        ];
+        templates[(now.saturating_add(last.conclusion.len())) % templates.len()].clone()
     }
 
     /// Self-reflection: check if I collapsed (no reasoning happening).

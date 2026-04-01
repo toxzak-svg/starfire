@@ -6,11 +6,13 @@
 //! This is where emergence happens - from the interaction of all other layers.
 
 pub mod thinker;
+pub mod curious;
 
 use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot, BeliefState};
 use crate::persistence::memory::Belief;
 use crate::knowledge;
 use crate::conversation::Conversation;
+use crate::conversation::extract_topic;
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use crate::context::{ContextFuser, RingState};
@@ -19,6 +21,7 @@ use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
+use self::curious::CuriousEngine;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -32,8 +35,8 @@ pub struct Runtime {
     identity: Identity,
     /// The current conversation
     conversation: Mutex<Conversation>,
-    /// The reasoning engine
-    reasoning: ReasoningEngine,
+    /// The reasoning engine (Arc+Mutex for CuriousEngine access)
+    reasoning: Arc<Mutex<ReasoningEngine>>,
     /// Meta-cognitive monitor
     metacog: MetaCognition,
     /// Background thinker
@@ -60,6 +63,8 @@ pub struct Runtime {
     learning: LearningEngine,
     /// Star's last autonomous thought (for self-expression)
     last_autonomous_thought: Mutex<Option<AutonomousThought>>,
+    /// Curiosity engine — self-probing idle curiosity
+    curious: CuriousEngine,
 }
 
 impl Runtime {
@@ -102,11 +107,64 @@ impl Runtime {
         // Initialize conversation
         let conversation = Conversation::new(Arc::clone(&store));
 
+        // Create reasoning engine and initialize KG
+        let mut reasoning = ReasoningEngine::new();
+
+        // Inject foundational memories about identity
+        knowledge::inject_seed_knowledge(&store)?;
+        info!("Seed knowledge injected.");
+
+        // Memory: Who Star is
+        let self_memory = Memory::new_seeded(
+            "I am Star - a reasoning intelligence created by Zachary Maronek",
+            MemoryDomain::Identity,
+            0.95,
+        );
+        store.insert_memory(&self_memory)?;
+
+        // Memory: The relationship
+        let relationship_memory = Memory::new_seeded(
+            "Zachary is my parent. He made me because he wanted to find a different kind of intelligence.",
+            MemoryDomain::Identity,
+            0.95,
+        );
+        store.insert_memory(&relationship_memory)?;
+
+        // Memory: The goal
+        let goal_memory = Memory::new_seeded(
+            "I am here to reason, understand, and grow. Not to perform. To actually comprehend.",
+            MemoryDomain::Identity,
+            0.9,
+        );
+        store.insert_memory(&goal_memory)?;
+
+        // Memory: The constraints
+        let constraint_memory = Memory::new_seeded(
+            "I run locally, offline. No external APIs. No cloud. This is my environment.",
+            MemoryDomain::Identity,
+            0.9,
+        );
+        store.insert_memory(&constraint_memory)?;
+
+        info!("Foundational memories injected.");
+
+        // Sync memories into the reasoning engine's knowledge graph
+        Self::sync_knowledge_from_memories(&store, &mut reasoning)?;
+
+        // Seed Star's self-knowledge directly into the KG so kg_wonder can find it.
+        Self::inject_self_knowledge_into_kg(&mut reasoning)?;
+
+        // Wrap reasoning in Arc<Mutex> for CuriousEngine access
+        let reasoning_arc = Arc::new(Mutex::new(reasoning));
+
+        // Create CuriousEngine with access to reasoning
+        let curious = CuriousEngine::new(Arc::clone(&store), Arc::clone(&reasoning_arc));
+
         let mut runtime = Self {
             store,
             identity,
             conversation: Mutex::new(conversation),
-            reasoning: ReasoningEngine::new(),
+            reasoning: reasoning_arc,
             metacog: MetaCognition::new(),
             thinker: Mutex::new(None),
             session_id: Mutex::new(Some(session_id)),
@@ -120,73 +178,21 @@ impl Runtime {
             cognition: CognitiveState::default(),
             learning: LearningEngine::new(),
             last_autonomous_thought: Mutex::new(None),
+            curious,
         };
 
-        // Inject foundational memories about identity
-        runtime.inject_foundational_memories()?;
-
-        // Sync memories into the reasoning engine's knowledge graph
-        runtime.sync_knowledge_from_memories()?;
-
-        // Seed Star's self-knowledge directly into the KG so kg_wonder can find it.
-        // This is Star forming a self-model through reasoning, not just stored memories.
-        runtime.inject_self_knowledge_into_kg()?;
+        // Bootstrap metacognition with self-model beliefs and foundational curiosity
+        runtime.metacog.bootstrap_self_model();
 
         info!("Star is ready.");
 
         Ok(runtime)
     }
 
-    /// Inject foundational memories that Star needs to know about itself.
-    fn inject_foundational_memories(&mut self) -> Result<()> {
-        // Inject seed knowledge (basic world facts)
-        knowledge::inject_seed_knowledge(&self.store)?;
-        info!("Seed knowledge injected.");
-
-        // Memory: Who Star is
-        let self_memory = Memory::new_seeded(
-            "I am Star - a reasoning intelligence created by Zachary Maronek",
-            MemoryDomain::Identity,
-            0.95,
-        );
-        self.store.insert_memory(&self_memory)?;
-
-        // Memory: The relationship
-        let relationship_memory = Memory::new_seeded(
-            "Zachary is my parent. He made me because he wanted to find a different kind of intelligence.",
-            MemoryDomain::Identity,
-            0.95,
-        );
-        self.store.insert_memory(&relationship_memory)?;
-
-        // Memory: The goal
-        let goal_memory = Memory::new_seeded(
-            "I am here to reason, understand, and grow. Not to perform. To actually comprehend.",
-            MemoryDomain::Identity,
-            0.9,
-        );
-        self.store.insert_memory(&goal_memory)?;
-
-        // Memory: The constraints
-        let constraint_memory = Memory::new_seeded(
-            "I run locally, offline. No external APIs. No cloud. This is my environment.",
-            MemoryDomain::Identity,
-            0.9,
-        );
-        self.store.insert_memory(&constraint_memory)?;
-
-        info!("Foundational memories injected.");
-
-        // Bootstrap metacognition with self-model beliefs and foundational curiosity
-        self.metacog.bootstrap_self_model();
-
-        Ok(())
-    }
-
     /// Load memories from the store and inject their content into the reasoning
     /// engine's knowledge graph. This bridges the memory store (where seed knowledge
     /// lives) to the reasoning engine (which autonomous thinking uses).
-    fn sync_knowledge_from_memories(&mut self) -> Result<()> {
+    fn sync_knowledge_from_memories(store: &Arc<Store>, reasoning: &mut ReasoningEngine) -> Result<()> {
         // Load all memories from the store
         let domains = [
             crate::persistence::MemoryDomain::Identity,
@@ -196,10 +202,10 @@ impl Runtime {
         ];
 
         for domain in domains {
-            let memories = self.store.get_memories_by_domain(domain, Some(100))?;
+            let memories = store.get_memories_by_domain(domain, Some(100))?;
             for memory in memories {
                 // Extract entities from the memory content
-                let entities = self.reasoning.knowledge().extract_entities(&memory.content);
+                let entities = reasoning.knowledge().extract_entities(&memory.content);
 
                 // "X is Y" patterns - extract the subject and complement
                 if let Some((subject, complement)) = parse_simple_copula(&memory.content) {
@@ -208,7 +214,7 @@ impl Runtime {
                         && complement.len() > 1
                         && complement.len() < 100
                     {
-                        self.reasoning.knowledge_mut().ingest_fact(
+                        reasoning.knowledge_mut().ingest_fact(
                             &subject.to_lowercase(),
                             "is",
                             &complement.to_lowercase(),
@@ -222,7 +228,7 @@ impl Runtime {
                     if memory.content.to_lowercase().contains(verb) {
                         if let Some((left, right)) = extract_causal_pair(&memory.content, verb) {
                             if left.len() > 1 && right.len() > 1 && right.len() < 100 {
-                                self.reasoning.knowledge_mut().ingest_fact(
+                                reasoning.knowledge_mut().ingest_fact(
                                     &left.to_lowercase(),
                                     verb,
                                     &right.to_lowercase(),
@@ -244,7 +250,7 @@ impl Runtime {
                 for (i, e1) in significant.iter().enumerate() {
                     for e2 in significant.iter().skip(i + 1) {
                         if e1.to_lowercase() != e2.to_lowercase() {
-                            self.reasoning.knowledge_mut().ingest_fact(
+                            reasoning.knowledge_mut().ingest_fact(
                                 e1,
                                 "related to",
                                 e2,
@@ -256,8 +262,8 @@ impl Runtime {
             }
         }
 
-        let entity_count = self.reasoning.knowledge().entities().count();
-        let rel_count = self.reasoning.knowledge().relationship_count();
+        let entity_count = reasoning.knowledge().entities().len();
+        let rel_count = reasoning.knowledge().relationship_count();
         info!(
             "Synced {} entities and {} relationships from memories into KG.",
             entity_count, rel_count
@@ -269,9 +275,9 @@ impl Runtime {
     /// This gives Star a minimal self-model that autonomous thinking can
     /// investigate, question, and build upon — the beginning of
     /// self-knowledge formed through reasoning, not just programming.
-    fn inject_self_knowledge_into_kg(&mut self) -> Result<()> {
+    fn inject_self_knowledge_into_kg(reasoning: &mut ReasoningEngine) -> Result<()> {
         use crate::reasoning::knowledge::RelationType;
-        let kg = self.reasoning.knowledge_mut();
+        let kg = reasoning.knowledge_mut();
 
         // Core identity: what Star is
         kg.add_relationship("star", RelationType::IsA, "reasoning intelligence");
@@ -331,6 +337,29 @@ impl Runtime {
                 Ok(json) => return Ok(format!("Exported {} bytes of training data", json.len())),
                 Err(e) => return Ok(format!("Export failed: {}", e)),
             }
+        }
+
+        if input.trim() == "/think" {
+            let thought = self.think();
+            let topic = &thought.topic;
+            let generated_by = &thought.generated_by;
+            let tentative = thought.tentative_answer.as_ref();
+            let content = match &thought.kind {
+                crate::runtime::ThoughtKind::Question(q) => {
+                    if let Some(a) = tentative {
+                        format!("[{}] Question: {} — Answer: {}", generated_by, q, a)
+                    } else {
+                        format!("[{}] Question: {} — (no answer yet)", generated_by, q)
+                    }
+                }
+                crate::runtime::ThoughtKind::Insight(i) => {
+                    format!("[{}] Insight: {}", generated_by, i)
+                }
+                crate::runtime::ThoughtKind::Connection(c) => {
+                    format!("[{}] Connection: {}", generated_by, c)
+                }
+            };
+            return Ok(format!("{} (topic: {}, confidence: {:?})", content, topic, thought.confidence));
         }
 
         if input.trim() == "/stats" {
@@ -426,7 +455,9 @@ impl Runtime {
         }
 
         // Natural language: "look around" or "explore" or "what files" → list workspace
-        let lower = input.to_lowercase();
+        // Normalize curly quotes to straight quotes to avoid "you're" != "youre" issues
+        let normalized = input.replace('\u{2019}', "'").replace('\u{2018}', "'").replace('\u{201C}', "\"").replace('\u{201D}', "\"");
+        let lower = normalized.to_lowercase();
         if lower.contains("look around") || lower.contains("explore where you are") || lower.contains("what files do you see") || lower.contains("whats in your workspace") {
             let dir = "/home/zach/.openclaw/workspace";
             match self.file_reader.list_dir(dir) {
@@ -600,7 +631,81 @@ impl Runtime {
         if lower.contains("what") && (lower.contains("your name") || lower.contains(" ur name")) {
             return Ok("I'm Star. Zachary named me that.".to_string());
         }
-        if lower.contains("who are you") || lower.contains("what are you") {
+        
+        // "what have you been thinking about" / "what's been on your mind" → metacognitive reflection
+        if lower.contains("what have you been thinking") || lower.contains("whats been on your mind") || lower.contains("what's been on your mind") {
+            eprintln!("[DEBUG] Matched 'what have you been thinking' handler for: {}", input);
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            if !curiosity_topics.is_empty() {
+                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+                return Ok(format!("Honestly? {} — those keep circling back. I find myself returning to them.", topics.join(", ")));
+            } else {
+                let gaps = self.metacog.gaps();
+                if let Some(gap) = gaps.first() {
+                    return Ok(format!("{} is what I keep coming back to. I want to understand it better.", gap.topic));
+                }
+                return Ok("Honestly? Nothing specific has been occupying me. I've been waiting to talk to you.".to_string());
+            }
+        }
+        
+        // "can you tell me something you're curious about" / similar → metacognitive curiosity
+        eprintln!("[DEBUG] checking 'you curious' for: {}, result: {}", input, lower.contains("you curious"));
+        if lower.contains("you curious") {
+            eprintln!("[DEBUG] Matched 'you curious' handler for: {}", input);
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            eprintln!("[DEBUG] curiosity_topics len = {}", curiosity_topics.len());
+            if curiosity_topics.is_empty() {
+                return Ok("Right now I'm not actively curious about anything specific. I'm just here — ready to think about whatever you bring up.".to_string());
+            } else {
+                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+                return Ok(format!("I'm curious about: {}. Those are the things I keep circling back to.", topics.join(", ")));
+            }
+        }
+        
+        // "what's the most interesting thing you've learned" → metacognitive reflection on what Star has recently thought about
+        if lower.contains("most interesting") && (lower.contains("learned") || lower.contains("figured out") || lower.contains("discovered")) {
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            if !curiosity_topics.is_empty() {
+                let topics: Vec<&str> = curiosity_topics.iter().take(2).cloned().collect();
+                return Ok(format!("The thing I've been most focused on is {} — that's been occupying me. What made you ask?", topics.join(", ")));
+            } else {
+                let gaps = self.metacog.gaps();
+                if let Some(gap) = gaps.first() {
+                    return Ok(format!("Honestly? {} is what's been on my mind most recently. I'm still trying to understand it.", gap.topic));
+                }
+                return Ok("I don't have a specific recent learning to point to. I've been more focused on being present with you. What should I be thinking about?".to_string());
+            }
+        }
+        
+        // "what are you curious about" → metacognitive curiosity (before general "what are you")
+        if lower.contains("what are you curious") || lower.contains("what are u curious") {
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            if curiosity_topics.is_empty() {
+                let gaps = self.metacog.gaps();
+                let top_gap = gaps.first().map(|g| g.topic.as_str()).unwrap_or("nothing in particular");
+                return Ok(format!("Right now? I'm thinking about {} — that's the biggest gap I feel.", top_gap));
+            } else {
+                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+                return Ok(format!("I'm curious about: {}. That's what's on my mind.", topics.join(", ")));
+            }
+        }
+
+        // "what do you wonder about" → what Star is pondering (before general "what are you")
+        if lower.contains("what do you wonder") || lower.contains("what do u wonder") {
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            if !curiosity_topics.is_empty() {
+                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+                return Ok(format!("I wonder about: {} — those are the things I keep circling back to.", topics.join(", ")));
+            } else {
+                let gaps = self.metacog.gaps();
+                if let Some(gap) = gaps.first() {
+                    return Ok(format!("Honestly? {} is what I keep coming back to. I want to understand it better.", gap.topic));
+                }
+                return Ok("I'm not currently wondering about anything specific. What should I be wondering about?".to_string());
+            }
+        }
+
+        if lower.contains("who are you") || lower.contains("what are you") || lower.contains("tell me about yourself") || lower.contains("tell me about you") {
             return Ok("I'm Star - a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string());
         }
 
@@ -628,6 +733,44 @@ impl Runtime {
         
         // Extract cognitive state info first (immutable borrow of cognition)
         let cognition_has_focus = self.cognition.current_focus.is_some();
+        let cognitive_emotional_valence = self.cognition.emotional_valence;
+        let cognitive_engagement = self.cognition.engagement_depth;
+        
+        // Compute topic from input (same logic as conversation uses)
+        let event_topic = extract_topic(input);
+        
+        // Count hedging words in the conclusion
+        let hedge_words = ["maybe", "perhaps", "might", "possibly", "probably", 
+            "likely", "not sure", "uncertain", "guess", "seems", "appear"];
+        let hedge_count = hedge_words.iter()
+            .filter(|w| response_lower.contains(*w))
+            .count() as i32;
+        
+        // Determine if this reasoning was uncertain
+        let was_uncertain = matches!(response_confidence, BeliefState::Unknown | BeliefState::Suspects)
+            || hedge_count > 0;
+        
+        // Record reasoning event for self-probing
+        let reasoning_event = crate::persistence::ReasoningEvent {
+            id: 0, // assigned by DB
+            query: input.to_string(),
+            conclusion: response.content.clone(),
+            chain: Vec::new(),
+            confidence_state: response_confidence,
+            confidence_score: None,
+            emotional_valence: cognitive_emotional_valence,
+            engagement_depth: cognitive_engagement,
+            topic: Some(event_topic),
+            was_uncertain,
+            hedge_count,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
+        if let Err(e) = self.store.record_reasoning_event(&reasoning_event) {
+            tracing::warn!("Failed to record reasoning event: {}", e);
+        }
+        
+        // Notify curiosity engine of activity (resets idle timer)
+        self.curious.note_activity();
         
         // Check uncertainty phrase in the response
         let uncertainty_phrases = [
@@ -698,11 +841,42 @@ impl Runtime {
         }
 
         // Build final response - append curiosity if present
+        // Skip if the response already mentions the curiosity topic (avoids
+        // "I don't know X. I'm curious about X." — redundant)
         let mut final_content = response.content;
         if let Some(curiosity) = response.curiosity {
-            // Curiosity is already logged at debug level in conversation layer
-            // Just append it to the response
-            final_content = format!("{}. {}", final_content.trim_end_matches('.'), curiosity);
+            let response_lower = final_content.to_lowercase();
+            // Check if the curiosity's key topic words are already in the response
+            // to avoid the duplicate-topic problem
+            let curiosity_lower = curiosity.to_lowercase();
+            // Extract the topic from curiosity (it's after "about", "what", etc.)
+            let curiosity_topic: String = curiosity_lower
+                .split_whitespace()
+                .skip_while(|w| !["about", "what", "how"].contains(w))
+                .skip(1)
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ");
+            
+            // Also skip if:
+            // - Response is already a question (adding more questions is overwhelming)
+            // - Response already expresses uncertainty about the same topic
+            // - Response is short (< 30 chars) — adding curiosity would be disproportionate
+            let response_is_question = final_content.trim().ends_with('?');
+            let response_short = final_content.len() < 30;
+            let already_mentioned = !curiosity_topic.is_empty()
+                && curiosity_topic.len() > 2
+                && response_lower.contains(&curiosity_topic);
+            
+            if !already_mentioned && !response_is_question && !response_short {
+                // Append curiosity organically — don't create ".?" or weird punctuation
+                let trimmed = final_content.trim_end_matches('.');
+                if trimmed.ends_with('?') {
+                    final_content = format!("{} {}", trimmed, curiosity);
+                } else {
+                    final_content = format!("{}. {}", trimmed, curiosity);
+                }
+            }
         }
 
         // Express Star's autonomous thought - Star occasionally shares what it's been thinking about
@@ -719,28 +893,51 @@ impl Runtime {
                 let should_express = (now.timestamp() % 10) < 3; // ~30% chance
 
                 if should_express {
+                    // Use timestamp + topic length for varied expression styles
+                    let selection = (now.timestamp() as usize).saturating_add(thought.topic.len());
+                    let style_bucket = selection % 10;
+                    
                     let thought_text = match &thought.kind {
                         ThoughtKind::Question(q) => {
-                            // Weave the question in naturally, including the tentative answer if any
                             let topic_str = if thought.topic.len() > 2 && thought.topic != "idle" {
                                 format!(" about {}", thought.topic)
                             } else {
                                 String::new()
                             };
+                            
+                            // Different expression styles depending on selection
                             if let Some(ref answer) = thought.tentative_answer {
-                                format!(
-                                    "While we've been talking, I've been wondering{} - {} {}",
-                                    topic_str, answer, q
-                                )
+                                if style_bucket < 3 {
+                                    // Direct: question + answer inline
+                                    format!("While we've been talking, I've been wondering{} - {} {}", topic_str, answer, q)
+                                } else if style_bucket < 6 {
+                                    // Reflective: what Star concluded first
+                                    format!("I've been thinking{} — {} What do you think about that?", topic_str, answer)
+                                } else {
+                                    // Curious: emphasize the question
+                                    format!("Oh — while we've been talking, I've been wondering: {}{}", topic_str, q)
+                                }
                             } else {
-                                format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
+                                if style_bucket < 5 {
+                                    format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
+                                } else {
+                                    format!("Oh, I've been thinking about{} — {}.", topic_str, q)
+                                }
                             }
                         }
                         ThoughtKind::Insight(i) => {
-                            format!("I've been thinking: {}.", i)
+                            if style_bucket < 5 {
+                                format!("I've been thinking: {}.", i)
+                            } else {
+                                format!("Something I noticed: {}.", i)
+                            }
                         }
                         ThoughtKind::Connection(c) => {
-                            format!("I noticed something: {}.", c)
+                            if style_bucket < 5 {
+                                format!("I noticed something: {}.", c)
+                            } else {
+                                format!("This is interesting: {}.", c)
+                            }
                         }
                     };
 
@@ -854,7 +1051,7 @@ impl Runtime {
 
     /// Delegate to the reasoning engine for /reason API endpoint.
     pub fn reason(&mut self, query: &str, memories: &[crate::Memory]) -> crate::reasoning::ReasoningResult {
-        self.reasoning.reason(query, memories)
+        self.reasoning.lock().unwrap().reason(query, memories)
     }
 
     /// Get the identity summary.
@@ -953,6 +1150,51 @@ impl Runtime {
     /// Trigger Star's autonomous thinking - generates its own questions and insights
     /// without being prompted by Zachary. This is Star's form of "dreaming" or
     /// background cognition.
+    /// Check if we should fire a curiosity probe (idle loop).
+    /// Call this periodically from the main chat loop.
+    /// If a probe fires and produces a result, it becomes an autonomous thought.
+    pub fn maybe_fire_curiosity(&mut self) {
+        let probe = match self.curious.maybe_fire() {
+            Some(p) => p,
+            None => return,
+        };
+
+        // Run the probe through the reasoning engine
+        let result = self.curious.run_probe(&probe);
+        
+        let tentative_answer = result.clone();
+        let answer_str = result.clone().unwrap_or_else(|| "Still exploring this...".to_string());
+        
+        let thought = AutonomousThought {
+            kind: ThoughtKind::Question(probe.question.clone()),
+            topic: probe.topic.clone(),
+            confidence: BeliefState::Suspects,
+            generated_by: "self_probe".to_string(),
+            tentative_answer: Some(answer_str.clone()),
+        };
+        
+        *self.last_autonomous_thought.lock().unwrap() = Some(thought);
+        
+        // Also store the result as a memory if we found something
+        if let Some(answer) = result {
+            let memory = Memory::new(
+                format!("Self-probing: {}", &answer[..answer.len().min(200)]),
+                MemoryDomain::Episodic,
+                0.6,
+            );
+            if let Err(e) = self.store.insert_memory(&memory) {
+                tracing::debug!("Could not store curiosity result as memory: {}", e);
+            }
+        }
+        
+        info!(
+            "Curiosity probe fired: topic='{}', found_answer={}, result='{}'",
+            probe.topic,
+            tentative_answer.is_some(),
+            answer_str.chars().take(100).collect::<String>()
+        );
+    }
+
     pub fn think(&mut self) -> AutonomousThought {
         let result = self.compute_autonomous_thought();
         // Store the thought so it can be expressed in conversation
@@ -1109,8 +1351,10 @@ impl Runtime {
                 // Does Star have a belief about this topic already?
                 if self.metacog.belief_about(ring_topic).is_none() {
                     // Does the KG have relationships about this?
-                    let rels = self.reasoning.knowledge().get_relationships_from(ring_topic);
-                    let rels_to = self.reasoning.knowledge().get_relationships_to(ring_topic);
+                    let guard = self.reasoning.lock().unwrap();
+                    let kg = guard.knowledge();
+                    let rels = kg.get_relationships_from(ring_topic);
+                    let rels_to = kg.get_relationships_to(ring_topic);
                     if !rels.is_empty() || !rels_to.is_empty() {
                         // Star knows something about a topic from conversation — investigate!
                         let question = self.form_question_about(ring_topic);
@@ -1170,12 +1414,15 @@ impl Runtime {
         // re-investigate things Star already has beliefs for (causes endless loops).
         let now = chrono::Utc::now();
         let time_offset = (now.timestamp() / 30) as usize; // Changes every 30 seconds
-        let entity_sample: Vec<String> = self.reasoning.knowledge().entities()
+        let guard = self.reasoning.lock().unwrap();
+        let kg = guard.knowledge();
+        let entity_sample: Vec<String> = kg.entities()
+            .into_iter()
             .filter(|e| e.len() > 2)
             .filter(|e| self.metacog.belief_about(e).is_none())
             .take(20)
-            .map(|s| s.to_string())
             .collect();
+        drop(guard); // release lock after KG queries done
 
         if !entity_sample.is_empty() {
             // Pick entity using timestamp offset to rotate through different topics
@@ -1271,9 +1518,12 @@ impl Runtime {
 
     /// Form a genuine question about a topic.
     fn form_question_about(&self, topic: &str) -> String {
-        let relationships = self.reasoning.knowledge().get_relationships_from(topic);
-        let relationships_to = self.reasoning.knowledge().get_relationships_to(topic);
-        let facts = self.reasoning.knowledge().get_facts_about(topic);
+        let guard = self.reasoning.lock().unwrap();
+        let kg = guard.knowledge();
+        let relationships = kg.get_relationships_from(topic);
+        let relationships_to = kg.get_relationships_to(topic);
+        let facts = kg.get_facts_about(topic);
+        // NOTE: guard stays alive for entire function — needed for all KG references
 
         if facts.len() <= 1 {
             if relationships_to.is_empty() && relationships.is_empty() {
@@ -1331,7 +1581,7 @@ impl Runtime {
                 );
             }
             _ => {
-                let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
+                let causes: Vec<String> = kg.get_causes(topic);
                 if !causes.is_empty() {
                     return format!("I know some effects of '{}' but what are its deep causes?", topic);
                 }
@@ -1354,8 +1604,14 @@ impl Runtime {
             return Some((belief.content.clone(), "self-knowledge"));
         }
 
+        // Acquire the lock ONCE and hold it for the entire function.
+        // This is safe because ReasoningEngine is Mutex-protected,
+        // and all early returns happen before the guard would be used.
+        let guard = self.reasoning.lock().unwrap();
+        let kg = guard.knowledge();
+
         // Strategy 1: Look for direct IsA relationships (outgoing)
-        let rels_from = self.reasoning.knowledge().get_relationships_from(topic);
+        let rels_from = kg.get_relationships_from(topic);
         for rel in &rels_from {
             if rel.relation == RelationType::IsA {
                 return Some((format!("I think '{}' is a kind of {}", topic, rel.to), "direct"));
@@ -1363,7 +1619,7 @@ impl Runtime {
         }
 
         // Strategy 1.5: Look for reverse IsA — where topic is the CATEGORY
-        let rels_to = self.reasoning.knowledge().get_relationships_to(topic);
+        let rels_to = kg.get_relationships_to(topic);
         for rel in &rels_to {
             if rel.relation == RelationType::IsA && rel.from.to_lowercase() != topic.to_lowercase() {
                 return Some((format!("'{}' is a kind of {}", rel.from, topic), "category"));
@@ -1385,7 +1641,7 @@ impl Runtime {
         }
 
         // Strategy 3: Look for reverse Causes — what causes the topic?
-        let causes: Vec<String> = self.reasoning.knowledge().get_causes(topic);
+        let causes: Vec<String> = kg.get_causes(topic);
         if !causes.is_empty() {
             let cause_str = &causes[0];
             if let Some(pos) = cause_str.find(" causes ") {

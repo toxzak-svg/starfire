@@ -9,6 +9,36 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Mutex;
 
+/// A reasoning event — a record of Star's reasoning process at a point in time.
+/// Used for self-probing, gap detection, and curiosity generation.
+#[derive(Debug, Clone)]
+pub struct ReasoningEvent {
+    pub id: i64,
+    pub query: String,
+    pub conclusion: String,
+    pub chain: Vec<String>,
+    pub confidence_state: BeliefState,
+    pub confidence_score: Option<f64>,
+    pub emotional_valence: f64,
+    pub engagement_depth: f64,
+    pub topic: Option<String>,
+    pub was_uncertain: bool,
+    pub hedge_count: i32,
+    pub timestamp: i64,
+}
+
+/// A gap in Star's reasoning — something worth probing.
+#[derive(Debug, Clone)]
+pub struct ReasoningGap {
+    pub event_id: i64,
+    pub query: String,
+    pub conclusion: String,
+    pub topic: String,
+    pub salience: f64,
+    pub emotional_valence: f64,
+    pub why_it_matters: String,
+}
+
 /// The persistent store — SQLite backend for all Star's memory.
 /// 
 /// Thread-safe via Mutex. Each operation is transactional.
@@ -109,6 +139,25 @@ impl Store {
             CREATE INDEX IF NOT EXISTS idx_memories_formed_at ON memories(formed_at);
             CREATE INDEX IF NOT EXISTS idx_beliefs_state ON beliefs(confidence_state);
             CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at DESC);
+
+            -- Reasoning events (self-probing foundation)
+            CREATE TABLE IF NOT EXISTS reasoning_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT NOT NULL,
+                conclusion TEXT NOT NULL,
+                chain TEXT NOT NULL,
+                confidence_state TEXT NOT NULL,
+                confidence_score REAL,
+                emotional_valence REAL NOT NULL,
+                engagement_depth REAL NOT NULL,
+                topic TEXT,
+                was_uncertain INTEGER NOT NULL,
+                hedge_count INTEGER NOT NULL,
+                timestamp INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_reasoning_timestamp ON reasoning_events(timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_reasoning_uncertain ON reasoning_events(was_uncertain) WHERE was_uncertain = 1;
         "#)?;
         Ok(())
     }
@@ -388,6 +437,182 @@ impl Store {
     }
 
     // ─────────────────────────────────────────────────────────────────
+    // Reasoning Event Operations (Self-Probing Foundation)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// Record a reasoning event.
+    pub fn record_reasoning_event(&self, event: &ReasoningEvent) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let chain_json = serde_json::to_string(&event.chain)
+            .unwrap_or_else(|_| "[]".to_string());
+        let state_str = format!("{:?}", event.confidence_state).to_lowercase();
+        let was_uncertain = if event.was_uncertain { 1 } else { 0 };
+        conn.execute(
+            r#"INSERT INTO reasoning_events 
+               (query, conclusion, chain, confidence_state, confidence_score,
+                emotional_valence, engagement_depth, topic, was_uncertain, hedge_count, timestamp)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"#,
+            params![
+                event.query,
+                event.conclusion,
+                chain_json,
+                state_str,
+                event.confidence_score,
+                event.emotional_valence,
+                event.engagement_depth,
+                event.topic,
+                was_uncertain,
+                event.hedge_count,
+                event.timestamp,
+            ],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Search reasoning events by query pattern.
+    pub fn search_reasoning_events(&self, query_pattern: &str, limit: usize) -> Result<Vec<ReasoningEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let pattern = format!("%{}%", query_pattern);
+        let mut stmt = conn.prepare(
+            "SELECT * FROM reasoning_events WHERE query LIKE ?1 OR conclusion LIKE ?1 ORDER BY timestamp DESC LIMIT ?2"
+        )?;
+        let rows = stmt.query_map(params![pattern, limit as i64], |row| row_to_reasoning_event(row))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get recent reasoning events.
+    pub fn get_recent_reasoning_events(&self, limit: usize) -> Result<Vec<ReasoningEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT * FROM reasoning_events ORDER BY timestamp DESC LIMIT ?1"
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| row_to_reasoning_event(row))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get reasoning events from the last N seconds.
+    pub fn get_reasoning_events_since(&self, seconds_ago: i64) -> Result<Vec<ReasoningEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let since = chrono::Utc::now().timestamp() - seconds_ago;
+        let mut stmt = conn.prepare(
+            "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC"
+        )?;
+        let rows = stmt.query_map(params![since], |row| row_to_reasoning_event(row))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get uncertain reasoning events (gaps worth probing).
+    pub fn get_uncertain_reasoning_events(&self, max_age_seconds: i64, limit: usize) -> Result<Vec<ReasoningEvent>> {
+        let conn = self.conn.lock().unwrap();
+        let since = chrono::Utc::now().timestamp() - max_age_seconds;
+        let mut stmt = conn.prepare(
+            "SELECT * FROM reasoning_events 
+             WHERE (was_uncertain = 1 OR confidence_score < 0.4 OR hedge_count > 0)
+               AND timestamp >= ?1
+             ORDER BY timestamp DESC
+             LIMIT ?2"
+        )?;
+        let rows = stmt.query_map(params![since, limit as i64], |row| row_to_reasoning_event(row))?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Detect reasoning gaps — uncertain events ranked by salience.
+    /// Returns events that are worth self-probing.
+    pub fn detect_reasoning_gaps(&self, max_age_days: i64, limit: usize) -> Result<Vec<ReasoningGap>> {
+        let conn = self.conn.lock().unwrap();
+        let since = chrono::Utc::now().timestamp() - (max_age_days * 24 * 60 * 60);
+        
+        // Find uncertain events
+        let mut stmt = conn.prepare(
+            "SELECT * FROM reasoning_events 
+             WHERE (was_uncertain = 1 OR confidence_score < 0.4 OR hedge_count > 0)
+               AND timestamp >= ?1
+             ORDER BY timestamp DESC
+             LIMIT ?2"
+        )?;
+        
+        let rows = stmt.query_map(params![since, (limit * 2) as i64], |row| row_to_reasoning_event(row))?;
+        let mut gaps = Vec::new();
+        let now = chrono::Utc::now().timestamp();
+        
+        for row in rows {
+            if let Ok(event) = row {
+                // Compute salience: recency * uncertainty * emotional salience
+                let age_hours = (now - event.timestamp) as f64 / 3600.0;
+                let recency = 1.0 / (1.0 + age_hours / 24.0); // decays over days
+                
+                let uncertainty = if event.was_uncertain { 1.0 } else { 0.5 };
+                let hedge_bonus = (event.hedge_count as f64).min(1.0) * 0.3;
+                let score_uncertainty = event.confidence_score
+                    .map(|s| if s < 0.4 { 1.0 } else { 0.5 })
+                    .unwrap_or(0.7);
+                
+                let emotional = event.emotional_valence.abs(); // how charged was this?
+                let salience = recency * (uncertainty + hedge_bonus) * score_uncertainty * (1.0 + emotional * 0.5);
+                
+                // Don't probe if salience is too low
+                if salience < 0.05 {
+                    continue;
+                }
+                
+                let topic = event.topic.clone().unwrap_or_else(|| {
+                    // Extract from query if no topic stored
+                    event.query.split_whitespace().take(3).collect::<Vec<_>>().join(" ")
+                });
+                
+                gaps.push(ReasoningGap {
+                    event_id: event.id,
+                    query: event.query.clone(),
+                    conclusion: event.conclusion.clone(),
+                    topic: topic.clone(),
+                    salience,
+                    emotional_valence: event.emotional_valence,
+                    why_it_matters: format!(
+                        "I concluded '{}' with {} confidence — {}",
+                        &event.conclusion[..event.conclusion.len().min(50)],
+                        format!("{:?}", event.confidence_state).to_lowercase(),
+                        if event.was_uncertain { "I wasn't sure" }
+                        else if event.hedge_count > 0 { "I hedged" }
+                        else { "my confidence was low" }
+                    ),
+                });
+            }
+            if gaps.len() >= limit {
+                break;
+            }
+        }
+        
+        // Sort by salience descending
+        gaps.sort_by(|a, b| b.salience.partial_cmp(&a.salience).unwrap_or(std::cmp::Ordering::Equal));
+        gaps.truncate(limit);
+        
+        Ok(gaps)
+    }
+
+    /// Get reasoning event count.
+    pub fn reasoning_event_count(&self) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM reasoning_events", [], |row| row.get(0))?;
+        Ok(count)
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Session Operations
     // ─────────────────────────────────────────────────────────────────
 
@@ -560,6 +785,39 @@ fn row_to_session(row: &rusqlite::Row) -> rusqlite::Result<Session> {
         started_at: row.get(1)?,
         ended_at: row.get(2)?,
         summary: row.get(3)?,
+    })
+}
+
+fn row_to_reasoning_event(row: &rusqlite::Row) -> rusqlite::Result<ReasoningEvent> {
+    let state_str: String = row.get(4)?;
+    let state = match state_str.as_str() {
+        "knows" => BeliefState::Knows,
+        "thinks" => BeliefState::Thinks,
+        "believes" => BeliefState::Believes,
+        "suspects" => BeliefState::Suspects,
+        "unknown" => BeliefState::Unknown,
+        _ => BeliefState::Unknown,
+    };
+
+    let chain_str: String = row.get(2)?;
+    let chain: Vec<String> = serde_json::from_str(&chain_str).unwrap_or_default();
+
+    let was_uncertain_i64: i64 = row.get(9)?;
+    let hedge_i64: i64 = row.get(10)?;
+
+    Ok(ReasoningEvent {
+        id: row.get(0)?,
+        query: row.get(1)?,
+        conclusion: row.get(2)?,
+        chain,
+        confidence_state: state,
+        confidence_score: row.get(5)?,
+        emotional_valence: row.get(6)?,
+        engagement_depth: row.get(7)?,
+        topic: row.get(8)?,
+        was_uncertain: was_uncertain_i64 != 0,
+        hedge_count: hedge_i64 as i32,
+        timestamp: row.get(11)?,
     })
 }
 
