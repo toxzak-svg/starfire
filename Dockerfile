@@ -1,8 +1,8 @@
 # =============================================================================
 # Star API — Railway Deployment
 # Build context: repo root (toxzak-svg/star)
-# Dockerfile location: life/Dockerfile
-# Railway: set "Build Command Directory" to "life"
+# Dockerfile: life/Dockerfile
+# Railway build root: life/
 # =============================================================================
 
 FROM rust:1.77-slim AS builder
@@ -13,10 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Build from the inner life/ Rust project
-COPY Cargo.toml Cargo.lock ./
-COPY life/life/src ./life/life/src/
-COPY life/life/Cargo.toml life/life/Cargo.lock life/life/ 2>/dev/null || true
+# Copy from repo root → build/ (build context is repo root)
+# life/ subdir paths work because we COPY the whole life/ subtree
+COPY life/Cargo.toml life/Cargo.lock /build/life/
+COPY life/life/src /build/life/life/src/
+COPY life/life/Cargo.toml /build/life/life/
+COPY life/life/Cargo.lock /build/life/life/ 2>/dev/null || true
 
 WORKDIR /build/life/life
 RUN cargo build --release && mv target/release/star /build/star
@@ -38,7 +40,7 @@ WORKDIR /app
 COPY --from=builder /build/star /usr/local/bin/star
 RUN chmod +x /usr/local/bin/star
 
-# Seed data from build context
+# Seed DBs (from repo root → build root)
 COPY life/life/star.db /app/star_init/star.db
 COPY life/life/training.db /app/star_init/training.db
 RUN mkdir -p /app/star_init && chown -R nonroot:nonroot /app/star_init
