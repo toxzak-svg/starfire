@@ -111,7 +111,7 @@ impl Runtime {
         let mut reasoning = ReasoningEngine::new();
 
         // Inject foundational memories about identity
-        knowledge::inject_seed_knowledge(&store)?;
+        knowledge::inject_seed_knowledge(&mut reasoning)?;
         info!("Seed knowledge injected.");
 
         // Memory: Who Star is
@@ -876,11 +876,8 @@ impl Runtime {
 
         // Record turn in training database
         if let Some(training_id) = *self.training_session_id.lock().unwrap() {
-            let turn_index = conversation.history().iter()
-                .filter(|m| m.speaker == crate::conversation::Speaker::Zachary)
-                .count() as i64;
-            let _ = self.training_db.record_turn(training_id, turn_index, "zachary", input);
-            let _ = self.training_db.record_turn(training_id, turn_index + 1, "star", &response.content);
+            let _ = self.training_db.record_turn(training_id, &format!("Zachary: {}", input), "", 0.5);
+            let _ = self.training_db.record_turn(training_id, &format!("Star: {}", &response.content), "", 0.5);
         }
 
         // Persist any new memories
@@ -894,10 +891,8 @@ impl Runtime {
                     let parts: Vec<&str> = memory.content.split("'s name is ").collect();
                     if parts.len() == 2 {
                         let _ = self.training_db.record_fact(
-                            Some(training_id),
-                            parts[0],
-                            "name is",
-                            parts[1],
+                            training_id,
+                            &format!("{}: {} = {}", parts[0], "name is", parts[1]),
                             memory.confidence.unwrap_or(0.5),
                         );
                     }
@@ -1177,44 +1172,52 @@ impl Runtime {
 
     /// Update the ring from a user query.
     pub fn update_ring_from_query(&mut self, query: &str, topic: &str) {
-        self.context_fuser.update_ring(&mut self.ring, query, topic);
+        let mode = crate::context::ReasoningMode::from_query_and_ring(query, self.ring.certainty, self.ring.depth);
+        self.context_fuser.update_ring(topic, self.ring.depth, mode);
     }
 
     /// Update the ring from Star's response.
-    pub fn update_ring_from_response(&mut self, response: &str, mode: crate::context::ReasoningMode) {
-        self.context_fuser.update_ring_from_response(&mut self.ring, response, mode);
+    pub fn update_ring_from_response(&mut self, response: &str, _mode: crate::context::ReasoningMode) {
+        self.context_fuser.update_ring_from_response(response, self.context_fuser.valence());
     }
 
     /// Get open questions from the ring.
-    pub fn open_questions(&self) -> Vec<crate::context::OpenQuestion> {
+    pub fn open_questions(&self) -> Vec<crate::context::ring::OpenQuestion> {
         self.ring.open_questions().to_vec()
     }
 
     /// Push a question to the ring.
     pub fn push_ring_question(&mut self, question: crate::context::OpenQuestion) {
-        self.ring.push_question(question);
+        self.ring.push_question(crate::context::ring::OpenQuestion {
+            topic: question.topic,
+            why_interested: question.why_interested,
+            asked_at_depth: question.asked_at_depth,
+            progress: question.progress,
+        });
     }
 
     /// Should Star express curiosity?
     pub fn should_express_curiosity(&self) -> bool {
-        self.context_fuser.should_express_curiosity(&self.ring)
+        self.context_fuser.should_express_curiosity()
     }
 
     /// Get the curiosity topic, if any.
     pub fn curiosity_topic(&self) -> Option<String> {
-        self.context_fuser.get_curiosity_topic(&self.ring)
+        self.context_fuser.get_curiosity_topic()
     }
 
     /// Get a history reference string, if appropriate.
-    pub fn history_reference(&self, mode: crate::context::ReasoningMode) -> Option<String> {
-        self.context_fuser.should_reference_history(&self.ring, mode).then(|| {
-            self.context_fuser.history_reference(&self.ring)
-        }).flatten()
+    pub fn history_reference(&self, _mode: crate::context::ReasoningMode) -> Option<String> {
+        if self.context_fuser.should_reference_history() {
+            self.context_fuser.history_reference()
+        } else {
+            None
+        }
     }
 
     /// Infer the topic from a query and recent memories.
-    pub fn infer_topic(&self, query: &str, memories: &[crate::Memory]) -> String {
-        self.context_fuser.infer_topic(query, memories)
+    pub fn infer_topic(&self, query: &str, _memories: &[crate::Memory]) -> String {
+        self.context_fuser.infer_topic(query)
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -1253,7 +1256,7 @@ impl Runtime {
         // Also store the result as a memory if we found something
         if let Some(answer) = result {
             let memory = Memory::new(
-                format!("Self-probing: {}", &answer[..answer.len().min(200)]),
+                &format!("Self-probing: {}", &answer[..answer.len().min(200)]),
                 MemoryDomain::Episodic,
                 0.6,
             );

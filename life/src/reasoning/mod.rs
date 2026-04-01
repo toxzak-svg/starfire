@@ -75,6 +75,13 @@ impl ReasoningEngine {
         }
     }
 
+    /// Add a piece of knowledge to the reasoning engine.
+    pub fn add_knowledge(&mut self, subject: &str, fact: &str) {
+        self.knowledge.add_fact(subject, fact);
+        // Also add the subject as an entity
+        self.knowledge.add_entity(subject);
+    }
+
     /// Reason about a query using available knowledge.
     /// 
     /// Returns a reasoning result with answer, confidence, and chain.

@@ -64,7 +64,8 @@ fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request
             ("GET", "/metacog/insight") => (200, handle_metacog_insight(runtime)),
             ("GET", "/think") => (200, handle_think(runtime)),
             ("GET", "/thought") => (200, handle_thought(runtime)),
-            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/chat","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought"]}"#.to_string()),
+            ("GET", "/") => (200, r#"{"name":"Star","version":"0.1","endpoints":["/reason","/chat","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought","/webhook/telegram"]}"#.to_string()),
+            ("POST", "/webhook/telegram") => (200, handle_webhook_telegram(runtime, &body_str)),
             _ => {
                 warn!("Unknown route: {} {}", method, path);
                 (404, r#"{"error":"Not found"}"#.to_string())
@@ -98,7 +99,7 @@ fn handle_reason(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
     let memories: Vec<Memory> = req.memories
         .unwrap_or_default()
         .into_iter()
-        .map(|s| Memory::new(s, MemoryDomain::Episodic, 0.5))
+        .map(|s| Memory::new(&s, MemoryDomain::Episodic, 0.5))
         .collect();
 
     let mut rt_guard = match runtime.lock() {
@@ -355,4 +356,76 @@ fn handle_thought(runtime: &Arc<Mutex<Runtime>>) -> String {
             r#"{"thought":null,"message":"Star has no pending autonomous thoughts"}"#.to_string()
         }
     }
+}
+
+/// Handle incoming Telegram webhook updates.
+fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
+    #[derive(serde::Deserialize)]
+    struct TgUpdate {
+        update_id: u64,
+        message: Option<TgMessage>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct TgMessage {
+        message_id: u64,
+        chat: TgChat,
+        text: Option<String>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct TgChat {
+        id: i64,
+    }
+
+    let update: TgUpdate = match serde_json::from_str(body) {
+        Ok(u) => u,
+        Err(e) => return format!(r#"{{"error":"Failed to parse update: {}"}}"#, e),
+    };
+
+    let message = match update.message {
+        Some(m) => m,
+        None => return r#"{"ok":true,"response":"no message"}"#.to_string(),
+    };
+
+    let text = match message.text {
+        Some(t) if !t.is_empty() => t,
+        _ => return r#"{"ok":true,"response":"no text"}"#.to_string(),
+    };
+
+    let chat_id = message.chat.id;
+    let message_id = message.message_id;
+
+    // Forward to Star's chat
+    let star_response = {
+        let mut rt_guard = match runtime.lock() {
+            Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
+            Ok(r) => r,
+        };
+        rt_guard.chat(&text).unwrap_or_else(|e| format!("Error: {}", e))
+    };
+
+    // Send response back to Telegram
+    if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok() {
+        let send_url = format!("https://api.telegram.org/bot{}/sendMessage", token);
+        let payload = serde_json::json!({
+            "chat_id": chat_id,
+            "text": star_response,
+            "reply_to_message_id": message_id,
+        });
+
+        // Spawn a thread for the Telegram API call (non-blocking)
+        std::thread::spawn(move || {
+            let _ = ureq::post(&send_url)
+                .set("Content-Type", "application/json")
+                .send_string(&serde_json::to_string(&payload).unwrap_or_default());
+        });
+    }
+
+    serde_json::json!({
+        "ok": true,
+        "response": star_response,
+        "chat_id": chat_id,
+        "update_id": update.update_id,
+    }).to_string()
 }

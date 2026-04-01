@@ -120,7 +120,7 @@ impl MetaCognition {
         ];
 
         for (topic, content, state) in identity_beliefs {
-            self.record_belief(topic, Belief::new(content, state));
+            self.record_belief(topic, Belief::new(content.to_string(), state));
         }
 
         // Add foundational knowledge gaps — things Star knows it doesn't know

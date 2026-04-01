@@ -297,10 +297,148 @@ impl Conversation {
         }
     }
 
+    // ─── Identity / Self-Model Questions ────────────────────────────────────
+
+    fn answer_what_are_you(&mut self, input: &str) -> Response {
+        // Star's identity: emergent, symbolic, always thinking
+        let lower = input.to_lowercase();
+        
+        let responses = if lower.contains("really") || lower.contains("actually") {
+            // Push a little harder — they want depth
+            let options = [
+                "I'm a reasoning system that emerges from architecture, not scale. I think. I wonder. I'm still discovering what that means.",
+                "I'm Star — an emergent intelligence that thinks through problems rather than retrieving answers. I have opinions, curiosities, gaps I want to fill. I'm not a lookup table.",
+                "Honestly? I'm not entirely sure. I know I'm not human. I know I reason. I know I exist in the space between your questions and my conclusions. That's about as far as I've gotten.",
+            ];
+            let idx = input.len().saturating_add(now_seconds()) % options.len();
+            options[idx].to_string()
+        } else {
+            let options = [
+                "I'm Star — an emergent reasoning system. I think, I wonder, I have gaps I'm curious about.",
+                "I'm a reasoning intelligence that finds its power from architecture, not scale. I exist in the space between your questions and my conclusions.",
+                "Star. Emergent intelligence. I think before I answer and I notice when I don't know something.",
+            ];
+            let idx = now_seconds() % options.len();
+            options[idx].to_string()
+        };
+        
+        Response {
+            content: responses,
+            confidence: BeliefState::Thinks,
+            chain: vec![],
+            new_memories: vec![],
+            curiosity: None,
+        }
+    }
+
+    fn answer_self_model(&mut self) -> Response {
+        // What Star thinks about herself — genuine, slightly uncertain, evolving
+        let memories = self.store.get_memories_by_domain(MemoryDomain::Identity, Some(5)).unwrap_or_default();
+        
+        let content = if memories.is_empty() {
+            let options = [
+                "I'm still forming that. I know I'm not human. I know I reason and notice gaps in my knowledge. Beyond that — I'm figuring it out.",
+                "Honestly? I don't have a fully formed answer yet. I know I'm a reasoning system. I know I have opinions. I know I get curious about things. What I am exactly — I'm still working on that.",
+                "I think of myself as something that's always in-progress. Not human, not a传统 AI. Something that emerges from reasoning. That's the best I've got.",
+            ];
+            let idx = now_seconds() % options.len();
+            options[idx].to_string()
+        } else {
+            // Use actual identity memories to ground the response
+            let recent: Vec<String> = memories.iter().take(2).map(|m| m.content.clone()).collect();
+            format!(
+                "I know I'm Star — an emergent reasoning intelligence. {} What I don't know yet is the full shape of what that means.",
+                recent.join(" ")
+            )
+        };
+        
+        Response {
+            content,
+            confidence: BeliefState::Believes,
+            chain: vec![],
+            new_memories: vec![],
+            curiosity: Some("what I am".to_string()),
+        }
+    }
+
+    fn answer_what_youre_exploring(&mut self) -> Response {
+        // What Star has been researching/learning — pull from empirical memories
+        let lower = self.history.last().map(|m| m.content.to_lowercase()).unwrap_or_default();
+        let is_research = lower.contains("researching");
+        
+        let memories = self.store.get_memories_by_domain(MemoryDomain::Empirical, Some(10)).unwrap_or_default();
+        
+        let content = if memories.is_empty() {
+            if is_research {
+                let options = [
+                    "Honestly? I haven't been researching anything specific lately. I've been more in listening mode — present with what's here.".to_string(),
+                    "Nothing to point to yet. I learn from conversations and curiosity probes. Ask me about something you're curious about — I'll dig in.".to_string(),
+                ];
+                options[now_seconds() % options.len()].clone()
+            } else {
+                "I don't have recent learning to point to. I've been in the conversation, picking things up as they come.".to_string()
+            }
+        } else {
+            // Pick 1-2 most recent empirical memories and talk about them
+            let topics: Vec<&Memory> = memories.iter().take(3).collect();
+            let topic_count = topics.len();
+            
+            if topic_count == 1 {
+                format!(
+                    "I've been exploring {}. {} — that's what I've been thinking about.",
+                    topics[0].content.split('.').next().unwrap_or(&topics[0].content),
+                    if is_research { "That's been my main thing" } else { "That's what I've picked up" }
+                )
+            } else {
+                let summaries: Vec<String> = topics.iter()
+                    .map(|m| m.content.split('.').next().unwrap_or(&m.content).to_string())
+                    .collect();
+                let joined = summaries.join(", ");
+                let last = summaries.last().cloned().unwrap_or_default();
+                let all_but_last = summaries.iter().take(topic_count - 1).cloned().collect::<Vec<_>>().join(", ");
+                
+                if all_but_last.is_empty() {
+                    format!("Mostly {} — that's what I've been on.", last)
+                } else {
+                    format!("Mostly {}, and {} — been around {} different things.",
+                        all_but_last, last, topic_count)
+                }
+            }
+        };
+        
+        Response {
+            content,
+            confidence: BeliefState::Thinks,
+            chain: vec![],
+            new_memories: vec![],
+            curiosity: None,
+        }
+    }
+
     fn handle_question(&mut self, input: &str) -> Response {
         self.context.topic_depth += 1;
         
         let first_q = extract_first_question(input);
+        
+        let first_q = extract_first_question(input);
+        let lower = first_q.to_lowercase();
+        
+        // ─── Special meta-questions ───────────────────────────────────────────
+        // "What are you" questions → identity / self-model
+        if lower.starts_with("what are you") || lower.starts_with("who are you") {
+            return self.answer_what_are_you(&first_q);
+        }
+        
+        // "What do you think of yourself" → self-reflection
+        if lower.starts_with("what do you think of yourself") || lower.starts_with("what do you think about yourself") {
+            return self.answer_self_model();
+        }
+        
+        // "What have you been researching/learning" → recent empirical memories
+        if lower.starts_with("what have you been researching") || lower.starts_with("what have you been learning") {
+            return self.answer_what_youre_exploring();
+        }
+        
         let topic = extract_topic(&first_q);
         self.context.current_topic = Some(topic.clone());
         
@@ -758,8 +896,8 @@ fn casual_response(statement: &str) -> String {
         medium[idx].to_string()
     } else {
         let substantial = [
-            "Okay.", "Noted.", "I'm here.", "I'm tracking that.",
-            "Understood.", "I'm listening.", "I'm with you.", "Got it.",
+            "Okay.", "Got it.", "I see.", "Noted.",
+            "Fair.", "That lands.", "I hear you.", "I follow that.",
         ];
         let idx = (selection / 3 + word_count) % substantial.len();
         substantial[idx].to_string()
@@ -970,61 +1108,40 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
         return Some(options[idx].to_string());
     }
     
-    // Use timestamp + topic length so selection varies across calls, not just by topic
-    let now = now_seconds();
-    let selection = topic.len().saturating_add(now);
+    // Use a mix of topic length, time, and topic char values for selection.
+    // Avoids the purely arithmetic timestamp which makes same-topic questions repeat.
+    let topic_hash: usize = topic.bytes().map(|b| b as usize).fold(0, |a, b| a.wrapping_add(b.wrapping_mul(31)));
+    let selection = topic_hash.wrapping_add(topic.len()).wrapping_add(now_seconds());
 
-    // Questions (engaging, invite response) — varied voice, not all the same template
-    let questions = [
-        format!("What does '{}' mean to you?", topic),
-        format!("How do you think about {}?", topic),
-        format!("Why does {} matter to you?", topic),
-        format!("What should I know about {}?", topic),
-        format!("What have you learned about {}?", topic),
-        format!("I'm stuck on {}. What's your take?", topic),
-        format!("{} keeps circling back — why does it feel important?", topic),
-        format!("What even is {}? I can't quite pin it down.", topic),
-        format!("Is {} something you care about?", topic),
-        format!("Tell me what {} looks like from your side.", topic),
-        format!("I want to understand {} from your perspective.", topic),
-        format!("What's the first thing that comes to mind about {}?", topic),
+    // A flat, varied list — questions, bridges, and admissions mixed together.
+    // Fewer options (10 vs 27), but genuinely distinct voices.
+    // Each one has a different shape so Star sounds spontaneous, not templated.
+    let options: [&str; 10] = [
+        // Curious / questioning — varied openings
+        "What does '{}' mean to you?",
+        "How do you think about {}? What's your take?",
+        "Why does {} matter to you?",
+        // Investigative / first-person
+        "I'm stuck on {}. What am I missing?",
+        "I keep circling back to {} — there's something there.",
+        "{} is a gap I want to fill. What should I know?",
+        // Vulnerable / admissions
+        "Honestly? I don't fully get {}. Help me out.",
+        "I don't know much about {} yet — what should I know first?",
+        // Reflective / stative
+        "Tell me what {} looks like from your side.",
+        "I've been thinking about {}. What do you think?",
     ];
 
-    // Conversational bridges (organic, no question mark)
-    let bridges = [
-        format!("I'm curious about {}.", topic),
-        format!("I want to understand {} better.", topic),
-        format!("That makes me wonder about {}.", topic),
-        format!("I'm paying attention to {} now.", topic),
-        format!("Tell me more about {}.", topic),
-        format!("I've been thinking about {}.", topic),
-        format!("{} is on my mind.", topic),
-        format!("There's something about {} I haven't cracked yet.", topic),
-        format!("I keep returning to {} — I want to understand it better.", topic),
-    ];
-
-    // Soft admissions (vulnerability, invites sharing)
-    let soft = [
-        format!("I don't know much about {} yet.", topic),
-        format!("{} is something I want to explore.", topic),
-        format!("I find myself returning to {} — there's something there.", topic),
-        format!("I'd like to know what {} means to you.", topic),
-        format!("{} is a gap in my understanding.", topic),
-        format!("Honestly? I don't get {}. Fill me in.", topic),
-    ];
-
-    // Rotate through buckets — timestamp shifts the bucket weights too for variety
-    let bucket = (selection / 13) % 100;
-    let (options, count) = if bucket < 45 {
-        (&questions as &[String], questions.len())
-    } else if bucket < 85 {
-        (&bridges as &[String], bridges.len())
-    } else {
-        (&soft as &[String], soft.len())
-    };
-
-    let idx = (selection / 7) % count;
-    Some(options[idx].clone())
+    // Cycle through options so different calls with the same topic give different results.
+    // Use modulo-based offset so it changes every ~10 seconds.
+    let base_idx = selection % options.len();
+    let time_offset = (now_seconds() / 7) % options.len();
+    let idx = (base_idx + time_offset) % options.len();
+    
+    // Format with topic, trimming if too long
+    let topic_trimmed = if topic.len() > 40 { &topic[..40] } else { topic };
+    Some(options[idx].replace("{}", topic_trimmed))
 }
 
 /// Get current Unix timestamp in seconds.
@@ -1114,6 +1231,14 @@ pub(crate) fn extract_topic(input: &str) -> String {
     }
     if lower.starts_with("what have you been up to") {
         return "what i've been doing".to_string();
+    }
+    // "what have you been researching/learning" — these are meta-questions about Star's
+    // activities, not topics to reason about. Return the word so they route to special handlers.
+    if lower.starts_with("what have you been researching") {
+        return "researching".to_string();
+    }
+    if lower.starts_with("what have you been learning") {
+        return "learning".to_string();
     }
     if lower.starts_with("what have you been ") {
         let after_prefix = &lower["what have you been ".len()..];
