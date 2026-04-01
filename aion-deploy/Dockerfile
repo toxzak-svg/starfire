@@ -14,8 +14,5 @@ RUN chmod +x /usr/local/bin/aion
 
 EXPOSE 8080
 
-# Aion connects to Star API, polls Telegram, forwards messages to Star
-# Required env vars: STAR_API_URL, TELEGRAM_BOT_TOKEN
-ENTRYPOINT ["/bin/sh", "-c"]
-# Use shell so $STAR_API_URL gets expanded at runtime
-CMD ["aion start-star --api-url $STAR_API_URL"]
+ENTRYPOINT ["/usr/local/bin/aion"]
+CMD ["start-star"]
