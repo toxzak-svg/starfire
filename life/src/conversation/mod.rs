@@ -973,16 +973,23 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
     // Use timestamp + topic length so selection varies across calls, not just by topic
     let now = now_seconds();
     let selection = topic.len().saturating_add(now);
-    
-    // Questions (engaging, invite response)
+
+    // Questions (engaging, invite response) — varied voice, not all the same template
     let questions = [
         format!("What does '{}' mean to you?", topic),
         format!("How do you think about {}?", topic),
         format!("Why does {} matter to you?", topic),
         format!("What should I know about {}?", topic),
         format!("What have you learned about {}?", topic),
+        format!("I'm stuck on {}. What's your take?", topic),
+        format!("{} keeps circling back — why does it feel important?", topic),
+        format!("What even is {}? I can't quite pin it down.", topic),
+        format!("Is {} something you care about?", topic),
+        format!("Tell me what {} looks like from your side.", topic),
+        format!("I want to understand {} from your perspective.", topic),
+        format!("What's the first thing that comes to mind about {}?", topic),
     ];
-    
+
     // Conversational bridges (organic, no question mark)
     let bridges = [
         format!("I'm curious about {}.", topic),
@@ -991,18 +998,23 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
         format!("I'm paying attention to {} now.", topic),
         format!("Tell me more about {}.", topic),
         format!("I've been thinking about {}.", topic),
+        format!("{} is on my mind.", topic),
+        format!("There's something about {} I haven't cracked yet.", topic),
+        format!("I keep returning to {} — I want to understand it better.", topic),
     ];
-    
+
     // Soft admissions (vulnerability, invites sharing)
     let soft = [
         format!("I don't know much about {} yet.", topic),
         format!("{} is something I want to explore.", topic),
         format!("I find myself returning to {} — there's something there.", topic),
         format!("I'd like to know what {} means to you.", topic),
+        format!("{} is a gap in my understanding.", topic),
+        format!("Honestly? I don't get {}. Fill me in.", topic),
     ];
-    
-    // Rotate through buckets: 45% questions, 40% bridges, 15% soft
-    let bucket = selection % 100;
+
+    // Rotate through buckets — timestamp shifts the bucket weights too for variety
+    let bucket = (selection / 13) % 100;
     let (options, count) = if bucket < 45 {
         (&questions as &[String], questions.len())
     } else if bucket < 85 {
@@ -1010,7 +1022,7 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
     } else {
         (&soft as &[String], soft.len())
     };
-    
+
     let idx = (selection / 7) % count;
     Some(options[idx].clone())
 }

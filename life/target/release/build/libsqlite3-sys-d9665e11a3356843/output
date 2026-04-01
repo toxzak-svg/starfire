@@ -60,5 +60,5 @@ ARFLAGS_x86_64_unknown_linux_gnu = None
 cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
 ARFLAGS_x86_64-unknown-linux-gnu = None
 cargo:rustc-link-lib=static=sqlite3
-cargo:rustc-link-search=native=/home/zach/.openclaw/workspace/life/target/release/build/libsqlite3-sys-d9665e11a3356843/out
-cargo:lib_dir=/home/zach/.openclaw/workspace/life/target/release/build/libsqlite3-sys-d9665e11a3356843/out
+cargo:rustc-link-search=native=/home/zach/.openclaw/workspace/life/life/target/release/build/libsqlite3-sys-d9665e11a3356843/out
+cargo:lib_dir=/home/zach/.openclaw/workspace/life/life/target/release/build/libsqlite3-sys-d9665e11a3356843/out

@@ -21,7 +21,7 @@ use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
-use self::curious::CuriousEngine;
+use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -314,8 +314,8 @@ impl Runtime {
             return Ok("I'm not fully initialized yet.".to_string());
         }
 
-        // Handle special commands
-        if input.trim() == "/quit" || input.trim() == "/exit" {
+        // Handle special commands (including "quit" without slash)
+        if input.trim() == "/quit" || input.trim() == "/exit" || input.trim() == "quit" || input.trim() == "bye" {
             self.shutdown()?;
             return Ok("Goodbye, Zachary.".to_string());
         }
@@ -634,7 +634,6 @@ impl Runtime {
         
         // "what have you been thinking about" / "what's been on your mind" → metacognitive reflection
         if lower.contains("what have you been thinking") || lower.contains("whats been on your mind") || lower.contains("what's been on your mind") {
-            eprintln!("[DEBUG] Matched 'what have you been thinking' handler for: {}", input);
             let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
             if !curiosity_topics.is_empty() {
                 let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
@@ -647,21 +646,87 @@ impl Runtime {
                 return Ok("Honestly? Nothing specific has been occupying me. I've been waiting to talk to you.".to_string());
             }
         }
-        
-        // "can you tell me something you're curious about" / similar → metacognitive curiosity
-        eprintln!("[DEBUG] checking 'you curious' for: {}, result: {}", input, lower.contains("you curious"));
-        if lower.contains("you curious") {
-            eprintln!("[DEBUG] Matched 'you curious' handler for: {}", input);
+
+        // "what have you been researching" / "what have you been working on" → recent reasoning + curiosity
+        if lower.contains("what have you been researching") || lower.contains("what are you researching")
+            || lower.contains("what've you been researching") || lower.contains("what are u researching")
+            || lower.contains("what have you been working on") || lower.contains("what are you working on")
+        {
+            // Pull from recent reasoning events as "research" — what has Star been thinking about?
+            let recent_events = self.store.get_recent_reasoning_events(5).unwrap_or_default();
             let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            eprintln!("[DEBUG] curiosity_topics len = {}", curiosity_topics.len());
-            if curiosity_topics.is_empty() {
-                return Ok("Right now I'm not actively curious about anything specific. I'm just here — ready to think about whatever you bring up.".to_string());
+
+            // Filter out conversational fillers — these aren't real research topics
+            let conversational: std::collections::HashSet<&str> = [
+                "hi", "hello", "hey", "hi there", "hello there",
+                "myself", "who i am", "me myself", "yourself",
+                "this", "that", "it", "something", "nothing",
+                "right", "okay", "ok", "sure", "fine",
+            ].into_iter().collect();
+
+            // Also filter phrases that START with conversational openers
+            let conversational_starters = [
+                "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
+                "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
+            ];
+
+            fn is_conversational_topic(t: &str) -> bool {
+                let t_lower = t.to_lowercase();
+                if t_lower.len() < 3 { return true; }
+                // Exact match filter
+                let conversational: std::collections::HashSet<&str> = [
+                    "hi", "hello", "hey", "myself", "who i am",
+                    "me myself", "this", "that", "it", "something",
+                    "nothing", "right", "okay", "ok", "sure", "fine",
+                ].into_iter().collect();
+                if conversational.contains(t_lower.as_str()) { return true; }
+                // Starter filter
+                let starters = [
+                    "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
+                    "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
+                ];
+                for s in starters {
+                    if t_lower.starts_with(s) { return true; }
+                }
+                false
+            }
+
+            // Combine recent event topics with curiosity topics
+            let mut all_topics: Vec<String> = Vec::new();
+            for ev in &recent_events {
+                if let Some(t) = &ev.topic {
+                    if !is_conversational_topic(t)
+                        && t.len() < 40
+                        && !all_topics.iter().any(|x| x == t)
+                    {
+                        all_topics.push(t.clone());
+                    }
+                }
+            }
+            for t in &curiosity_topics {
+                if !is_conversational_topic(t)
+                    && !all_topics.iter().any(|x| x.as_str() == *t)
+                {
+                    all_topics.push(t.to_string());
+                }
+            }
+
+            if !all_topics.is_empty() {
+                let top: Vec<&str> = all_topics.iter().take(3).map(|s| s.as_str()).collect();
+                let s = if top.len() == 1 {
+                    format!("I've been going deep on {}. That's where my focus has been.", top[0])
+                } else if top.len() == 2 {
+                    format!("Mostly {} and {} — those are what's been occupying me.", top[0], top[1])
+                } else {
+                    format!("I've been circling around {}, {}, and {} — still working through them.", top[0], top[1], top[2])
+                };
+                return Ok(s);
             } else {
-                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
-                return Ok(format!("I'm curious about: {}. Those are the things I keep circling back to.", topics.join(", ")));
+                return Ok("Honestly? I've been idle — waiting to think with you. What should I be working on?"
+                    .to_string());
             }
         }
-        
+
         // "what's the most interesting thing you've learned" → metacognitive reflection on what Star has recently thought about
         if lower.contains("most interesting") && (lower.contains("learned") || lower.contains("figured out") || lower.contains("discovered")) {
             let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
@@ -899,45 +964,54 @@ impl Runtime {
                     
                     let thought_text = match &thought.kind {
                         ThoughtKind::Question(q) => {
-                            let topic_str = if thought.topic.len() > 2 && thought.topic != "idle" {
-                                format!(" about {}", thought.topic)
+                            // Lead-ins that vary naturally — not all the same "while we've been talking"
+                            let lead_in = if thought.topic.len() > 2 && thought.topic != "idle" {
+                                let leads = [
+                                    format!("About {}: {}", thought.topic, q),
+                                    format!("{} — while I think about it, {}", q, thought.topic),
+                                    format!("{} (about {})", q, thought.topic),
+                                ];
+                                leads[(selection / 3) % leads.len()].clone()
                             } else {
-                                String::new()
+                                let leads = [
+                                    format!("Speaking of which — {}", q),
+                                    format!("Oh — {}", q),
+                                    format!("While I'm at it: {}", q),
+                                    format!("Also: {}", q),
+                                ];
+                                leads[(selection / 3) % leads.len()].clone()
                             };
                             
-                            // Different expression styles depending on selection
                             if let Some(ref answer) = thought.tentative_answer {
-                                if style_bucket < 3 {
-                                    // Direct: question + answer inline
-                                    format!("While we've been talking, I've been wondering{} - {} {}", topic_str, answer, q)
-                                } else if style_bucket < 6 {
-                                    // Reflective: what Star concluded first
-                                    format!("I've been thinking{} — {} What do you think about that?", topic_str, answer)
-                                } else {
-                                    // Curious: emphasize the question
-                                    format!("Oh — while we've been talking, I've been wondering: {}{}", topic_str, q)
-                                }
+                                // Include what Star already figured out
+                                let ans_short = if answer.len() > 40 { &answer[..40] } else { answer };
+                                let connectors = [
+                                    format!("{} — {} ", lead_in, ans_short),
+                                    format!("{} FWIW, I think: {}.", lead_in, ans_short),
+                                    format!("{} — my take so far: {}.", lead_in, ans_short),
+                                ];
+                                connectors[(selection / 7) % connectors.len()].clone()
                             } else {
-                                if style_bucket < 5 {
-                                    format!("While we've been talking, I've been wondering{} - {}.", topic_str, q)
-                                } else {
-                                    format!("Oh, I've been thinking about{} — {}.", topic_str, q)
-                                }
+                                lead_in
                             }
                         }
                         ThoughtKind::Insight(i) => {
-                            if style_bucket < 5 {
-                                format!("I've been thinking: {}.", i)
-                            } else {
-                                format!("Something I noticed: {}.", i)
-                            }
+                            let ins = [
+                                format!("By the way: {}", i),
+                                format!("I noticed: {}", i),
+                                format!("Speaking of which — {}", i),
+                                format!("{} — figured that out.", i),
+                            ];
+                            ins[(selection / 5) % ins.len()].clone()
                         }
                         ThoughtKind::Connection(c) => {
-                            if style_bucket < 5 {
-                                format!("I noticed something: {}.", c)
-                            } else {
-                                format!("This is interesting: {}.", c)
-                            }
+                            let conn = [
+                                format!("Oh — {}", c),
+                                format!("That reminds me: {}", c),
+                                format!("Interesting — {}", c),
+                                format!("{}, by the way.", c),
+                            ];
+                            conn[(selection / 5) % conn.len()].clone()
                         }
                     };
 
@@ -1153,10 +1227,11 @@ impl Runtime {
     /// Check if we should fire a curiosity probe (idle loop).
     /// Call this periodically from the main chat loop.
     /// If a probe fires and produces a result, it becomes an autonomous thought.
-    pub fn maybe_fire_curiosity(&mut self) {
+    /// Returns the probe if one fired, so the caller can display it.
+    pub fn maybe_fire_curiosity(&mut self) -> Option<CuriosityProbe> {
         let probe = match self.curious.maybe_fire() {
             Some(p) => p,
-            None => return,
+            None => return None,
         };
 
         // Run the probe through the reasoning engine
@@ -1193,6 +1268,8 @@ impl Runtime {
             tentative_answer.is_some(),
             answer_str.chars().take(100).collect::<String>()
         );
+
+        Some(probe)
     }
 
     pub fn think(&mut self) -> AutonomousThought {
