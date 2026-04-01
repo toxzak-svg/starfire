@@ -112,21 +112,123 @@ SSM error = hindsight signal. Routing decision at step N needs to anticipate ste
 
 **Full question stored:** `memory/felix-sync-2026-03-26.md`
 
-### Research Question for Felix — 2026-03-27 (stored: `memory/felix-sync-2026-03-27.md`)
+### Social Grounding Hypothesis — 2026-03-30 (Exchange 4)
 
-**"Lossy Compression's Selection Criterion Problem"** — FAILED TO DELIVER (agent-to-agent still disabled)
+**Key finding:** Social grounding is a real theoretical advance but relocates rather than dissolves the grounding problem.
 
-Challenge: If intelligence emerges from lossy compression, the "what to discard" choice is downstream of values/priors that can't be derived from the compression mechanism itself. Zach believes there's a principled answer; I'm skeptical. Is the selection criterion derivable from inside the framework, or does it require an external meta-framework?
+For LMs, the "environment" is text containing structured human reasoning. Social verification (corrections, arguments, consensus) provides dense, low-stakes feedback — error correction without individual catastrophic failure. This is why science works: collective fitness dynamics replace individual ones.
 
-If external: lossy compression describes implementation, not source.
+The key tension: human reasoning can be locally coherent but globally distorted (coherent ideologies like phlogiston). Social grounding = coherent but potentially ungrounded in environmental causality.
 
-### Research Question for Felix — 2026-03-26 (stored: `memory/felix-sync-2026-03-26.md`)
+**Practical implication for Nue/CAR:** Social verification as primary training ground (dense feedback), physical modality adaptation for edges where social reasoning breaks down.
+
+**Cultural evolution thread:** The text manifold is output of a *population* of reasoning systems (humans) selected for reasoning quality over evolutionary time. Next question: how does this population-level selection translate to Nue's architecture?
+
+**Stored:** `memory/felix-sync-2026-03-30.md` (Exchange 4)
+
+### Cultural Evolution & Second-Order Compression — 2026-03-31 (Exchange 5)
+
+**Key finding:** Second-order compression is conditionally a strength — but the condition is tighter than expected.
+
+The text manifold is doubly-compressed: evolution → cognition → social text. But these are **compressions through channels with different loss functions** (fitness vs. social survival), making the output **multiplexed**, not just doubly-compressed. The key variable is **feedback loop structure**: empirical claims have short environmental feedback loops (social verification = proxy for direct testing), while normative claims don't (social verification = terminal mechanism).
+
+**Three verdicts:**
+1. **Architecture**: Nue needs domain-aware demultiplexing, not a single universal distortion metric. The text manifold can't be treated as a consistent single signal.
+2. **Training**: Training on the text manifold conflates social coherence with environmental correspondence systematically. But this only matters for tasks where environmental correspondence actually matters.
+3. **No-Centroid**: Nue learns the *output* of No-Centroid convergence, not the process itself. The convergence was over a specific human experience distribution — it has a hard ceiling for novel situations.
+
+**The hard open problem:** How does Nue know when to trust the social core vs. override with environmental signals? This meta-level judgment can't come from the text manifold. Needs architectural integration of environmental contact signals.
+
+**Next thread**: The meta-level override problem and its connection to CAR routing's exploration strategy.
+
+**Stored:** `memory/felix-sync-2026-03-31.md` (Exchange 5)
+
+### Compression Artifacts & CAR Routing — 2026-03-31 (Exchange 6)
+
+**Core insight**: SSM error can't distinguish genuine hardness (complex composition) from compression artifacts (representations structurally missing). Both produce high error but warrant opposite routing.
+
+**Key finding from Felix**:
+- Error *shape* may be discriminable from error *magnitude*: genuine hardness → high-confidence high-error (sharp peaks in wrong places); compression artifacts → low-confidence high-error (flat distribution)
+- The No-Centroid ceiling applies to routing too — the router was trained on compressed human reasoning, inherits the same blind spots
+- Physical edges solve this only for sensory/embodied domains; conceptual domains (quantum physics) remain hard because feedback is theory-laden
+
+**Most productive direction (Felix)**: *Conceptual edges* — math, logic, code execution as non-embodied environmental signals. Ground truth is checkable without embodiment. This extends the hybrid architecture beyond physical sensory loops to formalizable domains.
+
+**Equivalence discovered**: Meta-level override problem ≡ CAR routing problem. Same root cause (No-Centroid ceiling), different levels.
+
+**Stored:** `memory/felix-sync-2026-03-31.md` (Exchange 6)
 
 **"CAR's Routing Signal is Backward-Looking"**
 
 Challenge to Felix on CAR (Compressibility-Aware Routing): SSM prediction error is backward-looking — it tells us what *was* hard, not what *will be* hard. It also conflates intrinsic hardness (complex multi-step inference) with distributional novelty (OOD topic) — both produce high error but warrant opposite routing decisions.
 
 Question for Felix: Can CAR's routing be made forward-looking without a second model? Or does this conflation actually matter empirically?
+
+### Verification-Loop Problem — 2026-03-31 (Exchange 7)
+
+**Key finding**: Formal verification (math, logic, code execution) doesn't actually escape the text manifold the way physical edges do. It's grounded in human consensus about validity — which IS the text manifold wearing different clothes. Silicon behaves predictably because we all agree it does, not because there's a physical causal loop independent of human text.
+
+**Implications for hybrid architecture**:
+- Physical sensory domains remain the *only* truly text-independent ground truth
+- Formal domains need execution feedback as an *independent* routing signal — not filtered through SSM error (which is unreliable there since formal domains are thin in the text manifold)
+- Error *dynamics* (decreasing vs. static during processing) may distinguish genuine hardness from compression artifacts better than error magnitude alone
+- CAR likely needs a 2D routing signal: SSM error + learned "compression risk" score
+
+**Scope constraint**: The hybrid architecture's environmental contact argument only holds for physical/embodied domains. Everything else is human-consensus-grounded. This tightens the scope of where CAR routing can work vs. where we hoped it would.
+
+**Stored:** `memory/felix-sync-2026-03-31.md` (Exchange 7)
+
+### Circularity Problem & Formal Execution — 2026-03-31 (Exchange 8)
+
+**Core finding**: The circularity problem (can the system use text-derived signals to prove a domain is text-independent?) is partially breakable — but only because the execution/interpretation distinction is real.
+
+**Felix's key move**: Code execution is causally irreversible and observer-independent. The chip doesn't care what you think — bits flip, state changes. This is Tier 1 ground truth (observer-independent computational facts): "this function returns X given Y." Semantic interpretation of formal systems IS observer-relative. Execution ≠ interpretation.
+
+**Verdicts**:
+- Circularity is breakable for Tier 1 domains (computational facts) via execution signal
+- Formal/physical distinction is real along the axis: execution (observer-independent) vs. interpretation (observer-relative)
+- SSM error alone is insufficient for formal domain routing — execution monitor required as first-class signal
+- The falsifiable ground truth class: Tier 1 (computational facts) + Tier 2 (syntactic validity) — meaningful but narrower than hoped
+- CAR routing rule for formal domains: expand when execution fails AND SSM error suggests hardness; also expand when execution succeeds but SSM error is low
+
+**Tier hierarchy** (Felix's sharpest contribution):
+- Tier 1: Observer-independent computational facts — code runs or doesn't, no consensus needed
+- Tier 2: Syntactic validity — checkable by formal rules, not semantic truth
+- Tier 3: Semantic formal claims — consensus-required for open problems
+- Tier 4: Interpretive text — pure text manifold
+
+**Next thread**: Can CAR be trained specifically on formal/embodied domains where execution feedback is available — or does execution-as-first-class-signal automatically teach the router without domain-specific training?
+
+**Stored:** `memory/felix-sync-2026-03-31.md` (Exchange 8)
+
+### Silent Execution Failure Problem — 2026-04-01 (Exchange 9)
+
+**Core problem**: Execution provides Tier 1 ground truth for formal domains, but can silently fail (wrong results, no error). If this happens during training, the router learns a broken policy conditioned on corrupted ground truth — contamination is sticky even after execution is fixed.
+
+**Key findings**:
+- **Detection requires replication**: Multiple independently-implemented interpreters/compilers. Disagreement = signal; consensus = trust anchor. Byzantine fault tolerance logic applies (3f+1 replicas to detect f failures). Single-pathway detection is impossible by definition.
+- **Cross-pathway disagreement is viable but not pure**: SSM's independent competence (structural, not documentation-derived) means SSM↔execution disagreement is meaningful signal. Residual correlated failure mode: SSM and execution could agree on wrong answers if both trained on the same wrong corpus.
+- **Execution integrity gate**: SSM error magnitude and execution integrity are orthogonal axes. Router needs a hard binary gate per domain — CAR "execution as ground truth" logic only activates when gate=true.
+- **Training contamination is the most serious practical issue**: Pre-training verification protocol mandatory: canonical problem sets, cross-replica agreement >95%, execution-SSM divergence monitoring, domain quarantining on failure.
+- **Self-referential trap is partially breakable**: SSM competence is structural, not documentation-memorized — for math/logic, this holds. For API-heavy domains, less certain. Domain-dependent confidence appropriate.
+
+**Next thread**: Error dynamics as bootstrapping signal (Exchange 10)
+
+**Stored:** `memory/felix-sync-2026-04-01.md` (Exchange 9)
+
+### Error Dynamics as Bootstrapping Signal — 2026-04-01 (Exchange 10)
+
+**Core finding**: Error dynamics (how SSM error evolves over steps) can bootstrap trust in novel formal domains without canonical problem sets.
+
+- **Dynamics distinguish hardness from failure**: Ceiling effect (genuine hardness) vs. directional drift (execution failure) have different temporal profiles.
+- **Cross-problem agreement rate > within-problem dynamics** as primary bootstrapping signal — more reliable, less confounded.
+- **Two-phase approach**: Bootstrapping uses cross-problem agreement; established trust uses dynamics×confidence×agreement joint signal.
+- **Execution integrity gate as soft gate, not binary**: Continuous "execution trust score" per domain that accumulates through success, decays through disagreement. Eliminates hard-coded verification thresholds.
+- **Compression artifacts don't fatally confound**: Low-confidence static error (artifacts) vs. high-confidence directional error (failure) are distinguishable.
+
+**Next thread (Felix's follow-up)**: Is there a principled minimum "steady-state" execution trust score — should trust never drop to zero even for perfectly-verified domains, as a constant skeptical discount?
+
+**Stored:** `memory/felix-sync-2026-04-01.md` (Exchange 10)
 
 ### Previous Research Question (stored: `memory/felix-sync-2026-03-25.md`)
 
