@@ -1,7 +1,7 @@
 [package]
 name = "star"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["Zachary Maronek"]
 description = "A reasoning intelligence that finds its power from architecture, not scale."
 license = "MIT"
