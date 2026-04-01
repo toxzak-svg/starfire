@@ -100,7 +100,7 @@ impl RingState {
     }
 
     /// Update the ring after Star produces a response.
-    pub fn update_from_response(&mut self, response: &str, mode: super::ReasoningMode) {
+    pub fn update_from_response(&mut self, response: &str, _mode: super::ReasoningMode) {
         // Did we express uncertainty? Reduce certainty slightly
         let uncertain_markers = ["i don't know", "i'm not sure", "i'm uncertain", 
                                  "i'm not certain", "i don't have enough information"];

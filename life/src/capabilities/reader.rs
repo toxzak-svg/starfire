@@ -126,7 +126,7 @@ impl FileReader {
         match fs::read_dir(&path) {
             Ok(dir) => {
                 for entry in dir.filter_map(|e| e.ok()) {
-                    let file_name = entry.file_name().display().to_string();
+                    let file_name = entry.file_name().to_string_lossy().into_owned();
                     let file_type = if entry.path().is_dir() { "/" } else { "" };
                     entries.push(format!("{}{}", file_name, file_type));
                 }
