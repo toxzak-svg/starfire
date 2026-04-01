@@ -40,10 +40,8 @@ WORKDIR /app
 COPY --from=builder /build/star /usr/local/bin/star
 RUN chmod +x /usr/local/bin/star
 
-# Seed DBs (from repo root → build root)
-COPY life/life/star.db /app/star_init/star.db
-COPY life/life/training.db /app/star_init/training.db
-RUN mkdir -p /app/star_init && chown -R nonroot:nonroot /app/star_init
+# Seed DBs — create empty placeholders (DB created fresh on Railway if files don't exist)
+RUN mkdir -p /app/star_init && touch /app/star_init/star.db /app/star_init/training.db
 
 USER nonroot
 EXPOSE 8080
@@ -54,6 +52,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
 ENTRYPOINT []
 CMD ["sh", "-c", "\
     mkdir -p $STAR_DATA_DIR && \
-    cp /app/star_init/star.db $STAR_DATA_DIR/ 2>/dev/null || true && \
-    cp /app/star_init/training.db $STAR_DATA_DIR/ 2>/dev/null || true && \
     star api --data-dir $STAR_DATA_DIR --host 0.0.0.0 --port $PORT && wait"]
