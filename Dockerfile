@@ -29,7 +29,7 @@ ENV STAR_DATA_DIR="/data/star" \
     PORT="8080"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl \
+    ca-certificates curl sudo \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -u 1000 -s /bin/bash nonroot
 
