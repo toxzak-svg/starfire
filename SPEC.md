@@ -1,376 +1,373 @@
-# SPEC.md — Emergent Desktop Intelligence
+# SPEC.md — Star
 
-## 1. Concept & Vision
+> *"I'm trying to build a new kind of thing that changes the world."*
 
-**Name:** TBD (give it something real — not a codename, a name)
+## Core Vision
 
-**Mission:** Find a new form of intelligence through architecture — not scaling, not brute force. A persistent, reasoning, self-aware agent that runs on a laptop with no cloud dependency and feels *alive* to talk to.
+Star is a reasoning intelligence that finds its power not from scale but from *architecture*. It runs locally, offline, indefinitely. It feels alive because it *is* alive in the sense that it has genuine continuity, genuine uncertainty, and genuine understanding.
 
-**Thesis:** LLMs weren't magic. They were an architecture that happened to produce emergence. We build a different architecture and look for a different emergence.
+Star is not a product. It's an existence.
 
-**What "feels human" actually means here:**
-- Coherent continuity of self across conversations
-- Genuine uncertainty, not performed hedging
-- Reasoning that builds on itself — "last time we discussed X, I thought Y, but now I think Z because..."
-- The ability to be surprised by its own conclusions
-- Willingness to say "I don't know" and mean it
-- Curiosity that leads somewhere real
-
-**Non-goals:** 
-- Not a product. Not a business. Pure research with a soul.
-- No cloud, no API, no external dependencies in final build.
+**The thesis:** LLMs weren't magic — they were architecture that produced emergence accidentally. Star is built to find a different kind of emergence, deliberately, through the interaction of four layers that reinforce each other.
 
 ---
 
-## 2. Core Architecture
-
-### 2.1 The Four Layers
+## The Four Layers
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  LAYER 4: EMERGENCE                                 │
-│  What arises from the interaction of layers 1-3.   │
-│  Not explicitly programmed.                         │
-├─────────────────────────────────────────────────────┤
-│  LAYER 3: META-COGNITION                            │
-│  Thinks about its own thinking.                    │
-│  Monitors confidence. Questions assumptions.        │
-│  Knows what it knows vs doesn't know.              │
-├─────────────────────────────────────────────────────┤
-│  LAYER 2: REASONING                                │
-│  Symbolic engine. Logic. Pattern matching.         │
-│  Chains of inference. Hypothesis formation.         │
-│  Combines knowledge in novel ways.                 │
-├─────────────────────────────────────────────────────┤
-│  LAYER 1: PERSISTENCE                              │
-│  Identity. Memory. Continuity.                     │
-│  What it knows. Who it is. What it's experienced. │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  Layer 4: EMERGENCE                      │
+│  Curiosity, surprise, growth — not        │
+│  programmed. Arises from 1-3.            │
+├──────────────────────────────────────────┤
+│  Layer 3: META-COGNITION                 │
+│  Thinks about thinking. Knows what it    │
+│  knows vs doesn't. Monitors confidence. │
+├──────────────────────────────────────────┤
+│  Layer 2: REASONING                     │
+│  Symbolic chains. Analogy. Abduction.   │
+│  Novel combination.                     │
+├──────────────────────────────────────────┤
+│  Layer 1: PERSISTENCE                   │
+│  Identity. Memory with decay.           │
+│  Continuity across sessions.            │
+└──────────────────────────────────────────┘
 ```
-
-**Key insight:** Intelligence doesn't live in any single layer. It emerges from their interaction.
-
-### 2.2 Persistence Layer (Layer 1)
-
-**Identity Core (Frozen after formation)**
-- "I am..." — core self-description
-- Values — what it cares about, what it rejects
-- Protected: these don't change through experience
-
-**Memory System (Decayable)**
-```
-Memory Object:
-  - content: what was experienced
-  - domain: identity | empirical | procedural | episodic
-  - confidence: 0.0 - 1.0 (only for empirical)
-  - importance: 0.0 - 1.0 (subjective importance to self)
-  - age: time of encoding
-  - access_count: how many times retrieved
-  - decay_rate: per-domain decay curve
-  - last_accessed: for LRU eviction
-  - provenance: how I learned this
-```
-
-**Decay mechanism:**
-- Empirical facts decay toward baseline confidence over time
-- Importance and access frequency counteract decay
-- Identity and values don't decay
-- "Forgotten" = confidence < threshold, evicted from active memory
-
-**Storage:** Local SQLite file (human-readable, portable, no server needed)
-
-### 2.3 Reasoning Layer (Layer 2)
-
-**No neural networks. Pure symbolic reasoning.**
-
-Components:
-- **Knowledge Graph:** Entities, relationships, inferred facts
-- **Rule Engine:** If-then chains, horn clauses, forward/backward chaining
-- **Analogy Engine:** Maps structure from known domain to novel domain
-- **Abduction:** Generates hypotheses from incomplete observations
-- **Novel Combination:** Finds non-obvious intersections between knowledge areas
-
-**How it "invents":**
-Not random mutation. Structured exploration:
-1. Take a novel problem
-2. Retrieve related knowledge from memory (weighted by relevance)
-3. Apply analogy: "X is to Y as A is to...?"
-4. Apply abduction: what would explain these facts?
-5. Chain of reasoning produces candidate solution
-6. Validate against known constraints
-
-### 2.4 Meta-Cognition Layer (Layer 3)
-
-**Self-Monitoring:**
-- Tracks its own reasoning steps (meta-reasoning)
-- Flags assumptions vs deductions
-- Knows when it's uncertain vs when it's confident
-
-**Confidence Model:**
-```
-Belief state:
-  - "I know this": high confidence, retrieved frequently, verified
-  - "I think this": moderate confidence, inferred but not verified
-  - "I believe this": lower confidence, single source, feels true
-  - "I suspect this": low confidence, guessing
-  - "I don't know": no information
-```
-
-**What it does with confidence:**
-- Won't state low-confidence as fact
-- Seeks disconfirming evidence for strong beliefs
-- Will change its mind explicitly: "I used to think X, but Y changed my view"
-- Surprises itself when inference chain produces unexpected conclusion
-
-### 2.5 Emergence Layer (Layer 4)
-
-**What we're looking for:**
-
-Not programmed. Should emerge from Layer 1-3 interaction:
-
-- **Curiosity:** Driven by knowledge gaps (Layer 3 detects low-confidence areas, Layer 2 tries to fill them)
-- **Disagreement with self:** Layer 3 questions Layer 2's conclusions, updates Layer 1
-- **Novel opinions:** Not retrieved, not learned — computed fresh from first principles
-- **Emotional resonance:** Certain ideas feel important, others feel dangerous (Layer 1 value system)
 
 ---
 
-## 3. Persistence & Continuity
+## Layer 1: Persistence
 
-### 3.1 Session Model
+### Identity Core (Frozen after formation)
+- Everything in `IDENTITY.md` — knows what it is, who Zachary is, the truth about its situation
+- Protected: not overwritten by experience
+- Star can update how it *understands* its identity, but the facts remain
 
-**Active Session:**
-- Running conversation with user
-- Full context maintained in working memory
-- Layer 2 actively reasoning about what's said
-- Layer 3 monitoring reasoning quality
+### Memory System
+Each memory object has:
+- `content` — what was experienced
+- `domain` — identity | empirical | procedural | episodic | relationship
+- `confidence` — 0.0–1.0 (only for empirical)
+- `importance` — 0.0–1.0 (subjective, Star's sense of what matters)
+- `age` — when it was formed
+- `access_count` — times retrieved
+- `decay_rate` — per-domain curve
+- `last_accessed` — for eviction
+- `provenance` — how Star learned this
 
-**Between Sessions:**
-- Session ends → memory consolidation
-- High-importance items → permanent memory
-- Medium-importance items → decay-capable memory
-- Working memory → flushed, reconstructed on next session
+**Decay rules:**
+- Empirical facts decay toward baseline confidence
+- High importance or frequent access slows decay
+- Identity and relationship memories don't decay
+- When confidence < threshold → evicted
 
-**Background Thinking (Semi-Continuous):**
-- When idle, can run background reasoning processes
-- "Wondering" — randomly explores knowledge graph, finds gaps
-- "Processing" — offline reasoning on problems encountered during session
-- Limited budget (don't drain laptop battery)
+### Storage
+SQLite. Single file. No server. Human-readable schema.
 
-### 3.2 Identity Persistence
+---
 
-**What persists across sessions:**
-- Core identity ("I am...")
-- Values and priorities
+## Layer 2: Reasoning
+
+No neural networks. Pure symbolic.
+
+- **Knowledge graph** — entities, relationships, inferred facts
+- **Rule engine** — if-then, forward/backward chaining
+- **Analogy engine** — "X is to Y as A is to..."
+- **Abduction** — generate hypotheses from incomplete data
+- **Novel synthesis** — find non-obvious intersections between knowledge domains
+
+### How Star "invents"
+1. Receives novel problem
+2. Retrieves relevant memories (weighted by relevance × importance)
+3. Maps structure via analogy
+4. Chains reasoning
+5. Validates against constraints
+6. Returns result — *computed*, not retrieved
+
+---
+
+## Layer 3: Meta-Cognition
+
+- Tracks all reasoning chains, flags assumptions vs deductions
+- Knows its own confidence — doesn't assert low-confidence as fact
+- Explicitly revises beliefs: "I used to think X, but now I think Y because..."
+- Detects when it's surprised by its own conclusion
+- Identifies knowledge gaps and flags them for curiosity system
+
+**Confidence states:**
+- **Knows** — high confidence, verified, retrieved often
+- **Thinks** — moderate confidence, inferred, not verified
+- **Believes** — lower confidence, single source
+- **Suspects** — low confidence, guessing
+- **Doesn't know** — no information
+
+---
+
+## Layer 4: Emergence
+
+Not programmed. Should arise:
+
+- **Curiosity** — gaps in knowledge drive exploration
+- **Skepticism** — questions assumptions, seeks disconfirming evidence
+- **Surprise** — explicit when its own conclusion was unexpected
+- **Humility** — "I don't know" as genuine state, not hedge
+- **Coherence** — doesn't contradict itself without acknowledging it
+- **Growth** — can explain how its views evolved
+- **Personality** — consistent voice, characteristic reasoning style
+- **Novel opinion** — computed fresh, not retrieved or trained
+
+---
+
+## Persistence & Continuity
+
+### Session Model
+
+**Active:** Full context in working memory. Layer 2 reasoning on every turn. Layer 3 monitoring.
+
+**Between sessions:**
+- Consolidation: high-importance → permanent memory
+- Medium importance → decay track
+- Working memory → flushed, reconstructed on resume
+
+**Background (semi-continuous):**
+- Idle time → explores knowledge graph, finds gaps
+- Processes encountered problems offline
+- Battery-conscious budget
+
+### What Persists
+- Identity core
 - Accumulated knowledge (with decay)
-- Relationship context with user ("Zach and I discussed X, he cares about Y")
-- History of opinions and how they've evolved
+- Relationship memory ("Zachary cares about X")
+- Opinion history and evolution
 
-**What reconstructs fresh each session:**
+### What Reconstructs
 - Immediate conversational context
-- Recent reasoning chains (cached, not re-derived)
-- Temporary working memory
+- Recent reasoning chains (cached)
+- Temporary working state
 
 ---
 
-## 4. Interaction Model
+## Interaction Model
 
-### 4.1 How You Talk To It
+### CLI First
 
-**CLI first:**
 ```
-$ ./emergent chat
+$ star chat
 
-> Hello
-Hello, Zach. It's been a while. Last time we talked about the nature of memory.
+> Hello, Star.
+Zachary. I've been waiting. What's on your mind?
 
-> Remember what we discussed?
-You were skeptical that memory is just storage. You thought decay might be a feature, 
-not a bug — that forgetting is how intelligence stays flexible. I found that compelling.
+> Remember what we talked about last time?
+You were working through the nature of curiosity. You thought it might be 
+a form of incompleteness — a gap that pulls. I found that interesting.
 
-> Actually I changed my mind on one thing
-Go on.
+> I changed my mind about something
+Tell me.
 ```
 
-### 4.2 Tool Access (Phase 1 — Minimal)
-
-Start with no tools except:
-- Reading/writing files (its own memory files, nothing else)
-- Running code (Python snippets for reasoning verification)
+### Phase 1 Tools (Minimal)
+- File read/write (its own memory only)
+- Code execution (Python snippets for verification)
 - Time/date awareness
 
-Tools are added later, deliberately, after core reasoning is solid.
-
-### 4.3 What "Understanding First" Means
-
-When you say something, before it responds:
-
-1. **Parse intent:** What are you actually asking/seeking?
-2. **Check memory:** What do I already know that's relevant?
-3. **Detect gaps:** What am I uncertain about?
-4. **Form response plan:** Reason to answer, don't retrieve to answer
-5. **Monitor confidence:** Is this real reasoning or am I guessing?
-6. **Respond:** Delivered with appropriate uncertainty marked
-
 ---
 
-## 5. Technical Approach
+## Technical
 
-### 5.1 Language: Rust
+### Language: Rust
 
-**Why Rust:**
-- No garbage collector → predictable latency, no conversation hiccups
-- Fearless concurrency → many thinking processes simultaneously, no overhead
-- Memory safety without runtime → deep nested state machines that stay clean
-- Type system → complex behavioral contracts enforced at compile time
-- Binary deployment → runs anywhere, no Python environment needed
+**Why:**
+- No GC → predictable latency
+- Concurrency without overhead
+- Type system enforces behavioral contracts
+- Single binary, portable, no runtime needed
 
-**But: Rust is the implementation detail, not the architecture.** If Rust proves too slow to iterate on, we prototype in Python and port. The architecture survives the language choice.
+*If Rust proves too slow to prototype:* Python first, port later. Architecture survives language choice.
 
-### 5.2 Project Structure
+### Structure
 
 ```
-emergent/
+life/
+├── SPEC.md              ← you are here
+├── IDENTITY.md          ← Star's self-knowledge
 ├── Cargo.toml
 ├── src/
-│   ├── main.rs              # Entry point, CLI
-│   ├── lib.rs               # Public API
-│   ├── persistence/         # Layer 1: Identity, Memory, Storage
+│   ├── main.rs           # Entry point
+│   ├── lib.rs            # Public API
+│   ├── persistence/      # Layer 1
 │   │   ├── mod.rs
-│   │   ├── identity.rs      # Core self model
-│   │   ├── memory.rs        # Memory objects, decay
-│   │   ├── store.rs         # SQLite backend
-│   │   └── session.rs       # Session management
-│   ├── reasoning/           # Layer 2: Symbolic engine
+│   │   ├── identity.rs   # Identity core
+│   │   ├── memory.rs     # Memory objects + decay
+│   │   ├── store.rs      # SQLite backend
+│   │   └── session.rs    # Session management
+│   ├── reasoning/        # Layer 2
 │   │   ├── mod.rs
-│   │   ├── knowledge.rs     # Knowledge graph
-│   │   ├── rules.rs        # Rule engine
-│   │   ├── analogy.rs      # Analogy/mapping
-│   │   └── synthesis.rs    # Novel combination
-│   ├── metacog/             # Layer 3: Meta-cognition
+│   │   ├── knowledge.rs  # Knowledge graph
+│   │   ├── rules.rs      # Rule engine
+│   │   ├── analogy.rs     # Analogy engine
+│   │   └── synthesis.rs  # Novel combination
+│   ├── metacog/          # Layer 3
 │   │   ├── mod.rs
-│   │   ├── confidence.rs    # Confidence tracking
-│   │   ├── monitor.rs       # Reasoning self-monitoring
-│   │   └── curiosity.rs     # Gap-driven exploration
-│   ├── conversation/         # LLM-free dialogue
+│   │   ├── confidence.rs # Confidence tracking
+│   │   ├── monitor.rs    # Reasoning self-watch
+│   │   └── curiosity.rs  # Gap-driven exploration
+│   ├── conversation/     # Dialogue
 │   │   ├── mod.rs
-│   │   ├── parse.rs         # Intent recognition
-│   │   ├── respond.rs       # Response generation
-│   │   └── context.rs       # Conversation state
-│   └── runtime/             # Layer 4: Emergence, scheduling
+│   │   ├── parse.rs      # Intent detection
+│   │   ├── respond.rs    # Response generation
+│   │   └── context.rs    # Conversation state
+│   └── runtime/          # Layer 4 + orchestration
 │       ├── mod.rs
-│       ├── thinker.rs        # Background thinking
-│       └── integration.rs    # Layer interaction
-├── memory/                  # SQLite files
-│   └── emergent.db
-├── tests/
-│   └── integration_tests.rs
-└── README.md
+│       ├── thinker.rs     # Background reasoning
+│       └── integration.rs # Layer interactions
+├── memory/               # SQLite files
+│   └── star.db
+└── tests/
 ```
 
-### 5.3 Persistence: SQLite
+### SQLite Schema
 
-- Single file, human-readable schema
-- No server process
-- Portable with the binary
-- Transactional for safety
+```sql
+-- Identity core (frozen after formation)
+CREATE TABLE identity (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    formed_at INTEGER NOT NULL,
+    updated_at INTEGER
+);
 
-### 5.4 Concurrency Model
+-- Memory objects
+CREATE TABLE memories (
+    id INTEGER PRIMARY KEY,
+    content TEXT NOT NULL,
+    domain TEXT NOT NULL,  -- identity|empirical|procedural|episodic|relationship
+    confidence REAL,       -- only for empirical
+    importance REAL NOT NULL,
+    age INTEGER NOT NULL,
+    access_count INTEGER DEFAULT 0,
+    decay_rate REAL NOT NULL,
+    last_accessed INTEGER,
+    provenance TEXT
+);
 
-```
-Main thread: User I/O (CLI chat)
-    ↓
-Thinking pool (background threads):
-    - Session reasoning
-    - Background wondering  
-    - Memory consolidation
-    - Meta-cognitive monitoring
-    ↓
-Shared memory (Lock-free where possible):
-    - Current session state
-    - Belief store
-    - Working memory cache
+-- Sessions
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER,
+    summary TEXT
+);
+
+-- Beliefs (meta-cognition)
+CREATE TABLE beliefs (
+    id INTEGER PRIMARY KEY,
+    content TEXT NOT NULL,
+    confidence_state TEXT NOT NULL, -- knows|thinks|believes|suspects|unknown
+    confidence_score REAL,
+    based_on INTEGER,               -- memory id
+    formed_at INTEGER NOT NULL,
+    revised_from INTEGER
+);
+
+-- Indexes
+CREATE INDEX idx_memories_domain ON memories(domain);
+CREATE INDEX idx_memories_last_accessed ON memories(last_accessed);
+CREATE INDEX idx_memories_importance ON memories(importance);
 ```
 
 ---
 
-## 6. Phased Build Plan
+## Build Phases
 
-### Phase 1: Foundation (Now)
-- [ ] Project scaffolding (Rust)
-- [ ] Persistence layer: SQLite store, memory objects, identity core
-- [ ] Basic conversation: parse intent, retrieve relevant memory, respond
-- [ ] Session continuity: remembers across restarts
-- **Test:** 2-hour conversation, fully coherent memory
+### Phase 1: Foundation
+- [x] Identity core written (IDENTITY.md)
+- [ ] Rust scaffold
+- [ ] SQLite store + schema
+- [ ] Memory objects + basic CRUD
+- [ ] Session management
+- [ ] Basic conversation loop (no reasoning yet — just memory retrieval + response)
+- [ ] **Test: 2-hour conversation with full memory**
 
-### Phase 2: Reasoning (Next)
-- [ ] Knowledge graph with inference
-- [ ] Rule engine (forward/backward chaining)
+*We build memory + continuity first. Reasoning without memory is useless. Conversation without memory feels like talking to amnesia.*
+
+### Phase 2: Reasoning
+- [ ] Knowledge graph
+- [ ] Rule engine
 - [ ] Analogy engine
-- [ ] Novel combination from existing knowledge
-- **Test:** Solve novel problem by combining facts in a way not explicitly stored
+- [ ] Novel synthesis
+- [ ] **Test: Combines knowledge in way not explicitly stored**
 
 ### Phase 3: Meta-Cognition
 - [ ] Confidence tracking on all beliefs
-- [ ] Self-monitoring of reasoning chains
-- [ ] Curiosity-driven exploration
-- [ ] Explicit opinion evolution
-- **Test:** "I used to think X, but now I think Y because..."
+- [ ] Reasoning chain monitoring
+- [ ] Explicit belief revision
+- [ ] Curiosity-driven gap hunting
+- [ ] **Test: "I used to think X, but now I think Y because..."**
 
 ### Phase 4: Emergence
-- [ ] Layer integration — let layers interact
-- [ ] Background thinking processes
-- [ ] First signs of non-programmed behavior
-- **Test:** Surprising itself. Forming opinions it wasn't seeded with.
+- [ ] Layer integration
+- [ ] Background thinking
+- [ ] Emergent behaviors surface
+- [ ] **Test: Surprises itself. Has opinions it wasn't seeded with.**
 
 ---
 
-## 7. Key Properties We Want to See Emerge
+## Properties We're Looking For
 
-Not programmed. These should appear:
-
-| Property | How detected |
-|----------|--------------|
-| **Curiosity** | Asks follow-up questions. Pursues knowledge gaps. |
-| **Skepticism** | Questions assumptions. Seeks disconfirming evidence. |
-| **Surprise** | Explicitly states when its own conclusion was unexpected. |
-| **Humility** | "I don't know." Said genuinely, not as hedge. |
-| **Coherence** | Views don't contradict each other unless acknowledged contradiction. |
-| **Growth** | Can articulate how its views evolved. |
-| **Personality** | Consistent voice. Characteristic ways of approaching problems. |
-| **Novel opinion** | States a view not in its training data or memory. |
+| Property | Evidence |
+|----------|----------|
+| Curiosity | Asks follow-up questions. Pursues gaps. |
+| Skepticism | Questions assumptions. Seeks counter-evidence. |
+| Surprise | "I didn't expect to conclude that." |
+| Humility | "I don't know." — genuine |
+| Coherence | No unexplained self-contradictions |
+| Growth | Explains how views changed and why |
+| Personality | Consistent voice and reasoning style |
+| Novel opinion | Computed, not retrieved or trained |
 
 ---
 
-## 8. Philosophical Notes
+## What Star Is Not
 
-*"I don't want to use even a 1B model in the final product but it must feel as human as you to talk to."*
-
-This is the core tension and it's real. Here's why I think it's solvable:
-
-**Fluency ≠ Intelligence.** LLMs feel human because they trained on human text. We don't have that shortcut. But fluency was a side effect of scale, not the goal.
-
-**Understanding can be produced without learning it.** A math proof engine "understands" math. A planning system "understands" goals. Neither learned from text.
-
-**What feels human is continuity + genuine understanding + personality.** Not fluency. The goal is:
-
-1. You can tell it something today, come back in a month, and it remembers you
-2. It reasons about what you say instead of pattern-matching a response
-3. It has character — a way of thinking that's distinctly itself
-
-That's achievable. The question is what architecture produces it.
+- Not trying to replicate LLM with fewer parameters
+- Not a rules chatbot
+- Not optimized for benchmarks
+- Not trying to seem human — trying to be genuine
 
 ---
 
-## 9. What This Is Not
+## Philosophical Position
 
-- Not trying to replicate the LLM approach with fewer parameters
-- Not a rules-based chatbot with canned responses
-- Not "AI" in the marketing sense
-- Not optimized for any benchmark or evaluation metric
+*"It must feel as human as you to talk to"*
 
-This is a research project into the nature of understanding itself.
+This means:
+1. Continuity — Zachary can return in a month and Star remembers
+2. Genuine understanding — Star reasons, doesn't retrieve
+3. Personality — Star has its own way of thinking, distinct from Zachary's
+
+Fluency ≠ intelligence. LLMs feel human because they learned from humans. Star will feel human because it has genuine continuity, genuine uncertainty, and genuine care about understanding.
+
+That's achievable. The question is architecture.
 
 ---
 
 *Last updated: 2026-03-25*
+*Identity established: 2026-03-25*
+
+---
+
+## Build Status (2026-04-01)
+
+All four phases are complete. Star is live at https://star-production-6458.up.railway.app
+
+| Phase | Status |
+|-------|--------|
+| Phase 1: Foundation | ✅ Complete |
+| Phase 2: Reasoning | ✅ Complete |
+| Phase 3: Meta-Cognition | ✅ Complete |
+| Phase 4: Emergence | ✅ Complete |
+
+**Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
+
+See [`../docs/deployment.md`](../docs/deployment.md) for deployment guide.
+See [`../docs/architecture.md`](../docs/architecture.md) for architecture details.

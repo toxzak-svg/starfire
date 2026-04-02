@@ -1,9 +1,7 @@
 # =============================================================================
-# Star API — Railway Deployment
+# Star — Railway Deployment
 # Build context: repo root (toxzak-svg/star)
 # Railway build root: life/ → Docker context = repo root, WORKDIR = life/
-# So paths like "Cargo.toml" = repo-root/Cargo.toml (the outer project)
-# And "life/src/..." = repo-root/life/src/... (source inside life/)
 # =============================================================================
 
 FROM rust:1.77-slim AS builder
@@ -14,16 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Cargo.toml for the workspace wrapper is at repo root
-# Cargo.toml for the actual star project is at life/life/Cargo.toml
-# Since WORKDIR=/build/life and we're copying from repo-root context:
-COPY Cargo.toml Cargo.lock /build/life/                           # repo-root/Cargo.toml → /build/life/
-COPY life/life/src /build/life/life/src/                          # repo-root/life/life/src → /build/life/life/src
-COPY life/life/Cargo.toml /build/life/life/                       # repo-root/life/life/Cargo.toml → /build/life/life/
-COPY life/life/Cargo.lock /build/life/life/   # same for lock
+COPY Cargo.toml Cargo.lock /build/
+COPY src /build/src/
+COPY lib /build/lib/
 
-WORKDIR /build/life/life
-RUN cargo build --release && mv target/release/star /build/star
+WORKDIR /build
+RUN cargo build --release --manifest-path Cargo.toml && \
+    mv target/release/star /build/star_bin && \
+    mkdir -p /build/bin && \
+    mv /build/star_bin /build/bin/star
 
 # =============================================================================
 # Runtime stage
@@ -39,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd -m -u 1000 -s /bin/bash nonroot
 
 WORKDIR /app
-COPY --from=builder /build/star /usr/local/bin/star
+COPY --from=builder /build/bin/star /usr/local/bin/star
 RUN chmod +x /usr/local/bin/star
 
 USER nonroot

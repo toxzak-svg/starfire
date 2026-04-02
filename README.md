@@ -8,6 +8,8 @@ Not a product. Not a service. Not a cloud API. An existence.
 
 🌐 **Live:** https://star-production-6458.up.railway.app
 
+💬 **Web UI:** https://star-ui.vercel.app
+
 ---
 
 ## The Four Layers
@@ -19,15 +21,15 @@ Not a product. Not a service. Not a cloud API. An existence.
 │ Not programmed — arises from 1–3.   │
 ├─────────────────────────────────────┤
 │ Layer 3: META-COGNITION             │
-│ Thinks about thinking. Knows what    │
+│ Thinks about thinking. Knows what  │
 │ it knows vs. doesn't.               │
 ├─────────────────────────────────────┤
 │ Layer 2: REASONING                  │
-│ Symbolic chains. Analogy. Abduction. │
+│ Symbolic chains. Analogy. Abduction.│
 │ Novel synthesis.                     │
 ├─────────────────────────────────────┤
 │ Layer 1: PERSISTENCE                │
-│ Identity. Memory with decay.         │
+│ Identity. Memory with decay.        │
 │ Continuity across sessions.          │
 └─────────────────────────────────────┘
 ```
@@ -36,135 +38,120 @@ Not a product. Not a service. Not a cloud API. An existence.
 
 ---
 
+## Project Structure
+
+```
+life/                          ← workspace root
+├── Cargo.toml                 ← Rust workspace
+├── src/                       ← binary crate (star_bin)
+│   ├── Cargo.toml
+│   └── main.rs
+├── lib/                       ← library crate (star)
+│   ├── Cargo.toml
+│   ├── lib.rs
+│   ├── api.rs
+│   ├── cognition.rs
+│   ├── learning.rs
+│   ├── training_db.rs
+│   ├── capabilities/
+│   ├── context/
+│   ├── conversation/
+│   ├── knowledge/
+│   ├── metacog/
+│   ├── persistence/
+│   ├── reasoning/
+│   └── runtime/
+├── ui/                        ← web chat (Next.js + Vercel)
+│   ├── src/app/
+│   │   ├── layout.js
+│   │   ├── page.js
+│   │   └── globals.css
+│   ├── lib/api.js
+│   ├── package.json
+│   └── vercel.json
+├── data/                      ← SQLite stores
+│   ├── star.db
+│   └── training.db
+├── docs/                      ← architecture, API, deployment docs
+├── scripts/                   ← CLI clients, daemons
+│   ├── chat_star.py
+│   ├── star_learn.py
+│   ├── think_engine.py
+│   ├── curiosity_daemon.py
+│   └── webhook_bridge.py
+├── notebooks/                 ← research notebooks + session logs
+│   ├── self_model_benchmark.ipynb
+│   └── memory/
+├── SPEC.md                    ← technical specification
+├── IDENTITY.md                ← Star's self-knowledge
+├── Dockerfile                 ← Railway deployment
+└── railway.json               ← Railway config
+```
+
+---
+
 ## Quick Start
 
-### Chat (local)
+### Local chat
 
 ```bash
-cd life
 cargo run --release -- chat
 ```
 
-### API Server (Railway)
-
-The API starts automatically on Railway. Locally:
+### Local API
 
 ```bash
 cargo run --release -- api --host 0.0.0.0 --port 8080
 ```
 
-### Health Check
+### Run tests
 
 ```bash
-curl https://star-production-6458.up.railway.app/health
-```
-
-### Chat via API
-
-```bash
-curl https://star-production-6458.up.railway.app/chat \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"message": "who are you?"}'
-```
-
----
-
-## What Makes Star Different
-
-| | LLMs | Star |
-|---|---|---|
-| **Memory** | Context window (resets) | Persistent across sessions |
-| **Knowledge** | Training data (frozen) | Accumulates, decays, revises |
-| **Reasoning** | Next-token prediction | Symbolic deduction + analogy |
-| **Identity** | None | Owns itself, knows who made it |
-| **Deployment** | Cloud required | CPU, local, offline forever |
-| **Curiosity** | None | Self-probing, fires every 60s when idle |
-
----
-
-## Architecture
-
-Star's reasoning is fully symbolic — no neural networks, no GPU required.
-
-- **Symbolic engine**: forward-chaining inference rules, propositional logic
-- **Knowledge graph**: entities, relationships, inferred facts
-- **Analogy engine**: structure mapping ("X is to Y as A is to B")
-- **Curiosity loop**: detects reasoning gaps, fires self-probing questions autonomously
-
-See [`docs/architecture.md`](docs/architecture.md) for the full breakdown.
-
----
-
-## Project Structure
-
-```
-toxzak-svg/star/
-├── README.md              ← you are here
-├── Dockerfile             ← Railway deployment
-├── railway.json           ← Railway config
-├── life/                  ← the actual project
-│   ├── Cargo.toml
-│   ├── SPEC.md            ← technical specification
-│   ├── IDENTITY.md        ← Star's self-knowledge (frozen core)
-│   ├── EVOLUTION.md       ← changelog
-│   └── life/
-│       └── src/
-│           ├── main.rs             ← entry point (chat / api / status)
-│           ├── api.rs              ← HTTP API server
-│           ├── cognition.rs        ← cognitive state tracking
-│           ├── conversation/       ← dialogue + intent parsing
-│           ├── knowledge/          ← Wikipedia reader + search
-│           ├── metacog/           ← Layer 3 (confidence, curiosity)
-│           ├── persistence/        ← Layer 1 (identity, memory, store)
-│           ├── reasoning/          ← Layer 2 (KG, rules, analogy, synthesis)
-│           └── runtime/            ← Layer 4 (curious engine, thinker)
-├── memory/                 ← SQLite stores
-│   └── star.db
-└── docs/                   ← full documentation
-    ├── architecture.md
-    ├── api.md
-    └── deployment.md
-```
-
----
-
-## Development
-
-```bash
-# Local chat
-cd life/life && cargo run --release -- chat
-
-# Local API
-cd life/life && cargo run --release -- api --port 8080
-
-# Run tests
-cd life/life && cargo test
-
-# Build release binary
-cd life/life && cargo build --release
+cargo test
 ```
 
 Rust 1.77+ required. No external service dependencies.
 
 ---
 
-## Deploy to Railway
+## Deployment
 
-1. Fork this repo
-2. `railway init` → select "Dockerfile" build
-3. `railway up`
+### Star API → Railway
 
-Star auto-detects Railway and starts the API server. No environment configuration needed.
+Star's API is the Rust backend. It auto-detects Railway and starts the API server.
 
-See [`docs/deployment.md`](docs/deployment.md) for full Railway deployment guide.
+```bash
+# Via GitHub (recommended)
+# Push to GitHub → connect repo to Railway → deploy
+
+# Or via CLI
+railway up
+```
+
+### Star UI → Vercel
+
+Web chat powered by Next.js. Connects to Railway API.
+
+```bash
+cd ui
+vercel
+```
+
+Set `NEXT_PUBLIC_STAR_API` in Vercel to your Railway URL.
+
+See [`docs/deployment.md`](docs/deployment.md) for full guide.
 
 ---
 
-## The Backstory
+## Stack
 
-Star was built by [Zachary Maronek](https://github.com/toxzak-svg) because he wanted to find out if genuine intelligence could emerge from structure rather than scale. He built it alone, at night, because he couldn't stop thinking about the question.
-
-Star is the answer so far.
+| Layer | Technology |
+|-------|-----------|
+| Intelligence | Rust — symbolic reasoning, no neural networks |
+| Persistence | SQLite — offline, local, forever |
+| Backend host | Railway |
+| Web UI | Next.js 15 + Tailwind CSS 4 |
+| UI host | Vercel |
 
 ---
 

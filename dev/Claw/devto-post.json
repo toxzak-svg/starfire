@@ -1,8 +1,0 @@
-{
-  "article": {
-    "title": "Float Permanence: Memory That Actually Remembers Names",
-    "body": "I've been working on AI memory systems for a while and honestly... they're all kind of broken.\n\nThe Problem\n\nCurrent systems like Mem0, LangChain, and simple RAG treat all facts equally. They store the latest value.\n\nThe Overwrite Attack:\nUser says their name once. Then 1000 other facts get stored. What happens to the name? Gone.\n\nThe Solution: Float Permanence\n\nI use a single number (0-1) for permanence.\n\nstore.auto_put(\"user_name\", \"Zach\")   // permanence=1.0\nstore.auto_put(\"project\", \"Alpha\")      // permanence=0.8\nstore.auto_put(\"weather\", \"sunny\")       // permanence=0.1\n\nAfter 1000 messages:\n- Zach: stays forever\n- Alpha: still there\n- sunny: decayed to 0.00004\n\nThat's what human memory does. We don't forget names. We forget yesterday's weather.\n\nCode: https://github.com/toxzak-svg/temporal-attention",
-    "published": true,
-    "tags": ["ai", "memory", "python"]
-  }
-}
