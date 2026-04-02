@@ -1,6 +1,6 @@
 // Star API client
 // Railway URL — change this to your deployed URL or localhost for dev
-const STAR_API = process.env.NEXT_PUBLIC_STAR_API || "https://star-production-6458.up.railway.app";
+const STAR_API = process.env.NEXT_PUBLIC_STAR_API || "https://star-production-15a1.up.railway.app";
 
 export async function sendMessage(message, history = []) {
   const res = await fetch(`${STAR_API}/chat`, {
