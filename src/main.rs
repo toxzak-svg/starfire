@@ -13,7 +13,7 @@ use tracing::info;
 #[command(about = "Star — An emergent desktop intelligence", long_about = None)]
 struct Cli {
     /// Data directory (defaults to ~/.star)
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     data_dir: Option<PathBuf>,
     
     #[command(subcommand)]

@@ -1,10 +1,8 @@
 # =============================================================================
 # Star — Railway Deployment
-# Build context: repo root (toxzak-svg/star)
-# Railway build root: life/ → Docker context = repo root, WORKDIR = life/
 # =============================================================================
 
-FROM rust:1.77-slim AS builder
+FROM rust:1.89-slim AS builder
 
 WORKDIR /build
 
@@ -37,12 +35,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=builder /build/bin/star /usr/local/bin/star
-RUN chmod +x /usr/local/bin/star
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /usr/local/bin/star /entrypoint.sh
 
-USER nonroot
+# No USER directive — entrypoint runs as root, which then execs as nonroot
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
     CMD curl -sf http://localhost:${PORT}/health
 
-CMD ["/usr/local/bin/star", "api", "--data-dir", "/data/star", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["/entrypoint.sh"]
