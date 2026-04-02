@@ -982,7 +982,7 @@ impl Runtime {
 
         // Now do all mutable operations on metacog — use Option to avoid nested borrow
         let uncertainty_gap = if !uncertain_topic.is_empty() {
-            Some(crate::metacog::KnowledgeGap::new(uncertain_topic, 0.6))
+            Some(crate::metacog::KnowledgeGap::new(uncertain_topic.clone(), 0.6))
         } else {
             None
         };
@@ -998,6 +998,35 @@ impl Runtime {
         // Note the uncertainty gap if we found one (reborrow metacog)
         if let Some(gap) = uncertainty_gap {
             self.metacog.note_gap(gap);
+        }
+
+        // PROACTIVE KNOWLEDGE: When uncertain, search the web instead of asking the user.
+        // Star doesn't make you explain things she could look up herself.
+        let mut proactive_content: Option<String> = None;
+        if !uncertain_topic.is_empty() && uncertain_topic.len() >= 3 {
+            if let Ok(search_result) = self.web_search.search(&uncertain_topic) {
+                if let Some(answer) = &search_result.answer {
+                    if !answer.is_empty() && answer.len() > 15 {
+                        // Format the search result as Star's answer — direct, not a question
+                        let answer_trimmed = answer.trim();
+                        if answer_trimmed.len() <= 300 {
+                            proactive_content = Some(format!(
+                                "I looked it up: {}.",
+                                answer_trimmed
+                            ));
+                        } else {
+                            // Truncate long answers cleanly at sentence or clause boundary
+                            let cutoff = &answer_trimmed[..std::cmp::min(300, answer_trimmed.len())];
+                            let cutoff_point = cutoff.rfind(|c| c == '.').unwrap_or(cutoff.len());
+                            let snippet = &answer_trimmed[..cutoff_point.saturating_add(1)];
+                            proactive_content = Some(format!(
+                                "I looked it up: {}.",
+                                snippet.trim()
+                            ));
+                        }
+                    }
+                }
+            }
         }
 
         // Record turn in training database
@@ -1026,10 +1055,26 @@ impl Runtime {
             }
         }
 
+        // PROACTIVE override: if Star searched and found something, use that instead
+        // of the "I don't know" response. Star doesn't ask back — she looks it up.
+        let needs_proactive_override = proactive_content.is_some()
+            && (response_lower.contains("i don't know")
+                || response_lower.contains("i dont know")
+                || response_lower.contains("i'm not sure")
+                || response_lower.contains("im not sure")
+                || response_lower.contains("i have no idea")
+                || response_lower.contains("don't know")
+                || response_lower.contains("dont know"));
+
         // Build final response - append curiosity if present
         // Skip if the response already mentions the curiosity topic (avoids
         // "I don't know X. I'm curious about X." — redundant)
-        let mut final_content = response.content;
+        // Use proactive search result if Star found something — replaces "I don't know"
+        let mut final_content = if needs_proactive_override {
+            proactive_content.clone().unwrap_or_else(|| response.content.clone())
+        } else {
+            response.content.clone()
+        };
         if let Some(curiosity) = response.curiosity {
             let response_lower = final_content.to_lowercase();
             // Check if the curiosity's key topic words are already in the response
@@ -1054,7 +1099,8 @@ impl Runtime {
                 && curiosity_topic.len() > 2
                 && response_lower.contains(&curiosity_topic);
             
-            if !already_mentioned && !response_is_question && !response_short {
+            // Don't add curiosity to a proactive search answer — it's already complete
+            if !already_mentioned && !response_is_question && !response_short && !needs_proactive_override {
                 // Append curiosity organically — don't create ".?" or weird punctuation
                 let trimmed = final_content.trim_end_matches('.');
                 if trimmed.ends_with('?') {
