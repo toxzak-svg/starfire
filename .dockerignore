@@ -21,6 +21,8 @@ scripts
 ui
 **/*.md
 **/*.json
+!**/entrypoint.sh
+!entrypoint.sh
 !Cargo.toml
 !Cargo.lock
 **/target
