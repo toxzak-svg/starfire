@@ -5,10 +5,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY ui/package.json ui/package-lock.json* ./
+COPY package.json package-lock.json* ./
 RUN npm ci --legacy-peer-deps
 
-COPY ui/ ./
+COPY ./ ./
 
 RUN npm run build
 
