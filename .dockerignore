@@ -20,6 +20,11 @@ plans
 scripts
 ui
 **/*.md
+# Allow necessary JSON files in ui/
+!ui/package.json
+!ui/package-lock.json
+!ui/next.config.js
+# Exclude other JSON files
 **/*.json
 !**/entrypoint.sh
 !entrypoint.sh
