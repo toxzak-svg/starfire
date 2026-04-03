@@ -3,7 +3,7 @@
 //! Single-file storage. No server. Human-readable schema.
 //! Transactional for safety.
 
-use crate::persistence::{Memory, MemoryDomain, Belief, BeliefState, Identity, IdentityGuard};
+use crate::persistence::{Memory, MemoryDomain, Belief, BeliefState, IdentityGuard};
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;

@@ -1,6 +1,6 @@
 //! Rule Engine — if-then rules with forward/backward chaining
 
-use std::collections::VecDeque;
+// unused: use std::collections::VecDeque;
 
 /// A single if-then rule.
 #[derive(Debug, Clone)]

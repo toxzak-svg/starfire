@@ -9,7 +9,7 @@ pub mod symbolic;
 pub mod logic;
 pub mod proof;
 
-use symbolic::{Expression, Equation, SolvedResult};
+use symbolic::{Expression, SolvedResult};
 use logic::{Proposition, TruthValue};
 
 /// Result of a math operation.

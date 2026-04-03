@@ -167,8 +167,8 @@ impl ReasoningChain {
         let total_steps = self.steps.len();
         
         match (certain_steps, total_steps, self.assumptions_count) {
-            (n, n, 0) if n > 0 => "Certain — all steps follow necessarily from premises.".to_string(),
-            (n, n, _) if n > 0 => format!("Solid — all {} steps are certain, but {} assumption(s) made.", n, self.assumptions_count),
+            (n, m, 0) if n == m && n > 0 => "Certain — all steps follow necessarily from premises.".to_string(),
+            (n, m, _) if n == m && n > 0 => format!("Solid — all {} steps are certain, but {} assumption(s) made.", n, self.assumptions_count),
             (_, _, 0) => format!("Moderate — {} of {} steps certain, no assumptions.", certain_steps, total_steps),
             _ => format!("Tentative — {} of {} steps certain, {} assumption(s) made.", certain_steps, total_steps, self.assumptions_count),
         }
