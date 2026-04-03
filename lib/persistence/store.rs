@@ -62,9 +62,10 @@ impl Store {
         // Configure for Railway's ephemeral filesystem
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;
-             PRAGMA busy_timeout = 5000;
+             PRAGMA busy_timeout = 30000;
              PRAGMA locking_mode = NORMAL;
-             PRAGMA synchronous = NORMAL;"
+             PRAGMA synchronous = NORMAL;
+             PRAGMA cache_size = -64000;"
         )?;
         
         // Enable foreign keys and WAL mode for safety
