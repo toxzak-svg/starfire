@@ -56,6 +56,14 @@ impl PhraseBank {
         
         let conn = Connection::open(db_path).map_err(|e| anyhow::anyhow!("Failed to open phrase bank database: {}", e))?;
         
+        // Configure for Railway's ephemeral filesystem
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;
+             PRAGMA locking_mode = NORMAL;
+             PRAGMA synchronous = NORMAL;"
+        )?;
+        
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              BEGIN IMMEDIATE;"

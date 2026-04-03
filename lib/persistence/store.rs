@@ -59,6 +59,14 @@ impl Store {
         let conn = Connection::open(path)
             .context("Failed to open database")?;
         
+        // Configure for Railway's ephemeral filesystem
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;
+             PRAGMA locking_mode = NORMAL;
+             PRAGMA synchronous = NORMAL;"
+        )?;
+        
         // Enable foreign keys and WAL mode for safety
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;

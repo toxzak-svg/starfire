@@ -24,6 +24,14 @@ impl TrainingDB {
             std::fs::create_dir_all(parent)?;
         }
         let conn = rusqlite::Connection::open(path)?;
+        
+        // Configure for Railway's ephemeral filesystem
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 5000;
+             PRAGMA locking_mode = NORMAL;
+             PRAGMA synchronous = NORMAL;"
+        )?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              CREATE TABLE IF NOT EXISTS training_sessions (
