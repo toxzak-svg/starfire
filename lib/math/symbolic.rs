@@ -40,8 +40,8 @@ impl Expression {
                 let a_s = a.simplify();
                 let b_s = b.simplify();
                 match (&a_s, &b_s) {
-                    (Expression::Number(0), _) => b_s,
-                    (_, Expression::Number(0)) => a_s,
+                    (Expression::Number(0.0), _) => b_s,
+                    (_, Expression::Number(0.0)) => a_s,
                     (Expression::Number(x), Expression::Number(y)) => Expression::Number(x + y),
                     _ => Expression::Add(Box::new(a_s), Box::new(b_s)),
                 }
@@ -52,7 +52,7 @@ impl Expression {
                 let a_s = a.simplify();
                 let b_s = b.simplify();
                 match (&a_s, &b_s) {
-                    (_, Expression::Number(0)) => a_s,
+                    (_, Expression::Number(0.0)) => a_s,
                     (Expression::Number(x), Expression::Number(y)) => Expression::Number(x - y),
                     _ => Expression::Sub(Box::new(a_s), Box::new(b_s)),
                 }
@@ -63,10 +63,10 @@ impl Expression {
                 let a_s = a.simplify();
                 let b_s = b.simplify();
                 match (&a_s, &b_s) {
-                    (Expression::Number(0), _) => Expression::Number(0.0),
-                    (_, Expression::Number(0)) => Expression::Number(0.0),
-                    (Expression::Number(1), _) => b_s,
-                    (_, Expression::Number(1)) => a_s,
+                    (Expression::Number(0.0), _) => Expression::Number(0.0),
+                    (_, Expression::Number(0.0)) => Expression::Number(0.0),
+                    (Expression::Number(1.0), _) => b_s,
+                    (_, Expression::Number(1.0)) => a_s,
                     (Expression::Number(x), Expression::Number(y)) => Expression::Number(x * y),
                     _ => Expression::Mul(Box::new(a_s), Box::new(b_s)),
                 }
@@ -77,9 +77,9 @@ impl Expression {
                 let a_s = a.simplify();
                 let b_s = b.simplify();
                 match (&a_s, &b_s) {
-                    (Expression::Number(0), _) => Expression::Number(0.0),
-                    (_, Expression::Number(1)) => a_s,
-                    (Expression::Number(x), Expression::Number(y)) if y != 0.0 => Expression::Number(x / y),
+                    (Expression::Number(0.0), _) => Expression::Number(0.0),
+                    (_, Expression::Number(1.0)) => a_s,
+                    (Expression::Number(x), Expression::Number(y)) if *y != 0.0 => Expression::Number(x / y),
                     _ => Expression::Div(Box::new(a_s), Box::new(b_s)),
                 }
             }

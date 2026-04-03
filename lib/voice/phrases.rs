@@ -54,8 +54,7 @@ impl PhraseBank {
             std::fs::create_dir_all(parent)?;
         }
         
-        let conn = Connection::open(db_path)
-            .context("Failed to open phrase bank database")?;
+        let conn = Connection::open(db_path).map_err(|e| anyhow::anyhow!("Failed to open phrase bank database: {}", e))?;
         
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
@@ -114,7 +113,7 @@ impl PhraseBank {
         let now = chrono::Utc::now().timestamp();
         
         // Starfire's characteristic phrase patterns — these define her voice
-        let phrases = vec![
+        let phrases: Vec<(&str, &str, Vec<String>)> = vec![
             // Signature openings
             ("The thing about {X} is that...", "opening", vec!["characteristic".into()]),
             ("Here's what I find interesting...", "opening", vec!["curious".into()]),
@@ -302,12 +301,12 @@ impl PhraseBank {
                 let mut results: Vec<Phrase> = Vec::new();
                 for row in rows.flatten() {
                     // Score by relevance to current text
-                    let phrase_words: std::collections::HashSet<&str> = 
-                        row.phrase.to_lowercase().split_whitespace().collect();
+                    let phrase_words: std::collections::HashSet<String> = 
+                        row.phrase.to_lowercase().split_whitespace().map(String::from).collect();
                     
                     // Calculate overlap
                     let overlap: usize = text_words.iter()
-                        .filter(|w| phrase_words.contains(*w) && w.len() > &3)
+                        .filter(|w| phrase_words.contains(&w.to_string()) && w.len() > 3)
                         .count();
                     
                     if overlap > 0 || results.len() < limit {

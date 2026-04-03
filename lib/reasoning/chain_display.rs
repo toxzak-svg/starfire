@@ -97,7 +97,7 @@ impl ChainDisplay {
         let steps_to_show: Vec<_> = chain.steps
             .iter()
             .enumerate()
-            .filter(|(i, _)| i % 2 == 0 || i == chain.steps.len() - 1)
+            .filter(|(i, _)| *i % 2 == 0 || *i == chain.steps.len() - 1)
             .map(|(_, s)| s)
             .collect();
 

@@ -164,10 +164,9 @@ impl CuriousEngine {
         if let Some(probe) = self.active_probes.iter_mut().find(|p| p.id == probe_id) {
             probe.status = ProbeStatus::Answered;
             probe.tentative_answer = Some(answer.to_string());
-            let completed = self.active_probes.remove(
-                self.active_probes.iter().position(|p| p.id == probe_id)?
-            );
-            self.completed_probes.push(completed);
+            if let Some(idx) = self.active_probes.iter().position(|p| p.id == probe_id) {
+                let _ = self.active_probes.remove(idx);
+            }
         }
     }
 

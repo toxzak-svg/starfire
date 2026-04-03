@@ -1,5 +1,7 @@
 //! Memory Types — Persistence Layer
 
+use serde::{Deserialize, Serialize};
+
 /// Memory domains — what kind of knowledge a memory represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryDomain {
@@ -95,7 +97,7 @@ impl Memory {
 }
 
 /// Belief state — how confident Star is in a piece of knowledge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BeliefState {
     Knows,    // High confidence — direct knowledge
     Thinks,   // Moderate confidence — reasonable inference

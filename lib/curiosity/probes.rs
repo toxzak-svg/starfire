@@ -4,7 +4,7 @@ use crate::persistence::BeliefState;
 use serde::{Deserialize, Serialize};
 
 /// Status of a curiosity probe.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProbeStatus {
     /// Actively being explored
     Probing,
@@ -15,7 +15,7 @@ pub enum ProbeStatus {
 }
 
 /// How deep the probe goes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CuriosityDepth {
     /// Quick association — surface level
     Surface,

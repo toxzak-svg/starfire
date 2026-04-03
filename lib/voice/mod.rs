@@ -124,15 +124,21 @@ impl VoiceEngine {
 
     /// Add a new phrase to the bank.
     pub fn add_phrase(&self, phrase: &str, context: Option<&str>, tags: Vec<String>) -> anyhow::Result<()> {
-        let mut bank = self.phrase_bank.lock()?;
-        bank.add_phrase(phrase, context, tags)?;
-        Ok(())
+        if let Ok(mut bank) = self.phrase_bank.lock() {
+            bank.add_phrase(phrase, context, tags)?;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Failed to lock phrase bank"))
+        }
     }
 
     /// Get Starfire's current voice statistics.
     pub fn stats(&self) -> anyhow::Result<phrases::VoiceStats> {
-        let bank = self.phrase_bank.lock()?;
-        Ok(bank.stats())
+        if let Ok(bank) = self.phrase_bank.lock() {
+            Ok(bank.stats())
+        } else {
+            Err(anyhow::anyhow!("Failed to lock phrase bank"))
+        }
     }
 }
 

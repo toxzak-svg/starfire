@@ -384,7 +384,7 @@ fn parse_proposition(input: &str) -> Result<Proposition, String> {
 
 /// Find a unicode operator in the string (skipping parenthesized parts).
 fn find_operator(input: &str, op: &str) -> Option<usize> {
-    let mut depth = 0;
+    let mut depth: i32 = 0;
     let chars: Vec<char> = input.chars().collect();
     let op_chars: Vec<char> = op.chars().collect();
     
