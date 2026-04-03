@@ -158,6 +158,30 @@ impl Store {
 
             CREATE INDEX IF NOT EXISTS idx_reasoning_timestamp ON reasoning_events(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_reasoning_uncertain ON reasoning_events(was_uncertain) WHERE was_uncertain = 1;
+
+            -- Phrase bank for voice engine
+            CREATE TABLE IF NOT EXISTS phrases (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                phrase TEXT NOT NULL UNIQUE,
+                context TEXT,
+                positive_count INTEGER DEFAULT 0,
+                negative_count INTEGER DEFAULT 0,
+                last_used INTEGER,
+                style_tags TEXT DEFAULT '[]'
+            );
+
+            -- Voice templates for expression variation
+            CREATE TABLE IF NOT EXISTS voice_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                concept TEXT NOT NULL,
+                style TEXT NOT NULL DEFAULT 'default',
+                template TEXT NOT NULL,
+                variants INTEGER DEFAULT 1,
+                created_at INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_phrases_effectiveness ON phrases(positive_count DESC);
+            CREATE INDEX IF NOT EXISTS idx_templates_concept_style ON voice_templates(concept, style);
         "#)?;
         Ok(())
     }

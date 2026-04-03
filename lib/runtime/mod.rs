@@ -21,6 +21,7 @@ use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
+use crate::voice::VoiceEngine;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -65,6 +66,8 @@ pub struct Runtime {
     last_autonomous_thought: Mutex<Option<AutonomousThought>>,
     /// Curiosity engine — self-probing idle curiosity
     curious: CuriousEngine,
+    /// Voice engine — shapes how Starfire expresses herself
+    voice: VoiceEngine,
 }
 
 impl Runtime {
@@ -160,6 +163,10 @@ impl Runtime {
         // Create CuriousEngine with access to reasoning
         let curious = CuriousEngine::new(Arc::clone(&store), Arc::clone(&reasoning_arc));
 
+        // Initialize voice engine
+        let voice = VoiceEngine::new(&db_path)?;
+        info!("Voice engine initialized.");
+
         let mut runtime = Self {
             store,
             identity,
@@ -179,6 +186,7 @@ impl Runtime {
             learning: LearningEngine::new(),
             last_autonomous_thought: Mutex::new(None),
             curious,
+            voice,
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -1189,7 +1197,10 @@ impl Runtime {
             }
         }
 
-        Ok(final_content)
+        // Apply voice engine — shape how Starfire expresses herself
+        let voiced = self.voice.speak(&final_content, &self.cognition);
+
+        Ok(voiced)
     }
 
     /// Format memory status for display.

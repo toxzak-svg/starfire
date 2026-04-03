@@ -16,6 +16,8 @@ pub mod rules;
 pub mod analogy;
 pub mod synthesis;
 pub mod pathways;
+pub mod chain;
+pub mod chain_display;
 
 use crate::persistence::{Memory, MemoryDomain, BeliefState};
 use crate::persistence::memory::Belief;

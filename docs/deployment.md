@@ -59,7 +59,7 @@ Star works out of the box on Railway. No env vars required.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STAR_DATA_DIR` | `/data/star` | SQLite + memory files |
+| `STAR_DATA_DIR` | `/data/star-data` | SQLite + memory files |
 | `PORT` | `8080` | HTTP server port |
 | `USE_LLM` | `false` | Ollama for text generation (not needed) |
 | `OLLAMA_BASE_URL` | — | Ollama server URL |
@@ -71,10 +71,10 @@ Star works out of the box on Railway. No env vars required.
 
 ## Adding a Persistent Volume
 
-Star's memory lives at `/data/star`. On Railway, add a persistent volume:
+Star's memory lives at `/data/star-data`. On Railway, add a persistent volume:
 
 1. Railway dashboard → Star service → Settings → Volumes
-2. Add volume mounted at `/data/star`
+2. Add volume mounted at `/data/star-data`
 
 This preserves memory across deployments.
 
@@ -147,11 +147,11 @@ A GET request returns 405 Method Not Allowed.
 
 ### Memory not persisting
 
-Star needs a persistent volume at `/data/star`. Without it, memory resets on every redeploy.
+Star needs a persistent volume at `/data/star-data`. Without it, memory resets on every redeploy.
 
 1. Railway dashboard → Star service → Volumes
 2. Add volume named `star-data`
-3. Mount at `/data/star`
+3. Mount at `/data/star-data`
 
 ---
 

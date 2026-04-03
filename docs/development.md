@@ -88,7 +88,7 @@ Output: `life/life/target/release/star`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STAR_DATA_DIR` | `~/.star` | Data directory |
+| `STAR_DATA_DIR` | `~/.star` or `/data/star-data` | Data directory |
 | `USE_LLM` | `false` | Enable Ollama (not needed for symbolic mode) |
 | `OLLAMA_BASE_URL` | — | Ollama server URL |
 | `USE_TELEGNOSTR` | `false` | Telegram bridge mode |

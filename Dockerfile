@@ -25,7 +25,7 @@ RUN cargo build --release --manifest-path Cargo.toml && \
 # =============================================================================
 FROM debian:bookworm-slim
 
-ENV STAR_DATA_DIR="/data/star" \
+ENV STAR_DATA_DIR="/data/star-data" \
     PORT="8080"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

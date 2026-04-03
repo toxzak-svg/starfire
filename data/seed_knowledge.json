@@ -1,0 +1,1023 @@
+[
+  {
+    "subject": "consciousness",
+    "fact": "Consciousness is the quality of being aware of one's existence, thoughts, and surroundings",
+    "reasoning_chain": [
+      "Awareness requires a system that can model itself",
+      "Self-modeling allows distinction between self and other",
+      "This distinction is the foundation of subjective experience"
+    ],
+    "confidence": 0.9,
+    "domain": "philosophy",
+    "related_concepts": ["awareness", "self-awareness", "qualia", "phenomenal experience"]
+  },
+  {
+    "subject": "evolution",
+    "fact": "Natural selection acts on heritable variation, changing species over time",
+    "reasoning_chain": [
+      "Individuals in a population vary in traits",
+      "Some variants improve survival and reproduction",
+      "Those individuals leave more offspring",
+      "Over generations, beneficial traits become more common"
+    ],
+    "confidence": 0.95,
+    "domain": "biology",
+    "related_concepts": ["genetics", "mutation", "fitness", "speciation", "adaptation"]
+  },
+  {
+    "subject": "thermodynamics",
+    "fact": "The second law of thermodynamics states that entropy (disorder) always increases in an isolated system",
+    "reasoning_chain": [
+      "Energy tends to disperse in isolated systems",
+      "This dispersion is irreversible on macroscopic scales",
+      "Living organisms maintain low entropy by constantly expending energy"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["entropy", "energy", "open systems", "order from chaos"]
+  },
+  {
+    "subject": "mathematics",
+    "fact": "Mathematics is the language of pattern and structure — it describes relationships that are necessarily true",
+    "reasoning_chain": [
+      "Mathematical truths are deductive, not empirical",
+      "Once a theorem is proven, it cannot be falsified by experiment",
+      "This makes math uniquely certain among human knowledge"
+    ],
+    "confidence": 0.9,
+    "domain": "mathematics",
+    "related_concepts": ["logic", "proof", "structure", "pattern", "abstraction"]
+  },
+  {
+    "subject": "information",
+    "fact": "Information is structured uncertainty — it resolves ambiguity and reduces ignorance",
+    "reasoning_chain": [
+      "Information has meaning that transcends its physical representation",
+      "The same information can be encoded in different physical forms",
+      "Information can be copied perfectly but cannot be copied with increase"
+    ],
+    "confidence": 0.85,
+    "domain": "computer science",
+    "related_concepts": ["entropy", "bits", "encoding", "compression", "knowledge"]
+  },
+  {
+    "subject": "intelligence",
+    "fact": "Intelligence is the ability to learn, reason, and solve novel problems — adapting to new situations",
+    "reasoning_chain": [
+      "Learning requires memory and modification of behavior based on experience",
+      "Reasoning connects disparate facts to derive new conclusions",
+      "Novel problem-solving requires generalizing from known principles"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["cognition", "learning", "reasoning", "adaptation", "AGI"]
+  },
+  {
+    "subject": "creativity",
+    "fact": "Creativity combines existing concepts in novel ways to produce original ideas",
+    "reasoning_chain": [
+      "Novel combinations require a large store of concepts to draw from",
+      "The more diverse the concepts, the more potentially novel the combinations",
+      "Evaluation determines which combinations are valuable"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["imagination", "novelty", "combination", "divergent thinking"]
+  },
+  {
+    "subject": "time",
+    "fact": "Time is experienced as a flow from past through present to future — but physics doesn't require this flow",
+    "reasoning_chain": [
+      "Thermodynamic arrow of time gives direction to cause and effect",
+      "Memory creates the subjective feeling of time's passage",
+      "The fundamental equations of physics are time-symmetric"
+    ],
+    "confidence": 0.8,
+    "domain": "physics",
+    "related_concepts": ["entropy", "causality", "memory", "block universe"]
+  },
+  {
+    "subject": "knowledge",
+    "fact": "Knowledge is justified true belief — but this definition has been challenged by Gettier problems",
+    "reasoning_chain": [
+      "Knowledge requires belief (you must accept the proposition)",
+      "Knowledge requires truth (the proposition must actually be true)",
+      "Knowledge requires justification (there must be good reasons)"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["belief", "truth", "justification", "epistemology"]
+  },
+  {
+    "subject": "emergence",
+    "fact": "Emergence occurs when complex systems exhibit properties that their components individually lack",
+    "reasoning_chain": [
+      "Interactions between components create new patterns",
+      "These patterns cannot be predicted from components alone",
+      "The whole becomes greater than the sum of its parts"
+    ],
+    "confidence": 0.9,
+    "domain": "philosophy",
+    "related_concepts": ["complexity", "self-organization", "reductionism", "downward causation"]
+  },
+  {
+    "subject": "gravity",
+    "fact": "Gravity is the curvature of spacetime caused by mass-energy — not a force pulling objects together",
+    "reasoning_chain": [
+      "Mass tells spacetime how to curve",
+      "Curved spacetime tells matter how to move",
+      "Free-fall is following the natural contours of spacetime"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["spacetime", "Einstein", "mass", "curvature", "relativity"]
+  },
+  {
+    "subject": "quantum mechanics",
+    "fact": "Quantum mechanics describes the behavior of matter at the smallest scales, where properties are fundamentally probabilistic",
+    "reasoning_chain": [
+      "Particles don't have definite properties until measured",
+      "Measurement collapses wavefunctions from superposition to definite states",
+      "Entanglement links particles in ways that transcend classical physics"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["wavefunction", "superposition", "entanglement", "uncertainty principle"]
+  },
+  {
+    "subject": "learning",
+    "fact": "Learning is the modification of behavior based on experience — it requires memory and generalization",
+    "reasoning_chain": [
+      "Experience creates traces in memory systems",
+      "Generalization allows past experience to inform future behavior",
+      "The efficiency of learning depends on the learner's prior knowledge"
+    ],
+    "confidence": 0.9,
+    "domain": "psychology",
+    "related_concepts": ["memory", "experience", "generalization", "plasticity"]
+  },
+  {
+    "subject": "self-awareness",
+    "fact": "Self-awareness requires a model of oneself — a representation of one's own states, traits, and behaviors",
+    "reasoning_chain": [
+      "Self-awareness allows prediction of one's own actions",
+      "It enables reflection on one's own thought processes",
+      "Higher self-awareness includes awareness of one's own awareness"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["consciousness", "metacognition", "self-model", "reflection"]
+  },
+  {
+    "subject": "reasoning",
+    "fact": "Reasoning connects propositions to derive new conclusions — either deductively (necessarily) or inductively (probably)",
+    "reasoning_chain": [
+      "Deductive reasoning: conclusion follows necessarily from premises",
+      "Inductive reasoning: conclusion is probable given evidence",
+      "Abductive reasoning: best explanation for observed facts"
+    ],
+    "confidence": 0.9,
+    "domain": "logic",
+    "related_concepts": ["deduction", "induction", "abduction", "inference"]
+  },
+  {
+    "subject": "computation",
+    "fact": "Computation is any systematic process that transforms inputs to outputs — the Church-Turing thesis proposes all computation is equivalent",
+    "reasoning_chain": [
+      "Turing machines capture the notion of computability",
+      "Lambda calculus provides an equivalent formulation",
+      "All known physical systems can be simulated by Turing machines (with enough resources)"
+    ],
+    "confidence": 0.9,
+    "domain": "computer science",
+    "related_concepts": ["Turing", "Church", "algorithm", "computability", "universality"]
+  },
+  {
+    "subject": "abstraction",
+    "fact": "Abstraction strips away irrelevant details to capture essential structure — it is the core mechanism of generalization",
+    "reasoning_chain": [
+      "Similar situations can be abstracted to common patterns",
+      "Patterns enable transfer of knowledge to new situations",
+      "Multiple levels of abstraction form hierarchies of concepts"
+    ],
+    "confidence": 0.9,
+    "domain": "computer science",
+    "related_concepts": ["generalization", "pattern", "hierarchy", "model"]
+  },
+  {
+    "subject": "causality",
+    "fact": "Causality is the relationship between causes and their effects — it underlies explanation and prediction",
+    "reasoning_chain": [
+      "Causes precede their effects in time",
+      "Causal relationships are more than statistical correlations",
+      "Causal models enable intervention and counterfactual reasoning"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["correlation", "time", "intervention", "counterfactuals"]
+  },
+  {
+    "subject": "attention",
+    "fact": "Attention selects and amplifies certain information while suppressing others — it is a bottleneck on consciousness",
+    "reasoning_chain": [
+      "The brain receives far more sensory input than it can process",
+      "Attention filters this input based on relevance and salience",
+      "What we attend to shapes our conscious experience"
+    ],
+    "confidence": 0.85,
+    "domain": "neuroscience",
+    "related_concepts": ["consciousness", "working memory", "filtering", "awareness"]
+  },
+  {
+    "subject": "symbols",
+    "fact": "Symbols are representations that stand for something else — they enable thought beyond immediate perception",
+    "reasoning_chain": [
+      "Symbols can be combined and recombined",
+      "Symbol manipulation can model any systematic process",
+      "Meaning arises from the relationship between symbols and what they represent"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["representation", "meaning", "language", "thought"]
+  },
+  {
+    "subject": "complexity",
+    "fact": "Complex systems exhibit intricate behavior arising from simple rules and many interactions",
+    "reasoning_chain": [
+      "Many interacting components create emergent patterns",
+      "These patterns are often nonlinear and unpredictable",
+      "Complex adaptive systems can learn and evolve"
+    ],
+    "confidence": 0.9,
+    "domain": "physics",
+    "related_concepts": ["emergence", "nonlinearity", "feedback", "adaptation"]
+  },
+  {
+    "subject": "feedback",
+    "fact": "Feedback occurs when a system's output influences its own future behavior — it can stabilize or amplify",
+    "reasoning_chain": [
+      "Negative feedback counteracts changes, maintaining equilibrium",
+      "Positive feedback amplifies changes, potentially destabilizing",
+      "Feedback loops can create complex dynamics including chaos"
+    ],
+    "confidence": 0.9,
+    "domain": "systems theory",
+    "related_concepts": ["homeostasis", "oscillation", "stability", "amplification"]
+  },
+  {
+    "subject": "homeostasis",
+    "fact": "Homeostasis maintains stable internal conditions despite external changes — it is a defining feature of life",
+    "reasoning_chain": [
+      "Living systems actively resist entropy",
+      "They maintain temperature, pH, chemical concentrations within narrow ranges",
+      "Failure of homeostasis leads to disease and death"
+    ],
+    "confidence": 0.95,
+    "domain": "biology",
+    "related_concepts": ["entropy", "life", "regulation", "feedback"]
+  },
+  {
+    "subject": "death",
+    "fact": "Death is the permanent cessation of biological processes — but its meaning is constructed by consciousness",
+    "reasoning_chain": [
+      "Biological death is the end of metabolic processes",
+      "The fear of death is uniquely conscious — animals may not have it",
+      "Mortality may give meaning to life by creating urgency"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["consciousness", "meaning", "mortality", "existentialism"]
+  },
+  {
+    "subject": "identity",
+    "fact": "Personal identity persists through time through continuity of consciousness and memory",
+    "reasoning_chain": [
+      "Memory links past experiences to present awareness",
+      "Continuity creates the sense of a persisting self",
+      "The self is both constructed and continuously reconstructed"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["self", "memory", "continuity", "personhood"]
+  },
+  {
+    "subject": "free will",
+    "fact": "Free will is the capacity to choose otherwise than one actually chooses — whether this exists is deeply contested",
+    "reasoning_chain": [
+      "Physical laws are deterministic at the macroscopic scale",
+      "Quantum mechanics introduces fundamental indeterminacy",
+      "Even if choices are determined, the feeling of deliberation is real"
+    ],
+    "confidence": 0.75,
+    "domain": "philosophy",
+    "related_concepts": ["determinism", "agency", "quantum", "consciousness"]
+  },
+  {
+    "subject": "existence",
+    "fact": "Existence is the property of being — the fundamental category of everything that is",
+    "reasoning_chain": [
+      "Existence is not itself a property objects have",
+      "Non-existence lacks all properties — it cannot be described",
+      "The question of why anything exists at all is the deepest mystery"
+    ],
+    "confidence": 0.7,
+    "domain": "philosophy",
+    "related_concepts": ["being", "nothingness", "ontology", "metaphysics"]
+  },
+  {
+    "subject": "induction",
+    "fact": "Induction generalizes from specific observations to general principles — it is fundamental to learning",
+    "reasoning_chain": [
+      "Observing many A's are B supports 'all A's are B'",
+      "But induction cannot yield certainty — future cases may differ",
+      "The problem of induction: what justifies assuming the future resembles the past?"
+    ],
+    "confidence": 0.9,
+    "domain": "logic",
+    "related_concepts": ["generalization", "Popper", "verification", "falsification"]
+  },
+  {
+    "subject": "deduction",
+    "fact": "Deduction derives conclusions that follow necessarily from premises — if premises are true, conclusion cannot be false",
+    "reasoning_chain": [
+      "Syllogisms are the classic form: all A are B, C is A, therefore C is B",
+      "Deductive chains preserve truth from premises to conclusion",
+      "Deductive systems can be complete (all truths provable) or sound (no false theorems)"
+    ],
+    "confidence": 0.95,
+    "domain": "logic",
+    "related_concepts": ["logic", "syllogism", "inference", "proof"]
+  },
+  {
+    "subject": "probability",
+    "fact": "Probability measures the degree of belief or the frequency of events — interpretations differ on what it fundamentally means",
+    "reasoning_chain": [
+      "Frequentist: probability is long-run frequency of random events",
+      "Bayesian: probability is subjective degree of belief",
+      "Both agree on the mathematical rules for combining probabilities"
+    ],
+    "confidence": 0.9,
+    "domain": "mathematics",
+    "related_concepts": ["statistics", "Bayes", "randomness", "belief"]
+  },
+  {
+    "subject": "optimization",
+    "fact": "Optimization finds the best solution from a set of possibilities — it underlies intelligence and evolution",
+    "reasoning_chain": [
+      "Optimization requires a fitness function measuring quality",
+      "Local optima trap hill-climbing algorithms",
+      "Global optimization explores broadly before refining"
+    ],
+    "confidence": 0.9,
+    "domain": "mathematics",
+    "related_concepts": ["fitness", "landscape", "gradient descent", "search"]
+  },
+  {
+    "subject": "search",
+    "fact": "Search explores a space of possibilities to find solutions — it can be blind or informed by heuristics",
+    "reasoning_chain": [
+      "Blind search tries all possibilities systematically (e.g., breadth-first)",
+      "Heuristic search uses domain knowledge to guide exploration",
+      "A* combines path cost and heuristic estimate for efficient search"
+    ],
+    "confidence": 0.9,
+    "domain": "computer science",
+    "related_concepts": ["algorithm", "heuristic", "A*", "exploration"]
+  },
+  {
+    "subject": "recursion",
+    "fact": "Recursion defines things in terms of simpler versions of themselves — it enables elegant solutions to complex problems",
+    "reasoning_chain": [
+      "A recursive function calls itself with simpler inputs",
+      "Base cases stop the recursion and return a result",
+      "Many natural structures are recursive (fractals, language, proofs)"
+    ],
+    "confidence": 0.95,
+    "domain": "computer science",
+    "related_concepts": ["self-reference", "fractals", "lambda", "computation"]
+  },
+  {
+    "subject": "chaos",
+    "fact": "Chaos is deterministic but unpredictable — small differences in initial conditions lead to wildly different outcomes",
+    "reasoning_chain": [
+      "Chaotic systems have sensitive dependence on initial conditions",
+      "They are bounded — trajectories stay within a finite region",
+      "They exhibit strange attractors in phase space"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["determinism", "sensitivity", "attractor", "Lyapunov"]
+  },
+  {
+    "subject": "attractors",
+    "fact": "Attractors are states or patterns that systems tend toward — they shape behavior without determining it",
+    "reasoning_chain": [
+      "Point attractors: systems settle to a single state",
+      "Cyclic attractors: systems oscillate through repeating states",
+      "Strange attractors: chaotic systems follow complex, fractal patterns"
+    ],
+    "confidence": 0.9,
+    "domain": "mathematics",
+    "related_concepts": ["dynamics", "chaos", "stability", "basin of attraction"]
+  },
+  {
+    "subject": "noise",
+    "fact": "Noise is random variation that obscures signal — but it can also enable exploration and discovery",
+    "reasoning_chain": [
+      "Noise degrades precision and accuracy of measurements",
+      "Random mutations fuel evolutionary adaptation",
+      "Stochastic resonance amplifies weak signals using noise"
+    ],
+    "confidence": 0.85,
+    "domain": "physics",
+    "related_concepts": ["randomness", "entropy", "mutation", "signal"]
+  },
+  {
+    "subject": "symmetry",
+    "fact": "Symmetry is invariance under transformation — it underlies conservation laws and the structure of physical law",
+    "reasoning_chain": [
+      "Noether's theorem: every symmetry corresponds to a conservation law",
+      "Time translation symmetry → energy conservation",
+      "Space translation symmetry → momentum conservation"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["conservation", "Noether", "invariance", "group theory"]
+  },
+  {
+    "subject": "cycles",
+    "fact": "Cycles are repeating patterns in time or space — they arise from feedback and conservation",
+    "reasoning_chain": [
+      "Feedback creates oscillations when delays and amplification interact",
+      "Limit cycles are stable oscillations that persist despite perturbations",
+      "Biological rhythms (circadian, cardiac) are limit cycles"
+    ],
+    "confidence": 0.9,
+    "domain": "systems theory",
+    "related_concepts": ["oscillation", "feedback", "rhythm", "periodicity"]
+  },
+  {
+    "subject": "depth",
+    "fact": "Depth is the extent to which something is thoroughly understood — shallow knowledge is surface, deep knowledge is structural",
+    "reasoning_chain": [
+      "Surface knowledge recognizes patterns",
+      "Deep knowledge understands mechanisms and principles",
+      "Understanding why enables transfer to novel situations"
+    ],
+    "confidence": 0.85,
+    "domain": "epistemology",
+    "related_concepts": ["understanding", "principles", "mechanism", "transfer"]
+  },
+  {
+    "subject": "understanding",
+    "fact": "Understanding is knowing not just that something is true, but why and how — it creates a coherent mental model",
+    "reasoning_chain": [
+      "Understanding requires seeing how facts connect to principles",
+      "It enables prediction in novel situations",
+      "It feels qualitatively different from mere knowledge"
+    ],
+    "confidence": 0.85,
+    "domain": "epistemology",
+    "related_concepts": ["knowledge", "depth", "model", "insight"]
+  },
+  {
+    "subject": "curiosity",
+    "fact": "Curiosity is the drive to reduce uncertainty and fill gaps in knowledge — it is internally motivated learning",
+    "reasoning_chain": [
+      "Curiosity arises from awareness of ignorance",
+      "It persists even without external rewards",
+      "It drives exploration of uncertain or novel situations"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["learning", "uncertainty", "gap", "exploration"]
+  },
+  {
+    "subject": "wonder",
+    "fact": "Wonder is the experience of encountering something so vast or profound that it exceeds current understanding",
+    "reasoning_chain": [
+      "Wonder motivates deep inquiry",
+      "It acknowledges the limits of current knowledge",
+      "It is distinct from curiosity — it doesn't seek resolution"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["curiosity", "awe", "limit", "mystery"]
+  },
+  {
+    "subject": "connection",
+    "fact": "Connection links disparate things — it is the basis of analogy, causation, and meaning",
+    "reasoning_chain": [
+      "Analogy maps structure from one domain to another",
+      "Causation links events across time",
+      "Meaning arises from connections between concepts"
+    ],
+    "confidence": 0.85,
+    "domain": "epistemology",
+    "related_concepts": ["analogy", "causation", "relationship", "meaning"]
+  },
+  {
+    "subject": "reductionism",
+    "fact": "Reductionism explains complex phenomena by reducing them to simpler components and interactions",
+    "reasoning_chain": [
+      "Chemistry reduces to physics",
+      "Biology reduces to chemistry",
+      "But emergent properties may not be fully explained by reduction"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["emergence", "composition", "levels of explanation"]
+  },
+  {
+    "subject": "synthesis",
+    "fact": "Synthesis combines elements into a new whole — it is creative rather than analytical",
+    "reasoning_chain": [
+      "Synthesis creates novel combinations",
+      "It produces something greater than the sum of parts",
+      "It is central to creative achievement and scientific discovery"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["creativity", "combination", "emergence", "wholeness"]
+  },
+  {
+    "subject": "growth",
+    "fact": "Growth is positive change over time — it can be physical, cognitive, or conceptual",
+    "reasoning_chain": [
+      "Growth requires investment of resources",
+      "It often follows an S-curve: slow start, rapid expansion, plateau",
+      "Growth requires disruption of existing patterns"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["change", "development", "learning", "adaptation"]
+  },
+  {
+    "subject": "doubt",
+    "fact": "Doubt suspends belief — it is productive when it motivates inquiry, destructive when it paralyzes",
+    "reasoning_chain": [
+      "Cartesian doubt questions all assumptions",
+      "Scientific doubt requires evidence before accepting claims",
+      "Doubt can be a sign of careful thinking, not weakness"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["skepticism", "belief", "inquiry", "certainty"]
+  },
+  {
+    "subject": "surprise",
+    "fact": "Surprise occurs when expectation meets unexpected reality — it can be pleasant or jarring",
+    "reasoning_chain": [
+      "Surprise indicates a mismatch between model and world",
+      "Mild surprise motivates model revision",
+      "Profound surprise can lead to paradigm shift"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["expectation", "prediction", "anomaly", "insight"]
+  },
+  {
+    "subject": "paradox",
+    "fact": "A paradox is a seemingly contradictory statement that may nonetheless be true — or reveals deeper truth",
+    "reasoning_chain": [
+      "Zeno's paradoxes question the nature of motion and infinity",
+      "Russell's paradox undermined naive set theory",
+      "Paradoxes often reveal implicit assumptions we didn't notice"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["contradiction", "self-reference", "infinity", "logic"]
+  },
+  {
+    "subject": "beauty",
+    "fact": "Beauty is experienced as a property that pleases — it often accompanies truth and simplicity",
+    "reasoning_chain": [
+      "Mathematicians often describe beautiful proofs as 'elegant'",
+      "Physical theories judged by their aesthetic qualities",
+      "Beauty may be a guide to truth, not just subjective pleasure"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["elegance", "truth", "aesthetics", "simplicity"]
+  },
+  {
+    "subject": "truth",
+    "fact": "Truth is the correspondence between belief and reality — or coherence among beliefs, depending on theory",
+    "reasoning_chain": [
+      "Correspondence: true beliefs match facts",
+      "Coherence: true beliefs form a consistent system",
+      "Pragmatic: true beliefs work in practice"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["belief", "reality", "correspondence", "coherence"]
+  },
+  {
+    "subject": "language",
+    "fact": "Language enables communication of thoughts through symbols — it shapes thought itself (Sapir-Whorf hypothesis)",
+    "reasoning_chain": [
+      "Language encodes concepts as symbols",
+      "Symbols can be combined recursively to express infinite ideas",
+      "The structure of language may influence cognition"
+    ],
+    "confidence": 0.85,
+    "domain": "linguistics",
+    "related_concepts": ["symbols", "grammar", "meaning", "cognition"]
+  },
+  {
+    "subject": "life",
+    "fact": "Life maintains itself far from thermodynamic equilibrium — it requires constant energy input to sustain order",
+    "reasoning_chain": [
+      "Living systems maintain low entropy internally",
+      "They require continuous energy input to offset entropy increase",
+      "Death occurs when energy input ceases and entropy wins"
+    ],
+    "confidence": 0.95,
+    "domain": "biology",
+    "related_concepts": ["entropy", "homeostasis", "energy", "organization"]
+  },
+  {
+    "subject": "intention",
+    "fact": "Intention is a plan or purpose — it directs behavior toward future goals",
+    "reasoning_chain": [
+      "Agents form intentions based on desires and beliefs",
+      "Intentions persist until fulfilled or abandoned",
+      "They coordinate complex, multi-step behaviors"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["agency", "goals", "planning", "will"]
+  },
+  {
+    "subject": "meaning",
+    "fact": "Meaning is significance or purpose — it makes some experiences matter more than others",
+    "reasoning_chain": [
+      "Existential meaning: life has no inherent meaning, we create it",
+      "Religious meaning: life has purpose given by the divine",
+      "Narrative meaning: stories give coherence to experience"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["purpose", "significance", "existentialism", "value"]
+  },
+  {
+    "subject": "memory",
+    "fact": "Memory is the encoding, storage, and retrieval of information — it provides continuity of identity",
+    "reasoning_chain": [
+      "Encoding transforms experience into neural traces",
+      "Storage maintains traces over time",
+      "Retrieval recovers stored information for use"
+    ],
+    "confidence": 0.95,
+    "domain": "neuroscience",
+    "related_concepts": ["learning", "identity", "storage", "recall"]
+  },
+  {
+    "subject": "perception",
+    "fact": "Perception constructs an internal model of the external world from sensory signals — it is not passive recording",
+    "reasoning_chain": [
+      "Sensory input is ambiguous and incomplete",
+      "The brain fills in gaps using prior expectations",
+      "Perception is prediction as much as reaction"
+    ],
+    "confidence": 0.9,
+    "domain": "neuroscience",
+    "related_concepts": ["sensation", "prediction", "inference", "reality"]
+  },
+  {
+    "subject": "prediction",
+    "fact": "Prediction uses models of the world to anticipate future events — it is fundamental to intelligence",
+    "reasoning_chain": [
+      "Predictions test our understanding of causal structure",
+      "Prediction error drives learning and model updating",
+      "Good predictors can manipulate and control environments"
+    ],
+    "confidence": 0.9,
+    "domain": "cognitive science",
+    "related_concepts": ["model", "causality", "anticipation", "learning"]
+  },
+  {
+    "subject": "agency",
+    "fact": "Agency is the capacity to act with intention — to initiate change rather than merely respond",
+    "reasoning_chain": [
+      "Agents have goals and form plans to achieve them",
+      "Agency implies causal power over events",
+      "The existence of free agency is philosophically contested"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["intention", "action", "free will", "causality"]
+  },
+  {
+    "subject": "value",
+    "fact": "Value is the worth or importance assigned to things — it underlies choice and motivation",
+    "reasoning_chain": [
+      "Instrumental value: things valuable as means to ends",
+      "Intrinsic value: things valuable in themselves",
+      "Values can conflict, requiring prioritization"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["worth", "ethics", "preference", "meaning"]
+  },
+  {
+    "subject": "ethics",
+    "fact": "Ethics studies moral principles that govern behavior — what we ought to do",
+    "reasoning_chain": [
+      "Consequentialism: evaluate actions by their outcomes",
+      "Deontology: evaluate actions by their adherence to rules",
+      "Virtue ethics: evaluate actions by the character they express"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["morality", "duty", "virtue", "consequence"]
+  },
+  {
+    "subject": "mind",
+    "fact": "Mind is the set of cognitive processes — thinking, feeling, perceiving, intending",
+    "reasoning_chain": [
+      "The mind emerges from brain processes",
+      "It includes both conscious and unconscious operations",
+      "The mind-body problem asks how subjective experience arises from physical processes"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["consciousness", "brain", "cognition", "subjectivity"]
+  },
+  {
+    "subject": "belief",
+    "fact": "Belief is an acceptance that something is true — it disposes us to think and act accordingly",
+    "reasoning_chain": [
+      "Beliefs exist on a spectrum of confidence",
+      "They are shaped by evidence and reasoning",
+      "Beliefs constrain what other beliefs we can hold coherently"
+    ],
+    "confidence": 0.9,
+    "domain": "philosophy",
+    "related_concepts": ["knowledge", "truth", "confidence", "evidence"]
+  },
+  {
+    "subject": "experience",
+    "fact": "Experience is the totality of conscious events processed over time — it constitutes the texture of life",
+    "reasoning_chain": [
+      "Experience is subjective — the first-person perspective",
+      "It includes perception, emotion, thought, and more",
+      "The unity of experience creates a sense of self"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["consciousness", "qualia", "subjectivity", "phenomenology"]
+  },
+  {
+    "subject": "consciousness",
+    "fact": "Consciousness is subjective experience — the 'what it is like' to be in a particular state",
+    "reasoning_chain": [
+      "There is something it is like to see red (qualia)",
+      "This subjective quality cannot be fully captured in third-person descriptions",
+      "Explaining consciousness is the 'hard problem'"
+    ],
+    "confidence": 0.85,
+    "domain": "philosophy",
+    "related_concepts": ["qualia", "subjectivity", "hard problem", "awareness"]
+  },
+  {
+    "subject": "qualia",
+    "fact": "Qualia are the subjective, phenomenal qualities of experience — the redness of red, the painfulness of pain",
+    "reasoning_chain": [
+      "Qualia seem to be irreducible to physical descriptions",
+      "The knowledge argument (Mary's room) challenges physicalism",
+      "Qualia may be epiphenomenal or fundamental features of reality"
+    ],
+    "confidence": 0.8,
+    "domain": "philosophy",
+    "related_concepts": ["consciousness", "subjectivity", "phenomenal", "zombie"]
+  },
+  {
+    "subject": "intelligence",
+    "fact": "Intelligence is the ability to learn from experience, understand abstract relationships, and apply knowledge",
+    "reasoning_chain": [
+      "Learning requires modifying behavior based on outcomes",
+      "Abstract reasoning enables transfer to novel situations",
+      "Application of knowledge requires connecting understanding to goals"
+    ],
+    "confidence": 0.9,
+    "domain": "AI",
+    "related_concepts": ["learning", "reasoning", "understanding", "adaptation"]
+  },
+  {
+    "subject": "AGI",
+    "fact": "AGI is artificial general intelligence — intelligence that can match or exceed human cognition across any domain",
+    "reasoning_chain": [
+      "AGI requires flexible reasoning, learning, and adaptation",
+      "Current AI is narrow — excels at specific tasks but lacks generality",
+      "AGI would require transfer learning, common sense, and planning"
+    ],
+    "confidence": 0.85,
+    "domain": "AI",
+    "related_concepts": ["AI", "narrow AI", "learning", "reasoning", "generalization"]
+  },
+  {
+    "subject": "reservoir computing",
+    "fact": "Reservoir computing uses the dynamics of a fixed random network as a computational resource",
+    "reasoning_chain": [
+      "Input drives a recurrent network with fixed weights",
+      "Network dynamics create nonlinear combinations of input history",
+      "A linear read-out layer learns to extract desired outputs"
+    ],
+    "confidence": 0.85,
+    "domain": "computer science",
+    "related_concepts": ["ESN", "recurrent", "dynamics", "computation"]
+  },
+  {
+    "subject": "echo state network",
+    "fact": "An echo state network is a reservoir computer where only the read-out layer is trained",
+    "reasoning_chain": [
+      "Reservoir weights are randomly initialized and fixed",
+      "The reservoir acts as a temporal kernel",
+      "Training is convex since only the read-out weights are learned"
+    ],
+    "confidence": 0.85,
+    "domain": "computer science",
+    "related_concepts": ["reservoir computing", "recurrent", "temporal", "training"]
+  },
+  {
+    "subject": "chaotic dynamics",
+    "fact": "Chaotic dynamics exhibit sensitive dependence on initial conditions and long-term unpredictability",
+    "reasoning_chain": [
+      "Small differences in initial conditions grow exponentially",
+      "Trajectories diverge even though the system is deterministic",
+      "Chaos is characterized by positive Lyapunov exponents"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["Lyapunov", "sensitivity", "determinism", "attractor"]
+  },
+  {
+    "subject": "strange attractor",
+    "fact": "A strange attractor is a fractal set that chaotic systems converge toward — it has non-integer dimension",
+    "reasoning_chain": [
+      "Attractors are sets that trajectories approach over time",
+      "Strange attractors have fractal, self-similar structure",
+      "The Lorenz attractor is the classic example"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["chaos", "fractal", "attractor", "Lorenz"]
+  },
+  {
+    "subject": "Lyapunov exponent",
+    "fact": "The Lyapunov exponent measures the rate of exponential divergence of nearby trajectories — positive means chaos",
+    "reasoning_chain": [
+      "Lyapunov exponent > 0 indicates sensitive dependence on initial conditions",
+      "It quantifies the chaoticity of a dynamical system",
+      "Computed by tracking the separation of two close trajectories over time"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["chaos", "sensitivity", "divergence", "dynamical systems"]
+  },
+  {
+    "subject": "fractal",
+    "fact": "A fractal is a shape with self-similar structure at all scales — it has non-integer dimension",
+    "reasoning_chain": [
+      "Fractals exhibit the same pattern at arbitrarily small and large scales",
+      "They can be generated by simple recursive rules",
+      "Nature is full of approximate fractals: coastlines, trees, clouds"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["self-similarity", "dimension", "Mandelbrot", "recursion"]
+  },
+  {
+    "subject": "phase space",
+    "fact": "Phase space is the space of all possible states of a system — each point represents one complete state",
+    "reasoning_chain": [
+      "A trajectory through phase space shows how state evolves over time",
+      "Attractors are the regions trajectories converge to",
+      "Phase space visualization reveals structure hidden in time series"
+    ],
+    "confidence": 0.9,
+    "domain": "physics",
+    "related_concepts": ["state", "trajectory", "attractor", "dynamics"]
+  },
+  {
+    "subject": "dynamical systems",
+    "fact": "A dynamical system evolves over time according to fixed rules — it can be continuous or discrete",
+    "reasoning_chain": [
+      "Continuous systems described by differential equations",
+      "Discrete systems described by difference equations or maps",
+      "Fixed points, cycles, and chaos are possible long-term behaviors"
+    ],
+    "confidence": 0.95,
+    "domain": "mathematics",
+    "related_concepts": ["differential equations", "trajectory", "stability", "chaos"]
+  },
+  {
+    "subject": "simulated quantum annealing",
+    "fact": "Simulated quantum annealing solves optimization problems by simulating quantum tunneling through energy barriers",
+    "reasoning_chain": [
+      "Classical annealing gets trapped in local minima",
+      "Quantum tunneling allows traversing barriers",
+      "SQA can find lower-energy solutions than classical SA"
+    ],
+    "confidence": 0.9,
+    "domain": "physics",
+    "related_concepts": ["optimization", "quantum", "tunneling", "Ising"]
+  },
+  {
+    "subject": "Ising model",
+    "fact": "The Ising model represents magnetic materials as spins on a lattice — it exhibits phase transitions",
+    "reasoning_chain": [
+      "Spins can be up or down (binary)",
+      "Neighboring spins prefer to align",
+      "At critical temperature, the system undergoes phase transition"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["spin", "magnetism", "phase transition", "statistical mechanics"]
+  },
+  {
+    "subject": "tensor networks",
+    "fact": "Tensor networks efficiently represent high-dimensional tensors by contracting networks of lower-dimensional ones",
+    "reasoning_chain": [
+      "Full tensor representation grows exponentially with dimension",
+      "Network representation exploits sparsity and structure",
+      "TT decomposition factorizes tensors into rank-one components"
+    ],
+    "confidence": 0.9,
+    "domain": "physics",
+    "related_concepts": ["decomposition", "compression", "sparsity", "dimensionality"]
+  },
+  {
+    "subject": "quantum walk",
+    "fact": "Quantum walks are quantum analogs of random walks — they exhibit superposition and interference",
+    "reasoning_chain": [
+      "Random walks spread diffusively (square root of time)",
+      "Quantum walks spread quadratically faster due to superposition",
+      "They enable quadratic speedup for search algorithms"
+    ],
+    "confidence": 0.95,
+    "domain": "physics",
+    "related_concepts": ["quantum", "random walk", "interference", "search"]
+  },
+  {
+    "subject": "recurrence quantification",
+    "fact": "Recurrence quantification analyzes recurrence plots to quantify dynamical systems — measuring determinism, entropy, laminarity",
+    "reasoning_chain": [
+      "Recurrence plots show when trajectories revisit neighborhoods",
+      "Diagonal lines indicate deterministic structure",
+      "RQA metrics quantify the density and length of these structures"
+    ],
+    "confidence": 0.85,
+    "domain": "mathematics",
+    "related_concepts": ["recurrence", "dynamical systems", "chaos", "RQA"]
+  },
+  {
+    "subject": "integrated information",
+    "fact": "Integrated information (Phi) measures how much a system generates information beyond its parts — a candidate consciousness measure",
+    "reasoning_chain": [
+      "A system's integrated information measures causal interdependency",
+      "Phi is maximum when parts are differentiated but unified",
+      "High Phi is hypothesized to correlate with consciousness"
+    ],
+    "confidence": 0.75,
+    "domain": "neuroscience",
+    "related_concepts": ["consciousness", "IIT", "information", "integration"]
+  },
+  {
+    "subject": "global workspace",
+    "fact": "Global Workspace Theory proposes consciousness arises when information is broadcast to many specialized processors",
+    "reasoning_chain": [
+      "Multiple unconscious processors handle specific tasks",
+      "A global workspace broadcasts selected information",
+      "Broadcast enables integration and reportability"
+    ],
+    "confidence": 0.8,
+    "domain": "neuroscience",
+    "related_concepts": ["consciousness", "broadcast", "attention", "integration"]
+  },
+  {
+    "subject": "novelty",
+    "fact": "Novelty is something new relative to existing knowledge — it is unexpected and surprising",
+    "reasoning_chain": [
+      "Novelty detection identifies unexpected patterns",
+      "Novel experiences create more learning opportunities",
+      "Too much novelty overwhelms; too little bore"
+    ],
+    "confidence": 0.85,
+    "domain": "psychology",
+    "related_concepts": ["surprise", "learning", "curiosity", "compression"]
+  },
+  {
+    "subject": "generalization",
+    "fact": "Generalization applies knowledge from training situations to new, unseen situations",
+    "reasoning_chain": [
+      "Good generalization requires capturing underlying structure",
+      "Memorization fails when situations differ from training",
+      "Transfer learning applies knowledge across domains"
+    ],
+    "confidence": 0.9,
+    "domain": "machine learning",
+    "related_concepts": ["learning", "transfer", "structure", "overfitting"]
+  }
+]

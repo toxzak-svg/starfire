@@ -15,6 +15,9 @@ pub mod capabilities;
 pub mod training_db;
 pub mod learning;
 pub mod runtime;
+pub mod voice;
+pub mod math;
+pub mod curiosity;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
