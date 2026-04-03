@@ -3,7 +3,7 @@
   "build": {
     "dockerfilePath": "Dockerfile",
     "builder": "DOCKERFILE",
-    "rootDirectory": "ui"
+    "rootDirectory": ""
   },
   "deploy": {
     "numReplicas": 1,
