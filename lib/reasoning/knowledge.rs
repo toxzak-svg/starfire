@@ -223,8 +223,8 @@ impl KnowledgeGraph {
 
     /// Add a relationship between entities.
     pub fn add_relationship(&mut self, from: &str, relation: RelationType, to: &str) {
-        if from.len() < 2 || to.len() < 2 { return; }
-        
+        if from.is_empty() || to.is_empty() { return; }
+
         let from = from.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
         let to = to.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
         

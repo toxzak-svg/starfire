@@ -59,7 +59,7 @@ impl MetaCognition {
                     old_state: existing_belief.confidence_state,
                     new_state: belief.confidence_state,
                     reason: format!("Evidence shifted confidence: {:?}", belief.confidence_state),
-                    timestamp: chrono::Utc::now().timestamp(),
+                    timestamp: crate::now_timestamp(),
                     investigated: false,
                 });
             }
@@ -182,7 +182,7 @@ impl MetaCognition {
             query: query.to_string(),
             conclusion: conclusion.to_string(),
             confidence,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
             was_surprising: self.surprise.is_surprising(conclusion, confidence),
         };
         
@@ -671,7 +671,7 @@ impl KnowledgeGap {
         Self {
             topic: topic.into(),
             importance,
-            noticed_at: chrono::Utc::now().timestamp(),
+            noticed_at: crate::now_timestamp(),
             investigated: false,
             progress: 0.0,
         }

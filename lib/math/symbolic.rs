@@ -319,13 +319,13 @@ impl AlgebraEngine {
         };
         
         // Extract constant term (after x)
-        let after_x = &expr[x_pos + 1..];
+        let after_x = expr[x_pos + 1..].trim();
         let b = if after_x.is_empty() {
             0.0
-        } else if after_x.starts_with("+") {
+        } else if after_x.starts_with('+') {
             after_x[1..].trim().parse().unwrap_or(0.0)
-        } else if after_x.starts_with("-") {
-            after_x.parse().unwrap_or(0.0)
+        } else if after_x.starts_with('-') {
+            -(after_x[1..].trim().parse::<f64>().unwrap_or(0.0))
         } else {
             0.0
         };

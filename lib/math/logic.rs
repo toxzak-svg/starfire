@@ -118,6 +118,7 @@ impl Proposition {
             Proposition::True | Proposition::False => {}
         }
     }
+}
 
 impl Display for Proposition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

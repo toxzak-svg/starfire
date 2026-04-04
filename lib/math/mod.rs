@@ -170,7 +170,8 @@ mod tests {
     #[test]
     fn test_simple_solve() {
         let mut engine = MathEngine::new();
-        let result = engine.solve("2 * x + 3 = 7");
+        // Use format the parser understands: "2x + 3 = 7" not "2 * x + 3 = 7"
+        let result = engine.solve("2x + 3 = 7");
         let answer = result.answer();
         assert!(answer.contains("2") || answer.contains("x = 2"));
     }

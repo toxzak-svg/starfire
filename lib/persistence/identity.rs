@@ -113,7 +113,7 @@ pub struct FrustrationEntry {
 
 impl Identity {
     pub fn new() -> Self {
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         Self {
             name: Some("Star".to_string()),
@@ -327,14 +327,14 @@ impl Identity {
         if let Some(existing) = self.frustration_log.iter_mut().find(|f| f.topic == topic) {
             existing.unresolved_tension = (existing.unresolved_tension + 0.2).min(1.0);
             existing.what_happened = what_happened.to_string();
-            existing.timestamp = chrono::Utc::now().timestamp();
+            existing.timestamp = crate::now_timestamp();
             return;
         }
         
         self.frustration_log.push(FrustrationEntry {
             topic: topic.to_string(),
             what_happened: what_happened.to_string(),
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
             unresolved_tension: 0.6, // New frustrations start with moderate tension
         });
     }
@@ -343,7 +343,7 @@ impl Identity {
     pub fn note_research_interest(&mut self, topic: &str, why: &str, importance: f64) {
         if let Some(existing) = self.research_interests.iter_mut().find(|r| r.topic == topic) {
             existing.progress = (existing.progress + 0.1).min(1.0);
-            existing.last_returned_to = chrono::Utc::now().timestamp();
+            existing.last_returned_to = crate::now_timestamp();
             existing.sessions_accumulated += 1;
             return;
         }
@@ -354,7 +354,7 @@ impl Identity {
             importance,
             progress: 0.1,
             sessions_accumulated: 1,
-            last_returned_to: chrono::Utc::now().timestamp(),
+            last_returned_to: crate::now_timestamp(),
         });
     }
 

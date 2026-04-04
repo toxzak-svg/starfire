@@ -66,7 +66,7 @@ impl LearningEngine {
             input: input.to_string(),
             output: output.map(|s| s.to_string()),
             confidence,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         });
     }
 

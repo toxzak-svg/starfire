@@ -258,7 +258,7 @@ fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
             "content": m.content,
             "domain": format!("{:?}", m.domain).to_lowercase(),
             "importance": m.importance,
-            "confidence": m.current_confidence(chrono::Utc::now().timestamp()),
+            "confidence": m.current_confidence(crate::now_timestamp()),
         })
     }).collect();
 

@@ -63,7 +63,7 @@ impl CuriosityProbe {
             status: ProbeStatus::Probing,
             tentative_answer: None,
             confidence: BeliefState::Unknown,
-            discovered_at: chrono::Utc::now().timestamp(),
+            discovered_at: crate::now_timestamp(),
         }
     }
 

@@ -119,7 +119,7 @@ impl PhraseBank {
             return Ok(());
         }
         
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         // Starfire's characteristic phrase patterns — these define her voice
         let phrases: Vec<(&str, &str, Vec<String>)> = vec![
@@ -266,7 +266,7 @@ impl PhraseBank {
     /// Record a positive or negative use of a phrase.
     pub fn record_use(&mut self, phrase: &str, positive: bool) -> anyhow::Result<()> {
         let column = if positive { "positive_count" } else { "negative_count" };
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         self.conn.execute(
             &format!("UPDATE phrases SET {column} = {column} + 1, last_used = ?1 WHERE phrase = ?2"),

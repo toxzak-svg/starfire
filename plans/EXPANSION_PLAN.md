@@ -1,8 +1,8 @@
 # Starfire Technical Debt & Feature Expansion Plan
 
 **Generated:** 2026-04-04
-**Status:** Planned
-**Scope:** Starfire (Rust) + Quanot (Python)
+**Status:** In Progress — Updated 2026-04-04 07:XX
+**Scope:** Starfire (Rust) + Quanot (Rust — rewrote!)
 
 ---
 

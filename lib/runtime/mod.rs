@@ -958,7 +958,7 @@ impl Runtime {
             topic: Some(event_topic),
             was_uncertain,
             hedge_count,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         };
         if let Err(e) = self.store.record_reasoning_event(&reasoning_event) {
             tracing::warn!("Failed to record reasoning event: {}", e);
@@ -1125,12 +1125,12 @@ impl Runtime {
             {
                 // Use timestamp to determine if we express this time (roughly 30% of the time)
                 // to avoid being repetitive
-                let now = chrono::Utc::now();
-                let should_express = (now.timestamp() % 10) < 3; // ~30% chance
+                let now = crate::now_timestamp();
+                let should_express = (now % 10) < 3; // ~30% chance
 
                 if should_express {
                     // Use timestamp + topic length for varied expression styles
-                    let selection = (now.timestamp() as usize).saturating_add(thought.topic.len());
+                    let selection = (now as usize).saturating_add(thought.topic.len());
                     let _style_bucket = selection % 10;
                     
                     let thought_text = match &thought.kind {
@@ -1522,7 +1522,7 @@ impl Runtime {
         {
             let reasoning_history = self.metacog.reasoning_history();
             if let Some(surprising) = reasoning_history.last() {
-                let age_seconds = chrono::Utc::now().timestamp() - surprising.timestamp;
+                let age_seconds = crate::now_timestamp() - surprising.timestamp;
                 if age_seconds < 3600 && surprising.was_surprising {
                     let q_clone = surprising.query.clone();
                     let c_clone = surprising.conclusion.clone();
@@ -1554,7 +1554,7 @@ impl Runtime {
         {
             let revisions = self.metacog.revisions();
             if let Some(revision) = revisions.last() {
-                let age_seconds = chrono::Utc::now().timestamp() - revision.timestamp;
+                let age_seconds = crate::now_timestamp() - revision.timestamp;
                 // Only fire if: recent revision AND not yet investigated
                 // (to prevent firing on the same revision on every think() call)
                 if age_seconds < 7200 && !revision.investigated {
@@ -1668,8 +1668,8 @@ impl Runtime {
         // Use timestamp to introduce variation so we don't ask the same question every time.
         // Filter to only entities Star has no existing belief about — we don't want to
         // re-investigate things Star already has beliefs for (causes endless loops).
-        let now = chrono::Utc::now();
-        let time_offset = (now.timestamp() / 30) as usize; // Changes every 30 seconds
+        let now = crate::now_timestamp();
+        let time_offset = (now / 30) as usize; // Changes every 30 seconds
         let guard = self.reasoning.lock().unwrap();
         let kg = guard.knowledge();
         let entity_sample: Vec<String> = kg.entities()

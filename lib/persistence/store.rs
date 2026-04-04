@@ -314,7 +314,7 @@ impl Store {
     /// Search memories by relevance to a query.
     pub fn search_memories(&self, query: &str, limit: usize, domain: Option<MemoryDomain>) -> Result<Vec<Memory>> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         let domain_filter = domain.map(|d| format!("AND domain = '{}'", format!("{:?}", d).to_lowercase())).unwrap_or_default();
         let sql = format!(
@@ -339,7 +339,7 @@ impl Store {
         }
         
         // If no exact matches and query is long enough, try partial match
-        if results.is_empty() && query.len() > 4 {
+        if results.is_empty() && query.len() >= 4 {
             // Avoid matching substrings in common words
             let skip_substrings = ["the ", "and ", "for ", "brain", "drain", "train", "grain", "plain", "remain", "contain", "about", "which"];
             if !skip_substrings.contains(&query.to_lowercase().as_str()) {
@@ -534,7 +534,7 @@ impl Store {
     /// Get reasoning events from the last N seconds.
     pub fn get_reasoning_events_since(&self, seconds_ago: i64) -> Result<Vec<ReasoningEvent>> {
         let conn = self.conn.lock().unwrap();
-        let since = chrono::Utc::now().timestamp() - seconds_ago;
+        let since = crate::now_timestamp() - seconds_ago;
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC"
         )?;
@@ -549,7 +549,7 @@ impl Store {
     /// Get uncertain reasoning events (gaps worth probing).
     pub fn get_uncertain_reasoning_events(&self, max_age_seconds: i64, limit: usize) -> Result<Vec<ReasoningEvent>> {
         let conn = self.conn.lock().unwrap();
-        let since = chrono::Utc::now().timestamp() - max_age_seconds;
+        let since = crate::now_timestamp() - max_age_seconds;
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events 
              WHERE (was_uncertain = 1 OR confidence_score < 0.4 OR hedge_count > 0)
@@ -569,7 +569,7 @@ impl Store {
     /// Returns events that are worth self-probing.
     pub fn detect_reasoning_gaps(&self, max_age_days: i64, limit: usize) -> Result<Vec<ReasoningGap>> {
         let conn = self.conn.lock().unwrap();
-        let since = chrono::Utc::now().timestamp() - (max_age_days * 24 * 60 * 60);
+        let since = crate::now_timestamp() - (max_age_days * 24 * 60 * 60);
         
         // Find uncertain events
         let mut stmt = conn.prepare(
@@ -582,7 +582,7 @@ impl Store {
         
         let rows = stmt.query_map(params![since, (limit * 2) as i64], row_to_reasoning_event)?;
         let mut gaps = Vec::new();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         for row in rows {
             if let Ok(event) = row {
@@ -652,7 +652,7 @@ impl Store {
     /// Start a new session. Returns the session ID.
     pub fn start_session(&self) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO sessions (started_at) VALUES (?1)",
             params![now],
@@ -663,7 +663,7 @@ impl Store {
     /// End a session.
     pub fn end_session(&self, session_id: i64, summary: Option<&str>) -> Result<()> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "UPDATE sessions SET ended_at = ?1, summary = ?2 WHERE id = ?3",
             params![now, summary, session_id],
@@ -868,7 +868,7 @@ mod tests {
     #[test]
     fn test_identity_crud() {
         let store = test_store();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         store.put_identity("name", "Star", now).unwrap();
         assert_eq!(store.get_identity("name").unwrap(), Some("Star".to_string()));
@@ -896,17 +896,22 @@ mod tests {
     #[test]
     fn test_search_memories() {
         let store = test_store();
-        
+
         let mem1 = Memory::new("The sky is blue", MemoryDomain::Empirical, 0.8);
         let mem2 = Memory::new("The grass is green", MemoryDomain::Empirical, 0.6);
         let mem3 = Memory::new("Fish live in water", MemoryDomain::Empirical, 0.7);
-        
+
         store.insert_memory(&mem1).unwrap();
         store.insert_memory(&mem2).unwrap();
         store.insert_memory(&mem3).unwrap();
-        
-        let results = store.search_memories("sky blue", 10, None).unwrap();
+
+        // Search for "sky" should match "The sky is blue"
+        let results = store.search_memories("sky", 10, None).unwrap();
         assert!(!results.is_empty());
+
+        // Search for "blue" should match "The sky is blue"
+        let results2 = store.search_memories("blue", 10, None).unwrap();
+        assert!(!results2.is_empty());
     }
 
     #[test]

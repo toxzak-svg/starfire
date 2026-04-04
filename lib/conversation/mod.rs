@@ -43,7 +43,7 @@ impl Conversation {
 
     /// Process a message from Zachary and generate Star's response.
     pub fn respond(&mut self, input: &str) -> Response {
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         let zachary_msg = Message {
             speaker: Speaker::Zachary,
@@ -66,7 +66,7 @@ impl Conversation {
         let star_msg = Message {
             speaker: Speaker::Star,
             content: response.content.clone(),
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         };
         self.history.push(star_msg);
         
@@ -226,7 +226,7 @@ impl Conversation {
         }
         
         let last_time = last_session.unwrap().started_at;
-        let hours_ago = (chrono::Utc::now().timestamp() - last_time) / 3600;
+        let hours_ago = (crate::now_timestamp() - last_time) / 3600;
         
         if hours_ago < 1 {
             // Recently active — pick up where we left off
@@ -664,7 +664,7 @@ impl Default for ConversationContext {
             last_topic: None,
             topic_depth: 0,
             unanswered_questions: 0,
-            session_started: chrono::Utc::now().timestamp(),
+            session_started: crate::now_timestamp(),
         }
     }
 }

@@ -60,7 +60,7 @@ impl CuriousEngine {
         }
         
         if let Some(last) = self.last_probe_time {
-            let now = chrono::Utc::now().timestamp();
+            let now = crate::now_timestamp();
             (now - last) >= self.idle_min_seconds
         } else {
             true // Never fired or been reset
@@ -96,7 +96,7 @@ impl CuriousEngine {
         };
 
         if probe.is_some() {
-            self.last_probe_time = Some(chrono::Utc::now().timestamp());
+            self.last_probe_time = Some(crate::now_timestamp());
         }
 
         probe
@@ -117,7 +117,7 @@ impl CuriousEngine {
             status: ProbeStatus::Probing,
             tentative_answer: None,
             confidence: crate::persistence::BeliefState::Suspects,
-            discovered_at: chrono::Utc::now().timestamp(),
+            discovered_at: crate::now_timestamp(),
         })
     }
 
@@ -138,7 +138,7 @@ impl CuriousEngine {
             status: ProbeStatus::Probing,
             tentative_answer: None,
             confidence: crate::persistence::BeliefState::Suspects,
-            discovered_at: chrono::Utc::now().timestamp(),
+            discovered_at: crate::now_timestamp(),
         })
     }
 
@@ -198,7 +198,7 @@ impl CuriousEngine {
             completed_probes: self.completed_probes.len(),
             abandoned_probes: self.abandoned_probes.len(),
             idle_seconds: self.last_probe_time
-                .map(|t| chrono::Utc::now().timestamp() - t)
+                .map(|t| crate::now_timestamp() - t)
                 .unwrap_or(9999),
         }
     }

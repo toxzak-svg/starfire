@@ -1,73 +1,48 @@
-# Starfire Deployment Guide
+# Starfire Docker Deployment
 
-> Simple build and run instructions for Starfire + QuaNot.
+## Overview
 
----
+Builds a self-contained Docker image for Starfire AGI with:
+- Starfire (Rust) — the AGI core
+- Quanot (Rust) — reservoir computing subsystem
+- Gateway API — HTTP/WebSocket interface
 
-## Quick Start
+## Building
 
 ```bash
-# Build everything
-./build.sh all
-
-# Run Starfire
-./target/release/star.exe
-
-# Or run QuaNot
-cd quanot && .venv/Scripts/python src/main.py
+docker build -t starfire:latest .
 ```
 
----
+## Running
 
-## Prerequisites
-
-| Component | Version |
-|-----------|---------|
-| Rust | 1.70+ |
-| Python | 3.10+ |
-
----
-
-## Manual Build
-
-### Starfire
 ```bash
-cargo build --release
-./target/release/star.exe
+# With docker-compose
+docker-compose up -d
+
+# Standalone
+docker run -p 8080:8080 starfire:latest
 ```
 
-### QuaNot
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| STARFIRE_PORT | 8080 | HTTP API port |
+| STARFIRE_DATA | /data | Persistent data directory |
+| STARFIRE_LOG | info | Log level: trace, debug, info, warn, error |
+| STARFIRE_MEMORY | /data/memory | Memory store path |
+
+## Ports
+
+- `8080` — HTTP API
+- `8081` — WebSocket (future)
+
+## Volumes
+
+- `/data` — persistent memory and state
+
+## Health Check
+
 ```bash
-cd quanot
-python -m venv .venv
-.venv/Scripts\pip install -r ..\requirements.txt
-.venv\Scripts\python src\main.py
+curl http://localhost:8080/health
 ```
-
----
-
-## Commands
-
-Starfire accepts these commands:
-
-- `star.exe chat` - Interactive chat
-- `star.exe status` - Check memory
-- `star.exe api` - Start HTTP API
-
----
-
-## Troubleshooting
-
-**Module not found:**
-```bash
-cd quanot && .venv\Scripts\pip install -r ..\requirements.txt
-```
-
-**Build error:**
-```bash
-cargo clean && cargo build --release
-```
-
----
-
-*Last updated: 2026-04-04*
