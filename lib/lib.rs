@@ -35,6 +35,7 @@ pub mod multimodal;
 pub mod causal;
 pub mod goals;
 pub mod curriculum;
+pub mod research;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

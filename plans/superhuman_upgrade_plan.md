@@ -434,7 +434,7 @@ starfire/lib/Cargo.toml
 
 ---
 
-## Implementation Status (2026-04-03)
+## Implementation Status (2026-04-04)
 
 ### ✅ Phase 1: Voice Engine — COMPLETE
 - [x] `lib/voice/mod.rs` — Voice engine with phrase application + emotional tinting
@@ -448,10 +448,10 @@ starfire/lib/Cargo.toml
 - [x] `data/seed_knowledge.json` — 100 facts across 12 domains
 - [x] `scripts/populate_knowledge.py` — Population script (Python, standalone)
 
-### ⏳ Phase 2 (Integration): Knowledge Expansion — PENDING
-- [ ] `lib/knowledge/expansion.rs` — KG expansion utilities
-- [ ] Wire knowledge population into `Runtime::new()` startup
-- [ ] Cross-domain link generation for analogical reasoning
+### ✅ Phase 2 (Integration): Knowledge Expansion — COMPLETE
+- [x] `lib/knowledge/expansion.rs` — KG expansion utilities
+- [x] Wire knowledge population into `Runtime::new()` startup
+- [x] Cross-domain link generation for analogical reasoning
 
 ### ✅ Phase 3: Visible Reasoning Chains — COMPLETE
 - [x] `lib/reasoning/chain.rs` — VisibleReasoningStep + ReasoningChain + InferenceRule types
@@ -469,12 +469,6 @@ starfire/lib/Cargo.toml
 - [x] `lib/curiosity/probes.rs` — 17 question templates, CuriosityProbe types, CuriosityDepth
 - [x] `lib/curiosity/connection.rs` — 20+ known analogies across domains, ConnectionFinder
 - [x] `lib/curiosity/expression.rs` — 4 expression styles (warm/analytical/excited/contemplative)
-
-### ⏳ Phase 6: Web Search Synthesis — PENDING
-- [ ] `lib/knowledge/web_synthesis.rs` — Search result synthesis pipeline
-- [ ] "I researched X" meta-awareness
-- [ ] `lib/curiosity/connection.rs` — Cross-domain connection discovery
-- [ ] `lib/curiosity/expression.rs` — Natural curiosity expression
 
 ### ⏳ Phase 6: Web Search Synthesis — PENDING
 - [ ] `lib/knowledge/web_synthesis.rs` — Search result synthesis pipeline

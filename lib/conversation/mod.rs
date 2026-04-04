@@ -6,14 +6,16 @@
 use crate::persistence::{Memory, MemoryDomain, Store, BeliefState};
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
-use std::sync::Arc;
+use crate::research::ResearchWalkabout;
+use std::sync::{Arc, Mutex};
 
 /// A conversation — the interactive dialogue with Zachary.
 #[allow(dead_code)]
 pub struct Conversation {
     store: Arc<Store>,
-    reasoning: ReasoningEngine,
+    reasoning: Arc<Mutex<ReasoningEngine>>,
     metacog: MetaCognition,
+    research: ResearchWalkabout,
     history: Vec<Message>,
     context: ConversationContext,
 }
@@ -33,10 +35,15 @@ pub enum Speaker {
 
 impl Conversation {
     pub fn new(store: Arc<Store>) -> Self {
+        let reasoning = ReasoningEngine::new();
+        // Wrap reasoning in Arc<Mutex> for sharing with research module
+        let reasoning_arc = Arc::new(Mutex::new(reasoning));
+        
         Self {
             store,
-            reasoning: ReasoningEngine::new(),
+            reasoning: Arc::clone(&reasoning_arc),
             metacog: MetaCognition::new(),
+            research: ResearchWalkabout::new(reasoning_arc),
             history: Vec::new(),
             context: ConversationContext::default(),
         }
@@ -452,7 +459,10 @@ impl Conversation {
             }
         }
         
-        let result = self.reasoning.reason(&topic, &combined);
+        let result = {
+            let mut reasoning = self.reasoning.lock().unwrap();
+            reasoning.reason(&topic, &combined)
+        };
         
         // Build content — engage even with partial knowledge
         let content = if let Some(answer) = &result.answer {
@@ -461,24 +471,49 @@ impl Conversation {
                 && (answer.contains("don't know") || answer.contains("not know") || answer.contains("not sure"));
             
             if genuinely_uncertain {
-                // Uncertain — engage with what we do know from memories
-                if !combined.is_empty() {
-                    let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
-                    let base = related.join("; ");
-                    // Add a genuine follow-up, conversational bridges work well here
-                    let followups = [
-                        "What do you think about that?",
-                        "Does that match what you know?",
-                        "I'm still building my understanding of this — does that make sense?",
-                        "Where does that fit in what you're thinking about?",
-                    ];
-                    let idx = topic.len() % followups.len();
-                    // Use "—" for the first three (natural flow), "." for the question
-                    let sep = if followups[idx].ends_with('?') { " " } else { " — " };
-                    format!("I don't have a complete answer, but {}{}{}", base, sep, followups[idx])
+                // Trigger research walkabout when Star genuinely doesn't know
+                // Start research and get the "one moment" response
+                let research_response = self.research.start_research(&topic);
+                
+                // Conduct the research
+                self.research.conduct_research(&topic);
+                
+                // Complete research and get findings
+                if let Some(completion) = self.research.complete_research(&topic) {
+                    let (findings_response, curiosity) = completion.to_response();
+                    
+                    return Response {
+                        content: format!("{} {}", research_response, findings_response),
+                        confidence: completion.confidence,
+                        chain: result.reasoning_chain.clone(),
+                        new_memories: Vec::new(),
+                        curiosity,
+                    };
                 } else {
-                    // Nothing to work with — be curious and specific
-                    generate_i_dont_know_response(&topic)
+                    // Research didn't complete, fall back to original response
+                    let fallback_content = if !combined.is_empty() {
+                        let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
+                        let base = related.join("; ");
+                        let followups = [
+                            "What do you think about that?",
+                            "Does that match what you know?",
+                            "I'm still building my understanding of this — does that make sense?",
+                            "Where does that fit in what you're thinking about?",
+                        ];
+                        let idx = topic.len() % followups.len();
+                        let sep = if followups[idx].ends_with('?') { " " } else { " — " };
+                        format!("I don't have a complete answer, but {}{}{}", base, sep, followups[idx])
+                    } else {
+                        generate_i_dont_know_response(&topic)
+                    };
+                    
+                    return Response {
+                        content: fallback_content,
+                        confidence: BeliefState::Unknown,
+                        chain: result.reasoning_chain.clone(),
+                        new_memories: Vec::new(),
+                        curiosity: generate_natural_curiosity(&topic),
+                    };
                 }
             } else if self.context.topic_depth > 3 {
                 // Returning to a topic — show continuity

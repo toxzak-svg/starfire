@@ -261,6 +261,7 @@ starfire/
 │       └── integration_test.rs
 ├── lib/                  ← library crate
 │   ├── quanot/          # Reservoir computing substrate (ESN, chaos, consciousness, creativity)
+│   ├── prediction/      # Prediction center (question gravity, belief revision, basin, meta)
 │   ├── persistence/      # Layer 1
 │   │   ├── mod.rs
 │   │   ├── identity.rs   # Identity core
@@ -437,6 +438,17 @@ All four phases are complete. Star is live at https://star-production-6458.up.ra
 **Post-Phase 4 Addition — Quanot (2026-04-04):**
 
 Reservoir computing system added as Star's cognitive substrate. Processes every message through ESN → chaos metrics → consciousness proxy → creativity signals. See `plans/QUANOT_RUST_REWRITE.md`.
+
+**Post-Phase 4 Addition — Prediction Center (2026-04-04):**
+
+Four-engine prediction system enabling Star to forecast her own conclusions, curiosity questions, and necessary truths. See `plans/PREDICTION_CENTER_PLAN.md`.
+
+| Component | Status |
+|-----------|--------|
+| Belief Revision Forecasting (reservoir dynamics) | Planned |
+| Question Gravity (curiosity forecasting) | Planned |
+| Attractor Basin (constraint satisfaction) | Planned |
+| Meta-Prediction (confidence calibration) | Planned |
 
 | Component | Status |
 |-----------|--------|
