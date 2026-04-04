@@ -146,8 +146,8 @@ impl SimulatedQuantumAnnealing {
 
         // Interaction term
         for i in 0..self.n_spins {
-            for j in (i + 1)..self.n_spins {
-                e -= j[i][j] * spins[i] as f64 * spins[j] as f64;
+            for k in (i + 1)..self.n_spins {
+                e -= j[i][k] * spins[i] as f64 * spins[k] as f64;
             }
         }
 
@@ -182,11 +182,11 @@ pub fn solve_qubo(q: &[Vec<f64>], n_trotters: usize) -> Vec<i8> {
     let mut h = vec![0.0; n];
 
     for i in 0..n {
-        for j in 0..n {
-            if i < j {
-                j[i][j] = 2.0 * q[i][j];
-            } else if i == j {
-                h[i] += 2.0 * q[i][j];
+        for k in 0..n {
+            if i < k {
+                j[i][k] = 2.0 * q[i][k];
+            } else if i == k {
+                h[i] += 2.0 * q[i][k];
             }
         }
     }
