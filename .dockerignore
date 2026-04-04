@@ -2,7 +2,6 @@
 .git
 .gitignore
 target
-Cargo.lock
 README.md
 AGENTS.md
 SOUL.md
@@ -14,12 +13,8 @@ SPEC.md
 TOOLS.md
 .clawhub
 .openclaw
-.railway
-data
 docs
 plans
-scripts
-**/target
 **/*.md
 
 # Include all of ui
