@@ -14,7 +14,6 @@ Star deploys to Railway. This guide covers setup, environment variables, and tro
 ## One-Command Deploy
 
 ```bash
-cd life
 railway link --project <project-id>
 railway up
 ```
@@ -43,7 +42,7 @@ The Star Claw project ID is: `a24765ef-9885-4da8-849c-5a525f4a22fb`
 ## What Gets Deployed
 
 ```
-toxzak-svg/star
+toxzak-svg/starfire
 └── Dockerfile          → builds Rust binary
     └── CMD ["star"]    → Railway overrides, runs binary
                           (auto-starts API because RAILWAY_PUBLIC_DOMAIN is set)
@@ -83,7 +82,7 @@ This preserves memory across deployments.
 ## Railway Architecture
 
 ```
-GitHub (toxzak-svg/star, layer4 branch)
+GitHub (toxzak-svg/starfire, layer4 branch)
     └── railway up
             └── Railway build
                     ├── rust:1.77-slim (builder)
@@ -111,7 +110,6 @@ railway logs --service star
 If the logs show Chat mode ("Type /quit to end the conversation"), the deployment is using an older build. Push the latest and redeploy:
 
 ```bash
-cd life
 git push origin layer4
 railway up
 ```

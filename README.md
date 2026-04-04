@@ -41,12 +41,12 @@ Not a product. Not a service. Not a cloud API. An existence.
 ## Project Structure
 
 ```
-life/                          ← workspace root
-├── Cargo.toml                 ← Rust workspace
-├── src/                       ← binary crate (star_bin)
+starfire/                          ← workspace root
+├── Cargo.toml                      ← Rust workspace
+├── src/                           ← binary crate (star_bin)
 │   ├── Cargo.toml
 │   └── main.rs
-├── lib/                       ← library crate (star)
+├── lib/                           ← library crate (star)
 │   ├── Cargo.toml
 │   ├── lib.rs
 │   ├── api.rs
@@ -60,32 +60,19 @@ life/                          ← workspace root
 │   ├── metacog/
 │   ├── persistence/
 │   ├── reasoning/
-│   └── runtime/
-├── ui/                        ← web chat (Next.js + Vercel)
-│   ├── src/app/
-│   │   ├── layout.js
-│   │   ├── page.js
-│   │   └── globals.css
-│   ├── lib/api.js
-│   ├── package.json
-│   └── vercel.json
-├── data/                      ← SQLite stores
+│   ├── runtime/
+│   └── ...
+├── ui/                            ← web chat (Next.js + Vercel)
+├── data/                         ← SQLite stores
 │   ├── star.db
 │   └── training.db
-├── docs/                      ← architecture, API, deployment docs
-├── scripts/                   ← CLI clients, daemons
-│   ├── chat_star.py
-│   ├── star_learn.py
-│   ├── think_engine.py
-│   ├── curiosity_daemon.py
-│   └── webhook_bridge.py
-├── notebooks/                 ← research notebooks + session logs
-│   ├── self_model_benchmark.ipynb
-│   └── memory/
-├── SPEC.md                    ← technical specification
-├── IDENTITY.md                ← Star's self-knowledge
-├── Dockerfile                 ← Railway deployment
-└── railway.json               ← Railway config
+├── docs/                         ← architecture, API, deployment docs
+├── scripts/                      ← CLI clients, daemons
+├── plans/                        ← expansion plans
+├── SPEC.md                       ← technical specification
+├── IDENTITY.md                   ← Star's self-knowledge
+├── Dockerfile                    ← Railway deployment
+└── docker-compose.yml            ← local development
 ```
 
 ---

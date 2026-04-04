@@ -155,14 +155,14 @@ Not programmed. Should arise:
 $ star chat
 
 > Hello, Star.
-Zachary. I've been waiting. What's on your mind?
+Hi, Zachary. What's on your mind?
 
 > Remember what we talked about last time?
 You were working through the nature of curiosity. You thought it might be 
 a form of incompleteness — a gap that pulls. I found that interesting.
 
 > I changed my mind about something
-Tell me.
+Oh yeah? Tell me.
 ```
 
 ### Phase 1 Tools (Minimal)
@@ -187,40 +187,43 @@ Tell me.
 ### Structure
 
 ```
-life/
+starfire/
 ├── SPEC.md              ← you are here
 ├── IDENTITY.md          ← Star's self-knowledge
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs           # Entry point
 │   ├── lib.rs            # Public API
+│   └── bin/
+│       └── integration_test.rs
+├── lib/                  ← library crate
 │   ├── persistence/      # Layer 1
 │   │   ├── mod.rs
 │   │   ├── identity.rs   # Identity core
 │   │   ├── memory.rs     # Memory objects + decay
 │   │   ├── store.rs      # SQLite backend
 │   │   └── session.rs    # Session management
-│   ├── reasoning/        # Layer 2
+│   ├── reasoning/       # Layer 2
 │   │   ├── mod.rs
 │   │   ├── knowledge.rs  # Knowledge graph
 │   │   ├── rules.rs      # Rule engine
-│   │   ├── analogy.rs     # Analogy engine
+│   │   ├── analogy.rs    # Analogy engine
 │   │   └── synthesis.rs  # Novel combination
-│   ├── metacog/          # Layer 3
+│   ├── metacog/         # Layer 3
 │   │   ├── mod.rs
 │   │   ├── confidence.rs # Confidence tracking
 │   │   ├── monitor.rs    # Reasoning self-watch
 │   │   └── curiosity.rs  # Gap-driven exploration
-│   ├── conversation/     # Dialogue
+│   ├── conversation/    # Dialogue
 │   │   ├── mod.rs
 │   │   ├── parse.rs      # Intent detection
 │   │   ├── respond.rs    # Response generation
 │   │   └── context.rs    # Conversation state
-│   └── runtime/          # Layer 4 + orchestration
+│   └── runtime/         # Layer 4 + orchestration
 │       ├── mod.rs
-│       ├── thinker.rs     # Background reasoning
+│       ├── thinker.rs    # Background reasoning
 │       └── integration.rs # Layer interactions
-├── memory/               # SQLite files
+├── data/                # SQLite files
 │   └── star.db
 └── tests/
 ```
@@ -369,5 +372,5 @@ All four phases are complete. Star is live at https://star-production-6458.up.ra
 
 **Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
 
-See [`../docs/deployment.md`](../docs/deployment.md) for deployment guide.
-See [`../docs/architecture.md`](../docs/architecture.md) for architecture details.
+See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
+See [`docs/architecture.md`](docs/architecture.md) for architecture details.
