@@ -20,6 +20,7 @@ pub mod chain;
 pub mod chain_display;
 
 use crate::persistence::{Memory, BeliefState};
+use crate::math::MathEngine;
 use pathways::PathwayFusion;
 use knowledge::RelationType;
 
@@ -112,6 +113,7 @@ impl ReasoningEngine {
             QueryType::Does => self.answer_does(query),
             QueryType::Should => self.answer_should(query),
             QueryType::Novel => self.answer_novel(query),
+            QueryType::Math => self.answer_math(query),
             QueryType::Unknown => self.answer_unknown(query),
         }
     }
@@ -119,7 +121,25 @@ impl ReasoningEngine {
     /// Classify what kind of question this is.
     fn classify_query(&self, query: &str) -> QueryType {
         let lower = query.to_lowercase();
-        
+
+        // Check for math FIRST — more specific than other query types
+        // Math patterns: contains numbers and operators, possibly with words like "what is" or "how much"
+        let has_number = query.chars().any(|c| c.is_ascii_digit());
+        let has_operator = query.contains('+')
+            || query.contains('-')
+            || query.contains('*')
+            || query.contains('/')
+            || query.contains('^');
+        // Also detect word-based math: "divided by", "times", "multiplied by"
+        let has_word_math = lower.contains("divided by")
+            || lower.contains("times")
+            || lower.contains("multiplied by")
+            || lower.contains("plus")
+            || lower.contains("minus");
+        if (has_number && has_operator) || has_word_math {
+            return QueryType::Math;
+        }
+
         if lower.starts_with("what is") || lower.starts_with("what are") || lower.starts_with("what's") {
             QueryType::WhatIs
         } else if lower.starts_with("why") {
@@ -128,7 +148,7 @@ impl ReasoningEngine {
             QueryType::How
         } else if lower.starts_with("does") || lower.starts_with("do ") || lower.starts_with("is ") {
             QueryType::Does
-        } else if lower.starts_with("should") || lower.starts_with(" ought ") {
+        } else if lower.starts_with("should") || lower.contains(" ought ") {
             QueryType::Should
         } else if lower.contains(" if ") || lower.contains(" would happen") {
             QueryType::Novel
@@ -559,69 +579,214 @@ impl ReasoningEngine {
         }
     }
 
+    /// Check if a query looks like a math expression.
+    /// Check if a query looks like a math expression.
+    fn looks_like_math(&self, query: &str) -> bool {
+        let lower = query.to_lowercase();
+        let has_number = query.chars().any(|c| c.is_ascii_digit());
+        let has_operator = query.contains('+')
+            || query.contains('-')
+            || query.contains('*')
+            || query.contains('/')
+            || query.contains('^')
+            || query.contains('=');
+        let has_word_math = lower.contains("divided by")
+            || lower.contains("times")
+            || lower.contains("multiplied by")
+            || lower.contains("plus")
+            || lower.contains("minus");
+        (has_number && has_operator) || has_word_math
+    }
+
+    /// Handle a math query.
+    fn answer_math(&mut self, query: &str) -> ReasoningResult {
+        let mut engine = MathEngine::new();
+
+        // Try evaluating the full query first
+        let result = engine.solve(query);
+        let answer_str = result.answer();
+
+        // Check for error condition
+        if answer_str.starts_with("Error: ") || answer_str == "Error: Could not parse or solve: " {
+            // Try stripping common prefixes like "what is", "calculate"
+            let lower_query = query.to_lowercase();
+            let cleaned = lower_query
+                .trim()
+                .strip_prefix("what is")
+                .unwrap_or(query)
+                .trim()
+                .strip_prefix("calculate")
+                .unwrap_or(query)
+                .trim()
+                .strip_prefix("solve")
+                .unwrap_or(query)
+                .trim()
+                .strip_prefix("what's")
+                .unwrap_or(query)
+                .trim()
+                .to_string();
+
+            // Try again with cleaned query
+            if cleaned != query || answer_str.starts_with("Error: ") {
+                let result = engine.solve(&cleaned);
+                let answer = result.answer();
+                if !answer.starts_with("Error: ") && !answer.is_empty() {
+                    return ReasoningResult {
+                        answer: Some(answer.clone()),
+                        confidence: BeliefState::Knows,
+                        reasoning_chain: vec![format!("Evaluated: {} = {}", cleaned, answer)],
+                        confidence_score: Some(0.95),
+                    };
+                }
+            }
+
+            ReasoningResult {
+                answer: Some(format!("I couldn't parse that as math: {}", query)),
+                confidence: BeliefState::Unknown,
+                reasoning_chain: vec![],
+                confidence_score: None,
+            }
+        } else if !answer_str.is_empty() {
+            // Success
+            ReasoningResult {
+                answer: Some(answer_str.clone()),
+                confidence: BeliefState::Knows,
+                reasoning_chain: vec![format!("Evaluated: {} = {}", query, answer_str)],
+                confidence_score: Some(0.95),
+            }
+        } else {
+            ReasoningResult {
+                answer: Some("I couldn't evaluate that expression.".to_string()),
+                confidence: BeliefState::Unknown,
+                reasoning_chain: vec![],
+                confidence_score: None,
+            }
+        }
+    }
+
     fn answer_unknown(&mut self, query: &str) -> ReasoningResult {
-        // Fallback for unknown query types — but still consult the knowledge graph.
+        // Robust fallback for unknown query types — try everything before giving up.
         let topic = query.replace("?", "").trim().to_string();
-        
-        if topic.len() < 5 {
+
+        if topic.len() < 3 {
             return ReasoningResult {
-                answer: Some("Say that again?".to_string()),
+                answer: Some("Say that differently?".to_string()),
                 confidence: BeliefState::Unknown,
                 reasoning_chain: vec![],
                 confidence_score: None,
             };
         }
-        
-        // Try the knowledge graph first (handles "who is X", "where is Y", etc.)
+
         let lower_topic = topic.to_lowercase();
+        let mut reasoning_chain = Vec::new();
+
+        // Step 1: Try the knowledge graph
         let entities = self.knowledge.get_entity(&lower_topic);
         if let Some(entity) = entities {
             let facts = self.knowledge.get_facts_about(&lower_topic);
             if !facts.is_empty() {
-                let answer = format!("{} — {}", 
-                    entity.description.as_deref().unwrap_or(&topic), 
+                let answer = format!(
+                    "{} — {}",
+                    entity.description.as_deref().unwrap_or(&topic),
                     facts.join("; ")
                 );
+                reasoning_chain.extend(facts.clone());
                 return ReasoningResult {
                     answer: Some(answer),
                     confidence: BeliefState::Knows,
-                    reasoning_chain: facts,
+                    reasoning_chain,
                     confidence_score: Some(0.85),
-                };
-            } else {
-                return ReasoningResult {
-                    answer: Some(format!("I know about {}.", topic)),
-                    confidence: BeliefState::Thinks,
-                    reasoning_chain: vec![format!("Entity '{}' found in knowledge graph", topic)],
-                    confidence_score: Some(0.5),
                 };
             }
         }
-        
-        // Try to find anything relevant in working memory
+
+        // Step 2: Try analogy — find related known concepts
+        let analogies = self.analogy.find_analogies(&topic);
+        if !analogies.is_empty() {
+            let best = &analogies[0];
+            let answer = format!(
+                "I don't know '{}' directly, but it's similar to {} — {}",
+                topic,
+                best.source,
+                best.structure
+            );
+            reasoning_chain.push(format!("Analogy: {} ~ {}", topic, best.source));
+            return ReasoningResult {
+                answer: Some(answer),
+                confidence: BeliefState::Believes,
+                reasoning_chain,
+                confidence_score: Some(0.4),
+            };
+        }
+
+        // Step 3: Try synthesis with what we know about this topic
+        if let Some(result) = self.synthesize(&topic) {
+            reasoning_chain.extend(result.chain.clone());
+            return ReasoningResult {
+                answer: Some(result.insight),
+                confidence: BeliefState::Suspects,
+                reasoning_chain,
+                confidence_score: Some(0.3),
+            };
+        }
+
+        // Step 4: Try working memory
         let relevant: Vec<_> = self.working_memory.iter()
             .filter(|w| {
-                w.content.to_lowercase().contains(&lower_topic) ||
-                lower_topic.contains(&w.content.to_lowercase())
+                w.content.to_lowercase().contains(&lower_topic)
+                    || lower_topic.split_whitespace().any(|word| w.content.to_lowercase().contains(word))
             })
             .take(3)
             .collect();
-        
+
         if !relevant.is_empty() {
             let contents: Vec<_> = relevant.iter().map(|w| w.content.clone()).collect();
-            ReasoningResult {
-                answer: Some(contents.join("; ")),
+            reasoning_chain.extend(contents.clone());
+            return ReasoningResult {
+                answer: Some(format!(
+                    "I don't know much about '{}', but {} — based on what I do know.",
+                    topic,
+                    contents.join("; ")
+                )),
                 confidence: BeliefState::Believes,
-                reasoning_chain: contents.clone(),
+                reasoning_chain,
                 confidence_score: Some(0.3),
-            }
-        } else {
-            ReasoningResult {
-                answer: Some("I don't know anything about that.".to_string()),
-                confidence: BeliefState::Unknown,
-                reasoning_chain: vec![],
-                confidence_score: None,
-            }
+            };
+        }
+
+        // Step 5: Try abduction
+        if let Some(cause) = self.abduct_cause(&topic) {
+            return ReasoningResult {
+                answer: Some(cause.clone()),
+                confidence: BeliefState::Suspects,
+                reasoning_chain: vec![format!("Abduced: {} about {}", cause, topic)],
+                confidence_score: Some(0.25),
+            };
+        }
+
+        // Step 6: Give a thoughtful I-don't-know
+        // Don't just say "I don't know" — say what we tried and what would help
+        let approaches = [
+            format!(
+                "I don't know anything about '{}'. I'd need to learn about it — can you teach me or should I look it up?",
+                topic
+            ),
+            format!(
+                "'{}' is outside what I know right now. If you tell me more or let me search for it, I could reason about it.",
+                topic
+            ),
+            format!(
+                "I have no information about '{}'. Want to /search for it, or teach me directly?",
+                topic
+            ),
+        ];
+        let idx = (topic.len() + query.len()) % approaches.len();
+
+        ReasoningResult {
+            answer: Some(approaches[idx].clone()),
+            confidence: BeliefState::Unknown,
+            reasoning_chain: vec![format!("Exhausted KG, analogy, synthesis, abduction, memory — no match for '{}'", topic)],
+            confidence_score: Some(0.0),
         }
     }
 
@@ -726,6 +891,7 @@ pub enum QueryType {
     Does,
     Should,
     Novel,
+    Math,
     Unknown,
 }
 

@@ -952,6 +952,43 @@ impl Runtime {
             }
         }
 
+        // Check if this is a math expression — handle directly before going to conversation
+        // Normalize word-based operators to symbols
+        let lower_input = input.to_lowercase();
+        let math_query = lower_input
+            .replace("divided by", "/")
+            .replace("multiplied by", "*")
+            .replace("times", "*")
+            .replace("plus", "+")
+            .replace("minus", "-")
+            .replace("x", "*")
+            .replace(" ", "");
+
+        // Extract math characters
+        let math_chars: String = math_query.chars()
+            .filter(|c| c.is_ascii_digit() || ['+', '-', '*', '/', '^', '(', ')', '.'].contains(c))
+            .collect();
+        let has_number = input.chars().any(|c| c.is_ascii_digit());
+        let has_math_op = math_query.contains('+') || math_query.contains('-') || math_query.contains('*') || math_query.contains('/') || math_query.contains('^');
+        // Also detect word-based math
+        let has_word_math = lower_input.contains("divided by") || lower_input.contains("times") || lower_input.contains("multiplied by") || lower_input.contains("plus") || lower_input.contains("minus");
+        if has_number && (has_math_op || has_word_math) && !math_chars.is_empty() && input.trim().len() < 60 {
+            // Try to evaluate the math expression
+            let mut math_engine = crate::math::MathEngine::new();
+            let result = math_engine.solve(&math_chars);
+            let answer = result.answer();
+            if !answer.starts_with("Error:") && !answer.is_empty() && answer != "Error: Could not parse or solve: " {
+                // Got a valid math answer — frame it naturally
+                let is_direct = lower_input.starts_with("what is") || lower_input.starts_with("what's") || lower_input.starts_with("how much") || lower_input.starts_with("whats");
+                let prefix = if is_direct { "" } else { "That's " };
+                let mut response = format!("{}{}.", prefix, answer);
+                if response.starts_with("That's .") {
+                    response = answer.clone() + ".";
+                }
+                return Ok(response);
+            }
+        }
+
         // Get the conversation response first
         let response = conversation.respond(input);
 

@@ -36,7 +36,7 @@ impl TemplateEngine {
     fn init_templates(&mut self) {
         // Default templates per style (fallback when no concept match)
         self.defaults.insert("assertive".into(), "{content}".into());
-        self.defaults.insert("exploratory".into(), "I'm working through this... {content}".into());
+        self.defaults.insert("exploratory".into(), "{content} — let me think through this more.".into());
         self.defaults.insert("minimal".into(), "{content}".into());
         self.defaults.insert("balanced".into(), "{content}".into());
         self.defaults.insert("warm".into(), "{content}. I'm glad we're talking about this.".into());

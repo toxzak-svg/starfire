@@ -99,8 +99,8 @@ impl VoiceEngine {
         // Low engagement = shorter, more clipped
         
         let template_key = match (engagement, certainty) {
-            (e, c) if e > 0.7 && c > 0.6 => "assertive",
-            (e, c) if e > 0.7 && c <= 0.6 => "exploratory",
+            (e, c) if e > 0.7 && c > 0.5 => "assertive",
+            (e, c) if e > 0.85 && c <= 0.3 => "exploratory",
             (e, _) if e < 0.3 => "minimal",
             _ => "balanced",
         };

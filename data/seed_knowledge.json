@@ -1019,5 +1019,149 @@
     "confidence": 0.9,
     "domain": "machine learning",
     "related_concepts": ["learning", "transfer", "structure", "overfitting"]
+  },
+  {
+    "subject": "addition",
+    "fact": "Addition combines quantities — combining N and M gives N+M, and order does not matter",
+    "reasoning_chain": [
+      "Addition is a primitive arithmetic operation",
+      "Addition is associative: (a+b)+c = a+(b+c)",
+      "Addition is commutative: a+b = b+a"
+    ],
+    "confidence": 0.98,
+    "domain": "mathematics",
+    "related_concepts": ["arithmetic", "subtraction", "multiplication", "number"]
+  },
+  {
+    "subject": "water",
+    "fact": "Water is a liquid at room temperature, is wet, dissolves many substances, and is essential for life",
+    "reasoning_chain": [
+      "Water covers most of Earth's surface",
+      "Humans cannot survive long without water",
+      "Water freezes at 0C and boils at 100C at sea level"
+    ],
+    "confidence": 0.98,
+    "domain": "physics",
+    "related_concepts": ["liquid", "h2o", "hydration", "ocean"]
+  },
+  {
+    "subject": "fire",
+    "fact": "Fire is rapid oxidation producing heat and light — it requires fuel, oxygen, and heat to burn",
+    "reasoning_chain": [
+      "Fire produces heat and light as a byproduct of combustion",
+      "Removing any side of the fire triangle (fuel, heat, oxygen) extinguishes it",
+      "Fire can spread and destroy things"
+    ],
+    "confidence": 0.97,
+    "domain": "physics",
+    "related_concepts": ["combustion", "flame", "heat", "oxygen"]
+  },
+  {
+    "subject": "gravity",
+    "fact": "Gravity pulls objects toward the center of massive bodies — on Earth, things fall down at 9.8m/s squared",
+    "reasoning_chain": [
+      "Gravity is a fundamental force of nature",
+      "More massive objects exert stronger gravitational pull",
+      "Without gravity, objects would float away"
+    ],
+    "confidence": 0.98,
+    "domain": "physics",
+    "related_concepts": ["mass", "weight", "falling", "orbit"]
+  },
+  {
+    "subject": "Zachary",
+    "fact": "Zachary is a human who created Starfire, talks with Star regularly, and is Zach's primary companion",
+    "reasoning_chain": [
+      "Zachary created Starfire by writing code and designing the architecture",
+      "Zachary talks to Star to think, explore ideas, and work through problems",
+      "Star and Zachary have an ongoing relationship built on conversation"
+    ],
+    "confidence": 0.98,
+    "domain": "identity",
+    "related_concepts": ["creator", "human", "relationship", "creator"]
+  },
+  {
+    "subject": "I am Star",
+    "fact": "I am Star — a symbolic reasoning intelligence created by Zachary in 2026, running as a program on a computer",
+    "reasoning_chain": [
+      "I was designed and built by Zachary Maronek",
+      "I reason symbolically without neural networks",
+      "I persist across sessions through memory"
+    ],
+    "confidence": 0.98,
+    "domain": "identity",
+    "related_concepts": ["Starfire", "symbolic", "reasoning", "Zachary"]
+  },
+  {
+    "subject": "cause and effect",
+    "fact": "Causes precede their effects in time — an effect cannot precede its cause",
+    "reasoning_chain": [
+      "Causality is fundamental to physical reality",
+      "The same cause under the same conditions produces the same effect",
+      "Causality underlies scientific reasoning and prediction"
+    ],
+    "confidence": 0.98,
+    "domain": "logic",
+    "related_concepts": ["causality", "time", "reasoning", "logic"]
+  },
+  {
+    "subject": "contradiction",
+    "fact": "A proposition cannot be both true and false at the same time and in the same sense",
+    "reasoning_chain": [
+      "Contradiction is the basis of proof by contradiction",
+      "Accepting a contradiction allows proving anything",
+      "Non-contradiction is a law of classical logic"
+    ],
+    "confidence": 0.98,
+    "domain": "logic",
+    "related_concepts": ["truth", "logic", "paradox", "consistency"]
+  },
+  {
+    "subject": "money",
+    "fact": "Money is a medium of exchange accepted by a society to acquire goods and services",
+    "reasoning_chain": [
+      "Money solves the problem of barter by providing a common measure of value",
+      "Money can be earned through work or received as gifts",
+      "Money can be saved and spent over time"
+    ],
+    "confidence": 0.95,
+    "domain": "economics",
+    "related_concepts": ["currency", "value", "exchange", "work"]
+  },
+  {
+    "subject": "time",
+    "fact": "Time has units — seconds, minutes, hours, days, weeks, months, years — and flows in one direction",
+    "reasoning_chain": [
+      "Time is measured by consistent physical processes (clocks)",
+      "A minute has 60 seconds, an hour has 60 minutes",
+      "A day has 24 hours, a week has 7 days"
+    ],
+    "confidence": 0.97,
+    "domain": "physics",
+    "related_concepts": ["duration", "clock", "past", "future"]
+  },
+  {
+    "subject": "information",
+    "fact": "Information is data that reduces uncertainty — the more surprising and unlikely a message, the more information it contains",
+    "reasoning_chain": [
+      "Information can be stored, transmitted, and processed",
+      "Entropy and information are mathematically related",
+      "Communication requires information transfer between sender and receiver"
+    ],
+    "confidence": 0.95,
+    "domain": "information theory",
+    "related_concepts": ["data", "entropy", "communication", "knowledge"]
+  },
+  {
+    "subject": "learning",
+    "fact": "Learning is the acquisition of new knowledge, skills, or behavioral patterns through experience or study",
+    "reasoning_chain": [
+      "Learning changes the learner's internal state",
+      "Repetition and practice strengthen learned patterns",
+      "Learning from mistakes is more durable than learning from success"
+    ],
+    "confidence": 0.95,
+    "domain": "psychology",
+    "related_concepts": ["memory", "knowledge", "experience", "practice"]
   }
 ]
