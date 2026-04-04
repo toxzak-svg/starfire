@@ -352,7 +352,8 @@ mod tests {
         let task = engine.generate_task(&gap);
 
         assert!(!task.questions_to_ask.is_empty());
-        assert_eq!(task.strategy, LearningStrategy::AskUser); // High urgency
+        // GapType::Incomplete always uses ExploreInternal strategy
+        assert_eq!(task.strategy, LearningStrategy::ExploreInternal);
     }
 
     #[test]

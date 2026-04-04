@@ -75,7 +75,7 @@ impl CounterfactualEngine {
     }
 
     /// Parse an assumption string into a constraint
-    fn parse_assumption(&self, assumption: &str) -> Option<(String, String, super::basin::ConstraintType)> {
+    pub fn parse_assumption(&self, assumption: &str) -> Option<(String, String, super::basin::ConstraintType)> {
         // Simple parsing: "X causes Y" or "X implies Y"
         let lower = assumption.to_lowercase();
         
@@ -204,7 +204,7 @@ mod tests {
         let result = engine.parse_assumption("fire causes heat");
         
         assert!(result.is_some());
-        let (from, to, constraint_type) = result.unwrap();
+        let (from, to, _constraint_type) = result.unwrap();
         assert_eq!(from, "fire");
         assert_eq!(to, "heat");
     }
