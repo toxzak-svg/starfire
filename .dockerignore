@@ -19,8 +19,6 @@ data
 docs
 plans
 scripts
-src
-lib
 **/target
 **/*.md
 
