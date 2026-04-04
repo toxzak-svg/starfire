@@ -56,7 +56,7 @@ WORKDIR /home/starfire
 
 # Copy binary from builder
 COPY --from=builder /build/target/release/star /usr/local/bin/star
-COPY --from=builder /build/target/release/libstar.so /usr/local/lib/libstar.so 2>/dev/null || true
+RUN test -f /build/target/release/libstar.so && cp /build/target/release/libstar.so /usr/local/lib/libstar.so || true
 
 # Copy config
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
