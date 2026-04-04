@@ -11,6 +11,9 @@ data/training.db
 data/training.db-shm
 data/training.db-wal
 star.db.fresh
+*.db
+*.db-shm
+*.db-wal
 
 # === OS ===
 .DS_Store

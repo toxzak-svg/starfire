@@ -3,7 +3,7 @@
 //! Given a piece of content from one modality, finds related content
 //! in other modalities (e.g., image with its DALL-E prompt).
 
-use super::{BoundContent, ContentId, Modality, MultimodalEngine};
+use super::{ContentId, Modality, MultimodalEngine};
 
 /// Cross-modal binder
 #[derive(Debug, Clone)]

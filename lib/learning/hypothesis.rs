@@ -1,6 +1,6 @@
 //! Hypothesis — Hypothesis generation, evaluation, and refinement
 
-use super::{Example, Hypothesis, HypothesisId, FewShotLearner};
+use super::{Example, Hypothesis};
 use std::collections::HashMap;
 
 /// Hypothesis evaluator

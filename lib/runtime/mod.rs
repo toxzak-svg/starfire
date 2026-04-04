@@ -189,8 +189,9 @@ impl Runtime {
         // Create CuriousEngine with access to reasoning
         let curious = CuriousEngine::new(Arc::clone(&store), Arc::clone(&reasoning_arc));
 
-        // Initialize voice engine
-        let voice = VoiceEngine::new(&db_path)?;
+        // Initialize voice engine with a separate database file
+        let voice_db_path = data_dir.join("voice.db");
+        let voice = VoiceEngine::new(&voice_db_path)?;
         info!("Voice engine initialized.");
 
         let mut runtime = Self {

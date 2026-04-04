@@ -3,7 +3,7 @@
 //! Provides tools for validating causal hypotheses against
 //! held-out observations.
 
-use super::{CausalEngine, CausalHypothesis, DiscoveredCausalEdge};
+use super::{CausalEngine, CausalHypothesis};
 
 /// Validation result for a hypothesis
 #[derive(Debug, Clone)]

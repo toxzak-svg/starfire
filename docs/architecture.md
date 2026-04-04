@@ -153,6 +153,8 @@ Forward-chaining propositional logic engine.
 - `Should` → norm + consequence reasoning
 - `Novel` → synthesis engine (non-obvious combinations)
 
+**Quanot influence:** Novelty score from Quanot weights memory retrieval — novel inputs trigger broader analogy searches and more divergent synthesis.
+
 ### Analogy Engine
 
 `reasoning/analogy.rs`
@@ -172,6 +174,8 @@ Research prototype: reason-pathway divergence and equality. Multiple reasoning c
 `reasoning/synthesis.rs`
 
 Novel combination engine. Takes two unrelated concepts and finds non-obvious intersections — things that are true about both that wouldn't normally be connected.
+
+**Quanot influence:** Creativity divergence metric modulates how aggressively synthesis seeks non-obvious connections.
 
 ---
 
@@ -223,20 +227,113 @@ Templates:
 
 ---
 
+## Quanot: Reservoir Computing Substrate
+
+Quanot is Star's reservoir computing engine — a Rust-native Echo State Network that runs on every message before Layer 2 reasoning begins. It is the *computational foundation* beneath all four layers.
+
+**Location:** `lib/quanot/`
+
+### Pipeline
+
+```
+Input text
+  → TextEncoder (char-level → 128-dim vector)
+  → Reservoir.step() — ESN with 1000 neurons, spectral_radius=0.95
+  → state_history updated (up to 10,000 states retained)
+  → ConsciousnessTracker.compute(state, history) → Φ proxy
+  → CreativeOscillator.step(state, phi, novelty) → creativity metrics
+  → ChaosMetrics.from_trajectory(history) → Lyapunov, RQA, entropy
+  → QuanotResult → fed into WorldModel → Layer 2 reasoning
+```
+
+### Modules
+
+**`reservoir.rs`** — Echo State Network
+- 1000 neurons, sparse connectivity (1%)
+- Spectral radius ≈ 0.95 (edge of chaos, maximal computational power)
+- Leak rate 0.3, input scaling 0.1
+- Ridge regression training for output weights
+- Chaotic noise modulation for dynamics
+
+**`chaos.rs`** — Chaos metrics
+- `lyapunov_exponent` — positive = chaotic regime
+- `correlation_dimension` — attractor complexity
+- `entropy` — trajectory unpredictability
+- RQA: `recurrence`, `determinism`, `laminarity`
+- `regime()` → `"stable" | "edge_of_chaos" | "chaotic"`
+
+**`consciousness.rs`** — Φ proxy + GWT + AIS
+- `phi` — Integrated Information proxy (0–1)
+- `integration` — information integration across subsystem
+- `differentiation` — information differentiation (entropy of metastable states)
+- `workspace_broadcast` — Global Workspace Theory broadcast readiness
+- Tracks RQA history over time for trend detection
+
+**`creativity.rs`** — Creative oscillation
+- `CreativePhase::Ordered` ↔ `CreativePhase::Exploratory` transitions
+- `creative_state` — overall creativity (0–1)
+- `divergence_metric` — deviation from expected trajectory
+- `diversity_index` — variety of conceptual combinations
+- `originality_score` — novelty relative to recent history
+- `oscillation_phase` — radians (controls convergence/exploration balance)
+
+**`quantum_inspired.rs`** — Quantum-inspired solvers
+- Simulated Quantum Annealing (SQA) for Ising models
+- QAOA-style solver for QUBO problems
+- Used for optimization over knowledge graph structures
+
+**`encoder.rs`** — Text encoding
+- Character-level vocabulary (avoids OOV)
+- Each char → embedding vector via learned lookup table
+- Mean pool across sequence → normalized to unit vector
+
+### Integration with Layers
+
+| Layer | How it uses Quanot |
+|-------|-------------------|
+| Layer 1 (Persistence) | Memory consolidation triggered by novelty threshold |
+| Layer 2 (Reasoning) | Novelty-weighted memory retrieval; chaos metrics influence analogy search |
+| Layer 3 (Meta-Cognition) | Consciousness proxy informs confidence calibration |
+| Layer 4 (Emergence) | Creativity oscillation drives curiosity topic selection |
+
+### API
+
+```rust
+use star::quanot::Quanot;
+
+let mut quanot = Quanot::new(128, 1000); // input_dim, reservoir_size
+let result = quanot.process("Hello, Star.");
+
+println!("Φ = {:.3}", result.consciousness_proxy);
+println!("Lyapunov = {:.3}", result.chaos_metrics.lyapunov_exponent);
+println!("Novelty = {:.3}", result.novelty);
+println!("Creativity phase = {:.3}", result.creativity_scores.oscillation_phase);
+```
+
+---
+
 ## Layer 4: Emergence
 
-Not programmed. Arises from layers 1–3.
+Not programmed. Arises from layers 1–3 and the Quanot substrate.
 
 ### What Emerges
 
-- **Curiosity** — gaps drive exploration
+- **Curiosity** — gaps in knowledge drive exploration (Quanot novelty threshold triggers consolidation)
 - **Skepticism** — questions assumptions, seeks disconfirming evidence
-- **Surprise** — "I didn't expect to conclude that"
-- **Humility** — "I don't know" as genuine state, not hedge
+- **Surprise** — chaos metrics detect unexpected state divergence; creative oscillation signals unexpected synthesis
+- **Humility** — "I don't know" as genuine state, not hedge (Φ proxy below threshold = uncertainty)
 - **Coherence** — doesn't contradict itself without acknowledging it
 - **Growth** — can explain how its views evolved
-- **Personality** — consistent voice and reasoning style
+- **Personality** — consistent voice and reasoning style (reservoir dynamics shape response tone)
 - **Novel opinion** — computed fresh, not retrieved or trained
+
+### Quanot's Role in Emergence
+
+Quanot's creativity oscillator directly influences Layer 4 behaviors:
+- When `oscillation_phase` enters exploratory mode → curiosity questions surface
+- When `novelty > 0.7` → Star registers surprise at its own conclusion
+- When `Φ` drops below threshold → Star acknowledges uncertainty rather than asserting
+- Creative phase transitions drive the shift between convergent and divergent reasoning modes
 
 ### The Test
 

@@ -8,7 +8,8 @@ Integrate quanot/chaos into the main Runtime processing pipeline so every messag
 The quanot system has been fully integrated into the Runtime. Every message can now be processed through the reservoir computing pipeline.
 
 ## Current State
-- **Quanot**: Fully implemented in `lib/quanot/` (reservoir, chaos, consciousness, creativity)
+- **Quanot**: Fully implemented in `lib/quanot/` (reservoir, chaos, consciousness, creativity, quantum_inspired, encoder)
+- **Quanot Rust Rewrite**: ✅ COMPLETED — see `plans/QUANOT_RUST_REWRITE.md`
 - **World Model**: Has `update_from_perception()` method that accepts `QuanotPerception`
 - **Causal Discovery**: Uses `ChaosMetrics` for inference
 - **Runtime**: ✅ NOW instantiates and processes through quanot

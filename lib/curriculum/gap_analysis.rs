@@ -1,6 +1,6 @@
 //! Gap Analysis — Analyzes knowledge for gaps
 
-use super::{GapType, KnowledgeGap, CurriculumEngine};
+use super::{GapType, KnowledgeGap};
 
 /// Gap analyzer
 #[allow(dead_code)]

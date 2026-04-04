@@ -1,6 +1,6 @@
 //! Goal Planning — Temporal projection and action planning
 
-use super::{Goal, GoalEngine, GoalId};
+use super::{Goal, GoalId};
 use std::collections::HashMap;
 
 /// An action to take toward a goal

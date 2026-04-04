@@ -2,8 +2,6 @@
 //!
 //! Gives Starfire explicit goals with temporal projection and progress tracking.
 
-use rand::random;
-
 pub mod planning;
 pub mod tracking;
 
