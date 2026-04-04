@@ -44,6 +44,11 @@ impl Goal {
         self
     }
 
+    /// Set priority on a mutable reference (non-consuming)
+    pub fn set_priority(&mut self, priority: f64) {
+        self.priority = priority.clamp(0.0, 1.0);
+    }
+
     pub fn with_deadline(mut self, deadline: i64) -> Self {
         self.deadline = Some(deadline);
         self
@@ -138,12 +143,13 @@ impl GoalEngine {
 
     /// Create a new goal
     pub fn create_goal(&mut self, content: impl Into<String>, parent: Option<GoalId>) -> GoalId {
+        let parent_clone = parent.clone();
         let goal = Goal::new(content, parent);
         let id = goal.id.clone();
 
-        if parent.is_none() {
+        if parent_clone.is_none() {
             self.root_goals.push(id.clone());
-        } else if let Some(pid) = &parent {
+        } else if let Some(pid) = &parent_clone {
             if let Some(parent_goal) = self.goals.get_mut(pid) {
                 parent_goal.add_subgoal(id.clone());
             }
@@ -201,7 +207,7 @@ impl GoalEngine {
                 Some(id.clone()),
             );
             if let Some(subgoal) = self.goals.get_mut(&subgoal_id) {
-                subgoal.with_priority(*priority);
+                subgoal.set_priority(*priority);
             }
             created.push(subgoal_id);
         }

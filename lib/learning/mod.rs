@@ -3,9 +3,103 @@
 //! Learns from a handful of examples without gradient updates.
 
 pub mod hypothesis;
+pub mod eviction;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// An instant teaching — user directly tells Star something.
+#[derive(Clone)]
+pub struct InstantTeach {
+    pub term: String,
+    pub definition: String,
+    pub confidence: f64,
+}
+
+/// A learning experience — observed from conversation.
+#[derive(Clone)]
+pub struct Experience {
+    pub input: String,
+    pub output: Option<String>,
+    pub confidence: f64,
+    pub timestamp: i64,
+}
+
+/// Understanding of a concept.
+#[derive(Clone)]
+pub struct Understanding {
+    pub term: String,
+    pub definition: Option<String>,
+    pub confidence: f64,
+    pub taught_instantly: bool,
+}
+
+/// Learning engine — tracks instant teachings, experiences, and understanding.
+pub struct LearningEngine {
+    instant_teachings: Vec<InstantTeach>,
+    experiences: Vec<Experience>,
+    understandings: HashMap<String, Understanding>,
+}
+
+impl LearningEngine {
+    pub fn new() -> Self {
+        Self {
+            instant_teachings: Vec::new(),
+            experiences: Vec::new(),
+            understandings: HashMap::new(),
+        }
+    }
+
+    /// Record an instant teaching (user directly provides a fact).
+    pub fn teach_instant(&mut self, term: &str, definition: &str, confidence: f64) {
+        let teaching = InstantTeach {
+            term: term.to_string(),
+            definition: definition.to_string(),
+            confidence,
+        };
+        self.instant_teachings.push(teaching.clone());
+        self.understandings.insert(term.to_string(), Understanding {
+            term: term.to_string(),
+            definition: Some(definition.to_string()),
+            confidence,
+            taught_instantly: true,
+        });
+    }
+
+    /// Record a learning experience from conversation.
+    pub fn experience(&mut self, _term: &str, input: &str, output: Option<&str>, confidence: f64) {
+        self.experiences.push(Experience {
+            input: input.to_string(),
+            output: output.map(|s| s.to_string()),
+            confidence,
+            timestamp: crate::now_timestamp(),
+        });
+    }
+
+    /// Get Star's current understanding of a term.
+    pub fn get_understanding(&self, term: &str) -> Option<String> {
+        self.understandings.get(term).map(|u| {
+            u.definition.clone().unwrap_or_else(|| u.term.clone())
+        })
+    }
+
+    /// Get a summary of all learning.
+    pub fn summary(&self) -> String {
+        let taught = self.instant_teachings.len();
+        let exp = self.experiences.len();
+        let understood = self.understandings.len();
+        format!(
+            "Learning: {} instant teachings, {} experiences, {} understood concepts",
+            taught, exp, understood
+        )
+    }
+}
+
+impl Default for LearningEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// An example for few-shot learning
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,7 +265,7 @@ impl FewShotLearner {
 
         for ex in examples {
             for word in ex.output.split_whitespace() {
-                let word_clean = word.trim_matches(|c: char| !c.is_alphanumeric(c)).to_lowercase();
+                let word_clean = word.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
                 if !word_clean.is_empty() && word_clean.len() > 2 {
                     *word_counts.entry(word_clean).or_insert(0) += 1;
                 }
@@ -245,11 +339,13 @@ impl FewShotLearner {
                 );
 
                 if similarity >= threshold {
-                    // Merge j into i
-                    for &idx in &self.hypotheses[j].supporting_examples {
+                    // Merge j into i - clone the data first to avoid borrow issues
+                    let supporting = self.hypotheses[j].supporting_examples.clone();
+                    let contradicting = self.hypotheses[j].contradicting_examples.clone();
+                    for idx in supporting {
                         self.hypotheses[i].add_support(idx);
                     }
-                    for &idx in &self.hypotheses[j].contradicting_examples {
+                    for idx in contradicting {
                         self.hypotheses[i].add_contradiction(idx);
                     }
                     to_remove.push(j);

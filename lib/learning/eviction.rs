@@ -20,7 +20,7 @@ pub struct EvictedHypothesis {
 }
 
 /// Eviction policy
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EvictionPolicy {
     /// Keep all hypotheses forever
     KeepAll,

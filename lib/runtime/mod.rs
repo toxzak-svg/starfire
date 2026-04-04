@@ -117,6 +117,25 @@ impl Runtime {
         knowledge::inject_seed_knowledge(&mut reasoning)?;
         info!("Seed knowledge injected.");
 
+        // Also try to load from seed_knowledge.json if it exists
+        // Look in project root (relative to current executable or data dir)
+        let seed_paths = [
+            data_dir.join("seed_knowledge.json"),
+            data_dir.join("..").join("data").join("seed_knowledge.json"),
+            std::path::PathBuf::from("data/seed_knowledge.json"),
+        ];
+        
+        for seed_path in &seed_paths {
+            if seed_path.exists() {
+                if let Err(e) = knowledge::inject_seed_knowledge_from_file(&mut reasoning, seed_path) {
+                    warn!("Failed to load seed knowledge from {:?}: {}", seed_path, e);
+                } else {
+                    info!("Loaded extended seed knowledge from {:?}", seed_path);
+                }
+                break;
+            }
+        }
+
         // Memory: Who Star is
         let self_memory = Memory::new_seeded(
             "I am Star - a reasoning intelligence created by Zachary Maronek",

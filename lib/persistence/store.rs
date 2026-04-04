@@ -873,7 +873,7 @@ mod tests {
         store.put_identity("name", "Star", now).unwrap();
         assert_eq!(store.get_identity("name").unwrap(), Some("Star".to_string()));
         
-        store.put_identity("name", "Starfire", now).unwrap();
+        store.put_identity("name", "Starfire", now, now).unwrap();
         assert_eq!(store.get_identity("name").unwrap(), Some("Starfire".to_string()));
     }
 

@@ -129,7 +129,7 @@ impl HypothesisGenerator {
 
         for ex in more_examples {
             for word in ex.output.split_whitespace() {
-                let clean = word.trim_matches(|c: char| !c.is_alphanumeric(c)).to_lowercase();
+                let clean = word.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
                 if !clean.is_empty() {
                     *word_freq.entry(clean).or_insert(0) += 1;
                 }

@@ -389,7 +389,7 @@ mod tests {
         let items: Vec<&super::super::WorkingItem> = vec![&item1, &item2];
 
         // Both items share "Fire" - engine should find structural mapping
-        let analogy = engine.find_analogy_between(&items);
+        let analogy = engine.find_analogy_between(&[&item1, &item2]);
         assert!(analogy.is_some());
     }
 }

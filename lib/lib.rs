@@ -34,7 +34,6 @@ pub mod quanot;
 pub mod multimodal;
 pub mod causal;
 pub mod goals;
-pub mod learning;
 pub mod curriculum;
 
 // Re-export commonly used types at crate root for ergonomic access

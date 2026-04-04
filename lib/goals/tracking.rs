@@ -186,7 +186,7 @@ impl MotivationEngine {
     }
 
     /// Sort goals by motivation
-    pub fn rank_goals(&self, engine: &GoalEngine, tracker: &GoalTracker) -> Vec<(&Goal, f64)> {
+    pub fn rank_goals<'a>(&self, engine: &'a GoalEngine, tracker: &'a GoalTracker) -> Vec<(&'a Goal, f64)> {
         let mut scored: Vec<_> = engine.active_goals_sorted()
             .iter()
             .map(|g| {
