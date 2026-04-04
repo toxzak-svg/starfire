@@ -65,12 +65,12 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Create data directory
 RUN mkdir -p /data && chown -R starfire:starfire /data
 
-# Expose ports
-EXPOSE 8080 8081
+# Expose API port
+EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${STARFIRE_PORT:-8080}/health || exit 1
 
 # Run as non-root
 USER starfire

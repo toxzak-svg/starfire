@@ -24,6 +24,7 @@ use crate::learning::LearningEngine;
 use crate::voice::VoiceEngine;
 use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
+use crate::prediction::{PredictionCenter, ConversationContext};
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -75,6 +76,8 @@ pub struct Runtime {
     quanot: Quanot,
     /// World model — grounded perceptual representation
     world_model: WorldModel,
+    /// Prediction center — foresight engine
+    prediction_center: PredictionCenter,
 }
 
 impl Runtime {
@@ -217,6 +220,7 @@ impl Runtime {
             // Quanot: input_dim=128, reservoir_size=1000
             quanot: Quanot::new(128, 1000),
             world_model: WorldModel::new(),
+            prediction_center: PredictionCenter::new(),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -985,7 +989,7 @@ impl Runtime {
             confidence_score: None,
             emotional_valence: cognitive_emotional_valence,
             engagement_depth: cognitive_engagement,
-            topic: Some(event_topic),
+            topic: Some(event_topic.clone()),
             was_uncertain,
             hedge_count,
             timestamp: crate::now_timestamp(),
@@ -1222,6 +1226,19 @@ impl Runtime {
                 }
             }
         }
+
+        // Generate predictions after conversation exchange
+        // This updates all four prediction engines with the current conversation state
+        let conversation_depth = self.training_db.stats()
+            .map(|(convos, turns, _, _)| (convos, turns))
+            .unwrap_or((0, 0)).1 as usize;
+        let context = crate::prediction::ConversationContext::new(
+            event_topic.clone(),
+            conversation_depth,
+            Some(self.quanot.get_state().to_vec()),
+            Some(self.get_consciousness_proxy()),
+        );
+        let _predictions = self.prediction_center.generate(&context);
 
         // Apply voice engine — shape how Starfire expresses herself
         let voiced = self.voice.speak(&final_content, &self.cognition);
