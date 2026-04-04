@@ -406,7 +406,7 @@ fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String 
     };
 
     // Send response back to Telegram
-    if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok() {
+    if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
         let send_url = format!("https://api.telegram.org/bot{}/sendMessage", token);
         let payload = serde_json::json!({
             "chat_id": chat_id,

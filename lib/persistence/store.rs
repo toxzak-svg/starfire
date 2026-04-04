@@ -305,7 +305,7 @@ impl Store {
             .query_row(
                 "SELECT * FROM memories WHERE id = ?1",
                 params![id],
-                |row| row_to_memory(row),
+                row_to_memory,
             )
             .optional()?;
         Ok(result)
@@ -329,7 +329,7 @@ impl Store {
         
         // Try exact word match first (surrounded by spaces)
         let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map(params![exact_pattern, limit as i64], |row| row_to_memory(row))?;
+        let rows = stmt.query_map(params![exact_pattern, limit as i64], row_to_memory)?;
         
         let mut results = Vec::new();
         for row in rows {
@@ -344,7 +344,7 @@ impl Store {
             let skip_substrings = ["the ", "and ", "for ", "brain", "drain", "train", "grain", "plain", "remain", "contain", "about", "which"];
             if !skip_substrings.contains(&query.to_lowercase().as_str()) {
                 let mut stmt = conn.prepare(&sql)?;
-                let rows = stmt.query_map(params![partial_pattern, limit as i64], |row| row_to_memory(row))?;
+                let rows = stmt.query_map(params![partial_pattern, limit as i64], row_to_memory)?;
                 for row in rows {
                     let mut mem = row?;
                     mem.record_access(now);
@@ -366,7 +366,7 @@ impl Store {
         );
         let domain_str = format!("{:?}", domain).to_lowercase();
         let mut stmt = conn.prepare(&sql)?;
-        let rows = stmt.query_map(params![domain_str], |row| row_to_memory(row))?;
+        let rows = stmt.query_map(params![domain_str], row_to_memory)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -387,7 +387,7 @@ impl Store {
         // This is approximate — full implementation would calculate decay per-memory
         let sql = "SELECT * FROM memories WHERE decay_rate > 0 AND importance < 0.3 AND access_count < 3";
         let mut stmt = conn.prepare(sql)?;
-        let rows = stmt.query_map([], |row| row_to_memory(row))?;
+        let rows = stmt.query_map([], row_to_memory)?;
         let mut results = Vec::new();
         for row in rows {
             let mem = row?;
@@ -435,7 +435,7 @@ impl Store {
     pub fn get_all_beliefs(&self) -> Result<Vec<Belief>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT * FROM beliefs ORDER BY formed_at DESC")?;
-        let rows = stmt.query_map([], |row| row_to_belief(row))?;
+        let rows = stmt.query_map([], row_to_belief)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -449,7 +449,7 @@ impl Store {
         let sql = "SELECT * FROM beliefs WHERE confidence_state = ?1 ORDER BY formed_at DESC";
         let state_str = format!("{:?}", state).to_lowercase();
         let mut stmt = conn.prepare(sql)?;
-        let rows = stmt.query_map(params![state_str], |row| row_to_belief(row))?;
+        let rows = stmt.query_map(params![state_str], row_to_belief)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -461,7 +461,7 @@ impl Store {
     pub fn get_recent_beliefs(&self, limit: usize) -> Result<Vec<Belief>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT * FROM beliefs ORDER BY formed_at DESC LIMIT ?1")?;
-        let rows = stmt.query_map(params![limit as i64], |row| row_to_belief(row))?;
+        let rows = stmt.query_map(params![limit as i64], row_to_belief)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -509,7 +509,7 @@ impl Store {
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events WHERE query LIKE ?1 OR conclusion LIKE ?1 ORDER BY timestamp DESC LIMIT ?2"
         )?;
-        let rows = stmt.query_map(params![pattern, limit as i64], |row| row_to_reasoning_event(row))?;
+        let rows = stmt.query_map(params![pattern, limit as i64], row_to_reasoning_event)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -523,7 +523,7 @@ impl Store {
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events ORDER BY timestamp DESC LIMIT ?1"
         )?;
-        let rows = stmt.query_map(params![limit as i64], |row| row_to_reasoning_event(row))?;
+        let rows = stmt.query_map(params![limit as i64], row_to_reasoning_event)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -538,7 +538,7 @@ impl Store {
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC"
         )?;
-        let rows = stmt.query_map(params![since], |row| row_to_reasoning_event(row))?;
+        let rows = stmt.query_map(params![since], row_to_reasoning_event)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -557,7 +557,7 @@ impl Store {
              ORDER BY timestamp DESC
              LIMIT ?2"
         )?;
-        let rows = stmt.query_map(params![since, limit as i64], |row| row_to_reasoning_event(row))?;
+        let rows = stmt.query_map(params![since, limit as i64], row_to_reasoning_event)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -580,7 +580,7 @@ impl Store {
              LIMIT ?2"
         )?;
         
-        let rows = stmt.query_map(params![since, (limit * 2) as i64], |row| row_to_reasoning_event(row))?;
+        let rows = stmt.query_map(params![since, (limit * 2) as i64], row_to_reasoning_event)?;
         let mut gaps = Vec::new();
         let now = chrono::Utc::now().timestamp();
         
@@ -678,7 +678,7 @@ impl Store {
             .query_row(
                 "SELECT * FROM sessions WHERE id = ?1",
                 params![id],
-                |row| row_to_session(row),
+                row_to_session,
             )
             .optional()?;
         Ok(result)
@@ -691,7 +691,7 @@ impl Store {
             .query_row(
                 "SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1",
                 [],
-                |row| row_to_session(row),
+                row_to_session,
             )
             .optional()?;
         Ok(result)
@@ -701,7 +701,7 @@ impl Store {
     pub fn get_recent_sessions(&self, limit: usize) -> Result<Vec<Session>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?1")?;
-        let rows = stmt.query_map(params![limit as i64], |row| row_to_session(row))?;
+        let rows = stmt.query_map(params![limit as i64], row_to_session)?;
         let mut results = Vec::new();
         for row in rows {
             results.push(row?);
@@ -857,11 +857,11 @@ fn row_to_reasoning_event(row: &rusqlite::Row) -> rusqlite::Result<ReasoningEven
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
 
     fn test_store() -> Store {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("test.db");
+        let dir = std::env::temp_dir().join("star_test_store");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test.db");
         Store::open(&path).unwrap()
     }
 
@@ -873,7 +873,7 @@ mod tests {
         store.put_identity("name", "Star", now).unwrap();
         assert_eq!(store.get_identity("name").unwrap(), Some("Star".to_string()));
         
-        store.put_identity("name", "Starfire").unwrap();
+        store.put_identity("name", "Starfire", now).unwrap();
         assert_eq!(store.get_identity("name").unwrap(), Some("Starfire".to_string()));
     }
 

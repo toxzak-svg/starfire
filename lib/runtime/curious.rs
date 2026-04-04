@@ -12,7 +12,6 @@ use crate::persistence::{Memory, ReasoningGap, MemoryDomain};
 use crate::reasoning::ReasoningEngine;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::io::Read;
 use tracing::{info, debug, warn};
 
 /// Curiosity engine — runs self-probing curiosity in idle time.
@@ -233,7 +232,7 @@ impl CuriousEngine {
                 // Also update the reasoning engine with the new knowledge
                 if let Ok(mut reasoning) = self.reasoning.lock() {
                     use std::ops::DerefMut;
-                    let _ = DerefMut::deref_mut(&mut reasoning).add_knowledge(
+                    DerefMut::deref_mut(&mut reasoning).add_knowledge(
                         &probe.topic,
                         &answer,
                     );

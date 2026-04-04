@@ -464,13 +464,13 @@ impl Runtime {
 
         // Natural language: "look around" or "explore" or "what files" → list workspace
         // Normalize curly quotes to straight quotes to avoid "you're" != "youre" issues
-        let normalized = input.replace('\u{2019}', "'").replace('\u{2018}', "'").replace('\u{201C}', "\"").replace('\u{201D}', "\"");
+        let normalized = input.replace(['\u{2019}', '\u{2018}'], "'").replace(['\u{201C}', '\u{201D}'], "\"");
         let lower = normalized.to_lowercase();
         if lower.contains("look around") || lower.contains("explore where you are") || lower.contains("what files do you see") || lower.contains("whats in your workspace") {
             let dir = "/home/zach/.openclaw/workspace";
             match self.file_reader.list_dir(dir) {
                 Ok(entries) if !entries.is_empty() => {
-                    let mut response = format!("Looking around... here's what I can see in my workspace:\n\n");
+                    let mut response = "Looking around... here's what I can see in my workspace:\n\n".to_string();
                     for entry in entries {
                         response.push_str(&format!("  {}\n", entry));
                     }
@@ -493,7 +493,7 @@ impl Runtime {
                 let parts: Vec<&str> = after_learn.splitn(2, ": ").collect();
                 (parts[0].trim(), parts[1].trim())
             } else {
-                return Ok(format!("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence"));
+                return Ok("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence".to_string());
             };
 
             if !term.is_empty() && !definition.is_empty() {
@@ -529,7 +529,7 @@ impl Runtime {
 
         // "did you collapse" → check reasoning trace
         if lower.contains("did you collapse") || lower.contains("did i collapse") || lower.contains("are you functioning") || lower.contains("are u functioning") {
-            let (collapsed, message) = self.cognition.did_i_collapse();
+            let (_collapsed, message) = self.cognition.did_i_collapse();
             return Ok(message);
         }
 
@@ -601,8 +601,7 @@ impl Runtime {
 
         // /teach - interactive teaching mode
         if input.trim() == "/teach" {
-            return Ok(vec![
-                "Teaching mode. You can:",
+            return Ok(["Teaching mode. You can:",
                 "  /learn <term> = <definition>  - teach me one thing",
                 "  X is Y                   - natural teaching",
                 "  X means Y                - natural teaching",
@@ -612,21 +611,18 @@ impl Runtime {
                 "  /learn eli = my nickname, short for Elliot",
                 "  Dogs are mammals that bark",
                 "",
-                "Or ask me what I want to learn: /what",
-            ].join("\n"));
+                "Or ask me what I want to learn: /what"].join("\n"));
         }
 
         // /what to learn - what concepts is Star curious about?
         if input.trim() == "/what" || input.trim() == "/what to learn" || input.trim() == "/what should i teach you" {
-            let gaps = vec![
-                "what consciousness feels like from the inside",
+            let gaps = ["what consciousness feels like from the inside",
                 "what you value most in our relationship",
                 "what my purpose or goal should be",
                 "what brings you joy",
                 "what you fear",
                 "how you think about death",
-                "what love means to you",
-            ];
+                "what love means to you"];
             let mut response = "I'm curious about:\n".to_string();
             for (i, gap) in gaps.iter().enumerate() {
                 response.push_str(&format!("  {}. {}\n", i + 1, gap));
@@ -665,7 +661,7 @@ impl Runtime {
             let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
 
             // Filter out conversational fillers — these aren't real research topics
-            let conversational: std::collections::HashSet<&str> = [
+            let _conversational: std::collections::HashSet<&str> = [
                 "hi", "hello", "hey", "hi there", "hello there",
                 "myself", "who i am", "me myself", "yourself",
                 "this", "that", "it", "something", "nothing",
@@ -673,7 +669,7 @@ impl Runtime {
             ].into_iter().collect();
 
             // Also filter phrases that START with conversational openers
-            let conversational_starters = [
+            let _conversational_starters = [
                 "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
                 "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
             ];
@@ -1025,7 +1021,7 @@ impl Runtime {
                         } else {
                             // Truncate long answers cleanly at sentence or clause boundary
                             let cutoff = &answer_trimmed[..std::cmp::min(300, answer_trimmed.len())];
-                            let cutoff_point = cutoff.rfind(|c| c == '.').unwrap_or(cutoff.len());
+                            let cutoff_point = cutoff.rfind('.').unwrap_or(cutoff.len());
                             let snippet = &answer_trimmed[..cutoff_point.saturating_add(1)];
                             proactive_content = Some(format!(
                                 "I looked it up: {}.",
@@ -1135,7 +1131,7 @@ impl Runtime {
                 if should_express {
                     // Use timestamp + topic length for varied expression styles
                     let selection = (now.timestamp() as usize).saturating_add(thought.topic.len());
-                    let style_bucket = selection % 10;
+                    let _style_bucket = selection % 10;
                     
                     let thought_text = match &thought.kind {
                         ThoughtKind::Question(q) => {
@@ -1415,10 +1411,7 @@ impl Runtime {
     /// If a probe fires and produces a result, it becomes an autonomous thought.
     /// Returns the probe if one fired, so the caller can display it.
     pub fn maybe_fire_curiosity(&mut self) -> Option<CuriosityProbe> {
-        let probe = match self.curious.maybe_fire() {
-            Some(p) => p,
-            None => return None,
-        };
+        let probe = self.curious.maybe_fire()?;
 
         // Run the probe through the reasoning engine
         let result = self.curious.run_probe(&probe);
@@ -1581,7 +1574,7 @@ impl Runtime {
                     // through investigating what its beliefs are actually about.
                     // Skip if the answer already came from Strategy 0 (an existing belief)
                     // — no need to re-wrap an already-formed belief.
-                    if let Some((ref ans_text, ref evidence)) = answer {
+                    if let Some((ref ans_text, evidence)) = answer {
                         let already_wrapped = ans_text.starts_with(&format!("investigating '{}' I found: ", topic));
                         if !already_wrapped {
                             let belief = Belief::new(
@@ -1623,7 +1616,7 @@ impl Runtime {
                         let question = self.form_question_about(ring_topic);
                         if !question.is_empty() {
                             let answer = self.attempt_answer(&question, ring_topic);
-                            let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                            let final_answer = if let Some((ref ans_text, evidence)) = answer {
                                 if ans_text.starts_with("__KNOWN_UNKNOWN__") {
                                     let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
                                     let known_unknown = Belief::new(
@@ -1641,7 +1634,7 @@ impl Runtime {
                                             Self::belief_state_from_evidence(evidence),
                                         );
                                         self.metacog.record_belief(ring_topic, belief);
-                                        let related_topics = extract_related_topics(&ans_text);
+                                        let related_topics = extract_related_topics(ans_text);
                                         for related in related_topics {
                                             if self.metacog.belief_about(&related).is_none() {
                                                 let why = format!("I found '{}' while investigating '{}' from conversation — what is it?", related, ring_topic);
@@ -1701,7 +1694,7 @@ impl Runtime {
                 // and finds something, record it as a belief — forming self-knowledge
                 // through its own reasoning, not just seed data.
                 // Handle both normal answers and __KNOWN_UNKNOWN__ markers.
-                let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                let final_answer = if let Some((ref ans_text, evidence)) = answer {
                     if ans_text.starts_with("__KNOWN_UNKNOWN__") {
                         // Record "known unknown" belief, then close gap with resolved=false
                         let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
@@ -1726,7 +1719,7 @@ impl Runtime {
                             // things RELATED TO what it found — the entities mentioned in the answer.
                             // This spreads curiosity outward from discoveries rather than re-hashing
                             // the same topic. Extract entity-like words from the answer.
-                            let related_topics = extract_related_topics(&ans_text);
+                            let related_topics = extract_related_topics(ans_text);
                             for related in related_topics {
                                 // Only add if Star doesn't already have a belief about it
                                 // and it hasn't been noted as a curiosity already
@@ -1832,23 +1825,23 @@ impl Runtime {
         let mc_confidence = self.metacog.confidence_state(topic);
         match mc_confidence {
             crate::persistence::BeliefState::Unknown => {
-                return format!("I don't know what '{}' is. What is it?", topic);
+                format!("I don't know what '{}' is. What is it?", topic)
             }
             crate::persistence::BeliefState::Suspects => {
-                return format!("I suspect something about '{}' but I'm not sure. What is it really?", topic);
+                format!("I suspect something about '{}' but I'm not sure. What is it really?", topic)
             }
             crate::persistence::BeliefState::Believes => {
-                return format!(
+                format!(
                     "I believe I understand '{}' but I want to be sure. What am I missing?",
                     topic
-                );
+                )
             }
             _ => {
                 let causes: Vec<String> = kg.get_causes(topic);
                 if !causes.is_empty() {
                     return format!("I know some effects of '{}' but what are its deep causes?", topic);
                 }
-                return format!("What is the fundamental nature of '{}'?", topic);
+                format!("What is the fundamental nature of '{}'?", topic)
             }
         }
     }
@@ -1856,7 +1849,7 @@ impl Runtime {
     /// Attempt to answer a question using Star's knowledge graph and reasoning.
     /// Returns (answer_text, evidence_type) where evidence_type is used to determine
     /// confidence when recording as a belief.
-    fn attempt_answer(&self, question: &str, topic: &str) -> Option<(String, &'static str)> {
+    fn attempt_answer(&self, _question: &str, topic: &str) -> Option<(String, &'static str)> {
         use crate::reasoning::knowledge::RelationType;
 
         // Strategy 0 (pre-check): If Star already has an actual belief about this topic
@@ -2100,7 +2093,7 @@ fn extract_causal_pair(sentence: &str, verb: &str) -> Option<(String, String)> {
 
 /// Extract the topic Star is uncertain about from a response containing uncertainty.
 /// E.g., "I'm not sure what consciousness is" → "consciousness"
-fn extract_uncertain_topic(input: &str, response_lower: &str, uncertainty_phrase: &str) -> String {
+fn extract_uncertain_topic(_input: &str, response_lower: &str, uncertainty_phrase: &str) -> String {
     // Look for "what X" or "why X" after the uncertainty phrase
     if let Some(pos) = response_lower.find(uncertainty_phrase) {
         let after = &response_lower[pos + uncertainty_phrase.len()..];

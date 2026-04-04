@@ -1,7 +1,6 @@
 //! Learning Engine — instant teaching, experience logging, and understanding tracking
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 /// An instant teaching — user directly tells Star something.
 #[derive(Clone)]

@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_contradiction_proof() {
-        let engine = ProofEngine::new();
+        let mut engine = ProofEngine::new();
         let result = engine.prove("There are infinitely many primes", "contradiction");
         assert!(result.is_ok());
         let (proved, steps, _) = result.unwrap();
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_induction_proof() {
-        let engine = ProofEngine::new();
+        let mut engine = ProofEngine::new();
         let result = engine.prove("Sum of first n integers is n(n+1)/2", "induction");
         assert!(result.is_ok());
         let (proved, steps, _) = result.unwrap();

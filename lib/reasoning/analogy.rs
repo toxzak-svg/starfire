@@ -57,6 +57,12 @@ pub struct RelationshipPattern {
     pub to: String,
 }
 
+impl Default for AnalogyEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnalogyEngine {
     pub fn new() -> Self {
         Self {
@@ -209,7 +215,7 @@ impl AnalogyEngine {
         // Find shared structure
         let shared: Vec<&str> = words_a.intersection(&words_b).copied().collect();
         
-        if shared.len() >= 1 {
+        if !shared.is_empty() {
             // Found some shared structure
             let a_unique: Vec<&str> = words_a.difference(&words_b).copied().collect();
             let b_unique: Vec<&str> = words_b.difference(&words_a).copied().collect();
@@ -265,7 +271,7 @@ impl AnalogyEngine {
 
     /// Generate an analogy from recorded patterns.
     pub fn generate_from_patterns(&self, source_domain: &str) -> Option<Analogy> {
-        let key = format!("{}:*", source_domain);
+        let _key = format!("{}:*", source_domain);
         
         // Find patterns involving the source
         let relevant: Vec<_> = self.patterns.iter()
@@ -295,7 +301,7 @@ impl AnalogyEngine {
     }
 
     /// "A is to B as C is to ?" — solve the analogy.
-    pub fn solve_analogy(&self, a: &str, b: &str, c: &str) -> Option<String> {
+    pub fn solve_analogy(&self, a: &str, _b: &str, c: &str) -> Option<String> {
         // Find a B relationship such that A:B :: C:?
         // e.g., "Fire is to heat as water is to ?"
         // Answer: "flow" or "movement"
@@ -358,20 +364,19 @@ mod tests {
     #[test]
     fn test_find_analogy_between() {
         let engine = AnalogyEngine::new();
-        
-        let items = vec![
-            super::super::WorkingItem {
-                content: "Fire produces heat".to_string(),
-                source: super::super::WorkingSource::Retrieved,
-                confidence: Some(0.9),
-            },
-            super::super::WorkingItem {
-                content: "Water causes flow".to_string(),
-                source: super::super::WorkingSource::Retrieved,
-                confidence: Some(0.8),
-            },
-        ];
-        
+
+        let item1 = super::super::WorkingItem {
+            content: "Fire produces heat".to_string(),
+            source: super::super::WorkingSource::Retrieved,
+            confidence: Some(0.9),
+        };
+        let item2 = super::super::WorkingItem {
+            content: "Water causes flow".to_string(),
+            source: super::super::WorkingSource::Retrieved,
+            confidence: Some(0.8),
+        };
+        let items: Vec<&super::super::WorkingItem> = vec![&item1, &item2];
+
         let analogy = engine.find_analogy_between(&items);
         assert!(analogy.is_some());
     }

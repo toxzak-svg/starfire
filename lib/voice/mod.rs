@@ -7,7 +7,7 @@ pub mod phrases;
 pub mod templates;
 
 use phrases::PhraseBank;
-use templates::{VoiceTemplate, TemplateEngine};
+use templates::TemplateEngine;
 use crate::cognition::CognitiveState;
 use std::sync::{Arc, Mutex};
 
@@ -41,13 +41,13 @@ impl VoiceEngine {
         let voiced = self.apply_voice_patterns(&phrased, cognition);
         
         // Step 3: Apply emotional tinting
-        let final_text = cognition.emotional_response(&voiced);
         
-        final_text
+        
+        cognition.emotional_response(&voiced)
     }
 
     /// Apply accumulated phrase variations where appropriate.
-    fn apply_phrase_variations(&self, text: &str, cognition: &CognitiveState) -> String {
+    fn apply_phrase_variations(&self, text: &str, _cognition: &CognitiveState) -> String {
         let bank = match self.phrase_bank.lock() {
             Ok(b) => b,
             Err(_) => return text.to_string(),

@@ -24,3 +24,4 @@ urlencoding.workspace = true
 tiny_http.workspace = true
 clap.workspace = true
 dirs.workspace = true
+

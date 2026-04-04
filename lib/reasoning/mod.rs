@@ -19,11 +19,9 @@ pub mod pathways;
 pub mod chain;
 pub mod chain_display;
 
-use crate::persistence::{Memory, MemoryDomain, BeliefState};
-use crate::persistence::memory::Belief;
-use pathways::{Pathway, PathwayVote, PathwayFusion, FusedResult};
+use crate::persistence::{Memory, BeliefState};
+use pathways::PathwayFusion;
 use knowledge::RelationType;
-use std::collections::HashMap;
 
 /// The reasoning engine — combines all reasoning components.
 #[derive(Clone)]
@@ -272,7 +270,7 @@ impl ReasoningEngine {
         
         if let Some(item) = relevant.first() {
             ReasoningResult {
-                answer: Some(format!("{}", item.content)),
+                answer: Some(item.content.to_string()),
                 confidence: item.confidence.map(|c| if c > 0.7 { BeliefState::Thinks } else { BeliefState::Believes })
                     .unwrap_or(BeliefState::Believes),
                 reasoning_chain: vec![item.content.clone()],
@@ -389,11 +387,10 @@ impl ReasoningEngine {
         // Also check working memory for relevant entries
         for item in &self.working_memory {
             let content_lower = item.content.to_lowercase();
-            if keywords.iter().any(|kw| content_lower.contains(kw)) {
-                if !all_facts.contains(&item.content) {
+            if keywords.iter().any(|kw| content_lower.contains(kw))
+                && !all_facts.contains(&item.content) {
                     all_facts.push(item.content.clone());
                 }
-            }
         }
 
         if !all_mechanisms.is_empty() {
@@ -475,11 +472,10 @@ impl ReasoningEngine {
         // Also check working memory
         for item in &self.working_memory {
             let content_lower = item.content.to_lowercase();
-            if keywords.iter().any(|kw| content_lower.contains(kw)) {
-                if !all_facts.contains(&item.content) {
+            if keywords.iter().any(|kw| content_lower.contains(kw))
+                && !all_facts.contains(&item.content) {
                     all_facts.push(item.content.clone());
                 }
-            }
         }
 
         if !all_facts.is_empty() {
@@ -492,7 +488,7 @@ impl ReasoningEngine {
         }
 
         ReasoningResult {
-            answer: Some(format!("I don't know whether that's true.")),
+            answer: Some("I don't know whether that's true.".to_string()),
             confidence: BeliefState::Unknown,
             reasoning_chain: vec![],
             confidence_score: None,
@@ -510,7 +506,7 @@ impl ReasoningEngine {
             .to_string();
         
         // Look for values-related knowledge
-        let values = self.knowledge.get_values_related(&topic);
+        let _values = self.knowledge.get_values_related(&topic);
         
         // Try analogy: "X should Y" analogous to how other things work
         let analogies = self.analogy.find_analogies(&topic);
@@ -640,11 +636,9 @@ impl ReasoningEngine {
         }
         
         // Fallback: look for common cause patterns
-        let known_causes = vec![
-            (observation, vec!["it seems connected to how things work", 
+        let known_causes = [(observation, vec!["it seems connected to how things work", 
                              "maybe something about its nature",
-                             "perhaps an underlying principle"]),
-        ];
+                             "perhaps an underlying principle"])];
         
         known_causes.first().map(|(o, hints)| {
             let hint = hints[(o.len() + observation.len()) % hints.len()];

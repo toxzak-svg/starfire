@@ -142,7 +142,7 @@ impl ReasoningChain {
             return self.answer.clone();
         }
 
-        let key_steps: Vec<String> = self.steps
+        let _key_steps: Vec<String> = self.steps
             .iter()
             .step_by(2)  // Every other step
             .map(|s| format!("{} → {}", s.premise.chars().take(40).collect::<String>(), s.conclusion.chars().take(40).collect::<String>()))

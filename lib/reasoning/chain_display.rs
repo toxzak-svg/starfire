@@ -3,7 +3,7 @@
 //! Converts ReasoningChain structures into natural, fluent text
 //! that shows Starfire's thinking without being robotic.
 
-use super::chain::{ReasoningChain, VisibleReasoningStep, InferenceRule};
+use super::chain::{ReasoningChain, VisibleReasoningStep};
 
 /// Natural language generator for reasoning chains.
 pub struct ChainDisplay {
@@ -14,15 +14,19 @@ pub struct ChainDisplay {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub enum Formality {
     Formal,
+    #[default]
     Casual,
     Warm,
 }
 
 #[derive(Debug, Clone, Copy)]
+#[derive(Default)]
 pub enum Verbosity {
     Minimal,      // Just the answer
+    #[default]
     Standard,    // Key steps + answer
     Full,        // All steps + assumptions + confidence
 }
@@ -291,14 +295,4 @@ impl ChainDisplay {
     }
 }
 
-impl Default for Formality {
-    fn default() -> Self {
-        Formality::Casual
-    }
-}
 
-impl Default for Verbosity {
-    fn default() -> Self {
-        Verbosity::Standard
-    }
-}

@@ -39,7 +39,7 @@ impl FileReader {
     fn is_allowed(&self, path: &Path) -> bool {
         // Resolve any symlinks first
         let resolved = fs::canonicalize(path).ok();
-        let check_path = resolved.as_ref().map(|p| p.as_path()).unwrap_or(path);
+        let check_path = resolved.as_deref().unwrap_or(path);
         
         self.allowed_dirs.iter().any(|dir| {
             check_path.starts_with(dir) || check_path == dir

@@ -287,7 +287,7 @@ impl ConnectionFinder {
                 let deepening_templates = [
                     format!("And what does this say about the nature of {}?", analogy.target_concept),
                     format!("Does this connection suggest {} is fundamental to {}?", source, target),
-                    format!("What would it mean if this analogy is deeper than coincidental?"),
+                    "What would it mean if this analogy is deeper than coincidental?".to_string(),
                     format!("Are there other systems that might work like {} and {}?", source, target),
                 ];
                 

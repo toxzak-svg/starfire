@@ -3,6 +3,7 @@
 //! Handles algebraic expressions: parsing, simplification, and solving.
 
 use std::collections::HashMap;
+use std::fmt::Display;
 
 /// A symbolic algebraic expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -132,25 +133,26 @@ impl Expression {
             Expression::Group(a) => a.evaluate(vars),
         }
     }
+}
 
-    /// Convert to a display string.
-    pub fn to_string(&self) -> String {
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Expression::Number(n) => {
                 if n.fract() == 0.0 {
-                    format!("{}", *n as i64)
+                    write!(f, "{}", *n as i64)
                 } else {
-                    format!("{}", n)
+                    write!(f, "{}", n)
                 }
             }
-            Expression::Variable(v) => v.clone(),
-            Expression::Add(a, b) => format!("({} + {})", a.to_string(), b.to_string()),
-            Expression::Sub(a, b) => format!("({} - {})", a.to_string(), b.to_string()),
-            Expression::Mul(a, b) => format!("({} * {})", a.to_string(), b.to_string()),
-            Expression::Div(a, b) => format!("({} / {})", a.to_string(), b.to_string()),
-            Expression::Pow(a, b) => format!("({} ^ {})", a.to_string(), b.to_string()),
-            Expression::Neg(a) => format!("-{}", a.to_string()),
-            Expression::Group(a) => format!("({})", a.to_string()),
+            Expression::Variable(v) => write!(f, "{}", v),
+            Expression::Add(a, b) => write!(f, "({} + {})", a, b),
+            Expression::Sub(a, b) => write!(f, "({} - {})", a, b),
+            Expression::Mul(a, b) => write!(f, "({} * {})", a, b),
+            Expression::Div(a, b) => write!(f, "({} / {})", a, b),
+            Expression::Pow(a, b) => write!(f, "({} ^ {})", a, b),
+            Expression::Neg(a) => write!(f, "-{}", a),
+            Expression::Group(a) => write!(f, "({})", a),
         }
     }
 }
@@ -452,7 +454,7 @@ fn evaluate_atom(expr: &str, pos: &mut usize) -> Result<f64, ()> {
     let start = *pos;
     while *pos < expr.len() {
         let ch = expr.chars().nth(*pos).unwrap();
-        if ch.is_digit(10) || ch == '.' {
+        if ch.is_ascii_digit() || ch == '.' {
             *pos += 1;
         } else {
             break;

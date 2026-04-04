@@ -4,7 +4,7 @@
 //! and conversation state management.
 
 use crate::persistence::{Memory, MemoryDomain, Store, BeliefState};
-use crate::reasoning::{ReasoningEngine, ReasoningResult};
+use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use std::sync::Arc;
 
@@ -393,7 +393,7 @@ impl Conversation {
                 let summaries: Vec<String> = topics.iter()
                     .map(|m| m.content.split('.').next().unwrap_or(&m.content).to_string())
                     .collect();
-                let joined = summaries.join(", ");
+                let _joined = summaries.join(", ");
                 let last = summaries.last().cloned().unwrap_or_default();
                 let all_but_last = summaries.iter().take(topic_count - 1).cloned().collect::<Vec<_>>().join(", ");
                 
@@ -494,7 +494,7 @@ impl Conversation {
                 let framings = [
                     format!("I know some things about {}. {}", topic, answer),
                     format!("Here's what I understand about {}: {}", topic, answer),
-                    format!("{}", answer), // Just the answer — direct is good
+                    answer.to_string(), // Just the answer — direct is good
                 ];
                 let idx = topic.len().saturating_sub(1) % framings.len();
                 framings[idx].clone()
@@ -820,7 +820,7 @@ fn acknowledge_with_interest(statement: &str, topic: &str) -> String {
         || topic_lower.starts_with("do you") || topic_lower.starts_with("think ")
         || topic_lower.starts_with("believe ") || topic_lower.starts_with("know ");
     
-    if (selection % 5) == 0 && !topic_is_questiony {
+    if selection.is_multiple_of(5) && !topic_is_questiony {
         // Star has something specific to say about the topic
         let follow_ups = [
             format!("What do you think about {}?", topic),
@@ -836,7 +836,7 @@ fn acknowledge_with_interest(statement: &str, topic: &str) -> String {
     // Natural, varied acknowledgments — NOT a list of generic fillers.
     // Star speaks with presence: first-person observations, fragments, genuine interest.
     // 25% chance of a more substantive follow-up showing she processed what was said.
-    let use_substantive = (selection % 4) == 0;
+    let use_substantive = selection.is_multiple_of(4);
     
     if use_substantive {
         let follow_ups = [
@@ -902,7 +902,7 @@ fn casual_response(statement: &str) -> String {
     // Medium inputs (4-8 words): acknowledgment + mild engagement
     // Longer inputs (9+ words): they're sharing — acknowledge substantively
     // 20% chance of an incomplete/fragment pattern — Star trails off, restarts, hesitates
-    let use_fragment = (selection % 5) == 0;
+    let use_fragment = selection.is_multiple_of(5);
     
     let base = if word_count <= 3 {
         let quick = [
@@ -945,7 +945,7 @@ fn casual_response(statement: &str) -> String {
     };
     
     // Occasionally append a light follow-up to show Star is engaged (~20% of the time)
-    if word_count > 5 && (selection % 5) == 0 {
+    if word_count > 5 && selection.is_multiple_of(5) {
         let followups = [" Keep going.", " I'm here.", " What else?", " Go on."];
         let fidx = (selection / 7) % followups.len();
         format!("{}{}", base, followups[fidx])
@@ -1227,8 +1227,7 @@ pub(crate) fn extract_topic(input: &str) -> String {
         return strip_after(&lower, "how do you ", "");
     }
     // "how does it feel to X" — extract the activity (X), not "it feel to X"
-    if lower.starts_with("how does it feel ") {
-        let rest = &lower["how does it feel ".len()..];
+    if let Some(rest) = lower.strip_prefix("how does it feel ") {
         // "how does it feel to think" → "thinking"; "how does it feel to be" → "being"
         let cleaned = rest.trim_start_matches("to ").trim();
         if !cleaned.is_empty() {
@@ -1298,8 +1297,7 @@ pub(crate) fn extract_topic(input: &str) -> String {
     if lower.starts_with("what have you been learning") {
         return "learning".to_string();
     }
-    if lower.starts_with("what have you been ") {
-        let after_prefix = &lower["what have you been ".len()..];
+    if let Some(after_prefix) = lower.strip_prefix("what have you been ") {
         // "what have you been X about" → "X"
         if let Some(pos) = after_prefix.find(" about") {
             let topic = after_prefix[..pos].trim().to_string();

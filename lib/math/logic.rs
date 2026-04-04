@@ -3,6 +3,7 @@
 //! Handles: modus ponens, modus tollens, syllogisms, truth tables.
 
 use std::collections::HashMap;
+use std::fmt::Display;
 
 /// Truth values in logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,17 +119,17 @@ impl Proposition {
         }
     }
 
-    /// Convert to a display string.
-    pub fn to_string(&self) -> String {
+impl Display for Proposition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Proposition::Atom(name) => name.clone(),
-            Proposition::And(a, b) => format!("({} AND {})", a.to_string(), b.to_string()),
-            Proposition::Or(a, b) => format!("({} OR {})", a.to_string(), b.to_string()),
-            Proposition::Not(inner) => format!("NOT({})", inner.to_string()),
-            Proposition::Implies(a, b) => format!("({} → {})", a.to_string(), b.to_string()),
-            Proposition::Iff(a, b) => format!("({} ↔ {})", a.to_string(), b.to_string()),
-            Proposition::True => "TRUE".to_string(),
-            Proposition::False => "FALSE".to_string(),
+            Proposition::Atom(name) => write!(f, "{}", name),
+            Proposition::And(a, b) => write!(f, "({} AND {})", a, b),
+            Proposition::Or(a, b) => write!(f, "({} OR {})", a, b),
+            Proposition::Not(inner) => write!(f, "NOT({})", inner),
+            Proposition::Implies(a, b) => write!(f, "({} → {})", a, b),
+            Proposition::Iff(a, b) => write!(f, "({} ↔ {})", a, b),
+            Proposition::True => write!(f, "TRUE"),
+            Proposition::False => write!(f, "FALSE"),
         }
     }
 }
@@ -236,12 +237,12 @@ impl LogicEngine {
     }
 
     /// Apply modus ponens: if P→Q and P, then Q.
-    pub fn modus_ponens(&self, implication: &Proposition, antecedent: &Proposition) -> Option<TruthValue> {
+    pub fn modus_ponens(&self, implication: &Proposition, _antecedent: &Proposition) -> Option<TruthValue> {
         // Try to evaluate
-        let mut bindings = HashMap::new();
+        let bindings = HashMap::new();
         
         // This is simplified — in practice we'd need unification
-        if let Proposition::Implies(p, q) = implication {
+        if let Proposition::Implies(_, q) = implication {
             // If we know both the implication and antecedent are true...
             // (simplified implementation)
             return Some(q.evaluate(&bindings)); // Would need proper unification
@@ -251,7 +252,7 @@ impl LogicEngine {
     }
 
     /// Apply modus tollens: if P→Q and ¬Q, then ¬P.
-    pub fn modus_tollens(&self, implication: &Proposition, consequent_false: &Proposition) -> Option<TruthValue> {
+    pub fn modus_tollens(&self, implication: &Proposition, _consequent_false: &Proposition) -> Option<TruthValue> {
         if let Proposition::Implies(_, _) = implication {
             // Simplified — would need proper logical inference
             return Some(TruthValue::True); // Placeholder
@@ -411,20 +412,19 @@ mod tests {
 
     #[test]
     fn test_modus_ponens() {
-        let engine = LogicEngine::new();
         // (P → Q) ∧ P → Q
         let p_implies_q = Proposition::Implies(
             Box::new(Proposition::Atom("P".to_string())),
             Box::new(Proposition::Atom("Q".to_string())),
         );
         let p = Proposition::Atom("P".to_string());
-        
+
         let both = Proposition::And(Box::new(p_implies_q), Box::new(p));
-        
+
         let mut vars = HashMap::new();
         vars.insert("P".to_string(), true);
         vars.insert("Q".to_string(), true);
-        
+
         assert_eq!(both.evaluate(&vars), TruthValue::True);
     }
 

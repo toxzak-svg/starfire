@@ -133,7 +133,7 @@ impl MetaCognition {
 
         for (topic, question) in foundational_gaps {
             self.note_gap(KnowledgeGap::new(topic, 0.8));
-            self.curiosity.start_exploring(topic, &question);
+            self.curiosity.start_exploring(topic, question);
         }
     }
 
@@ -313,9 +313,7 @@ impl MetaCognition {
         if let Some(surprising) = self.reasoning_history.last() {
             if surprising.was_surprising {
                 // Don't repeat — check if we already expressed this
-                return Some(format!(
-                    "That conclusion surprised me — I expected something different.",
-                ));
+                return Some("That conclusion surprised me — I expected something different.".to_string());
             }
         }
         
@@ -705,8 +703,8 @@ mod tests {
     #[test]
     fn test_revision_tracking() {
         let mut metacog = MetaCognition::new();
-        metacog.record_belief("fire", Belief::new("fire burns", BeliefState::Believes));
-        metacog.record_belief("fire", Belief::new("fire burns", BeliefState::Knows));
+        metacog.record_belief("fire", Belief::new("fire burns".to_string(), BeliefState::Believes));
+        metacog.record_belief("fire", Belief::new("fire burns".to_string(), BeliefState::Knows));
         
         assert!(metacog.can_express_revision("fire"));
     }

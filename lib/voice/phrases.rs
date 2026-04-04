@@ -3,7 +3,7 @@
 //! Starfire accumulates "good" phrases — constructions that land well.
 //! Tracks positive/negative feedback, context, and style tags.
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 

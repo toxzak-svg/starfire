@@ -305,7 +305,7 @@ impl KnowledgeGraph {
         
         // Use case-insensitive entity lookup
         if let Some(e) = self.get_entity(entity) {
-            for (prop, val) in &e.properties {
+            for (_prop, val) in &e.properties {
                 facts.push(format!("{} has {}", e.name, val));
             }
             if let Some(desc) = &e.description {
@@ -380,12 +380,11 @@ impl KnowledgeGraph {
         
         // Look for entities that have "good" or "value" in their relationships
         for rel in &self.relationships {
-            if rel.from.to_lowercase().contains(&topic_lower) ||
-               rel.to.to_lowercase().contains(&topic_lower) {
-                if rel.relation == RelationType::RelatedTo {
+            if (rel.from.to_lowercase().contains(&topic_lower) ||
+               rel.to.to_lowercase().contains(&topic_lower))
+                && rel.relation == RelationType::RelatedTo {
                     related.push(format!("{} {} {}", rel.from, rel.relation.as_str(), rel.to));
                 }
-            }
         }
         
         related
@@ -637,7 +636,7 @@ impl KnowledgeGraph {
                 result.push((rel, rel.to.clone()));
             }
             if rel.to.to_lowercase() == concept_lower {
-                if let Some(inv) = rel.relation.inverse() {
+                if let Some(_inv) = rel.relation.inverse() {
                     result.push((rel, rel.from.clone()));
                 }
             }

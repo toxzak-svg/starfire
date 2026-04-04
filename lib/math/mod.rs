@@ -9,8 +9,8 @@ pub mod symbolic;
 pub mod logic;
 pub mod proof;
 
-use symbolic::{Expression, SolvedResult};
-use logic::{Proposition, TruthValue};
+use symbolic::SolvedResult;
+use logic::TruthValue;
 
 /// Result of a math operation.
 #[derive(Debug, Clone)]

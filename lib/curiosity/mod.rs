@@ -9,7 +9,6 @@ pub mod connection;
 
 use crate::Store;
 use crate::reasoning::ReasoningEngine;
-use crate::metacog::MetaCognition;
 use probes::{CuriosityProbe, CuriosityDepth, ProbeStatus};
 use connection::ConnectionFinder;
 use std::sync::{Arc, Mutex};
@@ -133,7 +132,7 @@ impl CuriousEngine {
             id: uuid_simple(),
             question: deepening,
             topic: recent.topic.clone(),
-            why_interested: format!("I want to understand this more deeply"),
+            why_interested: "I want to understand this more deeply".to_string(),
             related_concepts: recent.related_concepts.clone(),
             depth: CuriosityDepth::Deep,
             status: ProbeStatus::Probing,
@@ -247,7 +246,7 @@ fn rand_one_in(n: u32) -> bool {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.subsec_nanos())
         .unwrap_or(0);
-    (nanos % n) == 0
+    nanos.is_multiple_of(n)
 }
 
 /// Generate a simple UUID (not cryptographically secure, just for IDs).

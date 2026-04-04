@@ -1,3 +1,4 @@
+# Exclude certain patterns but include specific files/dirs needed for deployment
 .git
 .gitignore
 target
@@ -18,5 +19,11 @@ data
 docs
 plans
 scripts
+src
+lib
 **/target
 **/*.md
+
+# Include all of ui
+!ui
+!ui/**
