@@ -17,9 +17,9 @@ pub struct SimulatedQuantumAnnealing {
     /// Number of annealing steps
     n_steps: usize,
     /// Initial temperature
-    T_init: f64,
+    t_init: f64,
     /// Final temperature
-    T_final: f64,
+    t_final: f64,
     /// Initial transverse field
     gamma_init: f64,
     /// Current path configuration: [trotter][spin]
@@ -55,8 +55,8 @@ impl SimulatedQuantumAnnealing {
             n_spins,
             n_trotters,
             n_steps,
-            T_init: 5.0,
-            T_final: 0.01,
+            t_init: 5.0,
+            t_final: 0.01,
             gamma_init: 2.0,
             path,
             best_energy: f64::INFINITY,
@@ -69,12 +69,12 @@ impl SimulatedQuantumAnnealing {
     ///
     /// J: coupling matrix (upper triangular)
     /// h: local fields
-    pub fn solve(&mut self, J: &[Vec<f64>], h: &[f64]) -> SQAResult {
+    pub fn solve(&mut self, j: &[Vec<f64>], h: &[f64]) -> SQAResult {
         let mut rng = rand::thread_rng();
 
         // Linear schedule
-        let T_start = self.T_init;
-        let T_end = self.T_final;
+        let t_start = self.t_init;
+        let t_end = self.t_final;
         let gamma_start = self.gamma_init;
         let gamma_end = 0.01;
 
@@ -82,11 +82,11 @@ impl SimulatedQuantumAnnealing {
             let progress = step as f64 / self.n_steps as f64;
 
             // Annealing schedule
-            let T = T_start * (T_end / T_start).powf(progress);
+            let t = t_start * (t_end / t_start).powf(progress);
             let gamma = gamma_start * (gamma_end / gamma_start).powf(progress);
 
             // Compute transverse field term
-            let J_perp = gamma * (self.n_trotters as f64).recip();
+            let j_perp = gamma * (self.n_trotters as f64).recip();
 
             // For each replica, compute energy and do Metropolis update
             for p in 0..self.n_trotters {
@@ -98,37 +98,37 @@ impl SimulatedQuantumAnnealing {
                     let mut delta = 0.0;
 
                     // Classical term
-                    for j in (i + 1)..self.n_spins {
-                        delta -= 2.0 * J[i][j] * self.path[p][i] as f64 * self.path[p][j] as f64;
+                    for k in (i + 1)..self.n_spins {
+                        delta -= 2.0 * j[i][k] * self.path[p][i] as f64 * self.path[p][k] as f64;
                     }
                     delta -= 2.0 * h[i] * self.path[p][i] as f64;
 
                     // Quantum term (coupling to neighboring replicas)
                     if self.path[p][i] == self.path[prev][i] {
-                        delta += J_perp;
+                        delta += j_perp;
                     } else {
-                        delta -= J_perp;
+                        delta -= j_perp;
                     }
                     if self.path[p][i] == self.path[next][i] {
-                        delta += J_perp;
+                        delta += j_perp;
                     } else {
-                        delta -= J_perp;
+                        delta -= j_perp;
                     }
 
                     // Metropolis acceptance
-                    if delta < 0.0 || rng.gen_bool((-delta / T).exp().min(1.0)) {
+                    if delta < 0.0 || rng.gen_bool((-delta / t).exp().min(1.0)) {
                         self.path[p][i] *= -1;
                     }
                 }
             }
 
             // Record energy of first replica
-            let E = self.energy(&self.path[0], J, h);
-            self.energy_history.push(E);
+            let e = self.energy(&self.path[0], j, h);
+            self.energy_history.push(e);
 
             // Track best
-            if E < self.best_energy {
-                self.best_energy = E;
+            if e < self.best_energy {
+                self.best_energy = e;
                 self.best_spins = Some(self.path[0].clone());
             }
         }
@@ -141,22 +141,22 @@ impl SimulatedQuantumAnnealing {
     }
 
     /// Compute Ising energy
-    fn energy(&self, spins: &[i8], J: &[Vec<f64>], h: &[f64]) -> f64 {
-        let mut E = 0.0;
+    fn energy(&self, spins: &[i8], j: &[Vec<f64>], h: &[f64]) -> f64 {
+        let mut e = 0.0;
 
         // Interaction term
         for i in 0..self.n_spins {
             for j in (i + 1)..self.n_spins {
-                E -= J[i][j] * spins[i] as f64 * spins[j] as f64;
+                e -= j[i][j] * spins[i] as f64 * spins[j] as f64;
             }
         }
 
         // Field term
         for i in 0..self.n_spins {
-            E -= h[i] * spins[i] as f64;
+            e -= h[i] * spins[i] as f64;
         }
 
-        E
+        e
     }
 }
 
@@ -174,25 +174,25 @@ pub struct SQAResult {
 /// Solve a QUBO problem (minimize x^T Q x)
 ///
 /// Returns spin values (-1 or 1)
-pub fn solve_qubo(Q: &[Vec<f64>], n_trotters: usize) -> Vec<i8> {
-    let n = Q.len();
+pub fn solve_qubo(q: &[Vec<f64>], n_trotters: usize) -> Vec<i8> {
+    let n = q.len();
 
     // Convert QUBO to Ising
-    let mut J = vec![vec![0.0; n]; n];
+    let mut j = vec![vec![0.0; n]; n];
     let mut h = vec![0.0; n];
 
     for i in 0..n {
         for j in 0..n {
             if i < j {
-                J[i][j] = 2.0 * Q[i][j];
+                j[i][j] = 2.0 * q[i][j];
             } else if i == j {
-                h[i] += 2.0 * Q[i][j];
+                h[i] += 2.0 * q[i][j];
             }
         }
     }
 
     let mut sqa = SimulatedQuantumAnnealing::new(n, n_trotters, 1000);
-    let result = sqa.solve(&J, &h);
+    let result = sqa.solve(&j, &h);
     result.best_spins
 }
 

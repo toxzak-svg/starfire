@@ -80,7 +80,7 @@ impl TextProcessor {
         let positive = ["good", "great", "excellent", "love", "happy", "nice", "wonderful"];
         let negative = ["bad", "hate", "sad", "terrible", "awful", "horrible", "angry"];
 
-        let text_lower = text.to_lowercase();
+        let _text_lower = text.to_lowercase();
         let mut positive_count = 0;
         let mut negative_count = 0;
 

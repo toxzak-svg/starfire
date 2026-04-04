@@ -25,6 +25,7 @@ use knowledge::RelationType;
 
 /// The reasoning engine — combines all reasoning components.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct ReasoningEngine {
     /// Knowledge graph
     knowledge: knowledge::KnowledgeGraph,
@@ -758,6 +759,7 @@ pub enum ConsistencyResult {
 // Utility functions
 // ─────────────────────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 fn relation_type_from_word(word: &str) -> knowledge::RelationType {
     match word.to_lowercase().as_str() {
         "is" | "are" | "was" | "were" | "be" => knowledge::RelationType::IsA,

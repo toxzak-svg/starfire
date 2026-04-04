@@ -9,6 +9,7 @@ use crate::metacog::MetaCognition;
 use std::sync::Arc;
 
 /// A conversation — the interactive dialogue with Zachary.
+#[allow(dead_code)]
 pub struct Conversation {
     store: Arc<Store>,
     reasoning: ReasoningEngine,
@@ -670,6 +671,7 @@ impl Default for ConversationContext {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct ConversationContext {
     current_topic: Option<String>,
     last_topic: Option<String>,
@@ -679,6 +681,7 @@ struct ConversationContext {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum Intent {
     Greeting,
     Question,

@@ -34,6 +34,7 @@ impl Default for CreativityOutput {
 
 /// Creative oscillation controller
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CreativeOscillator {
     /// Current phase: 'ordered' or 'exploratory'
     state: CreativePhase,
@@ -260,6 +261,7 @@ impl CreativeOscillator {
 
 /// Novelty detector using k-NN distance
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct NoveltyDetector {
     history: Vec<Vec<f64>>,
     max_history: usize,

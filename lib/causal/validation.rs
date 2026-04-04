@@ -93,11 +93,11 @@ impl CausalValidator {
         }
 
         // Train: compute average effect given cause
-        let train_cause_avg: f64 = train.iter().map(|(t, c, e)| c).sum::<f64>() / train.len() as f64;
+        let train_cause_avg: f64 = train.iter().map(|(_t, c, _e)| c).sum::<f64>() / train.len() as f64;
         let train_effect_given_cause: f64 = train
             .iter()
-            .filter(|(t, c, e)| *c > train_cause_avg * 0.9) // cause active
-            .map(|(t, c, e)| e)
+            .filter(|(_t, c, _e)| *c > train_cause_avg * 0.9) // cause active
+            .map(|(_t, _c, e)| e)
             .sum::<f64>()
             / train.len() as f64;
 
@@ -105,7 +105,7 @@ impl CausalValidator {
         let threshold = train_effect_given_cause * 0.8; // Some tolerance
         let predictions: Vec<bool> = test
             .iter()
-            .map(|(t, c, e)| {
+            .map(|(_t, c, e)| {
                 let predicted = if *c > train_cause_avg * 0.9 { threshold } else { 0.0 };
                 *e > predicted
             })

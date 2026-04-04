@@ -22,6 +22,7 @@ pub struct ConsciousnessMetrics {
 
 /// Tracks consciousness over time
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ConsciousnessTracker {
     state_dim: usize,
     history: Vec<Vec<f64>>,
@@ -90,7 +91,8 @@ impl ConsciousnessTracker {
     }
 
     /// Information integration: how interconnected are the components?
-    fn compute_integration_from_history(&self, state: &[Vec<f64>], history: &[Vec<f64>]) -> f64 {
+    #[allow(dead_code)]
+fn compute_integration_from_history(&self, state: &[Vec<f64>], history: &[Vec<f64>]) -> f64 {
         if history.len() < 10 || state.is_empty() {
             return 0.0;
         }

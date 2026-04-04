@@ -99,7 +99,6 @@ impl RelationType {
             Self::SimilarTo => Some(Self::SimilarTo),
             Self::OppositeOf => Some(Self::OppositeOf),
             Self::RelatedTo => Some(Self::RelatedTo),
-            _ => None,
         }
     }
 }

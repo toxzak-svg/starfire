@@ -112,6 +112,7 @@ pub struct QuestionTemplates {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct QuestionTemplate {
     pattern: String,
     depth: CuriosityDepth,

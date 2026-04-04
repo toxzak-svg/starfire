@@ -22,6 +22,8 @@ use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
 use crate::voice::VoiceEngine;
+use crate::quanot::{Quanot, QuanotResult};
+use crate::world_model::WorldModel;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -29,6 +31,7 @@ use std::path::Path;
 use tracing::{info, warn};
 
 /// The Star runtime - orchestrates all components.
+#[allow(dead_code)]
 pub struct Runtime {
     /// The persistent store
     store: Arc<Store>,
@@ -68,6 +71,10 @@ pub struct Runtime {
     curious: CuriousEngine,
     /// Voice engine — shapes how Starfire expresses herself
     voice: VoiceEngine,
+    /// Quanot reservoir computing system
+    quanot: Quanot,
+    /// World model — grounded perceptual representation
+    world_model: WorldModel,
 }
 
 impl Runtime {
@@ -206,6 +213,9 @@ impl Runtime {
             last_autonomous_thought: Mutex::new(None),
             curious,
             voice,
+            // Quanot: input_dim=128, reservoir_size=1000
+            quanot: Quanot::new(128, 1000),
+            world_model: WorldModel::new(),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -1310,6 +1320,63 @@ impl Runtime {
     pub fn metacognition_ref(&self) -> &MetaCognition {
         &self.metacog
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // QUANOT INTEGRATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Process input through quanot and update world model
+    pub fn process_quanot(&mut self, input: &str) -> QuanotResult {
+        // Run through quanot pipeline
+        let result = self.quanot.process(input);
+
+        // Convert to perception and update world model
+        // Map from quanot::CreativityOutput to world_model::perception::CreativityOutput
+        let cs = &result.creativity_scores;
+        let perception_cs = crate::world_model::perception::CreativityOutput::new(
+            cs.creative_state,
+            cs.divergence_metric,
+            cs.diversity_index,
+            cs.originality_score,
+            cs.oscillation_phase,
+        );
+
+        let perception = crate::world_model::perception::QuanotPerception::new(
+            result.reservoir_state.clone(),
+            result.consciousness_proxy,
+            result.novelty,
+            perception_cs,
+        );
+
+        self.world_model.update_from_perception(perception);
+
+        result
+    }
+
+    /// Get the current consciousness proxy from quanot
+    pub fn get_consciousness_proxy(&self) -> f64 {
+        // Access the most recent phi from state history
+        // The consciousness tracker doesn't expose current_phi directly,
+        // but we can compute it from the result of processing
+        // For simplicity, return a default based on reservoir activity
+        let state = self.quanot.get_state();
+        if state.is_empty() {
+            return 0.0;
+        }
+        // Simple proxy based on state variance
+        let mean = state.iter().sum::<f64>() / state.len() as f64;
+        let variance = state.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / state.len() as f64;
+        (variance * 10.0).clamp(0.0, 1.0)
+    }
+
+    /// Get the world model for inspection
+    pub fn world_model(&self) -> &WorldModel {
+        &self.world_model
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUTONOMOUS THOUGHT
+    // ═══════════════════════════════════════════════════════════════════════
 
     /// Get Star's last autonomous thought, if any (for conversation expression).
     pub fn last_autonomous_thought(&self) -> Option<AutonomousThought> {

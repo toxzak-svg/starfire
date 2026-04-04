@@ -3,6 +3,7 @@
 use super::{GapType, KnowledgeGap, CurriculumEngine};
 
 /// Gap analyzer
+#[allow(dead_code)]
 pub struct GapAnalyzer {
     min_confidence_for_knowledge: f64,
 }

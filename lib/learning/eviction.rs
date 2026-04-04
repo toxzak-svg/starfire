@@ -82,7 +82,7 @@ impl HypothesisEviction {
                 }
             }
 
-            EvictionPolicy::TopK(k) => {
+            EvictionPolicy::TopK(_k) => {
                 // This requires access to ranking, handled at learner level
                 None
             }

@@ -1,7 +1,6 @@
 //! Curriculum Scheduler — Schedules learning sessions
 
-use super::{CurriculumEngine, GapId, LearningTask, KnowledgeGap};
-use std::collections::HashMap;
+use super::{CurriculumEngine, GapId, LearningTask};
 
 /// Scheduling policy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

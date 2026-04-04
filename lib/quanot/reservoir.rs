@@ -15,6 +15,7 @@ use rand_distr::{Normal, Distribution};
 
 /// Echo State Network reservoir with chaotic dynamics
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Reservoir {
     /// Input dimension
     pub input_dim: usize,
@@ -23,11 +24,11 @@ pub struct Reservoir {
     /// Spectral radius (controls chaos level)
     pub spectral_radius: f64,
     /// Input weight matrix
-    W_in: Vec<f64>,
+    w_in: Vec<f64>,
     /// Reservoir weight matrix (sparse)
-    W: Vec<f64>,
+    w: Vec<f64>,
     /// Output weights (trained via ridge regression)
-    W_out: Option<Vec<f64>>,
+    w_out: Option<Vec<f64>>,
     /// Current state
     state: Vec<f64>,
     /// Leak rate (α)
@@ -56,25 +57,25 @@ impl Reservoir {
 
         // Initialize input weights: random, scaled
         let normal = Normal::new(0.0, 1.0).unwrap();
-        let mut W_in = Vec::with_capacity(reservoir_size * input_dim);
+        let mut w_in = Vec::with_capacity(reservoir_size * input_dim);
         for _ in 0..(reservoir_size * input_dim) {
-            W_in.push(normal.sample(&mut rng) * input_scaling);
+            w_in.push(normal.sample(&mut rng) * input_scaling);
         }
 
         // Initialize reservoir weights: random, sparse
-        let mut W_full = vec![0.0; reservoir_size * reservoir_size];
+        let mut w_full = vec![0.0; reservoir_size * reservoir_size];
         for i in 0..reservoir_size {
             for j in 0..reservoir_size {
                 let idx = i * reservoir_size + j;
                 if rng.gen::<f64>() < connectivity {
-                    W_full[idx] = normal.sample(&mut rng);
+                    w_full[idx] = normal.sample(&mut rng);
                 }
             }
         }
 
         // Scale to desired spectral radius
-        let scale = spectral_radius_estimate(&W_full, reservoir_size);
-        for w in &mut W_full {
+        let scale = spectral_radius_estimate(&w_full, reservoir_size);
+        for w in &mut w_full {
             *w *= scale;
         }
 
@@ -82,9 +83,9 @@ impl Reservoir {
             input_dim,
             reservoir_size,
             spectral_radius,
-            W_in,
-            W: W_full,
-            W_out: None,
+            w_in,
+            w: w_full,
+            w_out: None,
             state: vec![0.0; reservoir_size],
             leak_rate,
             noise_level,
@@ -99,11 +100,11 @@ impl Reservoir {
 
         let mut pre_activation = 0.0f64;
 
-        // W_in @ input
+        // w_in @ input
         for i in 0..self.reservoir_size {
             let mut sum = 0.0;
             for j in 0..self.input_dim {
-                sum += self.W_in[i * self.input_dim + j] * input_vec[j];
+                sum += self.w_in[i * self.input_dim + j] * input_vec[j];
             }
             pre_activation += sum;
         }
@@ -113,7 +114,7 @@ impl Reservoir {
             let mut sum = 0.0;
             let base = i * self.reservoir_size;
             for j in 0..self.reservoir_size {
-                sum += self.W[base + j] * self.state[j];
+                sum += self.w[base + j] * self.state[j];
             }
             pre_activation += sum;
         }
@@ -170,50 +171,50 @@ impl Reservoir {
         let output_dim = targets[0].len();
         let state_dim = self.reservoir_size;
 
-        // Build X matrix: [states | bias]
-        // X^T @ X + λI
-        let mut XtX = vec![0.0; (state_dim + 1) * (state_dim + 1)];
+        // Build x matrix: [states | bias]
+        // x^T @ x + λI
+        let mut xt_x = vec![0.0; (state_dim + 1) * (state_dim + 1)];
         for s in states {
             for i in 0..state_dim {
                 for j in 0..state_dim {
-                    XtX[i * (state_dim + 1) + j] += s[i] * s[j];
+                    xt_x[i * (state_dim + 1) + j] += s[i] * s[j];
                 }
             }
         }
         // Add regularization
         for i in 0..(state_dim + 1) {
-            XtX[i * (state_dim + 1) + i] += regularization;
+            xt_x[i * (state_dim + 1) + i] += regularization;
         }
 
-        // X^T @ Y
-        let mut XtY = vec![0.0; (state_dim + 1) * output_dim];
+        // x^T @ Y
+        let mut xt_y = vec![0.0; (state_dim + 1) * output_dim];
         for (si, t) in states.iter().zip(targets.iter()) {
             for i in 0..state_dim {
                 for j in 0..output_dim {
-                    XtY[i * output_dim + j] += si[i] * t[j];
+                    xt_y[i * output_dim + j] += si[i] * t[j];
                 }
             }
             // Bias term
             for j in 0..output_dim {
-                XtY[state_dim * output_dim + j] += t[j];
+                xt_y[state_dim * output_dim + j] += t[j];
             }
         }
 
-        // Solve: W_out = (XtX)^{-1} @ XtY
+        // Solve: W_out = (xt_x)^{-1} @ xt_y
         // Using pseudo-inverse approximation (for small systems)
-        let _W_out = solve_linear_system(&XtX, &XtY, state_dim + 1, output_dim);
+        let _w_out = solve_linear_system(&xt_x, &xt_y, state_dim + 1, output_dim);
 
         // Compute predictions and RMSE
         let mut total_error = 0.0;
-        let mut W_out_flat = Vec::with_capacity((state_dim + 1) * output_dim);
+        let mut w_out_flat = Vec::with_capacity((state_dim + 1) * output_dim);
 
         for j in 0..output_dim {
             for i in 0..(state_dim + 1) {
-                W_out_flat.push(XtY[i * output_dim + j]);
+                w_out_flat.push(xt_y[i * output_dim + j]);
             }
         }
 
-        self.W_out = Some(W_out_flat);
+        self.w_out = Some(w_out_flat);
 
         for (s, t) in states.iter().zip(targets.iter()) {
             let pred = self.predict_single(s);
@@ -227,7 +228,7 @@ impl Reservoir {
 
     /// Predict from a single state
     fn predict_single(&self, state: &[f64]) -> Vec<f64> {
-        if let Some(ref w_out) = self.W_out {
+        if let Some(ref w_out) = self.w_out {
             let output_dim = w_out.len() / (self.reservoir_size + 1);
             let mut pred = vec![0.0; output_dim];
 
@@ -260,24 +261,24 @@ fn standard_normal_sample<R: Rng>(rng: &mut R) -> f64 {
 }
 
 /// Estimate spectral radius (largest eigenvalue magnitude)
-fn spectral_radius_estimate(W: &[f64], n: usize) -> f64 {
+fn spectral_radius_estimate(w: &[f64], n: usize) -> f64 {
     // Power iteration
     let mut v = vec![1.0 / (n as f64).sqrt(); n];
     let mut lambda = 0.0;
 
     for _ in 0..100 {
-        let mut Av = vec![0.0; n];
+        let mut av = vec![0.0; n];
         for i in 0..n {
             for j in 0..n {
-                Av[i] += W[i * n + j] * v[j];
+                av[i] += w[i * n + j] * v[j];
             }
         }
 
-        let norm = Av.iter().map(|x| x * x).sum::<f64>().sqrt().max(1e-10);
+        let norm = av.iter().map(|x| x * x).sum::<f64>().sqrt().max(1e-10);
         lambda = norm;
 
         for i in 0..n {
-            v[i] = Av[i] / norm;
+            v[i] = av[i] / norm;
         }
     }
 
@@ -289,44 +290,44 @@ fn spectral_radius_estimate(W: &[f64], n: usize) -> f64 {
 }
 
 /// Simple linear system solver (using eigen-decomposition for small systems)
-fn solve_linear_system(A: &[f64], B: &[f64], n: usize, m: usize) -> Vec<f64> {
+fn solve_linear_system(a: &[f64], b: &[f64], n: usize, m: usize) -> Vec<f64> {
     // Simplified: use pseudo-inverse approximation
     // For small n (like reservoir_size=1000), we use (A + λI)^{-1} ≈ I/A_ii approximation
     // A is diagonal-dominant, so we use Jacobi-like iteration
 
-    let mut X = vec![0.0; n * m];
+    let mut x = vec![0.0; n * m];
     let lambda = 1e-6;
 
     for _iter in 0..50 {
-        let mut X_new = X.clone();
+        let mut x_new = x.clone();
 
         for i in 0..n {
-            let diag = A[i * n + i].max(lambda);
+            let diag = a[i * n + i].max(lambda);
             for j in 0..m {
-                let mut sum = B[i * m + j];
+                let mut sum = b[i * m + j];
                 for k in 0..n {
                     if k != i {
-                        sum -= A[i * n + k] * X[k * m + j];
+                        sum -= a[i * n + k] * x[k * m + j];
                     }
                 }
-                X_new[i * m + j] = sum / diag;
+                x_new[i * m + j] = sum / diag;
             }
         }
 
         // Check convergence
-        let max_diff = X.iter()
-            .zip(X_new.iter())
+        let max_diff = x.iter()
+            .zip(x_new.iter())
             .map(|(x, y)| (x - y).abs())
             .fold(0.0f64, |a, b| a.max(b));
 
-        X = X_new;
+        x = x_new;
 
         if max_diff < 1e-8 {
             break;
         }
     }
 
-    X
+    x
 }
 
 #[cfg(test)]

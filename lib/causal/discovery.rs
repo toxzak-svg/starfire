@@ -178,7 +178,7 @@ impl CausalDiscovery {
     #[allow(dead_code)]
     pub fn refine_with_chaos(
         &self,
-        mut edge: DiscoveredCausalEdge,
+        edge: DiscoveredCausalEdge,
         _cause_chaos: &crate::quanot::chaos::ChaosMetrics,
         _effect_chaos: &crate::quanot::chaos::ChaosMetrics,
     ) -> DiscoveredCausalEdge {

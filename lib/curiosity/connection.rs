@@ -27,6 +27,7 @@ pub struct ConnectionFinder {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct KnownAnalogy {
     source_domain: &'static str,
     target_domain: &'static str,

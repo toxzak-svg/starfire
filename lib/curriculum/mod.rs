@@ -7,7 +7,7 @@ pub mod gap_analysis;
 pub mod scheduler;
 
 use serde::{Deserialize, Serialize};
-use crate::goals::{Goal, GoalEngine, GoalId};
+use crate::goals::{GoalEngine, GoalId};
 use crate::learning::FewShotLearner;
 
 /// A knowledge gap identified in Starfire's understanding
@@ -110,6 +110,7 @@ impl LearningStrategy {
 
 /// Curriculum engine — manages self-directed learning
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CurriculumEngine {
     gaps: Vec<KnowledgeGap>,
     learning_history: Vec<LearningTask>,
@@ -283,7 +284,7 @@ impl CurriculumEngine {
         sorted_gaps.sort_by(|a, b| b.urgency.partial_cmp(&a.urgency).unwrap());
 
         for gap in sorted_gaps.into_iter().take(limit) {
-            let task = self.generate_task(&gap);
+            let _task = self.generate_task(&gap);
             let goal_id = goal_engine.create_goal(
                 format!("Learn about: {}", gap.topic),
                 None,

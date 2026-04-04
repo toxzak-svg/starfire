@@ -82,6 +82,7 @@ pub struct BoundContent {
 
 /// Multimodal engine for processing chat exports
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MultimodalEngine {
     /// All bound content
     content: HashMap<ContentId, BoundContent>,

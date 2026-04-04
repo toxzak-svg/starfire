@@ -500,6 +500,7 @@ impl Default for CuriosityEngine {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CuriosityTopic {
     topic: String,
     why: String,

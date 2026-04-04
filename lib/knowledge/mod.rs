@@ -43,7 +43,7 @@ pub fn inject_seed_knowledge_from_file(
         let subject = entry["subject"].as_str().unwrap_or("unknown");
         let fact = entry["fact"].as_str().unwrap_or("");
         let domain = entry["domain"].as_str().unwrap_or("empirical");
-        let confidence = entry["confidence"].as_f64().unwrap_or(0.8);
+        let _confidence = entry["confidence"].as_f64().unwrap_or(0.8);
 
         // Add to knowledge graph with domain context
         reasoning.add_knowledge(subject, fact);
