@@ -20,3 +20,11 @@ plans
 # Include all of ui
 !ui
 !ui/**
+
+# Include deployment files
+!entrypoint.sh
+!Dockerfile
+!Cargo.toml
+!Cargo.lock
+!lib
+!src
