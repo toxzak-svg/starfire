@@ -202,6 +202,47 @@ impl CuriousEngine {
                 .unwrap_or(9999),
         }
     }
+
+    /// Load active curiosity probes from the database (cross-session persistence).
+    pub fn load_persisted_probes(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::persistence::AutonomyState;
+        
+        let probes = self.store.get_active_curiosity_probes()?;
+        
+        for probe_state in &probes {
+            // Convert AutonomyState back to CuriosityProbe
+            let probe = CuriosityProbe {
+                id: format!("persisted_{}", probe_state.id),
+                question: format!("What is '{}'?", probe_state.content),
+                topic: probe_state.content.clone(),
+                why_interested: "I was curious about this in a previous session".to_string(),
+                related_concepts: Vec::new(),
+                depth: CuriosityDepth::Medium,
+                status: ProbeStatus::Probing,
+                tentative_answer: None,
+                confidence: crate::persistence::BeliefState::Suspects,
+                discovered_at: probe_state.created_at,
+            };
+            self.active_probes.push(probe);
+        }
+        
+        if !probes.is_empty() {
+            tracing::info!("Loaded {} persisted curiosity probes", probes.len());
+        }
+        
+        Ok(())
+    }
+
+    /// Persist active curiosity probe to database.
+    pub fn persist_probe(&self, probe: &CuriosityProbe) -> Result<i64, Box<dyn std::error::Error>> {
+        let id = self.store.save_autonomy_state(
+            crate::persistence::Store::AUTONOMY_CURIOSITY,
+            &probe.topic,
+            0.6,
+            None,
+        )?;
+        Ok(id)
+    }
 }
 
 /// Statistics about the curiosity engine.

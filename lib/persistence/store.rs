@@ -191,6 +191,31 @@ impl Store {
 
             CREATE INDEX IF NOT EXISTS idx_phrases_effectiveness ON phrases(positive_count DESC);
             CREATE INDEX IF NOT EXISTS idx_templates_concept_style ON voice_templates(concept, style);
+
+            -- Autonomy state: curiosity probes, goals, aspirations (cross-session)
+            CREATE TABLE IF NOT EXISTS autonomy_state (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                -- What type of autonomous state this is
+                state_type TEXT NOT NULL,
+                -- The topic or content
+                content TEXT NOT NULL,
+                -- Priority for ordering (0.0-1.0)
+                priority REAL DEFAULT 0.5,
+                -- When this was created
+                created_at INTEGER NOT NULL,
+                -- Last time this was active
+                last_active INTEGER,
+                -- Status: 'active', 'completed', 'suspended'
+                status TEXT DEFAULT 'active',
+                -- Additional metadata (JSON)
+                metadata TEXT,
+                -- Parent ID for hierarchical goals
+                parent_id INTEGER,
+                FOREIGN KEY (parent_id) REFERENCES autonomy_state(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_autonomy_type ON autonomy_state(state_type);
+            CREATE INDEX IF NOT EXISTS idx_autonomy_status ON autonomy_state(status);
         "#)?;
         Ok(())
     }
@@ -739,6 +764,125 @@ impl Store {
             },
         })
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Autonomy Operations (Curiosity Probes, Goals, Aspirations)
+    // ─────────────────────────────────────────────────────────────────
+
+    /// Types of autonomy state
+    pub const AUTONOMY_CURIOSITY: &'static str = "curiosity";
+    pub const AUTONOMY_GOAL: &'static str = "goal";
+    pub const AUTONOMY_ASPIRATION: &'static str = "aspiration";
+
+    /// Save an autonomy state (curiosity probe, goal, or aspiration).
+    pub fn save_autonomy_state(&self, state_type: &str, content: &str, priority: f64, parent_id: Option<i64>) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let now = crate::now_timestamp();
+        conn.execute(
+            "INSERT INTO autonomy_state (state_type, content, priority, created_at, last_active, status, parent_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![state_type, content, priority.clamp(0.0, 1.0), now, now, "active", parent_id],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Get all active autonomy states of a given type.
+    pub fn get_active_autonomy_states(&self, state_type: &str) -> Result<Vec<AutonomyState>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT * FROM autonomy_state WHERE state_type = ?1 AND status = 'active' ORDER BY priority DESC, created_at DESC"
+        )?;
+        let rows = stmt.query_map(params![state_type], row_to_autonomy_state)?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Get all active curiosity probes.
+    pub fn get_active_curiosity_probes(&self) -> Result<Vec<AutonomyState>> {
+        self.get_active_autonomy_states(Self::AUTONOMY_CURIOSITY)
+    }
+
+    /// Get all active goals.
+    pub fn get_active_goals(&self) -> Result<Vec<AutonomyState>> {
+        self.get_active_autonomy_states(Self::AUTONOMY_GOAL)
+    }
+
+    /// Get long-term aspirations.
+    pub fn get_aspirations(&self) -> Result<Vec<AutonomyState>> {
+        self.get_active_autonomy_states(Self::AUTONOMY_ASPIRATION)
+    }
+
+    /// Mark an autonomy state as completed.
+    pub fn complete_autonomy_state(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = crate::now_timestamp();
+        conn.execute(
+            "UPDATE autonomy_state SET status = 'completed', last_active = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    /// Mark an autonomy state as suspended.
+    pub fn suspend_autonomy_state(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = crate::now_timestamp();
+        conn.execute(
+            "UPDATE autonomy_state SET status = 'suspended', last_active = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    /// Update last_active timestamp.
+    pub fn touch_autonomy_state(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = crate::now_timestamp();
+        conn.execute(
+            "UPDATE autonomy_state SET last_active = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+        Ok(())
+    }
+
+    /// Get autonomy state by ID.
+    pub fn get_autonomy_state(&self, id: i64) -> Result<Option<AutonomyState>> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn
+            .query_row(
+                "SELECT * FROM autonomy_state WHERE id = ?1",
+                params![id],
+                row_to_autonomy_state,
+            )
+            .optional()?;
+        Ok(result)
+    }
+
+    /// Get child autonomy states (subgoals, etc.).
+    pub fn get_child_autonomy_states(&self, parent_id: i64) -> Result<Vec<AutonomyState>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT * FROM autonomy_state WHERE parent_id = ?1 ORDER BY priority DESC"
+        )?;
+        let rows = stmt.query_map(params![parent_id], row_to_autonomy_state)?;
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
+    }
+
+    /// Delete an autonomy state.
+    pub fn delete_autonomy_state(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        // Also delete children
+        conn.execute("DELETE FROM autonomy_state WHERE parent_id = ?1", params![id])?;
+        conn.execute("DELETE FROM autonomy_state WHERE id = ?1", params![id])?;
+        Ok(())
+    }
 }
 
 /// A simplified session record.
@@ -748,6 +892,20 @@ pub struct Session {
     pub started_at: i64,
     pub ended_at: Option<i64>,
     pub summary: Option<String>,
+}
+
+/// Autonomy state - cross-session persistence for curiosity, goals, aspirations.
+#[derive(Debug, Clone)]
+pub struct AutonomyState {
+    pub id: i64,
+    pub state_type: String,
+    pub content: String,
+    pub priority: f64,
+    pub created_at: i64,
+    pub last_active: Option<i64>,
+    pub status: String,
+    pub metadata: Option<String>,
+    pub parent_id: Option<i64>,
 }
 
 /// Snapshot of overall memory state.
@@ -851,6 +1009,20 @@ fn row_to_reasoning_event(row: &rusqlite::Row) -> rusqlite::Result<ReasoningEven
         was_uncertain: was_uncertain_i64 != 0,
         hedge_count: hedge_i64 as i32,
         timestamp: row.get(11)?,
+    })
+}
+
+fn row_to_autonomy_state(row: &rusqlite::Row) -> rusqlite::Result<AutonomyState> {
+    Ok(AutonomyState {
+        id: row.get(0)?,
+        state_type: row.get(1)?,
+        content: row.get(2)?,
+        priority: row.get(3)?,
+        created_at: row.get(4)?,
+        last_active: row.get(5)?,
+        status: row.get(6)?,
+        metadata: row.get(7)?,
+        parent_id: row.get(8)?,
     })
 }
 

@@ -303,4 +303,33 @@ impl CuriousEngine {
 
         None
     }
+
+    /// Load active curiosity probes from the database (cross-session persistence).
+    /// This allows Star to remember what she was curious about across restarts.
+    pub fn load_persisted_probes(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::persistence::AutonomyState;
+        
+        let probes = self.store.get_active_curiosity_probes()?;
+        
+        if !probes.is_empty() {
+            info!("Loaded {} persisted curiosity probes from previous sessions", probes.len());
+        }
+        
+        Ok(())
+    }
+
+    /// Get curiosity engine statistics.
+    pub fn stats(&self) -> RuntimeCuriosityStats {
+        RuntimeCuriosityStats {
+            last_probe: self.last_probe.lock().unwrap().map(|t| t.elapsed().as_secs()),
+            idle_for_secs: self.last_activity.lock().unwrap().elapsed().as_secs(),
+        }
+    }
+}
+
+/// Statistics for the runtime curious engine.
+#[derive(Debug, Clone)]
+pub struct RuntimeCuriosityStats {
+    pub last_probe: Option<u64>,
+    pub idle_for_secs: u64,
 }

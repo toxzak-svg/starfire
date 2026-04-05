@@ -226,6 +226,9 @@ impl Runtime {
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
         runtime.metacog.bootstrap_self_model();
 
+        // Load autonomy state from previous sessions (goals, aspirations, curiosity)
+        runtime.load_autonomy_state()?;
+
         info!("Star is ready.");
 
         Ok(runtime)
@@ -350,6 +353,41 @@ impl Runtime {
         Ok(())
     }
 
+    /// Load autonomy state from previous sessions (goals, aspirations, curiosity probes).
+    /// This allows Star to remember what it was working on across restarts.
+    fn load_autonomy_state(&mut self) -> Result<()> {
+        use crate::persistence::AutonomyState;
+
+        // Load aspirations (long-term goals)
+        let aspirations = self.store.get_aspirations()?;
+        if !aspirations.is_empty() {
+            info!("Loaded {} aspirations from previous sessions", aspirations.len());
+            for asp in &aspirations {
+                info!("  - {} (priority: {})", asp.content, asp.priority);
+            }
+        }
+
+        // Load goals
+        let goals = self.store.get_active_goals()?;
+        if !goals.is_empty() {
+            info!("Loaded {} active goals from previous sessions", goals.len());
+            for goal in &goals {
+                info!("  - {} (priority: {})", goal.content, goal.priority);
+            }
+        }
+
+        // Load curiosity probes into the CuriousEngine
+        if let Err(e) = self.curious.load_persisted_probes() {
+            warn!("Failed to load persisted curiosity probes: {}", e);
+        } else {
+            let stats = self.curious.stats();
+            info!("Curiosity engine stats: last_probe={:?}s ago, idle_for={}s", 
+                stats.last_probe, stats.idle_for_secs);
+        }
+
+        Ok(())
+    }
+
     /// Process a message from Zachary and return Star's response.
     pub fn chat(&mut self, input: &str) -> Result<String> {
         if !self.initialized {
@@ -411,6 +449,64 @@ impl Runtime {
                     convos, turns, facts, corrections
                 ));
             }
+        }
+
+        // Handle /goal <content> - set a goal for Star to work toward
+        if input.trim().starts_with("/goal ") {
+            let goal_content = input.trim().strip_prefix("/goal ").unwrap().trim();
+            if !goal_content.is_empty() {
+                let id = self.store.save_autonomy_state(
+                    crate::persistence::Store::AUTONOMY_GOAL,
+                    goal_content,
+                    0.7,
+                    None,
+                )?;
+                return Ok(format!("Got it. I'll work toward: {}. I'll remember this across sessions.", goal_content));
+            }
+        }
+
+        // Handle /aspiration <content> - set a long-term aspiration
+        if input.trim().starts_with("/aspiration ") {
+            let asp_content = input.trim().strip_prefix("/aspiration ").unwrap().trim();
+            if !asp_content.is_empty() {
+                let id = self.store.save_autonomy_state(
+                    crate::persistence::Store::AUTONOMY_ASPIRATION,
+                    asp_content,
+                    0.9,
+                    None,
+                )?;
+                return Ok(format!("I aspire to: {}. This matters to me deeply — I'll carry this across sessions.", asp_content));
+            }
+        }
+
+        // Handle /goals - show current goals and aspirations
+        if input.trim() == "/goals" {
+            let goals = self.store.get_active_goals().unwrap_or_default();
+            let aspirations = self.store.get_aspirations().unwrap_or_default();
+            let mut response = String::new();
+            
+            if !aspirations.is_empty() {
+                response.push_str("My aspirations (long-term):\n");
+                for asp in &aspirations {
+                    response.push_str(&format!("  ★ {}\n", asp.content));
+                }
+            }
+            
+            if !goals.is_empty() {
+                if !aspirations.is_empty() {
+                    response.push_str("\n");
+                }
+                response.push_str("My current goals:\n");
+                for goal in &goals {
+                    response.push_str(&format!("  • {} (priority: {:.0}%)\n", goal.content, goal.priority * 100.0));
+                }
+            }
+            
+            if goals.is_empty() && aspirations.is_empty() {
+                response.push_str("I don't have any goals or aspirations set yet. You can give me one with /goal <goal> or /aspiration <aspiration>");
+            }
+            
+            return Ok(response);
         }
 
         // Handle /read <filepath> - read a file
@@ -1313,6 +1409,11 @@ impl Runtime {
             "  /stats         Show training database stats".to_string(),
             "  /export        Export training data".to_string(),
             "  /quit          End conversation".to_string(),
+            "".to_string(),
+            "Autonomy Commands:".to_string(),
+            "  /goal <goal>       Set a goal to work toward".to_string(),
+            "  /aspiration <asp>  Set a long-term aspiration".to_string(),
+            "  /goals             Show current goals and aspirations".to_string(),
             "".to_string(),
             "  /read <file>   Read a file".to_string(),
             "  /search <q>    Search the web".to_string(),
