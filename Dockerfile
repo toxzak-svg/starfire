@@ -1,5 +1,9 @@
-# Starfire AGI — Docker Image
+# Starfire Core — Docker Image (no LLM, no candle)
 # Multi-stage build for minimal image size
+#
+# Usage:
+#   docker build -t starfire .
+#   docker run --rm starfire star api --port 8080
 
 # ============================================
 # Stage 1: Build
@@ -12,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
     curl \
-    git \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,58 +25,46 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /build
 
-# Copy source
+# Copy manifests first (better layer caching)
 COPY Cargo.toml Cargo.lock ./
-COPY lib/ ./lib/
 COPY src/ ./src/
+COPY lib/ ./lib/
 
-# Create dummy source for dependency caching
-RUN mkdir -p src/bin && \
-    echo "fn main() {}" > src/bin/dummy.rs && \
-    echo "fn main() {}" > lib/dummy.rs
-
-# Build dependencies (cached) - without LLM for minimal Docker image
-RUN cargo build --release --lib --no-default-features 2>&1 | tail -20
-
-# Build actual binary - without LLM for minimal Docker image
-RUN rm -rf src/bin/dummy.rs lib/dummy.rs
-RUN cargo build --release --bin star --no-default-features 2>&1 | tail -20
+# Build with NO LLM feature (candle-free)
+# --locked ensures Cargo.lock is respected
+RUN cargo build --release --bin star --no-default-features --locked 2>&1
 
 # ============================================
 # Stage 2: Runtime
 # ============================================
 FROM debian:bookworm-slim
 
-# Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
 RUN useradd -m -s /bin/bash starfire
 WORKDIR /home/starfire
 
-# Copy binary from builder
-COPY --from=builder /build/target/release/star /usr/local/bin/star
+# Copy binary
+COPY --from=builder /build/target/release/star /usr/local/bin/
 RUN test -f /build/target/release/libstar.so && cp /build/target/release/libstar.so /usr/local/lib/libstar.so || true
 
-# Copy config
+# Copy entrypoint
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Create data directory
+# Data volume
 RUN mkdir -p /data && chown -R starfire:starfire /data
 
-# Expose API port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${STARFIRE_PORT:-8080}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Run as non-root
 USER starfire
 ENV STARFIRE_HOME=/data
+ENV RAILWAY_PORT=8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
