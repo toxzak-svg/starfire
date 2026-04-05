@@ -10,6 +10,10 @@ description.workspace = true
 path = "lib.rs"
 
 [dependencies]
+candle-core = { path = "../../candle/candle-core" }
+candle-transformers = { path = "../../candle/candle-transformers" }
+safetensors.workspace = true
+tokenizers.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true

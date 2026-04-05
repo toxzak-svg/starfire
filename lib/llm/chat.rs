@@ -93,7 +93,7 @@ pub struct ChatChoice {
     pub finish_reason: String,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
