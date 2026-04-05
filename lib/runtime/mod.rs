@@ -18,6 +18,7 @@ use crate::metacog::MetaCognition;
 use crate::context::{ContextFuser, RingState};
 use crate::training_db::TrainingDB;
 use crate::capabilities::FileReader;
+use crate::capabilities::WebReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
@@ -62,6 +63,8 @@ pub struct Runtime {
     file_reader: FileReader,
     /// Web search capability
     web_search: WebSearcher,
+    /// Web reader capability - direct URL fetching
+    web_reader: WebReader,
     /// Self-model and metacognition
     cognition: CognitiveState,
     /// Learning engine - genuine concept formation
@@ -212,6 +215,7 @@ impl Runtime {
             training_session_id: Mutex::new(Some(training_session.id)),
             file_reader: FileReader::new(),
             web_search: WebSearcher::new(),
+            web_reader: WebReader::new(),
             cognition: CognitiveState::default(),
             learning: LearningEngine::new(),
             last_autonomous_thought: Mutex::new(None),
@@ -552,6 +556,56 @@ impl Runtime {
             }
         }
 
+        // Handle /fetch <url> - fetch a URL directly
+        if input.trim().starts_with("/fetch ") {
+            let url = input.trim().strip_prefix("/fetch ").unwrap().trim();
+            if url.is_empty() {
+                return Ok("Usage: /fetch <url>\nExample: /fetch https://example.com".to_string());
+            }
+            
+            // Use tokio runtime for async web fetch
+            let runtime = tokio::runtime::Runtime::new().map_err(|e| anyhow::anyhow!("{}", e))?;
+            let result = runtime.block_on(self.web_reader.fetch(url));
+            
+            if result.success {
+                let content_preview = if result.content.len() > 500 {
+                    format!("{}...\n\n(content truncated, {} total bytes)", 
+                        &result.content[..500], result.content.len())
+                } else {
+                    result.content.clone()
+                };
+                return Ok(format!(
+                    "Fetched {} ({} in {}ms):\n\n{}",
+                    result.url,
+                    result.status_code.map(|s| s.to_string()).unwrap_or_default(),
+                    result.fetch_time_ms,
+                    content_preview
+                ));
+            } else {
+                return Ok(format!("Failed to fetch {}: {}", url, result.error.unwrap_or_default()));
+            }
+        }
+
+        // Handle /scrape <url> - fetch and summarize a URL
+        if input.trim().starts_with("/scrape ") {
+            let url = input.trim().strip_prefix("/scrape ").unwrap().trim();
+            if url.is_empty() {
+                return Ok("Usage: /scrape <url>\nExample: /scrape https://example.com".to_string());
+            }
+            
+            let runtime = tokio::runtime::Runtime::new().map_err(|e| anyhow::anyhow!("{}", e))?;
+            let result = runtime.block_on(self.web_reader.summarize(url));
+            
+            if result.success {
+                return Ok(format!(
+                    "Summary of {}:\n\n{}",
+                    result.url, result.content
+                ));
+            } else {
+                return Ok(format!("Failed to scrape {}: {}", url, result.error.unwrap_or_default()));
+            }
+        }
+
         // Handle /find <pattern> - search for files
         if input.trim().starts_with("/find ") {
             let pattern = input.trim().strip_prefix("/find ").unwrap().trim();
@@ -670,7 +724,7 @@ impl Runtime {
 
         // "can you" questions about Star's capabilities → self-check
         if lower.contains("can you look up") || lower.contains("can u look up") || lower.contains("can you read") {
-            return Ok("Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string());
+            return Ok("Yes. I can /read files, /search the web, /fetch URLs directly, /scrape page summaries, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string());
         }
 
         // "i want you to grow" / "expand" → metacognitive aspiration
@@ -1417,6 +1471,8 @@ impl Runtime {
             "".to_string(),
             "  /read <file>   Read a file".to_string(),
             "  /search <q>    Search the web".to_string(),
+            "  /fetch <url>   Fetch a URL directly".to_string(),
+            "  /scrape <url>  Fetch and summarize a URL".to_string(),
             "  /find <pat>    Find files by name".to_string(),
             "  /ls [dir]      List directory".to_string(),
             "".to_string(),

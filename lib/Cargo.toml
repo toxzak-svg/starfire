@@ -26,4 +26,5 @@ dirs.workspace = true
 rand.workspace = true
 rand_distr.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 

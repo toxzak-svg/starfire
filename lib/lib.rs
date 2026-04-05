@@ -39,6 +39,8 @@ pub mod research;
 pub mod prediction;
 pub mod input_normalizer;
 pub mod personality;
+pub mod book;
+pub mod llm;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

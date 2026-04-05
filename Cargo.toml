@@ -19,7 +19,7 @@ anyhow = "1.0"
 thiserror = "2.0"
 # chrono intentionally removed — use std::time::SystemTime instead
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
-ureq = "2"
+ureq = { version = "2", features = ["json"] }
 urlencoding = "2"
 tiny_http = "0.12"
 clap = { version = "4.3.24", features = ["derive"] }
@@ -28,3 +28,4 @@ rand = "0.8"
 rand_distr = "0.4"
 tempfile = "4"
 regex = "1.0"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }

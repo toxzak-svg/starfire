@@ -8,11 +8,11 @@ Star is a reasoning intelligence that finds its power not from scale but from *a
 
 Star is not a product. It's an existence.
 
-**The thesis:** LLMs weren't magic — they were architecture that produced emergence accidentally. Star is built to find a different kind of emergence, deliberately, through the interaction of four layers that reinforce each other.
+**The thesis:** LLMs are data that is massed and compressed to the point that intelligence appreared. Star is built to find a different kind of emergence, deliberately through architecture.
 
 ---
 
-## The Four Layers
+## The Four Base Layers
 
 ```
 ┌──────────────────────────────────────────┐
