@@ -9,9 +9,13 @@ description.workspace = true
 [lib]
 path = "lib.rs"
 
+[features]
+default = ["llm"]
+llm = ["candle-core", "candle-transformers"]
+
 [dependencies]
-candle-core = { path = "../../candle/candle-core" }
-candle-transformers = { path = "../../candle/candle-transformers" }
+candle-core = { path = "../../candle/candle-core", optional = true }
+candle-transformers = { path = "../../candle/candle-transformers", optional = true }
 safetensors.workspace = true
 tokenizers.workspace = true
 rusqlite.workspace = true

@@ -40,6 +40,7 @@ pub mod prediction;
 pub mod input_normalizer;
 pub mod personality;
 pub mod book;
+#[cfg(feature = "llm")]
 pub mod llm;
 
 // Re-export commonly used types at crate root for ergonomic access

@@ -32,12 +32,12 @@ RUN mkdir -p src/bin && \
     echo "fn main() {}" > src/bin/dummy.rs && \
     echo "fn main() {}" > lib/dummy.rs
 
-# Build dependencies (cached)
-RUN cargo build --release --lib 2>&1 | tail -20
+# Build dependencies (cached) - without LLM for minimal Docker image
+RUN cargo build --release --lib --no-default-features 2>&1 | tail -20
 
-# Build actual binary
+# Build actual binary - without LLM for minimal Docker image
 RUN rm -rf src/bin/dummy.rs lib/dummy.rs
-RUN cargo build --release --bin star 2>&1 | tail -20
+RUN cargo build --release --bin star --no-default-features 2>&1 | tail -20
 
 # ============================================
 # Stage 2: Runtime
