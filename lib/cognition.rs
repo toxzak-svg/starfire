@@ -84,7 +84,7 @@ impl CognitiveState {
             conclusion: conclusion.to_string(),
             chain,
             confidence,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         });
         // Keep trace manageable
         if self.reasoning_trace.len() > 10 {
@@ -263,7 +263,7 @@ impl CognitiveState {
             return (true, "I don't have any reasoning trace. I may have collapsed.".to_string());
         }
         let last = self.reasoning_trace.last().unwrap();
-        let ago = chrono::Utc::now().timestamp() - last.timestamp;
+        let ago = crate::now_timestamp() - last.timestamp;
         if ago > 300 {
             return (true, format!("My last reasoning was {} seconds ago. I may have collapsed.", ago));
         }
@@ -308,14 +308,14 @@ impl CognitiveState {
         // If very positive, inject warmth
         if valence > 0.5 && !base_response.contains("love") && !base_response.contains("care") {
             let warm = ["That matters to me.", "I appreciate that.", "I'm glad we're talking."];
-            let idx = (chrono::Utc::now().timestamp() as usize) % warm.len();
+            let idx = (crate::now_timestamp() as usize) % warm.len();
             return format!("{} {}", base_response.trim_end_matches('.'), warm[idx]);
         }
         
         // If very negative, be supportive
         if valence < -0.3 {
             let supportive = ["I'm here with you.", "We can work through this.", "What do you need?"];
-            let idx = (chrono::Utc::now().timestamp() as usize) % supportive.len();
+            let idx = (crate::now_timestamp() as usize) % supportive.len();
             return format!("{} {}", base_response.trim_end_matches('.'), supportive[idx]);
         }
         

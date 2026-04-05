@@ -124,7 +124,6 @@ Reset the current session (clears working memory, starts fresh session).
 Start the API server locally:
 
 ```bash
-cd life/life
 cargo run --release -- api --host 0.0.0.0 --port 8080
 ```
 

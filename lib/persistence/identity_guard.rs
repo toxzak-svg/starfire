@@ -3,6 +3,7 @@
 use super::memory::Memory;
 
 /// Identity guard — protects core identity memories from being contradicted.
+#[allow(dead_code)]
 pub struct IdentityGuard {
     /// Core identity claims that cannot be contradicted
     protected_claims: Vec<String>,

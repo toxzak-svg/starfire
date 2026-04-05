@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  starfire:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: starfire:latest
+    container_name: starfire
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - STARFIRE_PORT=8080
+      - STARFIRE_DATA=/data
+      - STARFIRE_LOG=info
+    volumes:
+      - starfire-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  starfire-data:
+    driver: local

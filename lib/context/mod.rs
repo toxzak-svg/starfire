@@ -6,7 +6,9 @@ pub use ring::RingState;
 
 /// Reasoning mode — how Star is approaching a problem.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum ReasoningMode {
+    #[default]
     Default,
     Curious,
     Reflective,
@@ -14,11 +16,6 @@ pub enum ReasoningMode {
     Creative,
 }
 
-impl Default for ReasoningMode {
-    fn default() -> Self {
-        ReasoningMode::Default
-    }
-}
 
 impl ReasoningMode {
     /// Determine reasoning mode from query content and ring state.
@@ -145,7 +142,7 @@ impl ContextFuser {
     /// Get a history reference string.
     pub fn history_reference(&self) -> Option<String> {
         if self.history_depth > 3 {
-            Some(format!("Earlier we were talking about...",))
+            Some("Earlier we were talking about...".to_string())
         } else {
             None
         }

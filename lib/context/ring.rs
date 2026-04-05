@@ -55,7 +55,7 @@ impl RingState {
 
     /// Update the ring based on a new user query.
     /// This is the "attractor dynamics" — the query pulls the ring toward a new phase.
-    pub fn update_from_query(&mut self, query: &str, inferred_topic: &str) {
+    pub fn update_from_query(&mut self, _query: &str, inferred_topic: &str) {
         let topic_lower = inferred_topic.to_lowercase();
         
         // Check if this is a new topic or continuation

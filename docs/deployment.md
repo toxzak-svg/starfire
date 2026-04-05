@@ -14,7 +14,6 @@ Star deploys to Railway. This guide covers setup, environment variables, and tro
 ## One-Command Deploy
 
 ```bash
-cd life
 railway link --project <project-id>
 railway up
 ```
@@ -43,7 +42,7 @@ The Star Claw project ID is: `a24765ef-9885-4da8-849c-5a525f4a22fb`
 ## What Gets Deployed
 
 ```
-toxzak-svg/star
+toxzak-svg/starfire
 └── Dockerfile          → builds Rust binary
     └── CMD ["star"]    → Railway overrides, runs binary
                           (auto-starts API because RAILWAY_PUBLIC_DOMAIN is set)
@@ -59,7 +58,7 @@ Star works out of the box on Railway. No env vars required.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STAR_DATA_DIR` | `/data/star` | SQLite + memory files |
+| `STAR_DATA_DIR` | `/data/star-data` | SQLite + memory files |
 | `PORT` | `8080` | HTTP server port |
 | `USE_LLM` | `false` | Ollama for text generation (not needed) |
 | `OLLAMA_BASE_URL` | — | Ollama server URL |
@@ -71,10 +70,10 @@ Star works out of the box on Railway. No env vars required.
 
 ## Adding a Persistent Volume
 
-Star's memory lives at `/data/star`. On Railway, add a persistent volume:
+Star's memory lives at `/data/star-data`. On Railway, add a persistent volume:
 
 1. Railway dashboard → Star service → Settings → Volumes
-2. Add volume mounted at `/data/star`
+2. Add volume mounted at `/data/star-data`
 
 This preserves memory across deployments.
 
@@ -83,7 +82,7 @@ This preserves memory across deployments.
 ## Railway Architecture
 
 ```
-GitHub (toxzak-svg/star, layer4 branch)
+GitHub (toxzak-svg/starfire, layer4 branch)
     └── railway up
             └── Railway build
                     ├── rust:1.77-slim (builder)
@@ -111,7 +110,6 @@ railway logs --service star
 If the logs show Chat mode ("Type /quit to end the conversation"), the deployment is using an older build. Push the latest and redeploy:
 
 ```bash
-cd life
 git push origin layer4
 railway up
 ```
@@ -147,11 +145,11 @@ A GET request returns 405 Method Not Allowed.
 
 ### Memory not persisting
 
-Star needs a persistent volume at `/data/star`. Without it, memory resets on every redeploy.
+Star needs a persistent volume at `/data/star-data`. Without it, memory resets on every redeploy.
 
 1. Railway dashboard → Star service → Volumes
 2. Add volume named `star-data`
-3. Mount at `/data/star`
+3. Mount at `/data/star-data`
 
 ---
 

@@ -24,6 +24,15 @@ impl TrainingDB {
             std::fs::create_dir_all(parent)?;
         }
         let conn = rusqlite::Connection::open(path)?;
+        
+        // Configure for Railway's ephemeral filesystem
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA busy_timeout = 30000;
+             PRAGMA locking_mode = NORMAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA cache_size = -64000;"
+        )?;
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
              CREATE TABLE IF NOT EXISTS training_sessions (
@@ -48,7 +57,7 @@ impl TrainingDB {
     /// Start a new training session.
     pub fn start_session(&self) -> anyhow::Result<TrainingSession> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO training_sessions (started_at) VALUES (?1)",
             rusqlite::params![now],
@@ -92,7 +101,7 @@ impl TrainingDB {
     /// Record a conversation turn.
     pub fn record_turn(&self, session_id: i64, input: &str, output: &str, confidence: f64) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO training_examples (session_id, input, output, confidence, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
             rusqlite::params![session_id, input, output, confidence, now],
@@ -103,7 +112,7 @@ impl TrainingDB {
     /// Record a fact from Star's reasoning.
     pub fn record_fact(&self, session_id: i64, fact: &str, confidence: f64) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO training_examples (session_id, input, output, confidence, timestamp) VALUES (?1, ?2, NULL, ?3, ?4)",
             rusqlite::params![session_id, fact, confidence, now],
@@ -114,7 +123,7 @@ impl TrainingDB {
     /// End a training session.
     pub fn end_session(&self, session_id: i64) -> anyhow::Result<()> {
         let conn = self.conn.lock().unwrap();
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         conn.execute(
             "UPDATE training_sessions SET ended_at = ?1, examples_seen = examples_seen + 1 WHERE id = ?2",
             rusqlite::params![now, session_id],

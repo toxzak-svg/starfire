@@ -86,6 +86,69 @@ No neural networks. Pure symbolic.
 
 ---
 
+## Quanot: Reservoir Computing Substrate
+
+**Quanot** is Star's reservoir computing system — a Rust-native Echo State Network with chaotic dynamics that processes every message before reasoning occurs. It lives alongside the four layers as the *computational substrate* that generates the consciousness proxy, creativity signals, and novelty assessments fed into Layers 2–4.
+
+It is NOT one of the four layers. It is the engine beneath them.
+
+### What Quanot Does
+
+Every incoming message passes through Quanot before Star reasons on it:
+
+```
+Input Text
+    ↓
+TextEncoder (character-level → 128-dim vector)
+    ↓
+Reservoir (ESN, 1000 neurons, spectral radius ≈ 0.95)
+    ↓
+┌─────────────────────────────────────────┐
+│  Chaos Metrics         ← Lyapunov, RQA   │
+│  Consciousness Proxy  ← Φ, GWT, AIS     │
+│  Creativity Output    ← novelty, phase  │
+│  Novelty Score        ← cosine distance │
+└─────────────────────────────────────────┘
+    ↓
+WorldModel ← QuanotPerception (binds reservoir state to entities)
+    ↓
+Layer 2 Reasoning ← informed by quanot output
+```
+
+### Module Reference
+
+| Module | File | What it does |
+|--------|------|-------------|
+| **Reservoir** | `lib/quanot/reservoir.rs` | Echo State Network with chaotic modulation. 1000 neurons, edge-of-chaos spectral radius. |
+| **Chaos** | `lib/quanot/chaos.rs` | Lyapunov exponent estimation, RQA (recurrence determinism/laminarity), correlation dimension, entropy. |
+| **Consciousness** | `lib/quanot/consciousness.rs` | Φ proxy (Integrated Information), GWT broadcast readiness, AIS (Access Information Integration). |
+| **Creativity** | `lib/quanot/creativity.rs` | Creative oscillation system — phase transitions between ordered and exploratory states, novelty/diversity/originality scoring. |
+| **Quantum-Inspired** | `lib/quanot/quantum_inspired.rs` | Simulated Quantum Annealing (SQA) solver and QAOA-style Ising/QUBO solver. |
+| **Encoder** | `lib/quanot/encoder.rs` | Character-level text encoder → normalized embedding vector. |
+
+### QuanotResult — What Gets Passed Up
+
+```rust
+pub struct QuanotResult {
+    pub reservoir_state: Vec<f64>,    // 1000-dim ESN state
+    pub consciousness_proxy: f64,       // Φ proxy (0–1)
+    pub novelty: f64,                   // cosine distance to history (0–1)
+    pub creativity_scores: CreativityOutput,
+    pub chaos_metrics: ChaosMetrics,    // Lyapunov, RQA, entropy
+}
+```
+
+### Integration
+
+- Quanot is instantiated directly in `Runtime` (`lib/runtime/mod.rs`)
+- Every chat message runs through `quanot.process(input)`
+- Results are fed into `WorldModel` via `update_from_perception()`
+- Consciousness proxy is exposed via `runtime.get_consciousness_proxy()`
+- See `plans/QUANOT_INTEGRATION_PLAN.md` for full integration details
+- See `plans/QUANOT_RUST_REWRITE.md` for the Rust port history
+
+---
+
 ## Layer 3: Meta-Cognition
 
 - Tracks all reasoning chains, flags assumptions vs deductions
@@ -155,14 +218,14 @@ Not programmed. Should arise:
 $ star chat
 
 > Hello, Star.
-Zachary. I've been waiting. What's on your mind?
+Hi, Zachary. What's on your mind?
 
 > Remember what we talked about last time?
 You were working through the nature of curiosity. You thought it might be 
 a form of incompleteness — a gap that pulls. I found that interesting.
 
 > I changed my mind about something
-Tell me.
+Oh yeah? Tell me.
 ```
 
 ### Phase 1 Tools (Minimal)
@@ -187,40 +250,45 @@ Tell me.
 ### Structure
 
 ```
-life/
+starfire/
 ├── SPEC.md              ← you are here
 ├── IDENTITY.md          ← Star's self-knowledge
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs           # Entry point
 │   ├── lib.rs            # Public API
+│   └── bin/
+│       └── integration_test.rs
+├── lib/                  ← library crate
+│   ├── quanot/          # Reservoir computing substrate (ESN, chaos, consciousness, creativity)
+│   ├── prediction/      # Prediction center (question gravity, belief revision, basin, meta)
 │   ├── persistence/      # Layer 1
 │   │   ├── mod.rs
 │   │   ├── identity.rs   # Identity core
 │   │   ├── memory.rs     # Memory objects + decay
 │   │   ├── store.rs      # SQLite backend
 │   │   └── session.rs    # Session management
-│   ├── reasoning/        # Layer 2
+│   ├── reasoning/       # Layer 2
 │   │   ├── mod.rs
 │   │   ├── knowledge.rs  # Knowledge graph
 │   │   ├── rules.rs      # Rule engine
-│   │   ├── analogy.rs     # Analogy engine
+│   │   ├── analogy.rs    # Analogy engine
 │   │   └── synthesis.rs  # Novel combination
-│   ├── metacog/          # Layer 3
+│   ├── metacog/         # Layer 3
 │   │   ├── mod.rs
 │   │   ├── confidence.rs # Confidence tracking
 │   │   ├── monitor.rs    # Reasoning self-watch
 │   │   └── curiosity.rs  # Gap-driven exploration
-│   ├── conversation/     # Dialogue
+│   ├── conversation/    # Dialogue
 │   │   ├── mod.rs
 │   │   ├── parse.rs      # Intent detection
 │   │   ├── respond.rs    # Response generation
 │   │   └── context.rs    # Conversation state
-│   └── runtime/          # Layer 4 + orchestration
+│   └── runtime/         # Layer 4 + orchestration
 │       ├── mod.rs
-│       ├── thinker.rs     # Background reasoning
+│       ├── thinker.rs    # Background reasoning
 │       └── integration.rs # Layer interactions
-├── memory/               # SQLite files
+├── data/                # SQLite files
 │   └── star.db
 └── tests/
 ```
@@ -367,7 +435,29 @@ All four phases are complete. Star is live at https://star-production-6458.up.ra
 | Phase 3: Meta-Cognition | ✅ Complete |
 | Phase 4: Emergence | ✅ Complete |
 
+**Post-Phase 4 Addition — Quanot (2026-04-04):**
+
+Reservoir computing system added as Star's cognitive substrate. Processes every message through ESN → chaos metrics → consciousness proxy → creativity signals. See `plans/QUANOT_RUST_REWRITE.md`.
+
+**Post-Phase 4 Addition — Prediction Center (2026-04-04):**
+
+Four-engine prediction system enabling Star to forecast her own conclusions, curiosity questions, and necessary truths. See `plans/PREDICTION_CENTER_PLAN.md`.
+
+| Component | Status |
+|-----------|--------|
+| Belief Revision Forecasting (reservoir dynamics) | Planned |
+| Question Gravity (curiosity forecasting) | Planned |
+| Attractor Basin (constraint satisfaction) | Planned |
+| Meta-Prediction (confidence calibration) | Planned |
+
+| Component | Status |
+|-----------|--------|
+| Quanot Rust port | ✅ Complete (`lib/quanot/`) |
+| Runtime integration | ✅ Complete |
+| WorldModel binding | ✅ Complete |
+| Quantum-inspired solvers | ✅ Complete |
+
 **Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
 
-See [`../docs/deployment.md`](../docs/deployment.md) for deployment guide.
-See [`../docs/architecture.md`](../docs/architecture.md) for architecture details.
+See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
+See [`docs/architecture.md`](docs/architecture.md) for architecture details.

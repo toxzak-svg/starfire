@@ -1,7 +1,5 @@
 //! Web Searcher — DuckDuckGo Instant Answer API client
 
-use std::io::Read;
-
 /// Search result from web search.
 #[derive(Debug)]
 pub struct SearchResult {

@@ -12,7 +12,7 @@ pub struct BackgroundThinker {
 
 impl BackgroundThinker {
     /// Spawn a new background thinker thread.
-    pub fn spawn(store: Arc<crate::Store>, reasoning: Arc<Mutex<crate::reasoning::ReasoningEngine>>) -> Self {
+    pub fn spawn(_store: Arc<crate::Store>, _reasoning: Arc<Mutex<crate::reasoning::ReasoningEngine>>) -> Self {
         let handle = thread::spawn(move || {
             info!("Background thinker started");
             // Background thinking loop — runs curiosity probes and autonomous reasoning

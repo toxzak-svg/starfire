@@ -59,7 +59,7 @@ impl MetaCognition {
                     old_state: existing_belief.confidence_state,
                     new_state: belief.confidence_state,
                     reason: format!("Evidence shifted confidence: {:?}", belief.confidence_state),
-                    timestamp: chrono::Utc::now().timestamp(),
+                    timestamp: crate::now_timestamp(),
                     investigated: false,
                 });
             }
@@ -133,7 +133,7 @@ impl MetaCognition {
 
         for (topic, question) in foundational_gaps {
             self.note_gap(KnowledgeGap::new(topic, 0.8));
-            self.curiosity.start_exploring(topic, &question);
+            self.curiosity.start_exploring(topic, question);
         }
     }
 
@@ -182,7 +182,7 @@ impl MetaCognition {
             query: query.to_string(),
             conclusion: conclusion.to_string(),
             confidence,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
             was_surprising: self.surprise.is_surprising(conclusion, confidence),
         };
         
@@ -313,9 +313,7 @@ impl MetaCognition {
         if let Some(surprising) = self.reasoning_history.last() {
             if surprising.was_surprising {
                 // Don't repeat — check if we already expressed this
-                return Some(format!(
-                    "That conclusion surprised me — I expected something different.",
-                ));
+                return Some("That conclusion surprised me — I expected something different.".to_string());
             }
         }
         
@@ -502,6 +500,7 @@ impl Default for CuriosityEngine {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct CuriosityTopic {
     topic: String,
     why: String,
@@ -673,7 +672,7 @@ impl KnowledgeGap {
         Self {
             topic: topic.into(),
             importance,
-            noticed_at: chrono::Utc::now().timestamp(),
+            noticed_at: crate::now_timestamp(),
             investigated: false,
             progress: 0.0,
         }
@@ -705,8 +704,8 @@ mod tests {
     #[test]
     fn test_revision_tracking() {
         let mut metacog = MetaCognition::new();
-        metacog.record_belief("fire", Belief::new("fire burns", BeliefState::Believes));
-        metacog.record_belief("fire", Belief::new("fire burns", BeliefState::Knows));
+        metacog.record_belief("fire", Belief::new("fire burns".to_string(), BeliefState::Believes));
+        metacog.record_belief("fire", Belief::new("fire burns".to_string(), BeliefState::Knows));
         
         assert!(metacog.can_express_revision("fire"));
     }

@@ -3,6 +3,17 @@
 //! Star is an emergent intelligence that reasons, learns, and grows.
 //! She has no training data — only architecture, memory, and curiosity.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Get current Unix timestamp in seconds
+#[inline]
+pub fn now_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64
+}
+
 pub mod api;
 pub mod cognition;
 pub mod persistence;
@@ -15,6 +26,19 @@ pub mod capabilities;
 pub mod training_db;
 pub mod learning;
 pub mod runtime;
+pub mod voice;
+pub mod math;
+pub mod curiosity;
+pub mod world_model;
+pub mod quanot;
+pub mod multimodal;
+pub mod causal;
+pub mod goals;
+pub mod curriculum;
+pub mod research;
+pub mod prediction;
+pub mod input_normalizer;
+pub mod personality;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

@@ -19,18 +19,45 @@ cargo --version
 ## Project Layout
 
 ```
-life/life/
-├── Cargo.toml
-├── src/
-│   ├── main.rs              # Entry: chat / api / status
-│   ├── api.rs               # HTTP API server (actix-web)
-│   ├── cognition.rs         # Cognitive state tracking
-│   ├── conversation/         # Dialogue, intent detection
-│   ├── knowledge/            # Wikipedia reader, search
-│   ├── metacog/             # Confidence, reasoning self-watch
-│   ├── persistence/         # Identity, memory, SQLite store
-│   ├── reasoning/            # KG, rules, analogy, synthesis, symbolic
-│   └── runtime/              # Curious engine, background thinker
+starfire/                          ← workspace root
+├── Cargo.toml                      ← Rust workspace
+├── src/                           ← binary crate
+│   ├── main.rs                    # Entry: chat / api / status
+│   └── bin/
+│       └── integration_test.rs
+├── lib/                           ← library crate (star)
+│   ├── Cargo.toml
+│   ├── lib.rs
+│   ├── api.rs                     # HTTP API server
+│   ├── cognition.rs               # Cognitive state tracking
+│   ├── learning.rs
+│   ├── training_db.rs
+│   ├── capabilities/              # File reading, tool use
+│   ├── causal/                    # Causal reasoning
+│   ├── context/                   # Context ring buffer
+│   ├── conversation/              # Dialogue, intent detection
+│   ├── curiosity/                 # Curiosity engine
+│   ├── curriculum/                # Learning curriculum
+│   ├── goals/                     # Goal planning & tracking
+│   ├── knowledge/                 # Wikipedia reader, search
+│   ├── learning/                  # Hypothesis & eviction
+│   ├── math/                      # Mathematical reasoning
+│   ├── metacog/                   # Meta-cognition
+│   ├── multimodal/               # Multi-modal processing
+│   ├── persistence/               # Identity, memory, SQLite store
+│   ├── quanot/                    # Quantum-inspired reasoning
+│   ├── reasoning/                 # KG, rules, analogy, synthesis, symbolic
+│   ├── runtime/                   # Curious engine, background thinker
+│   ├── voice/                     # Voice/phrases
+│   └── world_model/               # World perception & prediction
+├── ui/                            # Web chat (Next.js + Vercel)
+├── data/                          # SQLite stores
+│   ├── star.db
+│   └── training.db
+├── docs/                          # Architecture, API, deployment docs
+├── scripts/                       # CLI clients, daemons
+├── plans/                         # Expansion plans
+└── SPEC.md                        # Technical specification
 ```
 
 ---
@@ -40,7 +67,6 @@ life/life/
 ### Chat (interactive CLI)
 
 ```bash
-cd life/life
 cargo run --release -- chat
 ```
 
@@ -59,7 +85,7 @@ cargo run --release -- chat --data-dir ./my-data
 ### Status check
 
 ```bash
-cargo run -- status
+cargo run --release -- status
 ```
 
 ---
@@ -70,7 +96,7 @@ cargo run -- status
 cargo test
 ```
 
-Some tests require the full data directory. Run from the `life/life/` directory.
+Some tests require the full data directory. Run from the project root.
 
 ---
 
@@ -80,7 +106,7 @@ Some tests require the full data directory. Run from the `life/life/` directory.
 cargo build --release
 ```
 
-Output: `life/life/target/release/star`
+Output: `target/release/star`
 
 ---
 
@@ -88,7 +114,7 @@ Output: `life/life/target/release/star`
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `STAR_DATA_DIR` | `~/.star` | Data directory |
+| `STAR_DATA_DIR` | `~/.star` or `/data/star-data` | Data directory |
 | `USE_LLM` | `false` | Enable Ollama (not needed for symbolic mode) |
 | `OLLAMA_BASE_URL` | — | Ollama server URL |
 | `USE_TELEGNOSTR` | `false` | Telegram bridge mode |

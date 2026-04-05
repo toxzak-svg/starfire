@@ -3,14 +3,31 @@ target/
 *.rlib
 *.pdb
 
+# === Rust ===
+Cargo.lock
+
 # === Databases ===
-data/star.db
-data/star.db-shm
-data/star.db-wal
-data/training.db
-data/training.db-shm
-data/training.db-wal
-star.db.fresh
+*.db
+*.db-shm
+*.db-wal
+!data/
+!data/*.db
+!data/*.db-shm
+!data/*.db-wal
+
+# === Node / UI ===
+node_modules/
+ui/node_modules/
+ui/.next/
+package-lock.json
+ui/package-lock.json
+ui/yarn.lock
+ui/pnpm-lock.yaml
+
+# === Environment ===
+.env
+.env.local
+.env.local.example
 
 # === OS ===
 .DS_Store
@@ -18,3 +35,11 @@ Thumbs.db
 
 # === Jupyter notebooks ===
 *.ipynb_checkpoints/
+
+# === Editor ===
+.vscode/
+.idea/
+
+# === OpenCLAW ===
+.openclaw/
+.clawhub/

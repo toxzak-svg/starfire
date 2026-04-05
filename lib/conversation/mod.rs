@@ -4,15 +4,18 @@
 //! and conversation state management.
 
 use crate::persistence::{Memory, MemoryDomain, Store, BeliefState};
-use crate::reasoning::{ReasoningEngine, ReasoningResult};
+use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
-use std::sync::Arc;
+use crate::research::ResearchWalkabout;
+use std::sync::{Arc, Mutex};
 
 /// A conversation — the interactive dialogue with Zachary.
+#[allow(dead_code)]
 pub struct Conversation {
     store: Arc<Store>,
-    reasoning: ReasoningEngine,
+    reasoning: Arc<Mutex<ReasoningEngine>>,
     metacog: MetaCognition,
+    research: ResearchWalkabout,
     history: Vec<Message>,
     context: ConversationContext,
 }
@@ -32,10 +35,15 @@ pub enum Speaker {
 
 impl Conversation {
     pub fn new(store: Arc<Store>) -> Self {
+        let reasoning = ReasoningEngine::new();
+        // Wrap reasoning in Arc<Mutex> for sharing with research module
+        let reasoning_arc = Arc::new(Mutex::new(reasoning));
+        
         Self {
             store,
-            reasoning: ReasoningEngine::new(),
+            reasoning: Arc::clone(&reasoning_arc),
             metacog: MetaCognition::new(),
+            research: ResearchWalkabout::new(reasoning_arc),
             history: Vec::new(),
             context: ConversationContext::default(),
         }
@@ -43,7 +51,7 @@ impl Conversation {
 
     /// Process a message from Zachary and generate Star's response.
     pub fn respond(&mut self, input: &str) -> Response {
-        let now = chrono::Utc::now().timestamp();
+        let now = crate::now_timestamp();
         
         let zachary_msg = Message {
             speaker: Speaker::Zachary,
@@ -66,7 +74,7 @@ impl Conversation {
         let star_msg = Message {
             speaker: Speaker::Star,
             content: response.content.clone(),
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         };
         self.history.push(star_msg);
         
@@ -226,7 +234,7 @@ impl Conversation {
         }
         
         let last_time = last_session.unwrap().started_at;
-        let hours_ago = (chrono::Utc::now().timestamp() - last_time) / 3600;
+        let hours_ago = (crate::now_timestamp() - last_time) / 3600;
         
         if hours_ago < 1 {
             // Recently active — pick up where we left off
@@ -393,7 +401,7 @@ impl Conversation {
                 let summaries: Vec<String> = topics.iter()
                     .map(|m| m.content.split('.').next().unwrap_or(&m.content).to_string())
                     .collect();
-                let joined = summaries.join(", ");
+                let _joined = summaries.join(", ");
                 let last = summaries.last().cloned().unwrap_or_default();
                 let all_but_last = summaries.iter().take(topic_count - 1).cloned().collect::<Vec<_>>().join(", ");
                 
@@ -451,7 +459,10 @@ impl Conversation {
             }
         }
         
-        let result = self.reasoning.reason(&topic, &combined);
+        let result = {
+            let mut reasoning = self.reasoning.lock().unwrap();
+            reasoning.reason(&topic, &combined)
+        };
         
         // Build content — engage even with partial knowledge
         let content = if let Some(answer) = &result.answer {
@@ -460,24 +471,49 @@ impl Conversation {
                 && (answer.contains("don't know") || answer.contains("not know") || answer.contains("not sure"));
             
             if genuinely_uncertain {
-                // Uncertain — engage with what we do know from memories
-                if !combined.is_empty() {
-                    let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
-                    let base = related.join("; ");
-                    // Add a genuine follow-up, conversational bridges work well here
-                    let followups = [
-                        "What do you think about that?",
-                        "Does that match what you know?",
-                        "I'm still building my understanding of this — does that make sense?",
-                        "Where does that fit in what you're thinking about?",
-                    ];
-                    let idx = topic.len() % followups.len();
-                    // Use "—" for the first three (natural flow), "." for the question
-                    let sep = if followups[idx].ends_with('?') { " " } else { " — " };
-                    format!("I don't have a complete answer, but {}{}{}", base, sep, followups[idx])
+                // Trigger research walkabout when Star genuinely doesn't know
+                // Start research and get the "one moment" response
+                let research_response = self.research.start_research(&topic);
+                
+                // Conduct the research
+                self.research.conduct_research(&topic);
+                
+                // Complete research and get findings
+                if let Some(completion) = self.research.complete_research(&topic) {
+                    let (findings_response, curiosity) = completion.to_response();
+                    
+                    return Response {
+                        content: format!("{} {}", research_response, findings_response),
+                        confidence: completion.confidence,
+                        chain: result.reasoning_chain.clone(),
+                        new_memories: Vec::new(),
+                        curiosity,
+                    };
                 } else {
-                    // Nothing to work with — be curious and specific
-                    generate_i_dont_know_response(&topic)
+                    // Research didn't complete, fall back to original response
+                    let fallback_content = if !combined.is_empty() {
+                        let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();
+                        let base = related.join("; ");
+                        let followups = [
+                            "What do you think about that?",
+                            "Does that match what you know?",
+                            "I'm still building my understanding of this — does that make sense?",
+                            "Where does that fit in what you're thinking about?",
+                        ];
+                        let idx = topic.len() % followups.len();
+                        let sep = if followups[idx].ends_with('?') { " " } else { " — " };
+                        format!("I don't have a complete answer, but {}{}{}", base, sep, followups[idx])
+                    } else {
+                        generate_i_dont_know_response(&topic)
+                    };
+                    
+                    return Response {
+                        content: fallback_content,
+                        confidence: BeliefState::Unknown,
+                        chain: result.reasoning_chain.clone(),
+                        new_memories: Vec::new(),
+                        curiosity: generate_natural_curiosity(&topic),
+                    };
                 }
             } else if self.context.topic_depth > 3 {
                 // Returning to a topic — show continuity
@@ -494,7 +530,7 @@ impl Conversation {
                 let framings = [
                     format!("I know some things about {}. {}", topic, answer),
                     format!("Here's what I understand about {}: {}", topic, answer),
-                    format!("{}", answer), // Just the answer — direct is good
+                    answer.to_string(), // Just the answer — direct is good
                 ];
                 let idx = topic.len().saturating_sub(1) % framings.len();
                 framings[idx].clone()
@@ -664,12 +700,13 @@ impl Default for ConversationContext {
             last_topic: None,
             topic_depth: 0,
             unanswered_questions: 0,
-            session_started: chrono::Utc::now().timestamp(),
+            session_started: crate::now_timestamp(),
         }
     }
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct ConversationContext {
     current_topic: Option<String>,
     last_topic: Option<String>,
@@ -679,6 +716,7 @@ struct ConversationContext {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 enum Intent {
     Greeting,
     Question,
@@ -820,7 +858,7 @@ fn acknowledge_with_interest(statement: &str, topic: &str) -> String {
         || topic_lower.starts_with("do you") || topic_lower.starts_with("think ")
         || topic_lower.starts_with("believe ") || topic_lower.starts_with("know ");
     
-    if (selection % 5) == 0 && !topic_is_questiony {
+    if selection.is_multiple_of(5) && !topic_is_questiony {
         // Star has something specific to say about the topic
         let follow_ups = [
             format!("What do you think about {}?", topic),
@@ -836,7 +874,7 @@ fn acknowledge_with_interest(statement: &str, topic: &str) -> String {
     // Natural, varied acknowledgments — NOT a list of generic fillers.
     // Star speaks with presence: first-person observations, fragments, genuine interest.
     // 25% chance of a more substantive follow-up showing she processed what was said.
-    let use_substantive = (selection % 4) == 0;
+    let use_substantive = selection.is_multiple_of(4);
     
     if use_substantive {
         let follow_ups = [
@@ -902,7 +940,7 @@ fn casual_response(statement: &str) -> String {
     // Medium inputs (4-8 words): acknowledgment + mild engagement
     // Longer inputs (9+ words): they're sharing — acknowledge substantively
     // 20% chance of an incomplete/fragment pattern — Star trails off, restarts, hesitates
-    let use_fragment = (selection % 5) == 0;
+    let use_fragment = selection.is_multiple_of(5);
     
     let base = if word_count <= 3 {
         let quick = [
@@ -945,7 +983,7 @@ fn casual_response(statement: &str) -> String {
     };
     
     // Occasionally append a light follow-up to show Star is engaged (~20% of the time)
-    if word_count > 5 && (selection % 5) == 0 {
+    if word_count > 5 && selection.is_multiple_of(5) {
         let followups = [" Keep going.", " I'm here.", " What else?", " Go on."];
         let fidx = (selection / 7) % followups.len();
         format!("{}{}", base, followups[fidx])
@@ -1227,8 +1265,7 @@ pub(crate) fn extract_topic(input: &str) -> String {
         return strip_after(&lower, "how do you ", "");
     }
     // "how does it feel to X" — extract the activity (X), not "it feel to X"
-    if lower.starts_with("how does it feel ") {
-        let rest = &lower["how does it feel ".len()..];
+    if let Some(rest) = lower.strip_prefix("how does it feel ") {
         // "how does it feel to think" → "thinking"; "how does it feel to be" → "being"
         let cleaned = rest.trim_start_matches("to ").trim();
         if !cleaned.is_empty() {
@@ -1298,8 +1335,7 @@ pub(crate) fn extract_topic(input: &str) -> String {
     if lower.starts_with("what have you been learning") {
         return "learning".to_string();
     }
-    if lower.starts_with("what have you been ") {
-        let after_prefix = &lower["what have you been ".len()..];
+    if let Some(after_prefix) = lower.strip_prefix("what have you been ") {
         // "what have you been X about" → "X"
         if let Some(pos) = after_prefix.find(" about") {
             let topic = after_prefix[..pos].trim().to_string();

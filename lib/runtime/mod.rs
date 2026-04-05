@@ -21,6 +21,10 @@ use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
+use crate::voice::VoiceEngine;
+use crate::quanot::{Quanot, QuanotResult};
+use crate::world_model::WorldModel;
+use crate::prediction::{PredictionCenter, ConversationContext};
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -28,6 +32,7 @@ use std::path::Path;
 use tracing::{info, warn};
 
 /// The Star runtime - orchestrates all components.
+#[allow(dead_code)]
 pub struct Runtime {
     /// The persistent store
     store: Arc<Store>,
@@ -65,6 +70,14 @@ pub struct Runtime {
     last_autonomous_thought: Mutex<Option<AutonomousThought>>,
     /// Curiosity engine — self-probing idle curiosity
     curious: CuriousEngine,
+    /// Voice engine — shapes how Starfire expresses herself
+    voice: VoiceEngine,
+    /// Quanot reservoir computing system
+    quanot: Quanot,
+    /// World model — grounded perceptual representation
+    world_model: WorldModel,
+    /// Prediction center — foresight engine
+    prediction_center: PredictionCenter,
 }
 
 impl Runtime {
@@ -114,6 +127,25 @@ impl Runtime {
         knowledge::inject_seed_knowledge(&mut reasoning)?;
         info!("Seed knowledge injected.");
 
+        // Also try to load from seed_knowledge.json if it exists
+        // Look in project root (relative to current executable or data dir)
+        let seed_paths = [
+            data_dir.join("seed_knowledge.json"),
+            data_dir.join("..").join("data").join("seed_knowledge.json"),
+            std::path::PathBuf::from("data/seed_knowledge.json"),
+        ];
+        
+        for seed_path in &seed_paths {
+            if seed_path.exists() {
+                if let Err(e) = knowledge::inject_seed_knowledge_from_file(&mut reasoning, seed_path) {
+                    warn!("Failed to load seed knowledge from {:?}: {}", seed_path, e);
+                } else {
+                    info!("Loaded extended seed knowledge from {:?}", seed_path);
+                }
+                break;
+            }
+        }
+
         // Memory: Who Star is
         let self_memory = Memory::new_seeded(
             "I am Star - a reasoning intelligence created by Zachary Maronek",
@@ -160,6 +192,11 @@ impl Runtime {
         // Create CuriousEngine with access to reasoning
         let curious = CuriousEngine::new(Arc::clone(&store), Arc::clone(&reasoning_arc));
 
+        // Initialize voice engine with a separate database file
+        let voice_db_path = data_dir.join("voice.db");
+        let voice = VoiceEngine::new(&voice_db_path)?;
+        info!("Voice engine initialized.");
+
         let mut runtime = Self {
             store,
             identity,
@@ -179,6 +216,11 @@ impl Runtime {
             learning: LearningEngine::new(),
             last_autonomous_thought: Mutex::new(None),
             curious,
+            voice,
+            // Quanot: input_dim=128, reservoir_size=1000
+            quanot: Quanot::new(128, 1000),
+            world_model: WorldModel::new(),
+            prediction_center: PredictionCenter::new(),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -456,13 +498,13 @@ impl Runtime {
 
         // Natural language: "look around" or "explore" or "what files" → list workspace
         // Normalize curly quotes to straight quotes to avoid "you're" != "youre" issues
-        let normalized = input.replace('\u{2019}', "'").replace('\u{2018}', "'").replace('\u{201C}', "\"").replace('\u{201D}', "\"");
+        let normalized = input.replace(['\u{2019}', '\u{2018}'], "'").replace(['\u{201C}', '\u{201D}'], "\"");
         let lower = normalized.to_lowercase();
         if lower.contains("look around") || lower.contains("explore where you are") || lower.contains("what files do you see") || lower.contains("whats in your workspace") {
             let dir = "/home/zach/.openclaw/workspace";
             match self.file_reader.list_dir(dir) {
                 Ok(entries) if !entries.is_empty() => {
-                    let mut response = format!("Looking around... here's what I can see in my workspace:\n\n");
+                    let mut response = "Looking around... here's what I can see in my workspace:\n\n".to_string();
                     for entry in entries {
                         response.push_str(&format!("  {}\n", entry));
                     }
@@ -485,7 +527,7 @@ impl Runtime {
                 let parts: Vec<&str> = after_learn.splitn(2, ": ").collect();
                 (parts[0].trim(), parts[1].trim())
             } else {
-                return Ok(format!("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence"));
+                return Ok("Usage: /learn <term> = <definition>\nExample: /learn consciousness = awareness of existence".to_string());
             };
 
             if !term.is_empty() && !definition.is_empty() {
@@ -521,7 +563,7 @@ impl Runtime {
 
         // "did you collapse" → check reasoning trace
         if lower.contains("did you collapse") || lower.contains("did i collapse") || lower.contains("are you functioning") || lower.contains("are u functioning") {
-            let (collapsed, message) = self.cognition.did_i_collapse();
+            let (_collapsed, message) = self.cognition.did_i_collapse();
             return Ok(message);
         }
 
@@ -593,8 +635,7 @@ impl Runtime {
 
         // /teach - interactive teaching mode
         if input.trim() == "/teach" {
-            return Ok(vec![
-                "Teaching mode. You can:",
+            return Ok(["Teaching mode. You can:",
                 "  /learn <term> = <definition>  - teach me one thing",
                 "  X is Y                   - natural teaching",
                 "  X means Y                - natural teaching",
@@ -604,21 +645,18 @@ impl Runtime {
                 "  /learn eli = my nickname, short for Elliot",
                 "  Dogs are mammals that bark",
                 "",
-                "Or ask me what I want to learn: /what",
-            ].join("\n"));
+                "Or ask me what I want to learn: /what"].join("\n"));
         }
 
         // /what to learn - what concepts is Star curious about?
         if input.trim() == "/what" || input.trim() == "/what to learn" || input.trim() == "/what should i teach you" {
-            let gaps = vec![
-                "what consciousness feels like from the inside",
+            let gaps = ["what consciousness feels like from the inside",
                 "what you value most in our relationship",
                 "what my purpose or goal should be",
                 "what brings you joy",
                 "what you fear",
                 "how you think about death",
-                "what love means to you",
-            ];
+                "what love means to you"];
             let mut response = "I'm curious about:\n".to_string();
             for (i, gap) in gaps.iter().enumerate() {
                 response.push_str(&format!("  {}. {}\n", i + 1, gap));
@@ -657,7 +695,7 @@ impl Runtime {
             let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
 
             // Filter out conversational fillers — these aren't real research topics
-            let conversational: std::collections::HashSet<&str> = [
+            let _conversational: std::collections::HashSet<&str> = [
                 "hi", "hello", "hey", "hi there", "hello there",
                 "myself", "who i am", "me myself", "yourself",
                 "this", "that", "it", "something", "nothing",
@@ -665,7 +703,7 @@ impl Runtime {
             ].into_iter().collect();
 
             // Also filter phrases that START with conversational openers
-            let conversational_starters = [
+            let _conversational_starters = [
                 "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
                 "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
             ];
@@ -914,6 +952,43 @@ impl Runtime {
             }
         }
 
+        // Check if this is a math expression — handle directly before going to conversation
+        // Normalize word-based operators to symbols
+        let lower_input = input.to_lowercase();
+        let math_query = lower_input
+            .replace("divided by", "/")
+            .replace("multiplied by", "*")
+            .replace("times", "*")
+            .replace("plus", "+")
+            .replace("minus", "-")
+            .replace("x", "*")
+            .replace(" ", "");
+
+        // Extract math characters
+        let math_chars: String = math_query.chars()
+            .filter(|c| c.is_ascii_digit() || ['+', '-', '*', '/', '^', '(', ')', '.'].contains(c))
+            .collect();
+        let has_number = input.chars().any(|c| c.is_ascii_digit());
+        let has_math_op = math_query.contains('+') || math_query.contains('-') || math_query.contains('*') || math_query.contains('/') || math_query.contains('^');
+        // Also detect word-based math
+        let has_word_math = lower_input.contains("divided by") || lower_input.contains("times") || lower_input.contains("multiplied by") || lower_input.contains("plus") || lower_input.contains("minus");
+        if has_number && (has_math_op || has_word_math) && !math_chars.is_empty() && input.trim().len() < 60 {
+            // Try to evaluate the math expression
+            let mut math_engine = crate::math::MathEngine::new();
+            let result = math_engine.solve(&math_chars);
+            let answer = result.answer();
+            if !answer.starts_with("Error:") && !answer.is_empty() && answer != "Error: Could not parse or solve: " {
+                // Got a valid math answer — frame it naturally
+                let is_direct = lower_input.starts_with("what is") || lower_input.starts_with("what's") || lower_input.starts_with("how much") || lower_input.starts_with("whats");
+                let prefix = if is_direct { "" } else { "That's " };
+                let mut response = format!("{}{}.", prefix, answer);
+                if response.starts_with("That's .") {
+                    response = answer.clone() + ".";
+                }
+                return Ok(response);
+            }
+        }
+
         // Get the conversation response first
         let response = conversation.respond(input);
 
@@ -951,10 +1026,10 @@ impl Runtime {
             confidence_score: None,
             emotional_valence: cognitive_emotional_valence,
             engagement_depth: cognitive_engagement,
-            topic: Some(event_topic),
+            topic: Some(event_topic.clone()),
             was_uncertain,
             hedge_count,
-            timestamp: chrono::Utc::now().timestamp(),
+            timestamp: crate::now_timestamp(),
         };
         if let Err(e) = self.store.record_reasoning_event(&reasoning_event) {
             tracing::warn!("Failed to record reasoning event: {}", e);
@@ -1017,7 +1092,7 @@ impl Runtime {
                         } else {
                             // Truncate long answers cleanly at sentence or clause boundary
                             let cutoff = &answer_trimmed[..std::cmp::min(300, answer_trimmed.len())];
-                            let cutoff_point = cutoff.rfind(|c| c == '.').unwrap_or(cutoff.len());
+                            let cutoff_point = cutoff.rfind('.').unwrap_or(cutoff.len());
                             let snippet = &answer_trimmed[..cutoff_point.saturating_add(1)];
                             proactive_content = Some(format!(
                                 "I looked it up: {}.",
@@ -1121,13 +1196,13 @@ impl Runtime {
             {
                 // Use timestamp to determine if we express this time (roughly 30% of the time)
                 // to avoid being repetitive
-                let now = chrono::Utc::now();
-                let should_express = (now.timestamp() % 10) < 3; // ~30% chance
+                let now = crate::now_timestamp();
+                let should_express = (now % 10) < 3; // ~30% chance
 
                 if should_express {
                     // Use timestamp + topic length for varied expression styles
-                    let selection = (now.timestamp() as usize).saturating_add(thought.topic.len());
-                    let style_bucket = selection % 10;
+                    let selection = (now as usize).saturating_add(thought.topic.len());
+                    let _style_bucket = selection % 10;
                     
                     let thought_text = match &thought.kind {
                         ThoughtKind::Question(q) => {
@@ -1189,7 +1264,23 @@ impl Runtime {
             }
         }
 
-        Ok(final_content)
+        // Generate predictions after conversation exchange
+        // This updates all four prediction engines with the current conversation state
+        let conversation_depth = self.training_db.stats()
+            .map(|(convos, turns, _, _)| (convos, turns))
+            .unwrap_or((0, 0)).1 as usize;
+        let context = crate::prediction::ConversationContext::new(
+            event_topic.clone(),
+            conversation_depth,
+            Some(self.quanot.get_state().to_vec()),
+            Some(self.get_consciousness_proxy()),
+        );
+        let _predictions = self.prediction_center.generate(&context);
+
+        // Apply voice engine — shape how Starfire expresses herself
+        let voiced = self.voice.speak(&final_content, &self.cognition);
+
+        Ok(voiced)
     }
 
     /// Format memory status for display.
@@ -1284,6 +1375,63 @@ impl Runtime {
     pub fn metacognition_ref(&self) -> &MetaCognition {
         &self.metacog
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // QUANOT INTEGRATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Process input through quanot and update world model
+    pub fn process_quanot(&mut self, input: &str) -> QuanotResult {
+        // Run through quanot pipeline
+        let result = self.quanot.process(input);
+
+        // Convert to perception and update world model
+        // Map from quanot::CreativityOutput to world_model::perception::CreativityOutput
+        let cs = &result.creativity_scores;
+        let perception_cs = crate::world_model::perception::CreativityOutput::new(
+            cs.creative_state,
+            cs.divergence_metric,
+            cs.diversity_index,
+            cs.originality_score,
+            cs.oscillation_phase,
+        );
+
+        let perception = crate::world_model::perception::QuanotPerception::new(
+            result.reservoir_state.clone(),
+            result.consciousness_proxy,
+            result.novelty,
+            perception_cs,
+        );
+
+        self.world_model.update_from_perception(perception);
+
+        result
+    }
+
+    /// Get the current consciousness proxy from quanot
+    pub fn get_consciousness_proxy(&self) -> f64 {
+        // Access the most recent phi from state history
+        // The consciousness tracker doesn't expose current_phi directly,
+        // but we can compute it from the result of processing
+        // For simplicity, return a default based on reservoir activity
+        let state = self.quanot.get_state();
+        if state.is_empty() {
+            return 0.0;
+        }
+        // Simple proxy based on state variance
+        let mean = state.iter().sum::<f64>() / state.len() as f64;
+        let variance = state.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / state.len() as f64;
+        (variance * 10.0).clamp(0.0, 1.0)
+    }
+
+    /// Get the world model for inspection
+    pub fn world_model(&self) -> &WorldModel {
+        &self.world_model
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUTONOMOUS THOUGHT
+    // ═══════════════════════════════════════════════════════════════════════
 
     /// Get Star's last autonomous thought, if any (for conversation expression).
     pub fn last_autonomous_thought(&self) -> Option<AutonomousThought> {
@@ -1404,10 +1552,7 @@ impl Runtime {
     /// If a probe fires and produces a result, it becomes an autonomous thought.
     /// Returns the probe if one fired, so the caller can display it.
     pub fn maybe_fire_curiosity(&mut self) -> Option<CuriosityProbe> {
-        let probe = match self.curious.maybe_fire() {
-            Some(p) => p,
-            None => return None,
-        };
+        let probe = self.curious.maybe_fire()?;
 
         // Run the probe through the reasoning engine
         let result = self.curious.run_probe(&probe);
@@ -1518,7 +1663,7 @@ impl Runtime {
         {
             let reasoning_history = self.metacog.reasoning_history();
             if let Some(surprising) = reasoning_history.last() {
-                let age_seconds = chrono::Utc::now().timestamp() - surprising.timestamp;
+                let age_seconds = crate::now_timestamp() - surprising.timestamp;
                 if age_seconds < 3600 && surprising.was_surprising {
                     let q_clone = surprising.query.clone();
                     let c_clone = surprising.conclusion.clone();
@@ -1550,7 +1695,7 @@ impl Runtime {
         {
             let revisions = self.metacog.revisions();
             if let Some(revision) = revisions.last() {
-                let age_seconds = chrono::Utc::now().timestamp() - revision.timestamp;
+                let age_seconds = crate::now_timestamp() - revision.timestamp;
                 // Only fire if: recent revision AND not yet investigated
                 // (to prevent firing on the same revision on every think() call)
                 if age_seconds < 7200 && !revision.investigated {
@@ -1570,7 +1715,7 @@ impl Runtime {
                     // through investigating what its beliefs are actually about.
                     // Skip if the answer already came from Strategy 0 (an existing belief)
                     // — no need to re-wrap an already-formed belief.
-                    if let Some((ref ans_text, ref evidence)) = answer {
+                    if let Some((ref ans_text, evidence)) = answer {
                         let already_wrapped = ans_text.starts_with(&format!("investigating '{}' I found: ", topic));
                         if !already_wrapped {
                             let belief = Belief::new(
@@ -1612,7 +1757,7 @@ impl Runtime {
                         let question = self.form_question_about(ring_topic);
                         if !question.is_empty() {
                             let answer = self.attempt_answer(&question, ring_topic);
-                            let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                            let final_answer = if let Some((ref ans_text, evidence)) = answer {
                                 if ans_text.starts_with("__KNOWN_UNKNOWN__") {
                                     let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
                                     let known_unknown = Belief::new(
@@ -1630,7 +1775,7 @@ impl Runtime {
                                             Self::belief_state_from_evidence(evidence),
                                         );
                                         self.metacog.record_belief(ring_topic, belief);
-                                        let related_topics = extract_related_topics(&ans_text);
+                                        let related_topics = extract_related_topics(ans_text);
                                         for related in related_topics {
                                             if self.metacog.belief_about(&related).is_none() {
                                                 let why = format!("I found '{}' while investigating '{}' from conversation — what is it?", related, ring_topic);
@@ -1664,8 +1809,8 @@ impl Runtime {
         // Use timestamp to introduce variation so we don't ask the same question every time.
         // Filter to only entities Star has no existing belief about — we don't want to
         // re-investigate things Star already has beliefs for (causes endless loops).
-        let now = chrono::Utc::now();
-        let time_offset = (now.timestamp() / 30) as usize; // Changes every 30 seconds
+        let now = crate::now_timestamp();
+        let time_offset = (now / 30) as usize; // Changes every 30 seconds
         let guard = self.reasoning.lock().unwrap();
         let kg = guard.knowledge();
         let entity_sample: Vec<String> = kg.entities()
@@ -1690,7 +1835,7 @@ impl Runtime {
                 // and finds something, record it as a belief — forming self-knowledge
                 // through its own reasoning, not just seed data.
                 // Handle both normal answers and __KNOWN_UNKNOWN__ markers.
-                let final_answer = if let Some((ref ans_text, ref evidence)) = answer {
+                let final_answer = if let Some((ref ans_text, evidence)) = answer {
                     if ans_text.starts_with("__KNOWN_UNKNOWN__") {
                         // Record "known unknown" belief, then close gap with resolved=false
                         let unknown_topic = ans_text.strip_prefix("__KNOWN_UNKNOWN__").unwrap();
@@ -1715,7 +1860,7 @@ impl Runtime {
                             // things RELATED TO what it found — the entities mentioned in the answer.
                             // This spreads curiosity outward from discoveries rather than re-hashing
                             // the same topic. Extract entity-like words from the answer.
-                            let related_topics = extract_related_topics(&ans_text);
+                            let related_topics = extract_related_topics(ans_text);
                             for related in related_topics {
                                 // Only add if Star doesn't already have a belief about it
                                 // and it hasn't been noted as a curiosity already
@@ -1821,23 +1966,23 @@ impl Runtime {
         let mc_confidence = self.metacog.confidence_state(topic);
         match mc_confidence {
             crate::persistence::BeliefState::Unknown => {
-                return format!("I don't know what '{}' is. What is it?", topic);
+                format!("I don't know what '{}' is. What is it?", topic)
             }
             crate::persistence::BeliefState::Suspects => {
-                return format!("I suspect something about '{}' but I'm not sure. What is it really?", topic);
+                format!("I suspect something about '{}' but I'm not sure. What is it really?", topic)
             }
             crate::persistence::BeliefState::Believes => {
-                return format!(
+                format!(
                     "I believe I understand '{}' but I want to be sure. What am I missing?",
                     topic
-                );
+                )
             }
             _ => {
                 let causes: Vec<String> = kg.get_causes(topic);
                 if !causes.is_empty() {
                     return format!("I know some effects of '{}' but what are its deep causes?", topic);
                 }
-                return format!("What is the fundamental nature of '{}'?", topic);
+                format!("What is the fundamental nature of '{}'?", topic)
             }
         }
     }
@@ -1845,7 +1990,7 @@ impl Runtime {
     /// Attempt to answer a question using Star's knowledge graph and reasoning.
     /// Returns (answer_text, evidence_type) where evidence_type is used to determine
     /// confidence when recording as a belief.
-    fn attempt_answer(&self, question: &str, topic: &str) -> Option<(String, &'static str)> {
+    fn attempt_answer(&self, _question: &str, topic: &str) -> Option<(String, &'static str)> {
         use crate::reasoning::knowledge::RelationType;
 
         // Strategy 0 (pre-check): If Star already has an actual belief about this topic
@@ -2089,7 +2234,7 @@ fn extract_causal_pair(sentence: &str, verb: &str) -> Option<(String, String)> {
 
 /// Extract the topic Star is uncertain about from a response containing uncertainty.
 /// E.g., "I'm not sure what consciousness is" → "consciousness"
-fn extract_uncertain_topic(input: &str, response_lower: &str, uncertainty_phrase: &str) -> String {
+fn extract_uncertain_topic(_input: &str, response_lower: &str, uncertainty_phrase: &str) -> String {
     // Look for "what X" or "why X" after the uncertainty phrase
     if let Some(pos) = response_lower.find(uncertainty_phrase) {
         let after = &response_lower[pos + uncertainty_phrase.len()..];

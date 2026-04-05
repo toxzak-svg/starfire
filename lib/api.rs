@@ -258,7 +258,7 @@ fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
             "content": m.content,
             "domain": format!("{:?}", m.domain).to_lowercase(),
             "importance": m.importance,
-            "confidence": m.current_confidence(chrono::Utc::now().timestamp()),
+            "confidence": m.current_confidence(crate::now_timestamp()),
         })
     }).collect();
 
@@ -406,7 +406,7 @@ fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String 
     };
 
     // Send response back to Telegram
-    if let Some(token) = std::env::var("TELEGRAM_BOT_TOKEN").ok() {
+    if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
         let send_url = format!("https://api.telegram.org/bot{}/sendMessage", token);
         let payload = serde_json::json!({
             "chat_id": chat_id,

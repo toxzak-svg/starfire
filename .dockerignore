@@ -1,0 +1,30 @@
+# Exclude certain patterns but include specific files/dirs needed for deployment
+.git
+.gitignore
+target
+README.md
+AGENTS.md
+SOUL.md
+USER.md
+MEMORY.md
+HEARTBEAT.md
+IDENTITY.md
+SPEC.md
+TOOLS.md
+.clawhub
+.openclaw
+docs
+plans
+**/*.md
+
+# Include all of ui
+!ui
+!ui/**
+
+# Include deployment files
+!entrypoint.sh
+!Dockerfile
+!Cargo.toml
+!Cargo.lock
+!lib
+!src

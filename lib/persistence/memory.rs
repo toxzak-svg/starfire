@@ -1,5 +1,7 @@
 //! Memory Types — Persistence Layer
 
+use serde::{Deserialize, Serialize};
+
 /// Memory domains — what kind of knowledge a memory represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryDomain {
@@ -46,7 +48,7 @@ impl Memory {
             domain,
             confidence: None,
             importance,
-            formed_at: chrono::Utc::now().timestamp(),
+            formed_at: crate::now_timestamp(),
             access_count: 0,
             decay_rate: 0.01,
             last_accessed: None,
@@ -62,7 +64,7 @@ impl Memory {
             domain,
             confidence: Some(confidence),
             importance: 0.6,
-            formed_at: chrono::Utc::now().timestamp(),
+            formed_at: crate::now_timestamp(),
             access_count: 0,
             decay_rate: 0.005,
             last_accessed: None,
@@ -95,7 +97,7 @@ impl Memory {
 }
 
 /// Belief state — how confident Star is in a piece of knowledge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BeliefState {
     Knows,    // High confidence — direct knowledge
     Thinks,   // Moderate confidence — reasonable inference
@@ -137,7 +139,7 @@ impl Belief {
             confidence_state,
             confidence_score: None,
             based_on: None,
-            formed_at: chrono::Utc::now().timestamp(),
+            formed_at: crate::now_timestamp(),
             revised_from: None,
             reasoning: None,
         }

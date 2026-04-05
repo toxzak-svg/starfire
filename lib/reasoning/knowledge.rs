@@ -99,7 +99,6 @@ impl RelationType {
             Self::SimilarTo => Some(Self::SimilarTo),
             Self::OppositeOf => Some(Self::OppositeOf),
             Self::RelatedTo => Some(Self::RelatedTo),
-            _ => None,
         }
     }
 }
@@ -223,8 +222,8 @@ impl KnowledgeGraph {
 
     /// Add a relationship between entities.
     pub fn add_relationship(&mut self, from: &str, relation: RelationType, to: &str) {
-        if from.len() < 2 || to.len() < 2 { return; }
-        
+        if from.is_empty() || to.is_empty() { return; }
+
         let from = from.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
         let to = to.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
         
@@ -249,16 +248,18 @@ impl KnowledgeGraph {
 
     /// Add a property to an entity.
     pub fn add_property(&mut self, entity: &str, property: &str, value: &str) {
-        self.add_entity(entity);
-        if let Some(e) = self.entities.get_mut(entity) {
+        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        self.add_entity(&normalized_entity);
+        if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.properties.insert(property.to_string(), value.to_string());
         }
     }
 
     /// Add a fact about an entity.
     pub fn add_fact(&mut self, entity: &str, fact: &str) {
-        self.add_entity(entity);
-        if let Some(e) = self.entities.get_mut(entity) {
+        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        self.add_entity(&normalized_entity);
+        if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.description = Some(fact.to_string());
         }
     }
@@ -305,7 +306,7 @@ impl KnowledgeGraph {
         
         // Use case-insensitive entity lookup
         if let Some(e) = self.get_entity(entity) {
-            for (prop, val) in &e.properties {
+            for (_prop, val) in &e.properties {
                 facts.push(format!("{} has {}", e.name, val));
             }
             if let Some(desc) = &e.description {
@@ -380,12 +381,11 @@ impl KnowledgeGraph {
         
         // Look for entities that have "good" or "value" in their relationships
         for rel in &self.relationships {
-            if rel.from.to_lowercase().contains(&topic_lower) ||
-               rel.to.to_lowercase().contains(&topic_lower) {
-                if rel.relation == RelationType::RelatedTo {
+            if (rel.from.to_lowercase().contains(&topic_lower) ||
+               rel.to.to_lowercase().contains(&topic_lower))
+                && rel.relation == RelationType::RelatedTo {
                     related.push(format!("{} {} {}", rel.from, rel.relation.as_str(), rel.to));
                 }
-            }
         }
         
         related
@@ -637,7 +637,7 @@ impl KnowledgeGraph {
                 result.push((rel, rel.to.clone()));
             }
             if rel.to.to_lowercase() == concept_lower {
-                if let Some(inv) = rel.relation.inverse() {
+                if let Some(_inv) = rel.relation.inverse() {
                     result.push((rel, rel.from.clone()));
                 }
             }
