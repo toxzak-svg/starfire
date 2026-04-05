@@ -248,16 +248,18 @@ impl KnowledgeGraph {
 
     /// Add a property to an entity.
     pub fn add_property(&mut self, entity: &str, property: &str, value: &str) {
-        self.add_entity(entity);
-        if let Some(e) = self.entities.get_mut(entity) {
+        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        self.add_entity(&normalized_entity);
+        if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.properties.insert(property.to_string(), value.to_string());
         }
     }
 
     /// Add a fact about an entity.
     pub fn add_fact(&mut self, entity: &str, fact: &str) {
-        self.add_entity(entity);
-        if let Some(e) = self.entities.get_mut(entity) {
+        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        self.add_entity(&normalized_entity);
+        if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.description = Some(fact.to_string());
         }
     }
