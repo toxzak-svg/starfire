@@ -353,7 +353,7 @@ impl LlmHandle {
 
     /// Create an LLM handle at the standard Bonsai-8B location for a data dir.
     pub fn for_data_dir(data_dir: &Path) -> Self {
-        Self::new(&data_dir.join("models/bonzai-8b/Bonsai-8B.gguf"))
+        Self::new(&data_dir.join("models/bonsai-8b/Bonsai-8B.gguf"))
     }
 }
 
@@ -379,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_model_size() {
-        let path = Path::new("models/bonzai-8b/Bonsai-8B.gguf");
+        let path = Path::new("models/bonsai-8b/Bonsai-8B.gguf");
         if path.exists() {
             let size = LlmEngine::model_size_human(path);
             println!("Model size: {}", size);

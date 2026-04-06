@@ -4,7 +4,7 @@ target/
 *.pdb
 
 # === Rust ===
-Cargo.lock
+
 
 # === Databases ===
 *.db

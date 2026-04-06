@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Status:** DRAFT — review before implementing
-**Owner:** Zach (Marble reads only)
+**Owner:** ZWM
 
 ---
 
@@ -108,7 +108,7 @@ pub struct Runtime {
 }
 ```
 
-Model path: `projects/starfire/models/bonzai-8b/Bonsai-8B.gguf`
+Model path: `projects/starfire/models/bonsai-8b/Bonsai-8B.gguf`
 
 ### Step 2 — Startup: load LLM (optional, don't block)
 ```rust

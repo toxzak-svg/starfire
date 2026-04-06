@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_bonsai_detection() {
         // Path to the downloaded Bonsai model
-        let path = Path::new("models/bonzai-8b/Bonsai-8B.gguf");
+        let path = Path::new("models/bonsai-8b/Bonsai-8B.gguf");
 
         if !path.exists() {
             println!("SKIPPED: Bonsai model not found at {:?}", path);

@@ -1,0 +1,77 @@
+{
+  "about_zach": [
+    [
+      "Zach is working on OaaS (Operations as a Service)",
+      "Zach is building a business around operations automation"
+    ],
+    [
+      "Zach is researching GPU infrastructure",
+      "Zach has set up remote GPU servers with WireGuard tunnels"
+    ],
+    [
+      "Zach is interested in 1-bit LLM models",
+      "Zach is exploring Bonsai and 1-bit quantization for local AI"
+    ],
+    [
+      "Zach is building Starfire as a personal AI agent",
+      "Starfire is Zach's AI project with reasoning and memory"
+    ],
+    [
+      "Zach has worked on car-small (DonkeyCar ML model)",
+      "Zach trained car-small, an 840K param Mamba SSM controller"
+    ],
+    [
+      "Zach is interested in quantization research",
+      "Zach has been experimenting with quantization of transformers and SSMs"
+    ],
+    [
+      "Zach has a cat named Sky",
+      "Sky is a grey tabby cat with golden eyes"
+    ],
+    [
+      "Zach's Telegram handle is @Ton0Fun",
+      "Zach's username on Telegram is Ton0Fun"
+    ]
+  ],
+  "about_projects": [
+    [
+      "Starfire has a book system for hierarchical knowledge",
+      "Books → Chapters → Sections with density tiers (High/Medium/Low/Packed)"
+    ],
+    [
+      "Starfire has a causal discovery module",
+      "Finds causal edges from temporal patterns in data"
+    ],
+    [
+      "Starfire has a curiosity system",
+      "Autonomous probing of knowledge gaps between conversations"
+    ],
+    [
+      "Starfire has a metacognition module",
+      "Knows what it knows, tracks confidence explicitly"
+    ],
+    [
+      "Starfire uses Bonsai-8B Q1_0_g128 via Candle",
+      "1-bit quantized LLM running on CPU"
+    ],
+    [
+      "Quanot lives inside Starfire",
+      "Quantum-inspired symbolic reasoning engine"
+    ],
+    [
+      "Starfire has a CLI (star) and HTTP API",
+      "star chat, star doctor commands; REST API on port 8080"
+    ],
+    [
+      "Felix is the R&D lab",
+      "Python CLI + Next.js dashboard for experiments"
+    ]
+  ],
+  "zach_values": [
+    "Building things that run locally without GPU dependency",
+    "Creating AI that has genuine personality, not just templated responses",
+    "Pushing the boundary on 1-bit / extreme quantization",
+    "Making AI that can actually act on the world (agents, not just chat)",
+    "Privacy-first: data stays local, no cloud dependency"
+  ]
+}

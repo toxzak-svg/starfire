@@ -132,6 +132,12 @@ Pipeline: `training/dataset_builder.py` → `training/extract_starfire.py` → `
 
 Final output: `data/processed/training/train.jsonl` + `eval.jsonl`
 
+### Published
+
+**Kaggle:** https://www.kaggle.com/datasets/zacharymaronek/starfire-personal-v1
+
+**CrumbStore:** 17 personal context crumbs added to Star's memory (~/.openclaw/crumbs/)
+
 ### Next: Training
 
 **Base Model:** Bonsai-8B Q1_0_g128

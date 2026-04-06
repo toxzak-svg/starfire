@@ -2,7 +2,7 @@
 
 ## Concept
 
-A hierarchical, bookmark-driven knowledge system for Starfire that behaves like a **personal library**: instant tab-switching between specialized knowledge domains (Railway deployments, medical symptoms, project context), where each "book" has sections of varying information density. The LLM (Qwen) never sees the whole library — only the paged-in sections relevant to the current focus.
+A hierarchical, bookmark-driven knowledge system for Starfire that behaves like a **personal library**: instant tab-switching between specialized knowledge domains (Railway deployments, medical symptoms, project context), where each "book" has sections of varying information density. The LLM never sees the whole library — only the paged-in sections relevant to the current focus.
 
 Drawing from: MemGPT's virtual context paging, MemoryOS's heat-tracking, GraphRAG's hierarchical retrieval.
 
