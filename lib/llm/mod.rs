@@ -8,152 +8,262 @@
 //! The LLM runs natively via candle-core + candle-transformers — no subprocess,
 //! no HTTP sidecar, fully in-process. Model: `models/bonzai-8b/Bonsai-8B.gguf`
 //!
-//! # Usage
+//! # Architecture
 //!
-//! ```ignore
-//! let mut llm = LlmEngine::new("models/bonzai-8b/Bonsai-8B.gguf")?;
-//! let response = llm.generate("What is 2+2?")?;
-//! let polished = llm.polish("twoplus two equals four")?;
-//! ```
+//! - Tokenizer: loaded from GGUF metadata via `TokenizerFromGguf` trait
+//! - Model: quantized GPT-2/BPE vocabulary, 254 Q1_0_g128 tensors
+//! - Generation: autoregressive with KV-cache, temperature + top-p sampling
+//! - Polish pipeline: rough KG output → model → fluent natural text
 
 pub mod client;
 pub mod chat;
 
-use candle_core::{Device, Result as CandleResult, Tensor};
+use anyhow::{Context as AnyhowContext, Result as AnyhowResult};
+use candle_core::{Device, Tensor};
+use candle_core::quantized::gguf_file;
+use candle_core::quantized::tokenizer::TokenizerFromGguf;
 use candle_transformers::models::quantized_llama as qlm;
+use candle_transformers::generation::LogitsProcessor;
 use std::path::Path;
+use tokenizers::Tokenizer;
+
+/// Vocabulary size for Bonsai-8B.
+const BONSAI_VOCAB_SIZE: usize = 151_669;
+
+/// Maximum new tokens to generate in a single response.
+const MAX_NEW_TOKENS: usize = 256;
+
+/// Default generation temperature (0.7 = balanced creativity/coherence).
+const DEFAULT_TEMPERATURE: f64 = 0.7;
 
 /// LLM inference engine — loads Bonsai-8B GGUF via Candle and runs inference.
 pub struct LlmEngine {
     model: qlm::ModelWeights,
+    tokenizer: Tokenizer,
     device: Device,
     vocab_size: usize,
+    bos_token_id: Option<u32>,
+    eos_token_id: Option<u32>,
     max_seq_len: usize,
 }
 
 impl LlmEngine {
     /// Create a new LLM engine from a GGUF file path.
-    pub fn new(gguf_path: &Path) -> anyhow::Result<Self> {
-        self::init();
+    /// This loads both the model weights and the embedded tokenizer.
+    pub fn new(gguf_path: &Path) -> AnyhowResult<Self> {
         let device = Device::Cpu;
 
-        let mut file = std::fs::File::open(gguf_path)?;
-        let model = qlm::ModelWeights::from_gguf(
-            candle_core::quantized::gguf_file::Content::read(&mut file)?,
-            &mut file,
-            &device,
-        )?;
+        // Open file and read GGUF content (contains both model tensors
+        // and the embedded tokenizer metadata).
+        let mut file = std::fs::File::open(gguf_path)
+            .with_context(|| format!("Failed to open GGUF file: {:?}", gguf_path))?;
+        let content = gguf_file::Content::read(&mut file)
+            .context("Failed to read GGUF file content")?;
 
-        let vocab_size = 151669; // Bonsai-8B vocab size
-        let max_seq_len = 4096;  // MAX_SEQ_LEN from quantized_llama.rs
+        // Load the embedded tokenizer from GGUF metadata.
+        // Reads tokenizer.ggml.model, tokenizer.ggml.tokens, tokenizer.ggml.merges.
+        let tokenizer = Tokenizer::from_gguf(&content)
+            .context("Failed to load tokenizer from GGUF — file may be corrupted or use an unsupported format")?;
+
+        // Re-open file for model weight loading (tensor data section).
+        let mut file = std::fs::File::open(gguf_path)
+            .with_context(|| format!("Failed to reopen GGUF file: {:?}", gguf_path))?;
+        let content2 = gguf_file::Content::read(&mut file)?;
+        let model = qlm::ModelWeights::from_gguf(content2, &mut file, &device)
+            .context("Failed to load model weights from GGUF")?;
+
+        // Extract special token IDs from the tokenizer vocab.
+        let vocab = tokenizer.get_vocab(true);
+        let bos_token_id = vocab.get("<s>").copied();
+        let eos_token_id = vocab.get("</s>").copied();
 
         Ok(Self {
             model,
+            tokenizer,
             device,
-            vocab_size,
-            max_seq_len,
+            vocab_size: BONSAI_VOCAB_SIZE,
+            bos_token_id,
+            eos_token_id,
+            max_seq_len: 4096,
         })
     }
 
-    /// Check if a GGUF file looks like Bonsai (Q1_0_g128).
-    pub fn is_bonsai(gguf_path: &Path) -> anyhow::Result<bool> {
+    /// Check if a GGUF file looks like Bonsai (Q1_0_g128 quantization).
+    pub fn is_bonsai(gguf_path: &Path) -> AnyhowResult<bool> {
         let mut file = std::fs::File::open(gguf_path)?;
-        let content = candle_core::quantized::gguf_file::Content::read(&mut file)?;
+        let content = gguf_file::Content::read(&mut file)?;
         Ok(content.tensor_infos.values().any(|t| matches!(
             t.ggml_dtype,
             candle_core::quantized::GgmlDType::Q1_0_g128
         )))
     }
 
-    /// Run a forward pass with a token_ids tensor, returning logits.
-    fn forward(&mut self, token_ids: &Tensor) -> CandleResult<Tensor> {
-        self.model.forward(token_ids, 0)
+    /// Tokenize a string into token IDs using the GGUF-embedded tokenizer.
+    fn tokenize(&self, text: &str) -> AnyhowResult<Vec<u32>> {
+        let encoding = self.tokenizer.encode(text, false)
+            .map_err(|e| anyhow::anyhow!("Tokenizer encode error: {}", e))?;
+        Ok(encoding.get_ids().to_vec())
     }
 
-    /// Tokenize a string (simple UTF-8 byte-level approximation).
-    /// For Bonsai-8B, a proper tokenizer is needed — this is a placeholder.
-    fn tokenize_simple(&self, text: &str) -> Vec<u32> {
-        // Simple byte-level tokenization as fallback
-        // A real implementation would use the GGUF tokenizer
-        let mut tokens = Vec::with_capacity(text.len() * 2);
-        for c in text.chars() {
-            if c.is_ascii_alphanumeric() || c == ' ' {
-                tokens.push(c as u32);
-            }
+    /// Decode a single token ID to a string.
+    fn decode_token(&self, token_id: u32) -> String {
+        if let Ok(decoded) = self.tokenizer.decode(&[token_id], true) {
+            decoded
+        } else {
+            String::new()
         }
-        // Clamp to vocab size
-        tokens.iter().map(|&t| t.min(self.vocab_size as u32 - 1)).collect()
     }
 
-    /// Sample a token from logits (greedy).
-    fn sample_token(&self, logits: &[f32]) -> usize {
-        logits
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(i, _)| i)
-            .unwrap_or(0)
+    /// Autoregressive text generation with temperature and top-p sampling.
+    ///
+    /// Processes the prompt through the model, then generates tokens
+    /// one-at-a-time with KV-cache acceleration until EOS or max_new_tokens.
+    fn generate_impl(
+        &mut self,
+        prompt: &str,
+        max_new_tokens: usize,
+        temperature: f64,
+        top_p: Option<f64>,
+    ) -> AnyhowResult<String> {
+        // Tokenize the prompt.
+        let mut token_ids = self.tokenize(prompt)?;
+
+        // Optionally prepend BOS token.
+        if let Some(bos) = self.bos_token_id {
+            token_ids.insert(0, bos);
+        }
+
+        // Build logits processor for sampling.
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(42);
+        let mut logits_processor = LogitsProcessor::new(seed, Some(temperature), top_p);
+
+        let eos = self.eos_token_id.unwrap_or(0);
+        let mut generated = Vec::new();
+        let prompt_len = token_ids.len();
+
+        for step in 0..max_new_tokens {
+            // index_pos: the position of the LAST token in the full sequence
+            // that this forward pass will attend over.
+            let index_pos = prompt_len.saturating_sub(1) + step;
+
+            // Build input: full prompt on step 0, single last token thereafter.
+            let input_ids: Vec<u32> = if step == 0 {
+                token_ids.clone()
+            } else {
+                // Append the last generated token to our running sequence.
+                if let Some(&last) = token_ids.last() {
+                    token_ids.push(last);
+                }
+                vec![*token_ids.last().unwrap_or(&0)]
+            };
+
+            // Run forward pass.
+            let input_tensor = Tensor::new(input_ids.as_slice(), &self.device)
+                .map_err(|e| anyhow::anyhow!("Failed to create input tensor: {}", e))?
+                .reshape(&[1, input_ids.len()])?;
+            let logits = self.model.forward(&input_tensor, index_pos)
+                .map_err(|e| anyhow::anyhow!("Forward pass failed at step {}: {}", step, e))?;
+
+            // Extract logits for the last position → [vocab_size] Tensor, then sample.
+            let last_logits = logits
+                .squeeze(0)
+                .map_err(|e| anyhow::anyhow!("Squeeze[0] failed: {}", e))?
+                .squeeze(0)
+                .map_err(|e| anyhow::anyhow!("Squeeze[1] failed: {}", e))?;
+
+            // Sample next token directly from the Tensor.
+            let next_token = logits_processor
+                .sample(&last_logits)
+                .map_err(|e| anyhow::anyhow!("Sampling failed: {}", e))? as u32;
+
+            // Stop on EOS.
+            if next_token == eos && eos != 0 {
+                break;
+            }
+
+            generated.push(next_token);
+            token_ids.push(next_token);
+        }
+
+        // Decode generated tokens to a string.
+        let text = self.tokenizer.decode(&generated, true)
+            .unwrap_or_else(|_| {
+                generated.iter()
+                    .map(|&t| self.decode_token(t))
+                    .collect::<String>()
+                    .trim()
+                    .to_string()
+            });
+
+        Ok(text.trim().to_string())
     }
 
-    /// Generate a text completion for a prompt.
-    pub fn generate(&mut self, prompt: &str) -> anyhow::Result<String> {
-        // Tokenize input
-        let mut token_ids: Vec<u32> = self.tokenize_simple(prompt);
+    /// Generate a text completion for a prompt (no chat formatting).
+    pub fn generate(&mut self, prompt: &str) -> AnyhowResult<String> {
+        self.generate_impl(prompt, MAX_NEW_TOKENS, DEFAULT_TEMPERATURE, Some(0.9))
+    }
 
-        // Build input tensor
-        let max_len = token_ids.len().min(self.max_seq_len).max(1);
-        let input = Tensor::new(token_ids.as_slice(), &self.device)?.reshape(&[1, max_len])?;
-
-        // Forward pass (index_pos = 0 for first token)
-        let logits = self.model.forward(&input, 0)?;
-        let logits = logits.squeeze(0)?;
-
-        // Sample next token
-        let logits_v = logits.to_vec1::<f32>()?;
-        let next_token = self.sample_token(&logits_v);
-
-        // Decode token (placeholder — just return the token number for now)
-        Ok(format!("[token {}]", next_token))
+    /// Generate with custom parameters.
+    pub fn generate_with(
+        &mut self,
+        prompt: &str,
+        max_new_tokens: usize,
+        temperature: f64,
+    ) -> AnyhowResult<String> {
+        self.generate_impl(prompt, max_new_tokens, temperature, Some(0.9))
     }
 
     /// Generate a chat completion from messages.
-    pub fn chat(&mut self, messages: &[ChatMessage]) -> anyhow::Result<String> {
-        // Simple concatenation of messages as prompt
-        let prompt: String = messages
-            .iter()
-            .map(|m| format!("{}: {}", m.role, m.content))
-            .collect::<Vec<_>>()
-            .join("\n");
+    pub fn chat(&mut self, messages: &[ChatMessage]) -> AnyhowResult<String> {
+        let prompt = build_bonsai_prompt(messages);
         self.generate(&prompt)
     }
 
-    /// Polish a rough Starfire output into fluent text.
-    pub fn polish(&mut self, rough_text: &str) -> anyhow::Result<String> {
+    /// Polish a rough Starfire output into fluent, natural-sounding text.
+    ///
+    /// Primary voice integration point. Flow:
+    /// 1. Reasoning layer produces rough output (may be stilted)
+    /// 2. `polish()` sends it to Bonsai with a "text polish engine" prompt
+    /// 3. Bonsai rewrites it naturally
+    /// 4. Result returned as final response
+    ///
+    /// No new information added, no summarization — just fluent expression.
+    pub fn polish(&mut self, rough_text: &str) -> AnyhowResult<String> {
         self.generate_with_system(
-            "You are a text polish engine. Rewrite the following text to be more fluent \
-             and natural-sounding while preserving all factual content. Be concise. \
-             Do not add new information. Do not summarize.",
+            "You are a text polish engine. Rewrite the following text to be \
+             more fluent and natural-sounding while preserving all factual \
+             content and meaning. Be concise. Do not add new information. \
+             Do not summarize. Maintain the same level of detail.",
             rough_text,
         )
     }
 
-    /// Generate with a system prompt + user message.
-    pub fn generate_with_system(&mut self, system: &str, user: &str) -> anyhow::Result<String> {
-        self.chat(&[
+    /// Generate with an explicit system prompt + user message.
+    pub fn generate_with_system(
+        &mut self,
+        system: &str,
+        user: &str,
+    ) -> AnyhowResult<String> {
+        let messages = &[
             ChatMessage::system(system),
             ChatMessage::user(user),
-        ])
+        ];
+        self.chat(messages)
     }
 
-    /// Health check — returns true if the model is loaded.
+    /// Health check — returns true if model responds correctly to a forward pass.
     pub fn health_check(&mut self) -> bool {
-        // Simple check: try a tiny forward pass
-        let tokens = [0u32, 1, 2, 3];
-        let input = Tensor::new(tokens.as_slice(), &self.device).ok();
-        if let Some(input) = input {
-            let reshaped = input.reshape(&[1, 4]).ok();
-            if let Some(reshaped) = reshaped {
-                return self.forward(&reshaped).is_ok();
+        if let Ok(tokens) = self.tokenize("Hello") {
+            if !tokens.is_empty() {
+                let first_token = tokens[0];
+                if let Ok(input) = Tensor::new(&[first_token], &self.device) {
+                    if let Ok(reshaped) = input.reshape(&[1, 1]) {
+                        return self.model.forward(&reshaped, 0).is_ok();
+                    }
+                }
             }
         }
         false
@@ -172,7 +282,7 @@ impl LlmEngine {
     }
 }
 
-/// A single chat message.
+/// A single chat message (role + content).
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ChatMessage {
     pub role: String,
@@ -181,54 +291,75 @@ pub struct ChatMessage {
 
 impl ChatMessage {
     pub fn system(content: &str) -> Self {
-        Self {
-            role: "system".to_string(),
-            content: content.to_string(),
-        }
+        Self { role: "system".to_string(), content: content.to_string() }
     }
 
     pub fn user(content: &str) -> Self {
-        Self {
-            role: "user".to_string(),
-            content: content.to_string(),
-        }
+        Self { role: "user".to_string(), content: content.to_string() }
     }
 
     pub fn assistant(content: &str) -> Self {
-        Self {
-            role: "assistant".to_string(),
-            content: content.to_string(),
+        Self { role: "assistant".to_string(), content: content.to_string() }
+    }
+}
+
+/// Build a Bonsai-compatible prompt from chat messages.
+fn build_bonsai_prompt(messages: &[ChatMessage]) -> String {
+    let mut parts = Vec::new();
+
+    for msg in messages {
+        match msg.role.as_str() {
+            "system" => {
+                parts.push(format!("System: {}", msg.content.trim()));
+            }
+            "user" => {
+                parts.push(format!("User: {}", msg.content.trim()));
+            }
+            "assistant" => {
+                parts.push(format!("Assistant: {}", msg.content.trim()));
+            }
+            _ => {
+                parts.push(format!("{}: {}", msg.role, msg.content.trim()));
+            }
         }
     }
+
+    parts.join("\n")
 }
 
 /// Called once at startup to init candle internals.
 fn init() {
     // candle-core is side-effect-free on CPU; no explicit init needed.
-    // GPU backends (CUDA/Metal) would be initialized here if used.
 }
 
-/// A handle that can be shared across threads ( Clone is cheap ).
+/// A handle that can be shared across threads. Loading is deferred —
+/// call `.load()` to get an actual `LlmEngine`.
 #[derive(Clone)]
 pub struct LlmHandle {
     gguf_path: std::path::PathBuf,
 }
 
 impl LlmHandle {
-    /// Load the model from disk and return an engine.
-    /// This does the actual GGUF parsing and tensor loading — takes a few seconds.
-    pub fn load(&self) -> anyhow::Result<LlmEngine> {
+    /// Load the Bonsai-8B model from disk and return an engine.
+    /// This does GGUF parsing + tensor loading — takes ~5-10 seconds.
+    pub fn load(&self) -> AnyhowResult<LlmEngine> {
         LlmEngine::new(&self.gguf_path)
     }
 
-    /// Create a handle from a GGUF path.
+    /// Create a handle from a GGUF file path.
     pub fn new(gguf_path: &Path) -> Self {
-        Self {
-            gguf_path: gguf_path.to_path_buf(),
-        }
+        Self { gguf_path: gguf_path.to_path_buf() }
+    }
+
+    /// Create an LLM handle at the standard Bonsai-8B location for a data dir.
+    pub fn for_data_dir(data_dir: &Path) -> Self {
+        Self::new(&data_dir.join("models/bonzai-8b/Bonsai-8B.gguf"))
     }
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,16 +378,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tokenizer_simple() {
-        // Just verify it doesn't crash — output format varies by model
-        let engine = unsafe {
-            // This test requires the model to be loaded, so we skip actual inference
-            // For unit tests we just check the ChatMessage API
-        };
-        let _msg = ChatMessage::user("Hello, world!");
-    }
-
-    #[test]
     fn test_model_size() {
         let path = Path::new("models/bonzai-8b/Bonsai-8B.gguf");
         if path.exists() {
@@ -264,5 +385,17 @@ mod tests {
             println!("Model size: {}", size);
             assert!(size.contains("GB") || size.contains("MB"));
         }
+    }
+
+    #[test]
+    fn test_build_bonsai_prompt_system_user() {
+        let messages = &[
+            ChatMessage::system("You are a helpful assistant."),
+            ChatMessage::user("What is 2+2?"),
+        ];
+        let prompt = build_bonsai_prompt(messages);
+        assert!(prompt.contains("You are a helpful assistant"));
+        assert!(prompt.contains("User:"));
+        assert!(prompt.contains("What is 2+2?"));
     }
 }

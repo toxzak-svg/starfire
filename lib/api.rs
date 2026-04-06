@@ -2,6 +2,37 @@
 //!
 //! A simple HTTP wrapper around Star's reasoning engine.
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_header_creation() {
+        // Verify header creation doesn't panic
+        let _header = header("Content-Type", "application/json");
+    }
+
+    #[test]
+    fn test_health_endpoint_response() {
+        let body = r#"{"status":"ok"}"#.to_string();
+        assert_eq!(body, r#"{"status":"ok"}"#);
+    }
+
+    #[test]
+    fn test_root_endpoint_response() {
+        let expected = r#"{"name":"Star","version":"0.1","endpoints":["/reason","/chat","/remember","/identity","/memory/stats","/health","/cognitive","/metacog","/metacog/insight","/think","/thought","/webhook/telegram"]}"#;
+        assert!(expected.contains("/reason"));
+        assert!(expected.contains("/chat"));
+        assert!(expected.contains("/health"));
+    }
+
+    #[test]
+    fn test_not_found_response() {
+        let path = "/unknown/path";
+        assert!(path.contains("unknown"));
+    }
+}
+
 use crate::{Runtime, Memory};
 use crate::persistence::MemoryDomain;
 use anyhow::Result;

@@ -1,0 +1,60 @@
+[
+  {
+    "announcements": {
+      "oai/apps/hasCompletedWhamCodeReviewOnboardingFlow": "2026-02-06T05:38:18.311910+00:00",
+      "oai/apps/hasSeenAdvancedVoice/2024-09-24": "2026-02-12T20:04:40.996879+00:00",
+      "oai/apps/hasSeenAutoSwitchNux": "2026-03-07T13:24:38.885795+00:00",
+      "oai/apps/hasSeenBurritoNux": "2025-08-20T21:39:16.604556+00:00",
+      "oai/apps/hasSeenCodexAppHomeBanner": "2026-03-04T18:39:57.400792+00:00",
+      "oai/apps/hasSeenExistingUserPersonalityOnboarding": "2026-01-23T00:52:45.940414+00:00",
+      "oai/apps/hasSeenMemoryOnboarding": "2024-03-26T18:15:06.648131",
+      "oai/apps/hasSeenMercuryNux": "2026-02-16T01:34:07.622218+00:00",
+      "oai/apps/hasSeenMfaEnrollmentNux": "2026-02-25T20:50:18.947826+00:00",
+      "oai/apps/hasSeenMoonshineNuxV2": "2025-08-20T21:39:16.748735+00:00",
+      "oai/apps/hasSeenOdysseyConnectorsModal": "2026-02-15T16:38:01.185196+00:00",
+      "oai/apps/hasSeenOnboarding": "2023-11-17T18:38:24.150633",
+      "oai/apps/hasSeenTemporaryChatOnboarding": "2025-11-21T14:37:41.747095+00:00",
+      "oai/apps/hasSeenWhamCodexAppAnnouncement": "2026-03-04T18:39:57.408203+00:00",
+      "oai/apps/hasSeenWindowsAppOnboarding": "2026-02-07T21:14:48.523287+00:00",
+      "oai/apps/hasSeenWritingInlineEditCaretNux": "2026-02-08T15:36:25.619629+00:00",
+      "oai/apps/hasSeenWritingInlineEditNux": "2026-02-08T15:36:25.133654+00:00",
+      "oai/apps/hasSeenl1239dk1Bon": "2026-02-08T01:00:04.233566+00:00",
+      "oai/apps/hasSeenl1239dk1CodeReviewTab": "2026-02-06T05:38:15.061369+00:00",
+      "oai/apps/hasSeenl1239dk1CreateFirstEnvModal": "2026-02-08T00:54:57.216955+00:00",
+      "oai/apps/hasSeenl1239dk1LaunchNux": "2026-02-04T16:02:01.232163+00:00",
+      "oai/apps/hasSeenl1239dk1Onboarding": "2026-02-06T05:34:16.838083+00:00",
+      "oai/apps/hasSeenn7jupdNux": "2026-02-09T04:40:03.217040+00:00"
+    },
+    "beta_settings": {},
+    "habitat_object_version": 29918978,
+    "settings": {
+      "chat_theme": "green",
+      "developer_mode": false,
+      "enable_device_code_auth": true,
+      "golden_hour": true,
+      "last_used_model_config": {
+        "juices": {
+          "default": {
+            "gpt-5-2-thinking": "extended"
+          },
+          "web": {
+            "gpt-5-2-thinking": "extended"
+          }
+        },
+        "slugs": {
+          "default": "gpt-5-3",
+          "web": "gpt-5-3"
+        }
+      },
+      "moonshine": true,
+      "show_expanded_code_view": true,
+      "show_legacy_models": true,
+      "sunshine": true,
+      "training_allowed": false,
+      "video_training_allowed": false,
+      "voice_name": "glimmer",
+      "voice_training_allowed": false
+    },
+    "user_id": "user-wIkDqc9wbKaPUI9I9csu6orX"
+  }
+]

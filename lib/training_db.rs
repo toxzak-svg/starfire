@@ -131,3 +131,71 @@ impl TrainingDB {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_db_path() -> std::path::PathBuf {
+        // Use a unique path each time to avoid conflicts
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("star_test_training_{}.db", unique));
+        path
+    }
+
+    #[test]
+    fn test_training_session_creation() {
+        let path = temp_db_path();
+        let _ = fs::remove_file(&path);
+        let db = TrainingDB::open(&path).expect("Failed to open training DB");
+        let session = db.start_session().expect("Failed to start session");
+        assert!(session.id > 0);
+        assert!(session.started_at > 0);
+        db.end_session(session.id).expect("Failed to end session");
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_record_turn() {
+        let path = temp_db_path();
+        let _ = fs::remove_file(&path);
+        let db = TrainingDB::open(&path).expect("Failed to open training DB");
+        let session = db.start_session().expect("Failed to start session");
+        db.record_turn(session.id, "test input", "test output", 0.9).expect("Failed to record turn");
+        db.end_session(session.id).expect("Failed to end session");
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_record_fact() {
+        let path = temp_db_path();
+        let _ = fs::remove_file(&path);
+        let db = TrainingDB::open(&path).expect("Failed to open training DB");
+        let session = db.start_session().expect("Failed to start session");
+        db.record_fact(session.id, "test fact", 0.7).expect("Failed to record fact");
+        db.end_session(session.id).expect("Failed to end session");
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_stats() {
+        let path = temp_db_path();
+        let _ = fs::remove_file(&path);
+        let db = TrainingDB::open(&path).expect("Failed to open training DB");
+        let session = db.start_session().expect("Failed to start session");
+        db.record_turn(session.id, "input1", "output1", 0.5).expect("Failed to record turn");
+        db.record_fact(session.id, "fact1", 0.8).expect("Failed to record fact");
+        db.end_session(session.id).expect("Failed to end session");
+
+        let (convos, turns, facts, corrections) = db.stats().expect("Failed to get stats");
+        assert_eq!(convos, 1, "Expected 1 conversation, got {}", convos);
+        assert_eq!(turns, 2, "Expected 2 training examples, got {}", turns);
+        assert_eq!(facts, 1, "Expected 1 fact (turn with output), got {}", facts);
+        assert_eq!(corrections, 0, "Expected 0 corrections");
+        let _ = fs::remove_file(&path);
+    }
+}

@@ -4,7 +4,7 @@
 set -e
 
 # Default environment
-export STARFIRE_PORT="${STARFIRE_PORT:-8080}"
+export STARFIRE_PORT="${STARFIRE_PORT:-${RAILWAY_PORT:-8080}}"
 export STARFIRE_DATA="${STARFIRE_DATA:-/data}"
 export STARFIRE_LOG="${STARFIRE_LOG:-info}"
 

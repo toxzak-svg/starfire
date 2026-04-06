@@ -26,6 +26,8 @@ use crate::voice::VoiceEngine;
 use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
+#[cfg(feature = "llm")]
+use crate::llm::LlmHandle;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -81,15 +83,21 @@ pub struct Runtime {
     world_model: WorldModel,
     /// Prediction center — foresight engine
     prediction_center: PredictionCenter,
+    /// Bonsai-8B LLM handle — loaded lazily on first use.
+    /// When present, the chat pipeline polishes rough reasoning output
+    /// through the LLM to produce natural, fluent text.
+    #[cfg(feature = "llm")]
+    llm: Option<LlmHandle>,
 }
 
 impl Runtime {
     /// Initialize Star with storage at the given path.
     pub fn new(data_dir: &Path) -> Result<Self> {
-        // Initialize tracing
-        tracing_subscriber::fmt()
+        // Initialize tracing — try_init so this is safe to call multiple times
+        // (e.g., when doctor runs multiple Runtime::new() calls in one session).
+        let _ = tracing_subscriber::fmt()
             .with_env_filter("star=info,info")
-            .init();
+            .try_init();
 
         info!("Initializing Star...");
 
@@ -200,6 +208,17 @@ impl Runtime {
         let voice = VoiceEngine::new(&voice_db_path)?;
         info!("Voice engine initialized.");
 
+        // Initialize Bonsai-8B LLM handle (model loaded lazily on first use).
+        // The GGUF file lives at models/bonsai-8b/Bonsai-8B.gguf relative to data_dir.
+        #[cfg(feature = "llm")]
+        let llm = if data_dir.join("models/bonsai-8b/Bonsai-8B.gguf").exists() {
+            info!("Bonsai-8B GGUF found — LLM voice available.");
+            Some(LlmHandle::for_data_dir(data_dir))
+        } else {
+            info!("Bonsai-8B GGUF not found — LLM voice disabled.");
+            None
+        };
+
         let mut runtime = Self {
             store,
             identity,
@@ -225,6 +244,8 @@ impl Runtime {
             quanot: Quanot::new(128, 1000),
             world_model: WorldModel::new(),
             prediction_center: PredictionCenter::new(),
+            #[cfg(feature = "llm")]
+            llm,
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -1430,7 +1451,42 @@ impl Runtime {
         // Apply voice engine — shape how Starfire expresses herself
         let voiced = self.voice.speak(&final_content, &self.cognition);
 
-        Ok(voiced)
+        // Apply LLM polish — turn rough reasoning into natural, fluent text.
+        // This is the key voice integration: KG → VoiceEngine → LLM Polish → response.
+        // Only runs if Bonsai-8B GGUF is present and loaded.
+        let final_response = {
+            #[cfg(feature = "llm")]
+            {
+                if let Some(ref llm_handle) = self.llm {
+                    match llm_handle.load() {
+                        Ok(mut llm) => {
+                            match llm.polish(&voiced) {
+                                Ok(polished) => {
+                                    info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
+                                    polished
+                                }
+                                Err(e) => {
+                                    warn!("LLM polish failed (returning voice-only): {}", e);
+                                    voiced
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            warn!("LLM load failed (returning voice-only): {}", e);
+                            voiced
+                        }
+                    }
+                } else {
+                    voiced
+                }
+            }
+            #[cfg(not(feature = "llm"))]
+            {
+                voiced
+            }
+        };
+
+        Ok(final_response)
     }
 
     /// Format memory status for display.
@@ -1531,6 +1587,31 @@ impl Runtime {
     /// Get a reference to the metacognition engine (for API).
     pub fn metacognition_ref(&self) -> &MetaCognition {
         &self.metacog
+    }
+
+    /// Get curiosity engine statistics (for diagnostics).
+    pub fn curious_stats(&self) -> curious::RuntimeCuriosityStats {
+        self.curious.stats()
+    }
+
+    /// Get current Quanot reservoir state (for diagnostics).
+    /// Returns the reservoir vector and its fixed capacity.
+    pub fn quanot_reservoir_info(&self) -> (usize, Vec<f64>) {
+        let size = self.quanot.get_state().len();
+        let state = self.quanot.get_state().to_vec();
+        (size, state)
+    }
+
+    /// Get belief count from metacognition (for diagnostics).
+    pub fn metacognition_belief_count(&self) -> usize {
+        self.metacog.all_beliefs().len()
+    }
+
+    /// Get memory store domain breakdown (for diagnostics).
+    pub fn store_domain_breakdown(&self) -> std::collections::HashMap<String, i64> {
+        self.store.snapshot()
+            .map(|s| s.domain_breakdown)
+            .unwrap_or_default()
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2483,7 +2564,7 @@ fn extract_related_topics(answer: &str) -> Vec<String> {
             }
         }
     }
-    
+
     // Deduplicate
     let mut seen = std::collections::HashSet::new();
     topics.retain(|t| seen.insert(t.clone()));
@@ -2498,4 +2579,61 @@ impl Drop for Runtime {
             }
         }
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public diagnostics API (used by starfire doctor)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns a summary of all diagnostic information about this Runtime.
+/// Used by `starfire doctor` to check subsystem health without accessing
+/// private fields.
+pub fn diagnostic_summary(runtime: &Runtime) -> RuntimeDiagnostic {
+    let curious_stats: curious::RuntimeCuriosityStats = runtime.curious_stats();
+    let quanot_info = runtime.quanot_reservoir_info();
+    let quanot_activity = if quanot_info.0 > 0 {
+        let sum: f64 = quanot_info.1.iter().map(|v| v.abs()).sum::<f64>() / quanot_info.0 as f64;
+        sum
+    } else {
+        0.0
+    };
+
+    RuntimeDiagnostic {
+        store_memories: runtime.store.snapshot().map(|s| s.memory_count as usize).unwrap_or(0),
+        store_beliefs: runtime.store.snapshot().map(|s| s.beliefs_count as usize).unwrap_or(0),
+        kg_entity_count: {
+            let r = runtime.reasoning.lock().unwrap();
+            r.knowledge().entities().len()
+        },
+        kg_relation_count: {
+            let r = runtime.reasoning.lock().unwrap();
+            r.knowledge().relationship_count()
+        },
+        metacog_belief_count: runtime.metacognition_belief_count(),
+        curious_idle_secs: curious_stats.idle_for_secs,
+        curious_last_probe: curious_stats.last_probe.unwrap_or(0),
+        quanot_activity,
+        quanot_reservoir_size: quanot_info.0,
+        world_model_entities: runtime.world_model.stats().entity_count,
+        goal_count: runtime.store.get_active_goals().map(|g: Vec<_>| g.len()).unwrap_or(0),
+        aspiration_count: runtime.store.get_aspirations().map(|a: Vec<_>| a.len()).unwrap_or(0),
+    }
+}
+
+/// Diagnostic information snapshot from Runtime.
+/// All fields are simple types that don't expose internal structure.
+#[derive(Debug)]
+pub struct RuntimeDiagnostic {
+    pub store_memories: usize,
+    pub store_beliefs: usize,
+    pub kg_entity_count: usize,
+    pub kg_relation_count: usize,
+    pub metacog_belief_count: usize,
+    pub curious_idle_secs: u64,
+    pub curious_last_probe: u64,
+    pub quanot_activity: f64,
+    pub quanot_reservoir_size: usize,
+    pub world_model_entities: usize,
+    pub goal_count: usize,
+    pub aspiration_count: usize,
 }

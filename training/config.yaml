@@ -1,0 +1,56 @@
+# Personal Starfire Fine-Tuning Config
+# Ready to run on GPU (runpod/vast.ai)
+
+model:
+  name: Bonsai-8B Q1_0_g128
+  path: ../models/bonzai-8b/Bonsai-8B.gguf
+  tokenizer: embedded (from GGUF)
+
+training:
+  method: lora
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  
+  epochs: 3-5
+  batch_size: 2  # 8B Q1_0 needs small batch on single GPU
+  gradient_accumulation: 8  # effective batch = 16
+  context_length: 2048
+  max_seq_len: 2048
+  
+  learning_rate: 2e-4
+  weight_decay: 0.01
+  optimizer: adamw_torch
+  warmup_steps: 100
+  lr_scheduler: cosine
+  max_grad_norm: 1.0
+  
+dataset:
+  train: data/processed/training/train.jsonl
+  eval: data/processed/training/eval.jsonl
+  
+  # Current size: 1,758 examples (~1.5M chars)
+  # Target: 5K-20K examples for better personality learning
+  
+  # Source breakdown:
+  #   chatgpt: 912 (personal ChatGPT conversations)
+  #   git_*: 444 (code commits across repos)
+  #   starfire_memory: 89 (Star's memories about Zach)
+  #   starfire_conversation: 68 (Star conversations)
+  #   perplexity_*: 27 (AI research discussions)
+  #   nova_chat: 7 (Nova AI conversations)
+
+output:
+  output_dir: outputs/zach-starfire-v1
+  adapter_file: zach-starfire-v1-adapter.bin
+  save_total_limit: 3
+  save_steps: 500
+  eval_steps: 200
+  logging_steps: 50
+
+# Run on runpod:
+#   1. Upload train.jsonl + eval.jsonl to cloud storage
+#   2. Spin up A100 instance (~$0.50/hr)
+#   3. git clone + pip install axolotl
+#   4. Copy config, start training

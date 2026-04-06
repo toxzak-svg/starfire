@@ -1,0 +1,8 @@
+{
+  "title": "starfire-personal-v1",
+  "id": "zachmaronek/starfire-personal-v1",
+  "licenses": [{"id": "cc-by-nc-sa-4.0"}],
+  "keywords": ["llm-finetuning", "personal-ai", "ai-assistant", "starfire", "1-bit-llm"],
+  "subtitle": "Personal conversations, memories, and code for fine-tuning a personal AI agent",
+  "description": "# Starfire Personal AI Training Data\n\nInstruction-tuning dataset for fine-tuning a personal AI agent (Starfire) on Bonsai-8B Q1_0_g128.\n\n**1,758 examples** — ChatGPT conversations, git commits, Starfire memories, Perplexity research discussions.\n\nFormat: JSONL with message arrays (system/user/assistant).\n\nLicense: CC BY-NC-SA 4.0"
+}

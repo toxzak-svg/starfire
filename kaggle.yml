@@ -1,0 +1,10 @@
+project: zach-s-kernel
+kernel_slug: zacharymaronek/zach-s-kernel
+code_file: notebook.ipynb
+accelerator: none
+internet: false
+privacy: private
+datasets: []
+competitions: []
+outputs:
+  download_to: .kaggle-outputs/

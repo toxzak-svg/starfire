@@ -459,5 +459,33 @@ Four-engine prediction system enabling Star to forecast her own conclusions, cur
 
 **Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
 
+**Post-Phase 4 Addition — Bonsai-8B LLM Voice Integration (2026-04-05):**
+
+Native Candle inference wired into the voice pipeline. The model runs in-process with no HTTP server. See `lib/llm/mod.rs`.
+
+Pipeline: KG reasoning → VoiceEngine (templates/phrase bank) → LLM Polish (Bonsai-8B) → response
+
+The LLM is NOT the brain — it's the *mouth*. It polishes rough symbolic reasoning output into natural, fluent text. Gap-filling when the KG hits unknowns.
+
+| Component | Status |
+|-----------|--------|
+| Tokenizer (GGUF-embedded, GPT-2/BPE) | ✅ Complete |
+| Autoregressive generation loop | ✅ Complete |
+| Temperature + top-p sampling | ✅ Complete |
+| Runtime → polish() wiring | ✅ Complete |
+| Bonsai-8B GGUF loading | ✅ Complete (Q1_0_g128, 254 tensors) |
+| Autoregressive KV-cache | ✅ Complete |
+
+Model: `models/bonzai-8b/Bonsai-8B.gguf` (1.1 GB, Q1_0_g128) — loaded lazily on first chat.
+
+**Post-Phase 4 Addition — Starfire Doctor (2026-04-05):**
+
+Self-diagnostic CLI for Starfire. One command checks all subsystems. See `plans/STARFIRE_DOCTOR.md`.
+
+| Check | Status |
+|-------|--------|
+| Design planned | ✅ `plans/STARFIRE_DOCTOR.md` |
+| Implementation | ⏳ Not yet implemented |
+
 See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
 See [`docs/architecture.md`](docs/architecture.md) for architecture details.

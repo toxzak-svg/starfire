@@ -43,12 +43,9 @@ pub mod book;
 #[cfg(feature = "llm")]
 pub mod llm;
 
-/// HTTP LLM client — calls llm-server when built without the `llm` feature.
-/// Always available (no candle dependency).
-pub mod http_llm;
-
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
+pub use runtime::{RuntimeDiagnostic, diagnostic_summary};
 pub use persistence::Memory;
 pub use persistence::Store;
 pub use persistence::memory::BeliefState;

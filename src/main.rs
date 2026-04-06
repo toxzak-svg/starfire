@@ -8,6 +8,8 @@ use star::{Runtime, api};
 use std::path::PathBuf;
 use tracing::info;
 
+mod doctor;
+
 #[derive(Parser)]
 #[command(name = "star")]
 #[command(about = "Star — An emergent desktop intelligence", long_about = None)]
@@ -34,6 +36,18 @@ enum Commands {
         /// Port to listen on (default: 8080)
         #[arg(long, default_value = "8080")]
         port: u16,
+    },
+    /// Run self-diagnostic checks on all subsystems
+    Doctor {
+        /// Apply recommended repairs
+        #[arg(short, long)]
+        repair: bool,
+        /// Non-interactive mode (CI/cron)
+        #[arg(long)]
+        non_interactive: bool,
+        /// Extended checks (clippy, integration)
+        #[arg(long)]
+        deep: bool,
     },
 }
 
@@ -86,6 +100,13 @@ fn main() -> anyhow::Result<()> {
             let rt = std::sync::Arc::new(std::sync::Mutex::new(runtime));
             api::start(rt, &host, port)?;
             Ok(())
+        }
+        Commands::Doctor { repair, non_interactive, deep } => {
+            doctor::run(doctor::DoctorArgs {
+                repair,
+                non_interactive,
+                deep,
+            })
         }
     }
 }

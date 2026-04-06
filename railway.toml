@@ -1,0 +1,23 @@
+# Railway.toml — Starfire Deployment Configuration
+#
+# This file configures Railway's build and deployment settings.
+# For more info: https://docs.railway.app/reference/railway-toml
+
+[build]
+# Use Docker to build - this uses the existing Dockerfile
+# which correctly builds with --no-default-features to exclude candle
+builder = "docker"
+
+[deploy]
+# Number of replicas to run
+replicas = 1
+
+# Health check path
+healthcheckPath = "/health"
+
+# Health check timeout in seconds
+healthcheckTimeout = 30
+
+# Restart policy
+restartPolicyType = "on_failure"
+restartPolicyRetries = 10

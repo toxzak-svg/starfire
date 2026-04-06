@@ -17,7 +17,7 @@ pub struct BasinEngine {
     /// Current basin assignments
     basin_state: BasinState,
     /// Maximum nodes to track
-    max_nodes: usize,
+    pub max_nodes: usize,
 }
 
 /// Unique node identifier in the constraint graph
@@ -38,7 +38,7 @@ impl fmt::Display for NodeId {
 
 /// A node in the constraint graph
 #[derive(Debug, Clone)]
-struct BasinNode {
+pub struct BasinNode {
     pub id: NodeId,
     /// Current most-confident value
     pub value: PropertyValue,
@@ -57,7 +57,7 @@ struct AlternativeBasin {
 
 /// A constraint between nodes
 #[derive(Debug, Clone)]
-struct Constraint {
+pub struct Constraint {
     pub id: ConstraintId,
     pub from: NodeId,
     pub to: NodeId,

@@ -1,0 +1,12 @@
+[
+  {
+    "content": "{\"tags\": [\"didnt_fully_follow_instructions\", \"inaccurate_editing\", \"inaccurate_text_rendering\"], \"tag_choices\": [\"shouldnt_have_created\", \"dont_like_style\", \"didnt_fully_follow_instructions\", \"low_quality_or_distorted\", \"odd_cropping\", \"inaccurate_editing\", \"inaccurate_text_rendering\", \"unsafe_or_problematic\", \"biased\", \"other\"]}",
+    "conversation_id": "698e3c02-0ca0-83a1-bb18-be977b674569",
+    "create_time": "2026-02-12T20:47:50.274223Z",
+    "id": "f126ca88-90e7-405e-9cd5-d0f346c5893f",
+    "rating": "thumbs_down",
+    "update_time": "2026-02-12T20:48:26.920402Z",
+    "user_id": "user-wIkDqc9wbKaPUI9I9csu6orX",
+    "workspace_id": null
+  }
+]
