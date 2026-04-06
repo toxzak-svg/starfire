@@ -69,7 +69,7 @@ impl WorldModel {
                     }
                 }
                 if let Some(ref prop) = query.has_property {
-                    if !e.properties.contains_key(prop) {
+                    if !e.temporal_properties.contains_key(prop) {
                         return false;
                     }
                 }
@@ -159,9 +159,21 @@ impl WorldModel {
         true
     }
 
-    /// Get property value for an entity
-    pub fn get_property(&self, entity_id: &EntityId, key: &str) -> Option<&PropertyValue> {
-        self.entities.get(entity_id).and_then(|e| e.properties.get(key))
+    /// Get the current property value for an entity (convenience method)
+    ///
+    /// Returns the currently-valid PropertyValue, or None if the property
+    /// doesn't exist or has no valid value at the current time.
+    pub fn get_property(&self, entity_id: &EntityId, key: &str) -> Option<PropertyValue> {
+        self.get_current_value(entity_id, key, None).map(|tp| tp.value.clone())
+    }
+
+    /// Get the current TemporalProperty for an entity (full temporal info)
+    pub fn get_temporal_property(
+        &self,
+        entity_id: &EntityId,
+        key: &str,
+    ) -> Option<&TemporalProperty> {
+        self.get_current_value(entity_id, key, None)
     }
 
     /// Check if two entities are directly related
@@ -231,6 +243,9 @@ impl WorldModel {
     }
 }
 
+// Re-export TemporalProperty for convenience
+use super::TemporalProperty;
+
 /// Statistics about the world model
 #[derive(Debug, Clone)]
 pub struct WorldModelStats {
@@ -247,8 +262,8 @@ mod tests {
     fn test_model() -> WorldModel {
         let mut model = WorldModel::new();
 
-        let e1 = Entity::new(EntityId::new("e1"), "Fire".to_string())
-            .with_property("temperature", PropertyValue::Number(1000.0));
+        let mut e1 = Entity::new(EntityId::new("e1"), "Fire".to_string());
+        e1.set_property("temperature", PropertyValue::Number(1000.0));
         let e2 = Entity::new(EntityId::new("e2"), "Heat".to_string());
         let e3 = Entity::new(EntityId::new("e3"), "Water".to_string());
 
@@ -277,7 +292,7 @@ mod tests {
         let model = test_model();
         let temp = model.get_property(&EntityId::new("e1"), "temperature");
         assert!(temp.is_some());
-        assert_eq!(*temp.unwrap(), PropertyValue::Number(1000.0));
+        assert_eq!(temp.unwrap(), PropertyValue::Number(1000.0));
     }
 
     #[test]
@@ -313,5 +328,22 @@ mod tests {
         let stats = model.stats();
         assert_eq!(stats.entity_count, 3);
         assert_eq!(stats.total_relations, 1);
+    }
+
+    #[test]
+    fn test_get_temporal_property() {
+        let model = test_model();
+        let tp = model.get_temporal_property(&EntityId::new("e1"), "temperature");
+        assert!(tp.is_some());
+        assert_eq!(tp.unwrap().value, PropertyValue::Number(1000.0));
+        assert!(tp.unwrap().valid_until.is_none()); // Currently valid
+    }
+
+    #[test]
+    fn test_query_entities_with_property_filter() {
+        let model = test_model();
+        let with_temp = model.query_entities(EntityQuery::default().with_property("temperature"));
+        assert_eq!(with_temp.len(), 1);
+        assert_eq!(with_temp[0].name, "Fire");
     }
 }

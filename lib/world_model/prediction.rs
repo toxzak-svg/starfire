@@ -167,8 +167,8 @@ impl WorldModel {
         // Simple projection: check preconditions and generate predictions
         for pre in &action.preconditions {
             if let Some(entity) = self.entities.get(&pre.entity) {
-                if let Some(actual) = entity.properties.get(&pre.property) {
-                    if actual == &pre.expected_value {
+                if let Some(actual_tp) = entity.get_current_value(&pre.property) {
+                    if &actual_tp.value == &pre.expected_value {
                         reasoning.push(format!(
                             "Precondition met: {} is {:?}",
                             entity.name, pre.expected_value
@@ -176,7 +176,7 @@ impl WorldModel {
                     } else {
                         reasoning.push(format!(
                             "Precondition NOT met: {} is {:?}, expected {:?}",
-                            entity.name, actual, pre.expected_value
+                            entity.name, actual_tp.value, pre.expected_value
                         ));
                     }
                 }
@@ -214,8 +214,8 @@ impl WorldModel {
     ) -> f64 {
         // Look at similar entities
         if let Some(entity) = self.entities.get(entity_id) {
-            if let Some(current) = entity.properties.get(property) {
-                if current == value {
+            if let Some(current_tp) = entity.get_current_value(property) {
+                if &current_tp.value == value {
                     return 0.9; // Already true
                 }
 
@@ -227,8 +227,10 @@ impl WorldModel {
                     if rel.relation_type == super::RelationType::CausallyRelated {
                         total += 1;
                         if let Some(neighbor) = self.entities.get(&rel.target) {
-                            if neighbor.properties.get(property) == Some(value) {
-                                similar_count += 1;
+                            if let Some(neighbor_tp) = neighbor.get_current_value(property) {
+                                if &neighbor_tp.value == value {
+                                    similar_count += 1;
+                                }
                             }
                         }
                     }

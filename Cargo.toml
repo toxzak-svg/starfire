@@ -33,3 +33,4 @@ candle-core = { path = "../candle/candle-core" }
 candle-transformers = { path = "../candle/candle-transformers" }
 safetensors = "0.7.0"
 tokenizers = { version = "0.22.0", default-features = false }
+parking_lot = "0.12"

@@ -27,7 +27,7 @@ use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
 #[cfg(feature = "llm")]
-use crate::llm::LlmHandle;
+use crate::llm::{LlmEngine, LlmHandle};
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -88,6 +88,9 @@ pub struct Runtime {
     /// through the LLM to produce natural, fluent text.
     #[cfg(feature = "llm")]
     llm: Option<LlmHandle>,
+    /// Cached LLM engine — loaded once and reused across chat calls.
+    #[cfg(feature = "llm")]
+    llm_engine: Mutex<Option<LlmEngine>>,
 }
 
 impl Runtime {
@@ -246,6 +249,8 @@ impl Runtime {
             prediction_center: PredictionCenter::new(),
             #[cfg(feature = "llm")]
             llm,
+            #[cfg(feature = "llm")]
+            llm_engine: Mutex::new(None),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -411,6 +416,46 @@ impl Runtime {
         }
 
         Ok(())
+    }
+
+    /// Call the LLM with conversation history and return the generated response.
+    /// Loads and caches the engine on first use.
+    #[cfg(feature = "llm")]
+    fn llm_chat(&mut self, messages: &[crate::llm::ChatMessage]) -> Option<String> {
+        // Load engine once and cache
+        {
+            let mut engine_guard = self.llm_engine.lock().unwrap();
+            if engine_guard.is_none() {
+                if let Some(handle) = &self.llm {
+                    match handle.load() {
+                        Ok(engine) => {
+                            info!("Bonsai-8B engine loaded and cached.");
+                            *engine_guard = Some(engine);
+                        }
+                        Err(e) => {
+                            warn!("Failed to load Bonsai-8B: {}", e);
+                            return None;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Chat with cached engine
+        let mut engine_guard = self.llm_engine.lock().unwrap();
+        if let Some(engine) = engine_guard.as_mut() {
+            match engine.chat(messages) {
+                Ok(response) => {
+                    let trimmed = response.trim();
+                    if !trimmed.is_empty() {
+                        info!("LLM generated {} chars", trimmed.len());
+                        return Some(trimmed.to_string());
+                    }
+                }
+                Err(e) => warn!("LLM chat failed: {}", e),
+            }
+        }
+        None
     }
 
     /// Process a message from Zachary and return Star's response.
@@ -1160,13 +1205,46 @@ impl Runtime {
             }
         }
 
-        // Get the conversation response first
+        // Get the conversation response first (updates history, intent classification)
         let response = conversation.respond(input);
 
-        // Extract all data we need from the response and self state before reborrowing
+        // If LLM is available, generate a real response instead of template.
+        // Extract history FIRST while still holding the lock, then drop the lock
+        // so we can mutably borrow self for llm_chat.
+        #[cfg(feature = "llm")]
+        let response_content = {
+            // Collect messages from history while we hold the lock
+            let history_msgs: Vec<crate::llm::ChatMessage> = conversation
+                .history()
+                .iter()
+                .map(|m| {
+                    let role = match m.speaker {
+                        crate::conversation::Speaker::Zachary => "user",
+                        crate::conversation::Speaker::Star => "assistant",
+                    };
+                    crate::llm::ChatMessage {
+                        role: role.to_string(),
+                        content: m.content.clone(),
+                    }
+                })
+                .collect();
+
+            // Now drop the conversation lock so we can mutably borrow self
+            drop(conversation);
+
+            if let Some(llm_response) = self.llm_chat(&history_msgs) {
+                llm_response
+            } else {
+                response.content.clone()
+            }
+        };
+
+        #[cfg(not(feature = "llm"))]
         let response_content = response.content.clone();
+
+        // Extract all data we need from the response and self state before reborrowing
+        let response_lower = response_content.to_lowercase();
         let response_confidence = response.confidence;
-        let response_lower = response.content.to_lowercase();
         
         // Extract cognitive state info first (immutable borrow of cognition)
         let cognition_has_focus = self.cognition.current_focus.is_some();
@@ -1191,7 +1269,7 @@ impl Runtime {
         let reasoning_event = crate::persistence::ReasoningEvent {
             id: 0, // assigned by DB
             query: input.to_string(),
-            conclusion: response.content.clone(),
+            conclusion: response_content.clone(),
             chain: Vec::new(),
             confidence_state: response_confidence,
             confidence_score: None,
@@ -1278,7 +1356,7 @@ impl Runtime {
         // Record turn in training database
         if let Some(training_id) = *self.training_session_id.lock().unwrap() {
             let _ = self.training_db.record_turn(training_id, &format!("Zachary: {}", input), "", 0.5);
-            let _ = self.training_db.record_turn(training_id, &format!("Star: {}", &response.content), "", 0.5);
+            let _ = self.training_db.record_turn(training_id, &format!("Star: {}", &response_content), "", 0.5);
         }
 
         // Persist any new memories
@@ -1317,9 +1395,9 @@ impl Runtime {
         // "I don't know X. I'm curious about X." — redundant)
         // Use proactive search result if Star found something — replaces "I don't know"
         let mut final_content = if needs_proactive_override {
-            proactive_content.clone().unwrap_or_else(|| response.content.clone())
+            proactive_content.clone().unwrap_or_else(|| response_content.clone())
         } else {
-            response.content.clone()
+            response_content.clone()
         };
         if let Some(curiosity) = response.curiosity {
             let response_lower = final_content.to_lowercase();

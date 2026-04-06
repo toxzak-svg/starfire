@@ -38,7 +38,9 @@ const DEFAULT_TEMPERATURE: f64 = 0.7;
 
 /// LLM inference engine — loads Bonsai-8B GGUF via Candle and runs inference.
 pub struct LlmEngine {
-    model: qlm::ModelWeights,
+    /// Model weights wrapped in Arc<Mutex> for thread-safe interior mutability
+    /// (forward() needs &mut self internally for KV-cache updates).
+    model: std::sync::Arc<std::sync::Mutex<qlm::ModelWeights>>,
     tokenizer: Tokenizer,
     device: Device,
     vocab_size: usize,
@@ -78,7 +80,7 @@ impl LlmEngine {
         let eos_token_id = vocab.get("</s>").copied();
 
         Ok(Self {
-            model,
+            model: std::sync::Arc::new(std::sync::Mutex::new(model)),
             tokenizer,
             device,
             vocab_size: BONSAI_VOCAB_SIZE,
@@ -164,7 +166,7 @@ impl LlmEngine {
             let input_tensor = Tensor::new(input_ids.as_slice(), &self.device)
                 .map_err(|e| anyhow::anyhow!("Failed to create input tensor: {}", e))?
                 .reshape(&[1, input_ids.len()])?;
-            let logits = self.model.forward(&input_tensor, index_pos)
+            let logits = self.model.lock().unwrap().forward(&input_tensor, index_pos)
                 .map_err(|e| anyhow::anyhow!("Forward pass failed at step {}: {}", step, e))?;
 
             // Extract logits for the last position → [vocab_size] Tensor, then sample.
@@ -261,7 +263,7 @@ impl LlmEngine {
                 let first_token = tokens[0];
                 if let Ok(input) = Tensor::new(&[first_token], &self.device) {
                     if let Ok(reshaped) = input.reshape(&[1, 1]) {
-                        return self.model.forward(&reshaped, 0).is_ok();
+                        return self.model.lock().unwrap().forward(&reshaped, 0).is_ok();
                     }
                 }
             }
@@ -278,6 +280,28 @@ impl LlmEngine {
             format!("{:.1} GB", gb)
         } else {
             format!("{:.0} MB", mb)
+        }
+    }
+
+    /// Construct an LlmEngine from Arc-wrapped parts (allows LlmHandle to
+    /// return a fresh engine from its cache without deep-cloning weights).
+    pub fn from_arc_parts(
+        model: std::sync::Arc<std::sync::Mutex<qlm::ModelWeights>>,
+        tokenizer: Tokenizer,
+        device: Device,
+        vocab_size: usize,
+        bos_token_id: Option<u32>,
+        eos_token_id: Option<u32>,
+        max_seq_len: usize,
+    ) -> Self {
+        Self {
+            model,
+            tokenizer,
+            device,
+            vocab_size,
+            bos_token_id,
+            eos_token_id,
+            max_seq_len,
         }
     }
 }
@@ -333,22 +357,64 @@ fn init() {
 }
 
 /// A handle that can be shared across threads. Loading is deferred —
-/// call `.load()` to get an actual `LlmEngine`.
-#[derive(Clone)]
+/// call `.load()` to get an actual `LlmEngine`. The engine is cached
+/// so repeated calls return the same instance without reloading GGUF.
 pub struct LlmHandle {
     gguf_path: std::path::PathBuf,
+    /// Cached engine. Uses `parking_lot::Mutex` (which is `Send + Sync`) so
+    /// the handle is `Clone + Send + Sync`. Wrapping in Arc so clones of the
+    /// handle share the same cached engine.
+    cached: std::sync::Arc<parking_lot::Mutex<Option<LlmEngine>>>,
 }
 
 impl LlmHandle {
-    /// Load the Bonsai-8B model from disk and return an engine.
-    /// This does GGUF parsing + tensor loading — takes ~5-10 seconds.
+    /// Load (or return cached) the Bonsai-8B model.
+    /// First call does GGUF parsing + tensor loading (~5-10s).
+    /// Subsequent calls return the cached engine immediately.
     pub fn load(&self) -> AnyhowResult<LlmEngine> {
-        LlmEngine::new(&self.gguf_path)
+        // Fast path: already loaded.
+        {
+            let guard = self.cached.lock();
+            if let Some(ref engine) = *guard {
+                // Return a fresh instance with shared Arc-wrapped fields so the
+                // caller gets mutable access (for generation loop) while the
+                // cache retains ownership.
+                return Ok(LlmEngine::from_arc_parts(
+                    engine.model.clone(),
+                    engine.tokenizer.clone(),
+                    engine.device.clone(),
+                    engine.vocab_size,
+                    engine.bos_token_id,
+                    engine.eos_token_id,
+                    engine.max_seq_len,
+                ));
+            }
+        }
+
+        // Slow path: load and cache.
+        let engine = LlmEngine::new(&self.gguf_path)?;
+        let cached_engine = LlmEngine::from_arc_parts(
+            engine.model.clone(),
+            engine.tokenizer.clone(),
+            engine.device.clone(),
+            engine.vocab_size,
+            engine.bos_token_id,
+            engine.eos_token_id,
+            engine.max_seq_len,
+        );
+        {
+            let mut guard = self.cached.lock();
+            *guard = Some(cached_engine);
+        }
+        Ok(engine)
     }
 
     /// Create a handle from a GGUF file path.
     pub fn new(gguf_path: &Path) -> Self {
-        Self { gguf_path: gguf_path.to_path_buf() }
+        Self {
+            gguf_path: gguf_path.to_path_buf(),
+            cached: std::sync::Arc::new(parking_lot::Mutex::new(None)),
+        }
     }
 
     /// Create an LLM handle at the standard Bonsai-8B location for a data dir.
