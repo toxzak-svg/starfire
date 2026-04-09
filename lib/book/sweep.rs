@@ -73,12 +73,14 @@ fn compute_relevance(section: &Section, query_words: &[&str], query_lower: &str)
     let bookmark_lower = section.bookmark.to_lowercase();
 
     let mut score = 0.0;
+    let mut any_word_matched_bookmark = false;
 
     // Exact keyword match in bookmark (strongest signal)
     let bookmark_words: Vec<&str> = bookmark_lower.split(':').collect();
     for word in query_words {
         if bookmark_words.contains(word) {
             score += 0.5;
+            any_word_matched_bookmark = true;
         }
     }
 
@@ -89,8 +91,9 @@ fn compute_relevance(section: &Section, query_words: &[&str], query_lower: &str)
         }
     }
 
-    // Query as substring in bookmark (very strong)
-    if bookmark_lower.contains(query_lower) {
+    // Query as substring in bookmark (very strong) - only if no word matched
+    // to avoid double-counting when a word is both a bookmark token and substring
+    if !any_word_matched_bookmark && bookmark_lower.contains(query_lower) {
         score += 0.6;
     }
 
@@ -107,13 +110,17 @@ fn compute_relevance(section: &Section, query_words: &[&str], query_lower: &str)
         Density::Packed => 0.6,
     };
 
-    // Recency boost (simple: newer sections slightly preferred)
-    let now = crate::now_timestamp();
-    let age_hours = (now - section.last_accessed) as f64 / 3600.0;
-    let recency_boost = if age_hours < 1.0 {
-        0.1
-    } else if age_hours < 24.0 {
-        0.05
+    // Only apply recency boost if there's an actual match
+    let recency_boost = if score > 0.0 {
+        let now = crate::now_timestamp();
+        let age_hours = (now - section.last_accessed) as f64 / 3600.0;
+        if age_hours < 1.0 {
+            0.1
+        } else if age_hours <= 24.0 {
+            0.05
+        } else {
+            0.0
+        }
     } else {
         0.0
     };
@@ -154,10 +161,16 @@ mod tests {
 
     #[test]
     fn test_exact_bookmark_match() {
-        // Bookmark exact match should give highest signal
-        let section = make_section("railway:env:secrets", "GROQ_API_KEY=xxx", Density::High, crate::now_timestamp());
-        assert_eq!(relevance(&section, "railway"), 0.5); // bookmark word match
-        assert_eq!(relevance(&section, "railway:env:secrets"), 0.6 + 0.5); // substring + word
+        // Test bookmark word scoring with Density::Low (0.8x) to isolate pure word-match behavior
+        // Use old timestamp to disable recency boost
+        let old_ts = crate::now_timestamp() - 86400 * 7;
+        let section = make_section("railway:env:secrets", "unrelated content xyz", Density::Low, old_ts);
+        // Single query word matching bookmark token: 0.5 × 0.8 (Low) = 0.4
+        assert_eq!(relevance(&section, "railway"), 0.4, "single word in bookmark, Low density");
+        // Three query words all matching bookmark tokens: 1.5 × 0.8 = 1.2, capped at 1.0
+        assert_eq!(relevance(&section, "railway env secrets"), 1.0, "three words all in bookmark, capped at 1.0");
+        // Non-matching word: no match in bookmark or content → 0.0
+        assert_eq!(relevance(&section, "nonexistent word"), 0.0, "no match");
     }
 
     #[test]
