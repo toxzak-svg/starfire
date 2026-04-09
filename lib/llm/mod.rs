@@ -22,7 +22,7 @@ use anyhow::{Context as AnyhowContext, Result as AnyhowResult};
 use candle_core::{Device, Tensor};
 use candle_core::quantized::gguf_file;
 use candle_core::quantized::tokenizer::TokenizerFromGguf;
-use candle_transformers::models::quantized_llama as qlm;
+use candle_transformers::models::quantized_qwen3 as qlm;
 use candle_transformers::generation::LogitsProcessor;
 use std::path::Path;
 use tokenizers::Tokenizer;
@@ -224,6 +224,109 @@ impl LlmEngine {
         self.generate(&prompt)
     }
 
+    /// Generate with streaming callback — yields tokens one at a time.
+    ///
+    /// Callback is called after each new token is decoded. Return `false` from
+    /// the callback to abort early. Tokens are decoded as strings (may be
+    /// multi-char or empty depending on tokenizer behavior).
+    ///
+    /// # Example
+    /// ```ignore
+    /// engine.generate_stream("Hello", 20, 0.7, Some(0.9), |tok| {
+    ///     print!("{}", tok);
+    ///     true  // keep going
+    /// })?;
+    /// ```
+    pub fn generate_stream<F>(
+        &mut self,
+        prompt: &str,
+        max_new_tokens: usize,
+        temperature: f64,
+        top_p: Option<f64>,
+        mut callback: F,
+    ) -> AnyhowResult<()>
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let mut token_ids = self.tokenize(prompt)?;
+
+        if let Some(bos) = self.bos_token_id {
+            token_ids.insert(0, bos);
+        }
+
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(42);
+        let mut logits_processor = LogitsProcessor::new(seed, Some(temperature), top_p);
+
+        let eos = self.eos_token_id.unwrap_or(0);
+
+        for step in 0..max_new_tokens {
+            let index_pos = token_ids.len() - 1;
+
+            let input_ids: Vec<u32> = if step == 0 {
+                token_ids.clone()
+            } else {
+                vec![*token_ids.last().unwrap_or(&0)]
+            };
+
+            let input_tensor = Tensor::new(input_ids.as_slice(), &self.device)?
+                .reshape(&[1, input_ids.len()])?;
+            let logits = self
+                .model
+                .lock()
+                .unwrap()
+                .forward(&input_tensor, index_pos)?;
+
+            let last_logits = logits.squeeze(0)?.squeeze(0)?;
+            let next_token = logits_processor.sample(&last_logits)? as u32;
+
+            if next_token == eos && eos != 0 {
+                break;
+            }
+
+            let token_str = self.decode_token(next_token);
+            if !token_str.is_empty() {
+                if !callback(&token_str) {
+                    break; // caller aborted
+                }
+            }
+
+            token_ids.push(next_token);
+        }
+
+        Ok(())
+    }
+
+    /// Generate a chat completion with streaming — callbacks with each token.
+    pub fn chat_stream<F>(&mut self, messages: &[ChatMessage], callback: F) -> AnyhowResult<()>
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let prompt = build_bonsai_prompt(messages);
+        self.generate_stream(&prompt, MAX_NEW_TOKENS, DEFAULT_TEMPERATURE, Some(0.9), callback)
+    }
+
+    /// Polish rough text with streaming — callbacks with each token.
+    ///
+    /// System prompt is omitted from streaming output to avoid polluting the
+    /// returned text. The model still sees it internally.
+    pub fn polish_stream<F>(&mut self, rough_text: &str, callback: F) -> AnyhowResult<()>
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let system = "You are a text polish engine. Rewrite the following text to be \
+             more fluent and natural-sounding while preserving all factual \
+             content and meaning. Be concise. Do not add new information. \
+             Do not summarize. Maintain the same level of detail.";
+        let messages = &[
+            ChatMessage::system(system),
+            ChatMessage::user(rough_text),
+        ];
+        self.chat_stream(messages, callback)
+    }
+
     /// Polish a rough Starfire output into fluent, natural-sounding text.
     ///
     /// Primary voice integration point. Flow:
@@ -421,6 +524,26 @@ impl LlmHandle {
     pub fn for_data_dir(data_dir: &Path) -> Self {
         Self::new(&data_dir.join("models/bonsai-8b/Bonsai-8B.gguf"))
     }
+
+    /// Chat with streaming — callback receives each token as it's generated.
+    /// Return `false` from callback to abort early.
+    pub fn chat_stream<F>(&self, messages: &[ChatMessage], callback: F) -> AnyhowResult<()>
+    where
+        F: FnMut(&str) -> bool + Send + 'static,
+    {
+        let mut engine = self.load()?;
+        engine.chat_stream(messages, callback)
+    }
+
+    /// Polish rough text with streaming — callback receives each token.
+    /// Return `false` from callback to abort early.
+    pub fn polish_stream<F>(&self, rough_text: &str, callback: F) -> AnyhowResult<()>
+    where
+        F: FnMut(&str) -> bool + Send + 'static,
+    {
+        let mut engine = self.load()?;
+        engine.polish_stream(rough_text, callback)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -463,5 +586,60 @@ mod tests {
         assert!(prompt.contains("You are a helpful assistant"));
         assert!(prompt.contains("User:"));
         assert!(prompt.contains("What is 2+2?"));
+    }
+
+    #[test]
+    fn test_generate_stream_yields_tokens() {
+        let path = Path::new("models/bonsai-8b/Bonsai-8B.gguf");
+        if !path.exists() {
+            println!("SKIPPED (no GGUF at {:?})", path);
+            return;
+        }
+        let mut engine = LlmEngine::new(path).unwrap();
+        let mut tokens = Vec::new();
+        let mut token_count = 0;
+        engine
+            .generate_stream(
+                "Say hello in exactly three words.",
+                30,
+                0.7,
+                Some(0.9),
+                |tok| {
+                    token_count += 1;
+                    tokens.push(tok.to_string());
+                    true // keep going
+                },
+            )
+            .unwrap();
+        println!(
+            "Got {} tokens: {:?}",
+            token_count,
+            &tokens.iter().take(5).collect::<Vec<_>>()
+        );
+        assert!(token_count > 0, "Should yield at least some tokens");
+        // Should have aborted after 30 tokens max
+        assert!(token_count <= 30);
+    }
+
+    #[test]
+    fn test_generate_stream_abort_early() {
+        let path = Path::new("models/bonsai-8b/Bonsai-8B.gguf");
+        if !path.exists() {
+            println!("SKIPPED (no GGUF at {:?})", path);
+            return;
+        }
+        let mut engine = LlmEngine::new(path).unwrap();
+        let mut token_count = 0;
+        engine
+            .generate_stream("Tell me a long story.", 100, 0.7, Some(0.9), |_tok| {
+                token_count += 1;
+                if token_count >= 5 {
+                    false // abort after 5 tokens
+                } else {
+                    true
+                }
+            })
+            .unwrap();
+        assert_eq!(token_count, 5, "Should have aborted after 5 tokens");
     }
 }
