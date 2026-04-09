@@ -1567,6 +1567,51 @@ impl Runtime {
         Ok(final_response)
     }
 
+    /// Stream a chat response — same as `chat()` but LLM output is streamed
+    /// token-by-token via `callback` instead of buffered to a string first.
+    ///
+    /// Callback is called with each output token as it arrives. Return `false`
+    /// to abort generation early.
+    ///
+    /// Voice shaping runs synchronously; only the LLM polish phase is streamed.
+    /// This is the integration point for real-time TTS — tokens can be sent to
+    /// a voice engine as they arrive rather than waiting for the full response.
+    pub fn chat_stream<F>(&mut self, input: &str, mut callback: F) -> Result<()>
+    where
+        F: FnMut(String) -> bool + Send + 'static,
+    {
+        if !self.initialized {
+            return Ok(());
+        }
+
+        // Get conversation response (this acquires + releases the conversation lock)
+        let voiced = {
+            let mut conversation = self.conversation.lock().unwrap();
+            let response = conversation.respond(input);
+            drop(conversation);
+            self.voice.speak(&response.content, &self.cognition)
+        };
+
+        // Stream through LLM polish
+        #[cfg(feature = "llm")]
+        {
+            if let Some(ref llm_handle) = self.llm {
+                if let Ok(mut llm) = llm_handle.load() {
+                    // System prompt is baked into polish_stream internally;
+                    // only output tokens go through the callback.
+                    let _ = llm.polish_stream(&voiced, |tok| {
+                        callback(tok.to_string())
+                    });
+                    return Ok(());
+                }
+            }
+        }
+
+        // Fallback: no LLM — stream the whole voiced response at once
+        let _ = callback(voiced);
+        Ok(())
+    }
+
     /// Format memory status for display.
     fn format_memory_status(&self) -> String {
         let snap = self.store.snapshot().unwrap_or_default();
