@@ -271,9 +271,7 @@ mod tests {
         buf.write_all(&0.5f32.to_le_bytes()).unwrap(); // binary scale
         buf.write_all(&0i32.to_le_bytes()).unwrap(); // codebook index 0
 
-        let tmp = tempfile::tempfile().unwrap();
-        tmp.write_all(&buf).unwrap();
-        // We can't easily use tempfile in no_std; just verify struct layout mentally.
-        // Full integration test requires the Python export to generate real binaries.
+        // FABQ-RC archived: no-op - validates struct layout construction only.
+        let _ = buf;
     }
 }

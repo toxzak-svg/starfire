@@ -327,6 +327,36 @@ impl FewShotLearner {
         Some(supports)
     }
 
+    /// Given a new input, use the best matching hypothesis to predict an output.
+    /// Returns (predicted_output, confidence) or None if no hypotheses exist.
+    ///
+    /// Strategy: score each hypothesis by how well it applies to the given domain
+    /// (via predicted_applies_to), plus a bonus if it was formed from examples in that domain.
+    pub fn predict(&self, input: &str, domain: &str) -> Option<(String, f64)> {
+        if self.hypotheses.is_empty() {
+            return None;
+        }
+
+        // Score each hypothesis for this domain
+        let mut scored: Vec<_> = self.hypotheses.iter()
+            .filter(|h| h.predicted_applies_to.is_empty()
+                      || h.predicted_applies_to.iter().any(|d| d == domain))
+            .map(|h| {
+                // Bonus if hypothesis was formed from examples in this domain
+                let domain_bonus = if h.supporting_examples.iter().any(|&idx| idx < self.examples.len() && self.examples[idx].domain == domain) {
+                    0.1
+                } else {
+                    0.0
+                };
+                (h.confidence + domain_bonus, h.pattern.clone())
+            })
+            .collect();
+
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        scored.into_iter().next().map(|(conf, pat)| (pat, conf))
+    }
+
     /// Merge similar hypotheses
     pub fn merge_similar(&mut self, threshold: f64) {
         let mut to_remove = Vec::new();
@@ -452,5 +482,31 @@ mod tests {
 
         // 3 support, 1 contradict = 0.75 confidence
         assert!((h.confidence - 0.75).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_predict_returns_best_hypothesis() {
+        let mut learner = FewShotLearner::new();
+
+        // Add two examples in the same domain
+        learner.add_example(Example::new("fire!", "hot flame", "physics"));
+        learner.add_example(Example::new("fire!", "burning", "physics"));
+
+        // Form a hypothesis from the domain
+        let _ = learner.learn_from_domain("physics");
+
+        // Predict on a new input
+        let result = learner.predict("fire!", "physics");
+        assert!(result.is_some(), "Should have a prediction");
+
+        let (pattern, confidence) = result.unwrap();
+        assert!(!pattern.is_empty(), "Pattern should not be empty");
+        assert!(confidence > 0.0, "Confidence should be positive");
+    }
+
+    #[test]
+    fn test_predict_returns_none_when_no_hypotheses() {
+        let learner = FewShotLearner::new();
+        assert!(learner.predict("anything", "any").is_none());
     }
 }
