@@ -1,12 +1,16 @@
 # Starfire + LLM Server — Local Development Compose
 #
 # Usage:
-#   docker compose up --build        # start both
-#   docker compose up --build -d     # start both in background
-#   docker compose logs -f llm        # watch LLM server logs
-#   docker compose logs -f starfire  # watch starfire logs
+#   podman-compose up --build        # start both
+#   podman-compose up --build -d     # start both in background
+#   podman-compose logs -f llm       # watch LLM server logs
+#   podman-compose logs -f starfire # watch starfire logs
 #
 # Starfire talks to LLM at http://llm:8081 automatically.
+#
+# Note: Requires `pip install podman-compose` first. Alternatively, if using
+#   Podman Desktop or `docker compose` plugin with Podman backend, use:
+#   docker compose up --build
 
 services:
   starfire:

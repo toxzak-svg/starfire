@@ -2,8 +2,10 @@
 # Multi-stage build for minimal image size
 #
 # Usage:
-#   docker build -t starfire .
+#   docker build -t starfire .         # with Docker
+#   podman build -t starfire .         # with Podman
 #   docker run --rm starfire star api --port 8080
+#   podman run --rm starfire star api --port 8080
 
 # ============================================
 # Stage 1: Build
