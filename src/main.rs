@@ -25,7 +25,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Start an interactive chat session
-    Chat,
+    Chat {
+        /// Stream LLM output token-by-token (for TTS integration)
+        #[arg(long)]
+        stream: bool,
+    },
     /// Check memory status
     Status,
     /// Start the HTTP API server (for Jupyter notebooks)
@@ -90,10 +94,17 @@ fn main() -> anyhow::Result<()> {
     let default_cmd = if std::env::var("RAILWAY_PUBLIC_DOMAIN").is_ok() {
         Commands::Api { host: "0.0.0.0".to_string(), port: 8080 }
     } else {
-        Commands::Chat
+        Commands::Chat { stream: false }
     };
     match cli.command.unwrap_or(default_cmd) {
-        Commands::Chat => chat_loop(life_dir),
+        Commands::Chat { stream } => {
+            if stream {
+                chat_loop_stream(life_dir)?;
+            } else {
+                chat_loop(life_dir)?;
+            }
+            Ok(())
+        }
         Commands::Status => status_check(life_dir),
         Commands::Api { host, port } => {
             let runtime = Runtime::new(&life_dir)?;
@@ -166,6 +177,59 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
                 if input == "/quit" || input == "/exit" {
                     break;
                 }
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Run the streaming chat loop — tokens print as they arrive.
+fn chat_loop_stream(data_dir: PathBuf) -> anyhow::Result<()> {
+    let mut runtime = Runtime::new(&data_dir)?;
+    
+    println!("═══════════════════════════════════════════");
+    println!("  Star — Emergent Desktop Intelligence (STREAMING)");
+    println!("═══════════════════════════════════════════");
+    println!();
+    println!("{}", runtime.identity_summary());
+    println!();
+    println!("[Streaming mode — tokens appear as generated]");
+    println!();
+    println!("───────────────────────────────────────────");
+    println!();
+    
+    loop {
+        print!("> ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+        
+        let mut input = String::new();
+        let bytes = std::io::stdin().read_line(&mut input)?;
+        
+        if bytes == 0 || input.trim().is_empty() {
+            println!("\nGoodbye, Zachary.");
+            break;
+        }
+        
+        let input = input.trim();
+        
+        if input == "/quit" || input == "/exit" {
+            break;
+        }
+        
+        print!("\n");
+        let mut complete = String::new();
+        match runtime.chat_stream(input, |tok| {
+            print!("{}", tok);
+            std::io::Write::flush(&mut std::io::stdout()).ok();
+            true  // keep going
+        }) {
+            Ok(_) => {
+                println!();
+                println!();
             }
             Err(e) => {
                 eprintln!("Error: {}", e);

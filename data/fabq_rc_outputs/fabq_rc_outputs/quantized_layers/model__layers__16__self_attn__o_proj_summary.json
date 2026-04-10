@@ -1,0 +1,60 @@
+{
+  "layer_name": "model.layers.16.self_attn.o_proj",
+  "int8_channels": {
+    "type": "list",
+    "len": 1
+  },
+  "binary_channels": {
+    "type": "list",
+    "len": 7
+  },
+  "int8_weights": {
+    "type": "ndarray",
+    "shape": [
+      1,
+      2048
+    ],
+    "dtype": "int8"
+  },
+  "int8_scales": {
+    "type": "ndarray",
+    "shape": [
+      1
+    ],
+    "dtype": "float32"
+  },
+  "binary_scales": {
+    "type": "ndarray",
+    "shape": [
+      896
+    ],
+    "dtype": "float32"
+  },
+  "binary_bitvec": {
+    "type": "list",
+    "len": 896
+  },
+  "blocksize": {
+    "type": "int",
+    "value": 16
+  },
+  "codebook_idx": {
+    "type": "ndarray",
+    "shape": [
+      896
+    ],
+    "dtype": "int32"
+  },
+  "codebook": {
+    "type": "ndarray",
+    "shape": [
+      256,
+      256
+    ],
+    "dtype": "float32"
+  },
+  "original_shape": {
+    "type": "list",
+    "len": 2
+  }
+}

@@ -370,7 +370,7 @@ fn main() -> anyhow::Result<()> {
     // Simple logger
     println!("[llm-server] starting...");
 
-    let gguf_path = std::env::var("GGUF_PATH").unwrap_or_else(|_| "/models/bonzai-8b/Bonsai-8B.gguf".to_string());
+    let gguf_path = std::env::var("GGUF_PATH").unwrap_or_else(|_| "/models/bonsai-8b/Bonsai-8B.gguf".to_string());
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = std::env::var("PORT").unwrap_or_else(|_| "8081".to_string()).parse().unwrap_or(8081);
 

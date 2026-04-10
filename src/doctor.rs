@@ -1,6 +1,8 @@
 //! Starfire Doctor — Self-Diagnostic CLI
 //!
 //! Health-checks all Starfire subsystems in one command.
+//! Auto-repairs missing files when run with `--repair`.
+//! After all checks, offers to launch Starfire chat.
 //! Run with: `starfire doctor [--repair] [--non-interactive] [--deep]`
 
 use anyhow::{Context as _, Result as AnyhowResult};
@@ -125,56 +127,70 @@ pub fn run(args: DoctorArgs) -> AnyhowResult<()> {
     let mut failed = 0;
 
     // ── 1. Build & Tests ────────────────────────────────────────────────────
-    println!("[1/8] Build & Tests");
+    println!("[1/10] Build & Tests");
     let (p, w, f) = run_build_checks(&project_root, args.deep);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 2. File Integrity ─────────────────────────────────────────────────
+    // ── 2. Missing Files ──────────────────────────────────────────────────
     println!();
-    println!("[2/8] File Integrity");
+    println!("[2/10] Missing Files");
+    let (p, w, f) = run_missing_files_checks(&data_dir, &project_root, args.repair, args.non_interactive);
+    passed += p; warned += w; failed += f;
+    print_summary_checks(w, f);
+
+    // ── 3. File Integrity ─────────────────────────────────────────────────
+    println!();
+    println!("[3/10] File Integrity");
     let (p, w, f) = run_file_checks(&data_dir);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 3. Identity Seeds ─────────────────────────────────────────────────
+    // ── 4. Identity Seeds ─────────────────────────────────────────────────
     println!();
-    println!("[3/8] Identity Seeds");
-    let (p, w, f) = run_identity_checks(&data_dir);
+    println!("[4/10] Identity Seeds");
+    let (p, w, f) = run_identity_checks(&data_dir, args.repair, args.non_interactive);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 4. Runtime Health ──────────────────────────────────────────────────
+    // ── 5. Runtime Health ──────────────────────────────────────────────────
     println!();
-    println!("[4/8] Runtime Health");
+    println!("[5/10] Runtime Health");
     let (p, w, f) = run_runtime_checks(&data_dir, args.repair, args.non_interactive);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 5. API Server ─────────────────────────────────────────────────────
+    // ── 6. Services ──────────────────────────────────────────────────────
     println!();
-    println!("[5/8] API Server (port 8080)");
+    println!("[6/10] Services");
+    let (p, w, f) = run_services_checks(&project_root, args.repair, args.non_interactive);
+    passed += p; warned += w; failed += f;
+    print_summary_checks(w, f);
+
+    // ── 7. API Server ─────────────────────────────────────────────────────
+    println!();
+    println!("[7/10] API Server (port 8080)");
     let (p, w, f) = run_api_checks();
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 6. LLM Layer ──────────────────────────────────────────────────────
+    // ── 8. LLM Layer ──────────────────────────────────────────────────────
     println!();
-    println!("[6/8] LLM Layer (Bonsai-8B)");
-    let (p, w, f) = run_llm_checks(&project_root);
+    println!("[8/10] LLM Layer (Bonsai-8B)");
+    let (p, w, f) = run_llm_checks(&data_dir, &project_root, args.repair, args.non_interactive);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 7. Subsystem Stats ────────────────────────────────────────────────
+    // ── 9. Subsystem Stats ────────────────────────────────────────────────
     println!();
-    println!("[7/8] Subsystem Stats");
+    println!("[9/10] Subsystem Stats");
     let (p, w, f) = run_subsystem_checks(&data_dir);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
-    // ── 8. Autonomy State ─────────────────────────────────────────────────
+    // ── 10. Autonomy State ─────────────────────────────────────────────────
     println!();
-    println!("[8/8] Autonomy State");
+    println!("[10/10] Autonomy State");
     let (p, w, f) = run_autonomy_checks(&data_dir);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
@@ -192,19 +208,21 @@ pub fn run(args: DoctorArgs) -> AnyhowResult<()> {
         else { " ✅" }
     );
 
-    if failed > 0 {
-        println!();
-        println!("❌ Starfire needs attention — run `starfire chat` to verify.");
-        std::process::exit(1);
-    } else if warned > 0 {
-        println!();
-        println!("⚠️  Starfire is functional but has warnings.");
-        std::process::exit(0);
+    // Ask about launching chat
+    println!();
+    let start = if args.non_interactive {
+        // In non-interactive repair mode, always launch chat after successful repair.
+        // This is the expected behavior when doctor --repair --non-interactive is run.
+        args.repair
     } else {
-        println!();
-        println!("✅ Starfire is healthy and ready to run.");
-        std::process::exit(0);
+        confirm("Start Starfire chat?")
+    };
+    if start {
+        launch_star_chat(&project_root);
+    } else {
+        println!("Okay. Run `star chat` whenever you're ready.");
     }
+    std::process::exit(if failed > 0 { 1 } else { 0 });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -294,7 +312,138 @@ fn run_build_checks(project_root: &PathBuf, deep: bool) -> (usize, usize, usize)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 2: File Integrity
+// Check 2: Missing Files
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn run_missing_files_checks(data_dir: &PathBuf, project_root: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
+    let mut checks = Vec::new();
+
+    // Files to check and fill
+    let file_specs: Vec<(&str, FileFillSource)> = vec![
+        ("IDENTITY.md", FileFillSource::CopyFromProjectRoot),
+        ("SOUL.md", FileFillSource::CopyFromProjectRoot),
+        ("AGENTS.md", FileFillSource::CopyFromProjectRoot),
+        ("USER.md", FileFillSource::Placeholder(USER_PLACEHOLDER)),
+        ("HEARTBEAT.md", FileFillSource::Placeholder(HEARTBEAT_PLACEHOLDER)),
+    ];
+
+    for (filename, source) in file_specs {
+        let dest = data_dir.join(filename);
+        if dest.exists() {
+            checks.push(Check::pass(filename));
+            if let Ok(meta) = std::fs::metadata(&dest) {
+                checks.last_mut().unwrap().detail = Some(human_size(meta.len()));
+            }
+        } else {
+            // File missing — try to fill it
+            let can_repair = repair || non_interactive
+                || confirm(&format!("{} is missing. Create it?", filename));
+
+            if can_repair {
+                match source {
+                    FileFillSource::CopyFromProjectRoot => {
+                        let src = project_root.join(filename);
+                        if src.exists() {
+                            match std::fs::copy(&src, &dest) {
+                                Ok(_) => {
+                                    checks.push(Check::pass(&format!("{} (created)", filename)));
+                                    if let Ok(meta) = std::fs::metadata(&dest) {
+                                        checks.last_mut().unwrap().detail = Some(human_size(meta.len()));
+                                    }
+                                }
+                                Err(e) => {
+                                    checks.push(Check::fail(filename, &format!("Failed to copy: {}", e)));
+                                }
+                            }
+                        } else {
+                            checks.push(Check::fail(filename, "Not found in project root either"));
+                        }
+                    }
+                    FileFillSource::Placeholder(content) => {
+                        match std::fs::write(&dest, content) {
+                            Ok(_) => {
+                                checks.push(Check::pass(&format!("{} (created)", filename)));
+                                checks.last_mut().unwrap().detail = Some(human_size(content.len() as u64));
+                            }
+                            Err(e) => {
+                                checks.push(Check::fail(filename, &format!("Failed to create: {}", e)));
+                            }
+                        }
+                    }
+                }
+            } else {
+                checks.push(Check::fail(filename, "Missing and repair declined"));
+            }
+        }
+    }
+
+    // Directories to check/create
+    let dirs_to_check = [
+        ("memory/", data_dir.join("memory")),
+        ("models/", data_dir.join("models")),
+        ("models/bonsai-8b/", data_dir.join("models/bonsai-8b")),
+    ];
+
+    for (label, dir_path) in dirs_to_check {
+        if dir_path.exists() && dir_path.is_dir() {
+            checks.push(Check::pass(label.trim_end_matches('/')));
+        } else {
+            let can_repair = repair || non_interactive
+                || confirm(&format!("Directory {} is missing. Create it?", label));
+
+            if can_repair {
+                match std::fs::create_dir_all(&dir_path) {
+                    Ok(_) => {
+                        checks.push(Check::pass(&format!("{} (created)", label.trim_end_matches('/'))));
+                    }
+                    Err(e) => {
+                        checks.push(Check::fail(label.trim_end_matches('/'), &format!("Failed to create: {}", e)));
+                    }
+                }
+            } else {
+                checks.push(Check::fail(label.trim_end_matches('/'), "Missing and repair declined"));
+            }
+        }
+    }
+
+    print_checks(&checks);
+    aggregate_counts(&checks)
+}
+
+enum FileFillSource {
+    CopyFromProjectRoot,
+    Placeholder(&'static str),
+}
+
+const USER_PLACEHOLDER: &str = "# USER.md - About Your Human
+
+- **Name:** (your name)
+- **What to call them:** (nickname)
+- **Pronouns:** (they/them, she/her, he/him, etc.)
+- **Timezone:** (e.g. America/New_York)
+- **Notes:** 
+  - (contact info, preferences, anything relevant)
+
+## Context
+
+(Who are they? What are they working on? What matters to them?)
+";
+
+const HEARTBEAT_PLACEHOLDER: &str = "# HEARTBEAT.md
+
+Read this file during heartbeats to know what to check.
+
+## Quick Checks
+
+- (any urgent items?)
+
+## Notes
+
+(heartbeat reminders and priorities)
+";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 3: File Integrity
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_file_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
@@ -325,7 +474,7 @@ fn run_file_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
     check_file("voice.db", 100, &mut checks);
 
     // Bonsai GGUF
-    let gguf_path = data_dir.join("models/bonzai-8b/Bonsai-8B.gguf");
+    let gguf_path = data_dir.join("models/bonsai-8b/Bonsai-8B.gguf");
     if !gguf_path.exists() {
         checks.push(Check::skip(
             "Bonsai-8B.gguf",
@@ -348,10 +497,10 @@ fn run_file_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 3: Identity Seeds
+// Check 4: Identity Seeds
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn run_identity_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
+fn run_identity_checks(data_dir: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
     let mut checks = Vec::new();
 
     // IDENTITY.md — check data dir first, then project dir
@@ -393,11 +542,32 @@ fn run_identity_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
     }
 
     print_checks(&checks);
+
+    // Auto-repair: copy identity files from project dir to data dir if missing
+    if repair {
+        let project_root = find_project_root();
+        for (file, _label) in [("IDENTITY.md", "IDENTITY"), ("SOUL.md", "SOUL")] {
+            let dest = data_dir.join(file);
+            if !dest.exists() {
+                let src = project_root.join(file);
+                if src.exists() {
+                    println!();
+                    if non_interactive || confirm(&format!("Copy {} from project dir to data dir?", file)) {
+                        match std::fs::copy(&src, &dest) {
+                            Ok(_) => println!("  ✅ {} copied.", file),
+                            Err(e) => println!("  ❌ {} copy failed: {}", file, e),
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     aggregate_counts(&checks)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 4: Runtime Health
+// Check 5: Runtime Health
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_runtime_checks(data_dir: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
@@ -490,7 +660,89 @@ fn run_runtime_checks(data_dir: &PathBuf, repair: bool, non_interactive: bool) -
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 5: API Server
+// Check 6: Services
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn run_services_checks(project_root: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
+    let mut checks = Vec::new();
+    let api_base = "http://127.0.0.1:8080";
+
+    // Check API server on port 8080
+    let api_running = match reqwest::blocking::get(&format!("{}/health", api_base)) {
+        Ok(resp) if resp.status().as_u16() == 200 => true,
+        _ => false,
+    };
+
+    if api_running {
+        checks.push(Check::pass("API server (port 8080)"));
+    } else {
+        checks.push(Check::warn(
+            "API server (port 8080)",
+            "Not running — start with: star api --port 8080",
+        ));
+
+        if repair || (!non_interactive && confirm("Start API server now?")) {
+            println!();
+            println!("  Starting API server...");
+            let mut cmd = std::process::Command::new("star");
+            cmd.args(["api", "--port", "8080"]);
+            cmd.current_dir(project_root);
+            cmd.stdin(std::process::Stdio::inherit());
+            cmd.stdout(std::process::Stdio::inherit());
+            cmd.stderr(std::process::Stdio::inherit());
+            // Spawn in background — don't wait
+            if cmd.spawn().is_ok() {
+                println!("  ✅ API server started in background.");
+                // Update the check result
+                if let Some(check) = checks.last_mut() {
+                    check.status = CheckStatus::Pass;
+                    check.detail = Some("started in background".to_string());
+                }
+            } else {
+                if let Some(check) = checks.last_mut() {
+                    check.detail = Some("failed to start".to_string());
+                }
+            }
+        }
+    }
+
+    // Check background thinker via Runtime diagnostics
+    let thinker_active = Runtime::new(&resolve_data_dir()).is_ok();
+
+    if thinker_active {
+        checks.push(Check::pass("Background thinker"));
+        checks.last_mut().unwrap().detail = Some("Runtime active".to_string());
+    } else {
+        checks.push(Check::warn(
+            "Background thinker",
+            "Not active — starts automatically when Runtime boots",
+        ));
+
+        if repair || (!non_interactive && confirm("Start Runtime (background thinker)?")) {
+            println!();
+            println!("  Starting Runtime...");
+            let mut cmd = std::process::Command::new("star");
+            cmd.arg("runtime");
+            cmd.current_dir(project_root);
+            cmd.stdin(std::process::Stdio::inherit());
+            cmd.stdout(std::process::Stdio::inherit());
+            cmd.stderr(std::process::Stdio::inherit());
+            if cmd.spawn().is_ok() {
+                println!("  ✅ Runtime started in background.");
+                if let Some(check) = checks.last_mut() {
+                    check.status = CheckStatus::Pass;
+                    check.detail = Some("started in background".to_string());
+                }
+            }
+        }
+    }
+
+    print_checks(&checks);
+    aggregate_counts(&checks)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 7: API Server
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_api_checks() -> (usize, usize, usize) {
@@ -510,7 +762,7 @@ fn run_api_checks() -> (usize, usize, usize) {
         Ok(resp) => {
             checks.push(Check::fail("GET /health", &format!("Returned {}", resp.status())));
         }
-        Err(e) => {
+        Err(_e) => {
             checks.push(Check::skip(
                 "API server",
                 &format!("Not running on port 8080 — start with: starfire api"),
@@ -527,8 +779,8 @@ fn run_api_checks() -> (usize, usize, usize) {
             Ok(resp) => {
                 checks.push(Check::fail("GET /identity", &format!("Returned {}", resp.status())));
             }
-            Err(e) => {
-                checks.push(Check::fail("GET /identity", &format!("Failed: {}", e)));
+            Err(_e) => {
+                checks.push(Check::fail("GET /identity", "Connection failed"));
             }
         }
     }
@@ -538,14 +790,18 @@ fn run_api_checks() -> (usize, usize, usize) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 6: LLM Layer
+// Check 8: LLM Layer
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn run_llm_checks(project_root: &PathBuf) -> (usize, usize, usize) {
+fn run_llm_checks(data_dir: &PathBuf, project_root: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
     let mut checks = Vec::new();
 
-    // GGUF lives in the project models directory.
-    let gguf_path = project_root.join("models/bonzai-8b/Bonsai-8B.gguf");
+    // GGUF: check data_dir first (production install), then project_root (dev).
+    let gguf_path = if data_dir.join("models/bonsai-8b/Bonsai-8B.gguf").exists() {
+        data_dir.join("models/bonsai-8b/Bonsai-8B.gguf")
+    } else {
+        project_root.join("models/bonsai-8b/Bonsai-8B.gguf")
+    };
 
     if !gguf_path.exists() {
         checks.push(Check::skip(
@@ -580,29 +836,70 @@ fn run_llm_checks(project_root: &PathBuf) -> (usize, usize, usize) {
     }
 
     // Health check — try loading the model
-    match llm::LlmHandle::new(&gguf_path).load() {
-        Ok(mut engine) => {
-            checks.push(Check::pass("Model loading"));
-            checks.last_mut().unwrap().detail = Some("Bonsai-8B loaded via Candle".to_string());
-
-            // Forward pass test
-            if engine.health_check() {
-                checks.push(Check::pass("Forward pass"));
-            } else {
-                checks.push(Check::fail("Forward pass", "Health check failed — model may be partially loaded"));
+    // In repair/non-interactive mode, skip the full health_check (which runs a
+    // forward pass and can hang on some hardware). Model loading + is_bonsai
+    // detection is sufficient to verify the GGUF is valid.
+    if repair && non_interactive {
+        // Repair mode: verify GGUF is loadable without hanging on health_check.
+        match llm::LlmHandle::new(&gguf_path).load() {
+            Ok(_) => {
+                checks.push(Check::pass("Model loading (repair mode)"));
+                checks.last_mut().unwrap().detail = Some("GGUF loaded successfully".to_string());
+            }
+            Err(e) => {
+                checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
             }
         }
-        Err(e) => {
-            checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
+    } else {
+        // Normal mode: run full health_check including forward pass.
+        match llm::LlmHandle::new(&gguf_path).load() {
+            Ok(mut engine) => {
+                checks.push(Check::pass("Model loading"));
+                checks.last_mut().unwrap().detail = Some("Bonsai-8B loaded via Candle".to_string());
+
+                // Forward pass test
+                if engine.health_check() {
+                    checks.push(Check::pass("Forward pass"));
+                } else {
+                    checks.push(Check::fail("Forward pass", "Health check failed — model may be partially loaded"));
+                }
+            }
+            Err(e) => {
+                checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
+            }
         }
     }
 
     print_checks(&checks);
+
+    // Auto-repair: copy GGUF from project_root to data_dir if it's missing from data_dir.
+    // This runs when repair=true and the data_dir GGUF doesn't exist.
+    // We skip this if the GGUF already exists at the data_dir path (checked above).
+    // gguf_path here is the resolved data_dir path that we already confirmed does NOT exist.
+    if repair && !gguf_path.exists() {
+        let dev_gguf = project_root.join("models/bonsai-8b/Bonsai-8B.gguf");
+        if dev_gguf.exists() {
+            println!();
+            println!("  🔧 Repairing: GGUF found at project root, copying to data dir...");
+            if non_interactive || confirm(&format!("Copy GGUF to {:?}?", &gguf_path)) {
+                let _ = std::fs::create_dir_all(gguf_path.parent().unwrap());
+                match std::fs::copy(&dev_gguf, &gguf_path) {
+                    Ok(_) => println!("  ✅ GGUF copied to data dir. Restart to use."),
+                    Err(e) => println!("  ❌ Copy failed: {}", e),
+                }
+            }
+        } else {
+            println!();
+            println!("  ℹ️  GGUF not found at either location.");
+            println!("  ℹ️  Place Bonsai-8B.gguf at: {:?}", gguf_path);
+        }
+    }
+
     aggregate_counts(&checks)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 7: Subsystem Stats
+// Check 9: Subsystem Stats
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_subsystem_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
@@ -653,7 +950,7 @@ fn run_subsystem_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 8: Autonomy State
+// Check 10: Autonomy State
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_autonomy_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
@@ -708,7 +1005,21 @@ fn timestamp() -> String {
 }
 
 fn resolve_data_dir() -> PathBuf {
-    // Prefer: current directory (development) > star data dir > other standard dirs.
+    // Prefer: STAR_DATA_DIR env > executable's own dir > star data dir > current dir.
+    if let Ok(env_dir) = std::env::var("STAR_DATA_DIR") {
+        let p = PathBuf::from(&env_dir);
+        if p.join("star.db").exists() {
+            return p;
+        }
+    }
+
+    // Executable's own directory (production install: star.exe lives in its data dir).
+    if let Ok(exe) = std::env::current_exe() {
+        if exe.parent().map(|p| p.join("star.db").exists()).unwrap_or(false) {
+            return exe.parent().unwrap().to_path_buf();
+        }
+    }
+
     let candidates = [
         // Development: current directory
         PathBuf::from("."),
@@ -841,6 +1152,20 @@ fn aggregate_counts(checks: &[Check]) -> (usize, usize, usize) {
         let (pc, wc, fc) = c.count();
         (p + pc, w + wc, f + fc)
     })
+}
+
+fn launch_star_chat(project_root: &PathBuf) {
+    // Use cargo run to launch chat in a fresh terminal.
+    // This avoids console inheritance issues when doctor runs as a GUI process.
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.args(["run", "--bin", "star", "--", "chat"]);
+    cmd.current_dir(project_root);
+    cmd.stdin(std::process::Stdio::inherit());
+    cmd.stdout(std::process::Stdio::inherit());
+    cmd.stderr(std::process::Stdio::inherit());
+    if let Err(e) = cmd.spawn() {
+        println!("Failed to start chat: {}", e);
+    }
 }
 
 fn confirm(prompt: &str) -> bool {

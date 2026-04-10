@@ -1,0 +1,42 @@
+# Screen Error Solver — Example Configuration
+# Copy this file to config.yaml and customize.
+
+capture:
+  interval_seconds: 2        # How often to capture (1-10 seconds)
+  monitor: 0                 # Which monitor (0 = primary/all)
+  region: null               # null = full screen, or specify region below
+  # region:
+  #   left: 0
+  #   top: 400
+  #   width: 1920
+  #   height: 680
+  downscale_factor: 0.5      # Reduce resolution before analysis (0.25 - 1.0)
+
+detection:
+  mode: hybrid               # "vision" | "ocr" | "hybrid" (recommended)
+  vision_model: gemini-2.0-flash  # Vision model for screenshot analysis
+  ocr_confidence_threshold: 60    # Min confidence for OCR text (0-100)
+  error_cooldown_seconds: 30      # Don't re-alert same error within this window
+  frame_diff_threshold: 0.05      # Screen change sensitivity (0.01 = very sensitive)
+
+solution:
+  model: gemini-2.0-flash    # Model for generating fix suggestions
+  max_tokens: 1024           # Max response length
+  include_context_lines: 20  # Lines of context around error
+
+delivery:
+  method: notification        # "notification" | "terminal" | "file" | "webhook"
+  webhook_url: null           # For Slack/Discord: https://hooks.slack.com/...
+  log_file: ./error_solutions.log
+  sound: true                 # Play alert sound on error
+
+api:
+  provider: gemini            # "gemini" | "openai" | "anthropic" | "ollama"
+  api_key_env: GEMINI_API_KEY # Env var holding your API key
+  ollama_base_url: http://localhost:11434  # For local Ollama
+
+# Custom error patterns (optional)
+# custom_patterns:
+#   - pattern: "MyCustomError: (.+)"
+#     name: my_custom_error
+#     severity: critical

@@ -40,7 +40,7 @@ COPY models/ /models/
 
 ENV HOST=0.0.0.0
 ENV PORT=8081
-ENV GGUF_PATH=/models/bonzai-8b/Bonsai-8B.gguf
+ENV GGUF_PATH=/models/bonsai-8b/Bonsai-8B.gguf
 
 EXPOSE 8081
 

@@ -33,7 +33,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8081
-      - GGUF_PATH=/models/bonzai-8b/Bonsai-8B.gguf
+      - GGUF_PATH=/models/bonsai-8b/Bonsai-8B.gguf
     volumes:
       - ./models:/models:ro  # mount model read-only
     healthcheck:

@@ -1,0 +1,14 @@
+{
+  "created_at": "2026-04-06T22:31:44.675602Z",
+  "model_name": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "calib_size": 512,
+  "int8_fraction": 0.05,
+  "bs_candidates": [
+    16,
+    32,
+    64,
+    128,
+    256
+  ],
+  "num_linear_layers_quantized": 155
+}

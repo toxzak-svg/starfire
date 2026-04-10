@@ -313,3 +313,34 @@ lib/book/
 - Book versioning / diff
 - Semantic embedding index (use Quanot for now)
 - Book sharing / export
+
+---
+
+## TODO: Generation Config API (2026-04-07)
+
+Generation params (temperature, top_p, max_new_tokens) are hardcoded in lib/llm/mod.rs:
+`ust
+const MAX_NEW_TOKENS: usize = 256;
+const DEFAULT_TEMPERATURE: f64 = 0.7;
+`
+
+**Problem:** No way to tune from outside the LLM layer. Polish and chat both use same params.
+
+**Fix needed:**
+1. Add GenerationConfig struct to lib/llm/mod.rs:
+`ust
+pub struct GenerationConfig {
+    pub max_new_tokens: usize,
+    pub temperature: f64,
+    pub top_p: Option<f64>,
+}
+`
+2. Add generation_config: Mutex<GenerationConfig> to Runtime
+3. Change Runtime::chat(input: &str) ? Runtime::chat_with(input: &str, config: GenerationConfig)
+4. Change llm_chat to accept GenerationConfig and call engine.chat_with(messages, config)
+5. Add to API ChatRequest:
+`json
+{ "message": "...", "generation": { "temperature": 0.8, "max_new_tokens": 128 } }
+`
+
+Priority: Medium — only matters when Zach wants to tune Bonsai quality.

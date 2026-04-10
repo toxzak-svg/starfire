@@ -1,0 +1,31 @@
+# Screen Error Solver -- Marble's Configuration
+# Uses Blackbox (Claude Sonnet 4.6) for vision + solution generation
+# Notifications go directly to Zach via OpenClaw
+
+capture:
+  interval_seconds: 3
+  monitor: 0
+  region: null
+  downscale_factor: 0.5
+
+detection:
+  mode: hybrid
+  vision_model: blackboxai/anthropic/claude-sonnet-4.6
+  ocr_confidence_threshold: 60
+  error_cooldown_seconds: 60
+  frame_diff_threshold: 0.05
+
+solution:
+  model: blackboxai/anthropic/claude-sonnet-4.6
+  max_tokens: 1024
+  include_context_lines: 20
+
+delivery:
+  method: file
+  log_file: ./marble_screen_errors.log
+  sound: false
+
+api:
+  provider: blackbox
+  api_key_env: BLACKBOX_API_KEY
+  ollama_base_url: http://localhost:11434
