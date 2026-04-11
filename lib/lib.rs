@@ -37,6 +37,7 @@ pub mod goals;
 pub mod curriculum;
 pub mod research;
 pub mod prediction;
+pub mod tcmw_a;
 pub mod input_normalizer;
 pub mod personality;
 pub mod book;
