@@ -770,15 +770,15 @@ fn run_api_checks() -> (usize, usize, usize) {
             checks.push(Check::fail("GET /health", &format!("Returned {}", resp.status())));
         }
         Err(_e) => {
-            checks.push(Check::skip(
+            checks.push(Check::fail(
                 "API server",
-                &format!("Not running on port 8080 — start with: starfire api"),
+                "Not running on port 8080 - start with: star api",
             ));
         }
     }
 
-    // GET /identity
-    if !matches!(checks.first().map(|c| &c.status), Some(CheckStatus::Skip(_))) {
+    // GET /identity - only run if /health passed
+    if matches!(checks.first().map(|c| &c.status), Some(CheckStatus::Pass)) {
         match reqwest::blocking::get(&format!("{}/identity", api_base)) {
             Ok(resp) if resp.status().as_u16() == 200 => {
                 checks.push(Check::pass("GET /identity"));
