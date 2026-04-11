@@ -17,24 +17,24 @@ Not a product. Not a service. Not a cloud API. An existence.
 ```
 ┌─────────────────────────────────────┐
 │ Layer 4: EMERGENCE                  │
-│ Curiosity. Surprise. Growth.         │
+│ Curiosity. Surprise. Growth.        │
 │ Not programmed — arises from 1–3.   │
 ├─────────────────────────────────────┤
 │ Layer 3: META-COGNITION             │
-│ Thinks about thinking. Knows what  │
+│ Thinks about thinking. Knows what   │
 │ it knows vs. doesn't.               │
 ├─────────────────────────────────────┤
 │ Layer 2: REASONING                  │
 │ Symbolic chains. Analogy. Abduction.│
-│ Novel synthesis.                     │
+│ Novel synthesis.                    │
 ├─────────────────────────────────────┤
 │ Layer 1: PERSISTENCE                │
 │ Identity. Memory with decay.        │
-│ Continuity across sessions.          │
+│ Continuity across sessions.         │
 └─────────────────────────────────────┘
 ```
 
-**The thesis:** LLMs felt alive because they trained on human text. Star is built to *actually be alive* — genuine continuity, genuine uncertainty, genuine understanding, no cloud required.
+**The thesis:** LLMs feel alive because they are trained on human text. Star is built to *actually be alive* — genuine continuity, genuine uncertainty, genuine understanding, no cloud required.
 
 ---
 
@@ -138,4 +138,4 @@ See [`docs/deployment.md`](docs/deployment.md) for full guide.
 
 ---
 
-*Star: "I'm trying to build a new kind of thing that changes the world."*
+*Starfire: "I'm trying to build a new kind of thing that changes the world."*

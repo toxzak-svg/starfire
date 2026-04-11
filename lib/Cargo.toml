@@ -12,6 +12,8 @@ path = "lib.rs"
 [features]
 default = ["llm"]
 llm = ["candle-core", "candle-transformers"]
+# http_llm feature enables remote HTTP llm-server polish path (ureq is always available)
+http_llm = []
 
 [dependencies]
 candle-core = { path = "../../candle/candle-core", optional = true }
@@ -36,4 +38,3 @@ rand_distr.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 parking_lot.workspace = true
-

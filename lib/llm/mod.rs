@@ -17,6 +17,7 @@
 
 pub mod client;
 pub mod chat;
+pub mod polish;
 
 use anyhow::{Context as AnyhowContext, Result as AnyhowResult};
 use candle_core::{Device, Tensor};

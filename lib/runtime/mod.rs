@@ -1666,34 +1666,22 @@ impl Runtime {
 
         // Apply LLM polish — turn rough reasoning into natural, fluent text.
         // This is the key voice integration: KG → VoiceEngine → LLM Polish → response.
-        // Only runs if Bonsai-8B GGUF is present and loaded.
+        // Only runs if a polish backend is available (llm or http_llm feature).
         let mut final_response = {
-            #[cfg(feature = "llm")]
+            #[cfg(any(feature = "llm", feature = "http_llm"))]
             {
-                if let Some(ref llm_handle) = self.llm {
-                    match llm_handle.load() {
-                        Ok(mut llm) => {
-                            match llm.polish(&voiced) {
-                                Ok(polished) => {
-                                    info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
-                                    polished
-                                }
-                                Err(e) => {
-                                    warn!("LLM polish failed (returning voice-only): {}", e);
-                                    voiced
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!("LLM load failed (returning voice-only): {}", e);
-                            voiced
-                        }
+                match crate::llm::polish::polish(&voiced) {
+                    Ok(polished) => {
+                        info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
+                        polished
                     }
-                } else {
-                    voiced
+                    Err(e) => {
+                        warn!("LLM polish failed (returning voice-only): {}", e);
+                        voiced
+                    }
                 }
             }
-            #[cfg(not(feature = "llm"))]
+            #[cfg(not(any(feature = "llm", feature = "http_llm")))]
             {
                 voiced
             }
@@ -1749,22 +1737,22 @@ impl Runtime {
             self.voice.speak(&response.content, &self.cognition)
         };
 
-        // Stream through LLM polish
-        #[cfg(feature = "llm")]
+        // Stream through LLM polish (supports llm and http_llm features)
+        #[cfg(any(feature = "llm", feature = "http_llm"))]
         {
-            if let Some(ref llm_handle) = self.llm {
-                if let Ok(mut llm) = llm_handle.load() {
-                    // System prompt is baked into polish_stream internally;
-                    // only output tokens go through the callback.
-                    let _ = llm.polish_stream(&voiced, |tok| {
-                        callback(tok.to_string())
-                    });
+            match crate::llm::polish::polish(&voiced) {
+                Ok(polished) => {
+                    info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
+                    let _ = callback(polished);
                     return Ok(());
+                }
+                Err(e) => {
+                    warn!("LLM polish failed (streaming voice-only): {}", e);
                 }
             }
         }
 
-        // Fallback: no LLM — stream the whole voiced response at once
+        // Fallback: no LLM or polish failed — stream the whole voiced response at once
         let _ = callback(voiced);
         Ok(())
     }

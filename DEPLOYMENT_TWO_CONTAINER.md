@@ -21,12 +21,14 @@ Starfire ships as two separate containers that communicate over HTTP:
   - `Cargo.toml` — uses `candle-core = "0.6"` + `candle-transformers = "0.6"` from crates.io
   - `src/main.rs` — tiny_http server, OpenAI-compatible API (`/v1/chat/completions`, `/v1/completions`, `/health`)
   - `Dockerfile` — builds image with model baked in
-- `lib/llm/http_llm.rs` — Rust client that calls llm-server from star-core over HTTP
+- `lib/http_llm.rs` — HTTP client for calling llm-server (always available, no candle dep)
+- `lib/llm/polish.rs` — unified LLM polish interface (selects `llm` or `http_llm` at compile time)
 - `docker-compose.yml` — local dev with both containers linked
 
 ### Modified files
-- `lib/lib.rs` — added `pub mod http_llm;` (always available, no candle dep)
-- `Dockerfile` — simplified, removed candle build steps
+- `lib/lib.rs` — added `pub mod http_llm;` (always available), `pub mod llm;` (feature-gated `llm`)
+- `lib/Cargo.toml` — added `http_llm` feature with `ureq` dependency
+- `Dockerfile` — simplified, builds with `--no-default-features --locked` to disable native LLM
 
 ---
 
@@ -60,7 +62,8 @@ git pull  # get latest code with llm-server
 
 ```bash
 # Build star-core (no candle, fast ~3 min)
-docker build -t starfire:latest -f Dockerfile .
+# Uses --no-default-features to exclude native Candle LLM, enabling http_llm instead
+docker build -t starfire:latest -f Dockerfile . --build-arg FEATURES=http_llm
 
 # Build llm-inference (with candle, ~10-15 min first time)
 docker build -t llm-inference:latest -f llm-server/Dockerfile .
@@ -120,6 +123,23 @@ curl https://your-llm.railway.app/health
 
 ---
 
+## Feature Flags
+
+The star-core build uses feature flags to select the LLM backend:
+
+| Feature | Description |
+|---|---|
+| `llm` (default) | Native Candle inference (requires local candle source at `../../candle/`) |
+| `http_llm` | Remote HTTP llm-server (uses `ureq` for HTTP client) |
+| neither | No LLM polish — responses go directly from voice engine |
+
+For the Docker two-container deployment, build star-core with `http_llm`:
+```dockerfile
+RUN cargo build --release --bin star --no-default-features --features http_llm --locked
+```
+
+---
+
 ## Local Development
 
 ```bash
@@ -127,15 +147,16 @@ curl https://your-llm.railway.app/health
 cd llm-server
 cargo run --release
 
-# Terminal 2 — start star
-cargo run --bin star -- chat
+# Terminal 2 — start star with http_llm feature
+cd starfire
+cargo run --bin star --features http_llm -- chat
 ```
 
 Or with Docker Compose:
 ```bash
 docker compose up --build llm
 # then in another terminal:
-cargo run --bin star -- chat
+cargo run --bin star --features http_llm -- chat
 ```
 
 ---
