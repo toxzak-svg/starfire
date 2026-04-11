@@ -24,6 +24,7 @@ use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
 use crate::voice::VoiceEngine;
 use crate::quanot::{Quanot, QuanotResult};
+use crate::book::Library;
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
 #[cfg(feature = "llm")]
@@ -81,6 +82,8 @@ pub struct Runtime {
     quanot: Quanot,
     /// World model — grounded perceptual representation
     world_model: WorldModel,
+    /// Book library — hierarchical knowledge store for persistent facts
+    library: Option<Library>,
     /// Prediction center — foresight engine
     prediction_center: PredictionCenter,
     /// Bonsai-8B LLM handle — loaded lazily on first use.
@@ -246,6 +249,7 @@ impl Runtime {
             // Quanot: input_dim=128, reservoir_size=1000
             quanot: Quanot::new(128, 1000),
             world_model: WorldModel::new(),
+            library: Library::open(&data_dir.join("library.db")).ok(),
             prediction_center: PredictionCenter::new(),
             #[cfg(feature = "llm")]
             llm,
@@ -488,6 +492,26 @@ impl Runtime {
                 Err(e) => return Ok(format!("Export failed: {}", e)),
             }
         }
+
+        if input.trim() == "/book" {
+            if let Some(ref library) = self.library {
+                let mut report = String::new();
+                report.push_str(&format!("Book Library — {} books\n\n", library.manifest().books.len()));
+                for (book_id, header) in &library.manifest().books {
+                    report.push_str(&format!(
+                        "• {} (prefix: {})\n  {} sections, {} tokens\n",
+                        header.name,
+                        header.bookmark_prefix,
+                        header.section_count,
+                        header.total_tokens
+                    ));
+                }
+                return Ok(report);
+            } else {
+                return Ok("Book library not available (DB failed to open)".to_string());
+            }
+        }
+
 
         if input.trim() == "/think" {
             let thought = self.think();
@@ -1788,6 +1812,11 @@ impl Runtime {
     /// Get the world model for inspection
     pub fn world_model(&self) -> &WorldModel {
         &self.world_model
+    }
+
+    /// Get the book library for inspection (None if DB failed to open).
+    pub fn library(&self) -> Option<&Library> {
+        self.library.as_ref()
     }
 
     // ═══════════════════════════════════════════════════════════════════════

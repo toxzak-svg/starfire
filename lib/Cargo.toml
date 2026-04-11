@@ -36,5 +36,4 @@ rand_distr.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 parking_lot.workspace = true
-fabqrc = { path = "fabqrc" }
 

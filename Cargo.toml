@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["src", "lib", "lib/fabqrc"]
+members = ["src", "lib"]
 
 [workspace.package]
 version = "0.1.0"
