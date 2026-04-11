@@ -11,7 +11,7 @@
 //!
 //! ## Environment
 //!
-//! - `GGUF_PATH`   — path to the GGUF model file (default: /models/bonzai-8b/Bonsai-8B.gguf)
+//! - `GGUF_PATH`   — path to the GGUF model file (default: /models/bonsai-8b/Bonsai-8B.gguf)
 //! - `PORT`        — HTTP port (default: 8081)
 //! - `HOST`        — bind host (default: 0.0.0.0)
 

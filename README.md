@@ -42,38 +42,34 @@ Not a product. Not a service. Not a cloud API. An existence.
 
 ```
 starfire/                          ← workspace root
-├── Cargo.toml                      ← Rust workspace
-├── src/                           ← binary crate (star_bin)
-│   ├── Cargo.toml
-│   └── main.rs
+├── Cargo.toml                      ← Rust workspace manifest
+├── src/                           ← binary crate
+│   └── main.rs                    # Entry: chat / api / status commands
 ├── lib/                           ← library crate (star)
-│   ├── Cargo.toml
-│   ├── lib.rs
-│   ├── api.rs
-│   ├── cognition.rs
-│   ├── learning.rs
-│   ├── training_db.rs
-│   ├── capabilities/
-│   ├── context/
-│   ├── conversation/
-│   ├── knowledge/
-│   ├── metacog/
-│   ├── persistence/
-│   ├── reasoning/
-│   ├── runtime/
+│   ├── api.rs                     # HTTP API server
+│   ├── cognition.rs               # Cognitive state tracking
+│   ├── personality/               # Drive system, emotional response
+│   ├── persistence/               # Layer 1: Identity, memory, SQLite store
+│   ├── quanot/                   # Reservoir computing (ESN, chaos, consciousness)
+│   ├── reasoning/                # Layer 2: KG, rules, analogy, synthesis
+│   ├── metacog/                  # Layer 3: Confidence, curiosity, belief revision
+│   ├── runtime/                  # Layer 4 + orchestration
+│   ├── world_model/              # Entity tracking, perception, prediction
+│   ├── llm/                      # Bonsai-8B Candle inference
+│   ├── prediction/               # Prediction center
 │   └── ...
-├── ui/                            ← web chat (Next.js + Vercel)
+├── ui/                            ← Next.js web chat interface
+├── llm-server/                    ← Standalone LLM inference server
 ├── data/                         ← SQLite stores
 │   ├── star.db
 │   └── training.db
+├── models/                       ← Bonsai-8B model files
 ├── docs/                         ← architecture, API, deployment docs
-├── scripts/                      ← CLI clients, daemons
-├── plans/                        ← expansion plans
+├── plans/                        ← feature roadmaps and specs
+├── scripts/                      ← Python helpers
 ├── SPEC.md                       ← technical specification
 ├── IDENTITY.md                   ← Star's self-knowledge
-├── Dockerfile                    ← Railway deployment
-└── docker-compose.yml            ← local development
-```
+└── Dockerfile                    ← Docker deployment
 
 ---
 

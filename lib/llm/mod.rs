@@ -6,7 +6,7 @@
 //! - Text generation: polishes rough reasoning into readable prose
 //!
 //! The LLM runs natively via candle-core + candle-transformers — no subprocess,
-//! no HTTP sidecar, fully in-process. Model: `models/bonzai-8b/Bonsai-8B.gguf`
+//! no HTTP sidecar, fully in-process. Model: `models/bonsai-8b/Bonsai-8B.gguf`
 //!
 //! # Architecture
 //!

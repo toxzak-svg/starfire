@@ -194,23 +194,51 @@ Agent tooling is defined in the system prompt and connects to:
 ### Project Structure
 ```
 starfire/
-├── lib/              # Core intelligence library (84 .rs files, ~26K LOC)
-├── src/              # Binary entry point
-├── data/             # Runtime data (IDENTITY.md, star.db)
-├── scripts/          # Python helpers
-├── ui/              # Next.js web interface
-├── docs/            # API & architecture docs
-└── plans/           # Feature roadmaps
+├── lib/                    # Core intelligence library (~26K LOC)
+│   ├── api.rs             # HTTP API server
+│   ├── cognition.rs       # Cognitive state tracking
+│   ├── persistence/        # Layer 1: Identity, memory, SQLite store
+│   ├── reasoning/          # Layer 2: KG, rules, analogy, synthesis
+│   ├── metacog/            # Layer 3: Confidence, curiosity, belief revision
+│   ├── runtime/            # Layer 4 + orchestration
+│   ├── quanot/             # Reservoir computing (ESN, chaos, consciousness)
+│   ├── personality/         # Drive system, emotional response
+│   ├── world_model/        # Entity tracking, perception, prediction
+│   ├── prediction/         # Prediction center
+│   ├── llm/                # Bonsai-8B Candle inference
+│   ├── curiosity/          # Curiosity engine
+│   ├── curriculum/          # Learning curriculum
+│   ├── causal/             # Causal reasoning
+│   ├── goals/              # Goal planning & tracking
+│   ├── knowledge/          # Wikipedia reader, search
+│   ├── learning/           # Hypothesis & eviction
+│   ├── conversation/       # Dialogue, intent detection
+│   ├── context/            # Context ring buffer
+│   ├── capabilities/       # File reading, tool use
+│   ├── multimodal/        # Multi-modal processing
+│   ├── voice/              # Voice/phrases
+│   ├── book/               # Book system
+│   └── ...
+├── src/                    # Binary entry point
+├── ui/                     # Next.js web interface
+├── llm-server/             # Standalone LLM inference server
+├── models/                 # Bonsai-8B model files
+├── docs/                   # Architecture, API, deployment docs
+├── plans/                  # Feature roadmaps
+├── data/                   # SQLite stores (star.db, training.db)
+└── scripts/                # Python helpers
 ```
 
 ### Key Commands
 
 | Command | Purpose |
 |---------|---------|
-| `cargo build` | Build release binary |
-| `cargo test` | Run 241 unit tests |
-| `cargo run --bin star` | Start Star API server |
-| `cargo run --example *` | Run examples |
+| `cargo build --release` | Build release binary |
+| `cargo test` | Run 253 unit tests |
+| `cargo run --release -- chat` | Interactive CLI chat |
+| `cargo run --release -- api` | Start API server |
+| `docker build -t starfire:latest .` | Build Docker image |
+| `docker compose up` | Run with Docker Compose |
 
 ---
 

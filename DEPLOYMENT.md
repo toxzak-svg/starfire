@@ -5,6 +5,7 @@
 Builds a self-contained Docker image for Starfire AGI with:
 - Starfire (Rust) — the AGI core
 - Quanot (Rust) — reservoir computing subsystem
+- Bonsai-8B LLM via Candle (in-process)
 - Gateway API — HTTP/WebSocket interface
 
 ## Building
@@ -17,7 +18,7 @@ docker build -t starfire:latest .
 
 ```bash
 # With docker-compose
-docker-compose up -d
+docker compose up -d
 
 # Standalone
 docker run -p 8080:8080 starfire:latest
@@ -27,15 +28,15 @@ docker run -p 8080:8080 starfire:latest
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| STARFIRE_PORT | 8080 | HTTP API port |
-| STARFIRE_DATA | /data | Persistent data directory |
-| STARFIRE_LOG | info | Log level: trace, debug, info, warn, error |
-| STARFIRE_MEMORY | /data/memory | Memory store path |
+| `STARFIRE_PORT` | 8080 | HTTP API port |
+| `STARFIRE_DATA` | /data | Persistent data directory |
+| `STARFIRE_LOG` | info | Log level: trace, debug, info, warn, error |
+| `LLM_ENDPOINT` | (in-process) | URL of llm-server (optional, for two-container) |
 
 ## Ports
 
 - `8080` — HTTP API
-- `8081` — WebSocket (future)
+- `8081` — LLM inference server (two-container mode)
 
 ## Volumes
 
@@ -59,14 +60,10 @@ curl http://localhost:8080/health
 ### Deploy Steps
 
 ```bash
-# Clone your repo (if not already)
-git clone https://github.com/yourusername/starfire.git
-cd starfire
+# Via GitHub (recommended)
+# Push to GitHub → connect repo to Railway → deploy
 
-# Link to Railway project
-railway link --project <project-id>
-
-# Deploy
+# Or via CLI
 railway up
 ```
 
@@ -94,6 +91,31 @@ curl https://your-project-name.up.railway.app/
 railway logs
 ```
 
-### Two-Container Deployment (with LLM)
+### Two-Container Deployment (with separate LLM server)
 
-For deployment with the Bonsai LLM model, see [DEPLOYMENT_TWO_CONTAINER.md](./DEPLOYMENT_TWO_CONTAINER.md).
+For deployment with Bonsai LLM as a separate container, see [DEPLOYMENT_TWO_CONTAINER.md](./DEPLOYMENT_TWO_CONTAINER.md).
+
+### Persistent Volume
+
+Star's memory lives at `/data`. On Railway, add a persistent volume:
+1. Railway dashboard → Star service → Settings → Volumes
+2. Add volume mounted at `/data`
+
+This preserves memory across deployments.
+
+---
+
+## Docker Compose (Local Development)
+
+```bash
+# Build and run all services
+docker compose up --build
+
+# Run only starfire core (uses in-process LLM)
+docker compose up starfire
+
+# Run with external llm-server
+docker compose up --build llm && docker compose up starfire
+```
+
+See [`docker-compose.yml`](docker-compose.yml) for full service configuration.

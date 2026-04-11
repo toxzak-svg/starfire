@@ -36,15 +36,15 @@ Starfire ships as two separate containers that communicate over HTTP:
 
 ```bash
 # On local machine — find the model
-ls ~/.openclaw/workspace/projects/starfire/models/bonzai-8b/
+ls ~/.openclaw/workspace/projects/starfire/models/bonsai-8b/
 
 # Upload to instance (adjust user/host)
-scp -r models/bonzai-8b/ user@your-instance:/home/user/starfire/models/
+scp -r models/bonsai-8b/ user@your-instance:/home/user/starfire/models/
 ```
 
 Or download on the instance:
 ```bash
-mkdir -p models/bonzai-8b
+mkdir -p models/bonsai-8b
 # ... (use whatever download method the instance supports)
 ```
 
@@ -114,7 +114,7 @@ curl https://your-llm.railway.app/health
 ### llm-inference
 | Variable | Default | Description |
 |---|---|---|
-| `GGUF_PATH` | `/models/bonzai-8b/Bonsai-8B.gguf` | Path to model in container |
+| `GGUF_PATH` | `/models/bonsai-8b/Bonsai-8B.gguf` | Path to model in container |
 | `HOST` | `0.0.0.0` | Bind host |
 | `PORT` | `8081` | HTTP server port |
 
@@ -145,7 +145,7 @@ cargo run --bin star -- chat
 **llm-server fails to load model:**
 ```bash
 # Check model file exists in container
-docker run --rm -it llm-inference ls /models/bonzai-8b/
+docker run --rm -it llm-inference ls /models/bonsai-8b/
 ```
 
 **starfire returns "model not loaded":**

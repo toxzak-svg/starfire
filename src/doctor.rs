@@ -190,8 +190,15 @@ pub fn run(args: DoctorArgs) -> AnyhowResult<()> {
 
     // ── 10. Autonomy State ─────────────────────────────────────────────────
     println!();
-    println!("[10/10] Autonomy State");
+    println!("[10/11] Autonomy State");
     let (p, w, f) = run_autonomy_checks(&data_dir);
+    passed += p; warned += w; failed += f;
+    print_summary_checks(w, f);
+
+    // ── 11. TCMW-A Anticipation Engine ─────────────────────────────────────
+    println!();
+    println!("[11/11] TCMW-A Anticipation Engine");
+    let (p, w, f) = run_tcmw_checks(&data_dir, args.repair, args.non_interactive);
     passed += p; warned += w; failed += f;
     print_summary_checks(w, f);
 
@@ -977,6 +984,79 @@ fn run_autonomy_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
     checks.last_mut().unwrap().detail = Some(format!(
         "last probe: {:.0}m ago",
         diag.curious_last_probe as f64 / 60.0
+    ));
+
+    print_checks(&checks);
+    aggregate_counts(&checks)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 11: TCMW-A Anticipation Engine
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn run_tcmw_checks(data_dir: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
+    use star::tcmw_a::{self, TCMWEngine};
+
+    let mut checks = Vec::new();
+
+    // TCMWEngine lives in Runtime — build a minimal Runtime to access it
+    let mut runtime = match Runtime::new(data_dir) {
+        Ok(r) => r,
+        Err(e) => {
+            checks.push(Check::fail("Runtime (for TCMW)", &format!("Failed: {}", e)));
+            print_checks(&checks);
+            return aggregate_counts(&checks);
+        }
+    };
+
+    let stats = runtime.tcmw_stats();
+    let predictions = runtime.tcmw_predictions();
+    let staged = runtime.tcmw_staged_actions();
+
+    checks.push(Check::pass("TCMW Engine initialized"));
+    checks.last_mut().unwrap().detail = Some(format!(
+        "{} events | {} archetypes | {:.1}% miss rate",
+        stats.events_recorded, stats.archetypes_tracked, stats.oafl_miss_rate * 100.0
+    ));
+
+    if stats.events_recorded == 0 {
+        checks.push(Check::warn(
+            "No events recorded",
+            "Chat with Star to build the behavioral model",
+        ));
+    } else if stats.oafl_miss_rate > 0.5 {
+        checks.push(Check::warn(
+            "High OAFL miss rate",
+            &format!("{:.0}% of predictions not confirmed — model needs more data", stats.oafl_miss_rate * 100.0),
+        ));
+    } else {
+        checks.push(Check::pass("OAFL miss rate"));
+        checks.last_mut().unwrap().detail = Some(format!("{:.1}%", stats.oafl_miss_rate * 100.0));
+    }
+
+    checks.push(Check::pass("Pending predictions"));
+    checks.last_mut().unwrap().detail = Some(format!("{}", stats.pending_predictions));
+
+    checks.push(Check::pass("Staged actions"));
+    checks.last_mut().unwrap().detail = Some(format!("{}", staged.len()));
+
+    if !predictions.is_empty() {
+        let top = &predictions[0];
+        checks.push(Check::pass("Top prediction"));
+        checks.last_mut().unwrap().detail = Some(format!(
+            "'{}' — P={:.2} horizon={}",
+            top.action, top.probability, top.horizon
+        ));
+    } else {
+        checks.push(Check::skip("Predictions", "Not enough data yet"));
+    }
+
+    // TCMW default config
+    let default_config = tcmw_a::TCMWConfig::default();
+    checks.push(Check::pass("Config"));
+    checks.last_mut().unwrap().detail = Some(format!(
+        "lambda={:.2} cone_depth={} staging_threshold={:.2}",
+        default_config.lambda, default_config.cone_depth, default_config.staging_threshold
     ));
 
     print_checks(&checks);

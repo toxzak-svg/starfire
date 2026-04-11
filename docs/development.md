@@ -20,43 +20,48 @@ cargo --version
 
 ```
 starfire/                          ← workspace root
-├── Cargo.toml                      ← Rust workspace
+├── Cargo.toml                      ← Rust workspace manifest
 ├── src/                           ← binary crate
-│   ├── main.rs                    # Entry: chat / api / status
-│   └── bin/
-│       └── integration_test.rs
+│   └── main.rs                    # Entry: chat / api / status commands
 ├── lib/                           ← library crate (star)
-│   ├── Cargo.toml
-│   ├── lib.rs
 │   ├── api.rs                     # HTTP API server
 │   ├── cognition.rs               # Cognitive state tracking
-│   ├── learning.rs
-│   ├── training_db.rs
-│   ├── capabilities/              # File reading, tool use
-│   ├── causal/                    # Causal reasoning
-│   ├── context/                   # Context ring buffer
-│   ├── conversation/              # Dialogue, intent detection
-│   ├── curiosity/                 # Curiosity engine
-│   ├── curriculum/                # Learning curriculum
-│   ├── goals/                     # Goal planning & tracking
-│   ├── knowledge/                 # Wikipedia reader, search
-│   ├── learning/                  # Hypothesis & eviction
-│   ├── math/                      # Mathematical reasoning
-│   ├── metacog/                   # Meta-cognition
-│   ├── multimodal/               # Multi-modal processing
-│   ├── persistence/               # Identity, memory, SQLite store
-│   ├── quanot/                    # Quantum-inspired reasoning
-│   ├── reasoning/                 # KG, rules, analogy, synthesis, symbolic
-│   ├── runtime/                   # Curious engine, background thinker
-│   ├── voice/                     # Voice/phrases
-│   └── world_model/               # World perception & prediction
+│   ├── book/                      # Book system
+│   ├── capabilities/             # File reading, tool use
+│   ├── causal/                   # Causal reasoning
+│   ├── context/                  # Context ring buffer
+│   ├── conversation/             # Dialogue, intent detection
+│   ├── crumbs/                   # Breadcrumb system
+│   ├── curiosity/                # Curiosity engine
+│   ├── curriculum/               # Learning curriculum
+│   ├── fabqrc/                   # Quantum computing research
+│   ├── goals/                    # Goal planning & tracking
+│   ├── input_normalizer/         # Input processing
+│   ├── knowledge/                # Wikipedia reader, search
+│   ├── learning/                # Hypothesis & eviction
+│   ├── llm/                      # Bonsai-8B Candle inference
+│   ├── math/                     # Mathematical reasoning
+│   ├── metacog/                  # Meta-cognition
+│   ├── multimodal/              # Multi-modal processing
+│   ├── personality/             # Drive system, emotional response
+│   ├── persistence/             # Layer 1: Identity, memory, SQLite store
+│   ├── prediction/              # Prediction center
+│   ├── quanot/                  # Reservoir computing (ESN, chaos, consciousness)
+│   ├── reasoning/               # Layer 2: KG, rules, analogy, synthesis
+│   ├── research/                # Research utilities
+│   ├── runtime/                 # Layer 4 + orchestration
+│   ├── voice/                   # Voice/phrases
+│   ├── world_model/             # Entity tracking, perception, prediction
+│   └── ...
 ├── ui/                            # Web chat (Next.js + Vercel)
+├── llm-server/                    # Standalone LLM inference server
 ├── data/                          # SQLite stores
 │   ├── star.db
 │   └── training.db
+├── models/                        # Bonsai-8B model files
 ├── docs/                          # Architecture, API, deployment docs
-├── scripts/                       # CLI clients, daemons
-├── plans/                         # Expansion plans
+├── plans/                         # Feature roadmaps and specs
+├── scripts/                       # Python helpers
 └── SPEC.md                        # Technical specification
 ```
 
@@ -129,29 +134,44 @@ Output: `target/release/star`
 - `persistence/memory.rs` — memory objects with decay
 - `persistence/store.rs` — SQLite backend
 - `persistence/session.rs` — session management
+- `persistence/identity_guard.rs` — identity protection
 
 ### Layer 2 — Reasoning
 - `reasoning/knowledge.rs` — knowledge graph (entities + typed relationships)
-- `reasoning/rules.rs` — rule engine (if-then, forward/backward chaining)
+- `reasoning/symbolic.rs` — propositional logic inference
 - `reasoning/analogy.rs` — structural analogy mapping
 - `reasoning/synthesis.rs` — novel combination
-- `reasoning/symbolic.rs` — propositional logic inference (2026-04-01)
-- `reasoning/pathways.rs` — R&D-E (reasoning pathway divergence)
+- `reasoning/pathways.rs` — reasoning pathway divergence
+- `causal/` — causal reasoning engine
 
 ### Layer 3 — Meta-Cognition
-- `metacog/mod.rs` — confidence, curiosity, belief revision
+- `metacog/` — confidence, curiosity, belief revision
 - `cognition.rs` — engagement, emotional valence, certainty tracking
 
 ### Layer 4 — Runtime
-- `runtime/mod.rs` — orchestration of all layers
-- `runtime/curious.rs` — gap-driven curiosity (fires every 60s idle)
+- `runtime/` — orchestration of all layers
+- `curiosity/` — gap-driven curiosity
 - `runtime/thinker.rs` — background thinking engine
 
-### API
-- `api.rs` — HTTP server (actix-web), endpoints: /health, /chat, /memory/stats, /identity
+### Quanot (Reservoir Computing)
+- `quanot/reservoir.rs` — Echo State Network
+- `quanot/chaos.rs` — chaos metrics (Lyapunov, RQA)
+- `quanot/consciousness.rs` — Φ proxy, GWT, AIS
+- `quanot/creativity.rs` — creative oscillation
+- `quanot/quantum_inspired.rs` — SQA/QAOA solvers
 
-### Conversation
-- `conversation/mod.rs` — intent detection, response generation
+### LLM Integration
+- `llm/` — Bonsai-8B Candle inference
+- `llm-server/` — standalone HTTP inference server
+
+### Other Key Modules
+- `personality/` — drive system, emotional response
+- `world_model/` — entity tracking, perception, prediction
+- `prediction/` — prediction center
+- `conversation/` — intent detection, response generation
+- `knowledge/` — Wikipedia reader, search
+- `book/` — book system
+- `goals/` — goal planning & tracking
 
 ---
 
@@ -189,16 +209,17 @@ Rule {
 
 ### Add a new conversation intent
 
-Edit `conversation/mod.rs` → `Conversation::classify_intent()`. Add a pattern match.
+Edit `conversation/` → intent classification logic. Add a pattern match.
 
 ### Change curiosity interval
 
-Edit `runtime/curious.rs` → `CuriousEngine::new()` → `probe_interval: Duration::from_secs(60)`:
+Edit `curiosity/` → probe interval configuration:
 
 ```rust
+// Configure probe_interval in curiosity module
 pub fn new(...) -> Self {
     Self {
-        probe_interval: Duration::from_secs(30), // change 60 to 30
+        probe_interval: Duration::from_secs(30), // default is 60s
         ...
     }
 }

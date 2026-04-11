@@ -3,7 +3,7 @@
 
 model:
   name: Bonsai-8B Q1_0_g128
-  path: ../models/bonzai-8b/Bonsai-8B.gguf
+  path: ../models/bonsai-8b/Bonsai-8B.gguf
   tokenizer: embedded (from GGUF)
 
 training:

@@ -96,7 +96,8 @@ pub struct Runtime {
     #[cfg(feature = "llm")]
     llm_engine: Mutex<Option<LlmEngine>>,
     /// TCMW-A: Anticipatory Temporal Causal Memory Weaving engine
-    tcmw: tcmw_a::TCMWEngine,
+    /// pub(crate) so doctor.rs can access stats without a dedicated accessor
+    pub(crate) tcmw: tcmw_a::TCMWEngine,
 }
 
 impl Runtime {
@@ -466,7 +467,72 @@ impl Runtime {
         None
     }
 
-    /// Process a message from Zachary and return Star's response.
+    /// Public TCMW stats accessor for star doctor and external inspection.
+    pub fn tcmw_stats(&self) -> tcmw_a::TCMWStats {
+        self.tcmw.stats()
+    }
+
+    /// Public TCMW predictions accessor.
+    pub fn tcmw_predictions(&self) -> Vec<tcmw_a::IntentPrediction> {
+        self.tcmw.get_predictions()
+    }
+
+    /// Public TCMW staged actions accessor.
+    pub fn tcmw_staged_actions(&self) -> Vec<tcmw_a::StagedAction> {
+        self.tcmw.get_staged_actions().to_vec()
+    }
+
+    /// Confirm a user action against TCMW predictions — closes the OAFL feedback loop.
+    /// Called when the user acts on a suggestion or when their next message
+    /// matches a staged prediction.
+    pub fn confirm_action(&mut self, actual_action: &str) {
+        self.tcmw.on_action_confirmed(actual_action);
+    }
+
+    /// Check if the user's input matches any staged TCMW prediction.
+    /// If it does, confirm it (closes the OAFL loop).
+    /// Returns the confirmed action text if auto-confirmed, None otherwise.
+    pub fn check_auto_confirm(&mut self, input: &str) -> Option<String> {
+        let predictions = self.tcmw.get_predictions();
+        if let Some(best) = predictions.first() {
+            let input_lower = input.to_lowercase();
+            let pred_lower = best.action.to_lowercase();
+            // Auto-confirm: input contains the predicted action (or vice versa)
+            if input_lower.contains(&pred_lower) || pred_lower.contains(&input_lower)
+                || best.probability > 0.7 && input_lower.split_whitespace().any(|w| pred_lower.contains(w))
+            {
+                self.tcmw.on_action_confirmed(input);
+                return Some(best.action.clone());
+            }
+        }
+        None
+    }
+
+    /// Execute any pending TCMW PreFetch actions.
+    /// Warms up the file reader cache with predicted file reads.
+    pub fn prefetch_pending(&mut self) {
+        // Collect PreFetch paths first to avoid holding &self.tcmw borrow
+        // across the mutable self.file_reader call.
+        let paths: Vec<String> = self.tcmw.get_staged_actions()
+            .iter()
+            .filter_map(|s| {
+                if let tcmw_a::pse::StagedActionType::PreFetch { path } = &s.action_type {
+                    Some(path.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for path in paths {
+            let result = self.file_reader.read(&path);
+            if result.success {
+                tracing::info!("TCMW pre-fetched: {}", path);
+            }
+        }
+    }
+
+
     pub fn chat(&mut self, input: &str) -> Result<String> {
         if !self.initialized {
             return Ok("I'm not fully initialized yet.".to_string());
@@ -1271,12 +1337,9 @@ impl Runtime {
         };
         let response = conversation.respond(input);
 
-        // Record in TCMW-A causal event fabric (before LLM polish so causal chain reflects raw input)
-        self.tcmw.on_user_action(input, parent_action.as_deref(), tcmw_a::Outcome::Success);
-
         // If LLM is available, generate a real response instead of template.
         // Extract history FIRST while still holding the lock, then drop the lock
-        // so we can mutably borrow self for llm_chat.
+        // so we can mutably borrow self for llm_chat and TCMW.
         #[cfg(feature = "llm")]
         let response_content = {
             // Collect messages from history while we hold the lock
@@ -1297,6 +1360,12 @@ impl Runtime {
 
             // Now drop the conversation lock so we can mutably borrow self
             drop(conversation);
+
+            // Record in TCMW-A causal event fabric (after lock released, before LLM polish)
+            self.tcmw.on_user_action(input, parent_action.as_deref(), tcmw_a::Outcome::Success);
+
+            // Pre-fetch any pending TCMW staged file reads (zero-side-effect cache warm-up)
+            self.prefetch_pending();
 
             if let Some(llm_response) = self.llm_chat(&history_msgs) {
                 llm_response
@@ -1638,6 +1707,11 @@ impl Runtime {
                 tcmw_a::pse::StagedActionType::PreLoad { resource } => format!("Pre-loaded: {}", resource),
             };
             final_response = format!("{} ({})", final_response, draft);
+        }
+
+        // Auto-confirm: if the user's input matched a staged prediction, record it
+        if let Some(confirmed) = self.check_auto_confirm(input) {
+            final_response = format!("{} \u{1F4DD} [TCMW confirmed: '{}']", final_response, confirmed);
         }
 
         Ok(final_response)

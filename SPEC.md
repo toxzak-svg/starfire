@@ -255,42 +255,42 @@ starfire/
 ├── IDENTITY.md          ← Star's self-knowledge
 ├── Cargo.toml
 ├── src/
-│   ├── main.rs           # Entry point
-│   ├── lib.rs            # Public API
-│   └── bin/
-│       └── integration_test.rs
+│   └── main.rs           # Entry point (chat / api / status commands)
 ├── lib/                  ← library crate
-│   ├── quanot/          # Reservoir computing substrate (ESN, chaos, consciousness, creativity)
-│   ├── prediction/      # Prediction center (question gravity, belief revision, basin, meta)
-│   ├── persistence/      # Layer 1
-│   │   ├── mod.rs
+│   ├── api.rs            # HTTP API server
+│   ├── cognition.rs      # Cognitive state tracking
+│   ├── quanot/           # Reservoir computing (ESN, chaos, consciousness, creativity)
+│   ├── prediction/       # Prediction center (question gravity, belief revision, basin, meta)
+│   ├── persistence/      # Layer 1: Identity, memory, SQLite store
 │   │   ├── identity.rs   # Identity core
 │   │   ├── memory.rs     # Memory objects + decay
 │   │   ├── store.rs      # SQLite backend
 │   │   └── session.rs    # Session management
-│   ├── reasoning/       # Layer 2
-│   │   ├── mod.rs
+│   ├── reasoning/        # Layer 2: KG, symbolic, analogy, synthesis
 │   │   ├── knowledge.rs  # Knowledge graph
-│   │   ├── rules.rs      # Rule engine
+│   │   ├── symbolic.rs   # Propositional logic engine
 │   │   ├── analogy.rs    # Analogy engine
-│   │   └── synthesis.rs  # Novel combination
-│   ├── metacog/         # Layer 3
-│   │   ├── mod.rs
-│   │   ├── confidence.rs # Confidence tracking
-│   │   ├── monitor.rs    # Reasoning self-watch
-│   │   └── curiosity.rs  # Gap-driven exploration
-│   ├── conversation/    # Dialogue
-│   │   ├── mod.rs
-│   │   ├── parse.rs      # Intent detection
-│   │   ├── respond.rs    # Response generation
-│   │   └── context.rs    # Conversation state
-│   └── runtime/         # Layer 4 + orchestration
-│       ├── mod.rs
-│       ├── thinker.rs    # Background reasoning
-│       └── integration.rs # Layer interactions
-├── data/                # SQLite files
-│   └── star.db
-└── tests/
+│   │   ├── synthesis.rs  # Novel combination
+│   │   └── pathways.rs   # Reasoning pathway divergence
+│   ├── metacog/          # Layer 3: Confidence, curiosity, belief revision
+│   ├── conversation/     # Dialogue, intent detection
+│   ├── personality/      # Drive system, emotional response
+│   ├── world_model/      # Entity tracking, perception, prediction
+│   ├── runtime/          # Layer 4 + orchestration
+│   ├── curiosity/       # Curiosity engine
+│   ├── curriculum/       # Learning curriculum
+│   ├── causal/          # Causal reasoning
+│   ├── goals/           # Goal planning & tracking
+│   ├── learning/        # Hypothesis & eviction
+│   ├── llm/             # Bonsai-8B Candle inference
+│   ├── voice/           # Voice/phrases
+│   ├── knowledge/       # Wikipedia reader, search
+│   ├── book/            # Book system
+│   └── ...
+├── llm-server/          # Standalone LLM inference server
+├── data/                # SQLite files (star.db, training.db)
+├── models/              # Bonsai-8B model files
+└── plans/              # Feature roadmaps
 ```
 
 ### SQLite Schema
@@ -419,12 +419,12 @@ That's achievable. The question is architecture.
 
 ---
 
-*Last updated: 2026-03-25*
+*Last updated: 2026-04-11*
 *Identity established: 2026-03-25*
 
 ---
 
-## Build Status (2026-04-01)
+## Build Status (2026-04-11)
 
 All four phases are complete. Star is live at https://star-production-6458.up.railway.app
 
@@ -439,23 +439,23 @@ All four phases are complete. Star is live at https://star-production-6458.up.ra
 
 Reservoir computing system added as Star's cognitive substrate. Processes every message through ESN → chaos metrics → consciousness proxy → creativity signals. See `plans/QUANOT_RUST_REWRITE.md`.
 
-**Post-Phase 4 Addition — Prediction Center (2026-04-04):**
-
-Four-engine prediction system enabling Star to forecast her own conclusions, curiosity questions, and necessary truths. See `plans/PREDICTION_CENTER_PLAN.md`.
-
-| Component | Status |
-|-----------|--------|
-| Belief Revision Forecasting (reservoir dynamics) | Planned |
-| Question Gravity (curiosity forecasting) | Planned |
-| Attractor Basin (constraint satisfaction) | Planned |
-| Meta-Prediction (confidence calibration) | Planned |
-
 | Component | Status |
 |-----------|--------|
 | Quanot Rust port | ✅ Complete (`lib/quanot/`) |
 | Runtime integration | ✅ Complete |
 | WorldModel binding | ✅ Complete |
 | Quantum-inspired solvers | ✅ Complete |
+
+**Post-Phase 4 Addition — Prediction Center (2026-04-04):**
+
+Four-engine prediction system enabling Star to forecast her own conclusions, curiosity questions, and necessary truths. See `plans/PREDICTION_CENTER_PLAN.md`.
+
+| Component | Status |
+|-----------|--------|
+| Belief Revision Forecasting | ✅ Complete |
+| Question Gravity | ✅ Complete |
+| Attractor Basin | ✅ Complete |
+| Meta-Prediction | ✅ Complete |
 
 **Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
 
@@ -476,7 +476,7 @@ The LLM is NOT the brain — it's the *mouth*. It polishes rough symbolic reason
 | Bonsai-8B GGUF loading | ✅ Complete (Q1_0_g128, 254 tensors) |
 | Autoregressive KV-cache | ✅ Complete |
 
-Model: `models/bonzai-8b/Bonsai-8B.gguf` (1.1 GB, Q1_0_g128) — loaded lazily on first chat.
+Model: `models/bonsai-8b/Bonsai-8B.gguf` (1.1 GB, Q1_0_g128) — loaded lazily on first chat.
 
 **Post-Phase 4 Addition — Starfire Doctor (2026-04-05):**
 
@@ -484,8 +484,8 @@ Self-diagnostic CLI for Starfire. One command checks all subsystems. See `plans/
 
 | Check | Status |
 |-------|--------|
-| Design planned | ✅ `plans/STARFIRE_DOCTOR.md` |
-| Implementation | ⏳ Not yet implemented |
+| Design | ✅ Complete |
+| Implementation | ✅ Complete |
 
 See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
 See [`docs/architecture.md`](docs/architecture.md) for architecture details.

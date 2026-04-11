@@ -82,7 +82,7 @@ This preserves memory across deployments.
 ## Railway Architecture
 
 ```
-GitHub (toxzak-svg/starfire, layer4 branch)
+GitHub (yourusername/starfire, layer4 branch)
     └── railway up
             └── Railway build
                     ├── rust:1.77-slim (builder)

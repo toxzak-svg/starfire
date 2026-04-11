@@ -13,12 +13,14 @@ pub mod pse;
 pub mod oafl;
 
 pub use cef::Outcome;
+pub use aih::IntentPrediction;
+pub use pse::{StagedAction, StagedActionType};
 
 use serde::{Deserialize, Serialize};
 use cef::{CEF, CausalEvent};
 use bge::{BGE, SessionArchetype, ArchetypeId};
-use aih::{AIH, IntentPrediction};
-use pse::{PSE, StagedAction, StagedActionType, StagedStatus};
+use aih::AIH;
+use pse::{PSE, StagedStatus};
 use oafl::{OAFL, PredictionDelta, MatchQuality};
 
 /// TCMW-A configuration

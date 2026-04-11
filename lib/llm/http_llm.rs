@@ -83,7 +83,7 @@ impl HttpLlmClient {
         let resp: CompletionResp = ureq::post(&self.config.completions_url())
             .timeout(self.config.timeout)
             .send_json(Req {
-                model: "bonzai-8b".to_string(),
+                model: "bonsai-8b".to_string(),
                 prompt: prompt.to_string(),
                 max_tokens: max_tokens.or(Some(256)),
                 temperature: Some(0.7),
@@ -110,7 +110,7 @@ impl HttpLlmClient {
         let resp: ChatResp = ureq::post(&self.config.chat_url())
             .timeout(self.config.timeout)
             .send_json(ChatReq {
-                model: "bonzai-8b",
+                model: "bonsai-8b",
                 messages: messages.to_vec(),
                 max_tokens: max_tokens.or(Some(256)),
                 temperature: Some(0.7),
