@@ -27,6 +27,7 @@ use crate::quanot::{Quanot, QuanotResult};
 use crate::book::Library;
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
+use crate::tcmw_a;
 #[cfg(feature = "llm")]
 use crate::llm::{LlmEngine, LlmHandle};
 use self::curious::{CuriousEngine, CuriosityProbe};
@@ -94,6 +95,8 @@ pub struct Runtime {
     /// Cached LLM engine — loaded once and reused across chat calls.
     #[cfg(feature = "llm")]
     llm_engine: Mutex<Option<LlmEngine>>,
+    /// TCMW-A: Anticipatory Temporal Causal Memory Weaving engine
+    tcmw: tcmw_a::TCMWEngine,
 }
 
 impl Runtime {
@@ -255,6 +258,7 @@ impl Runtime {
             llm,
             #[cfg(feature = "llm")]
             llm_engine: Mutex::new(None),
+            tcmw: tcmw_a::TCMWEngine::default(),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -543,6 +547,33 @@ impl Runtime {
                     convos, turns, facts, corrections
                 ));
             }
+        }
+
+        // Handle /tcmw - show TCMW-A anticipation stats
+        if input.trim() == "/tcmw" {
+            let stats = self.tcmw.stats();
+            let predictions = self.tcmw.get_predictions();
+            let mut response = String::new();
+            response.push_str(&format!(
+                "TCMW-A Anticipation Engine:\n  Events recorded: {}\n  Archetypes tracked: {}\n  Pending predictions: {}\n  Staged actions: {}\n  OAFL miss rate: {:.1}%\n\n",
+                stats.events_recorded,
+                stats.archetypes_tracked,
+                stats.pending_predictions,
+                stats.staged_actions,
+                stats.oafl_miss_rate * 100.0
+            ));
+            if !predictions.is_empty() {
+                response.push_str("Top predictions:\n");
+                for pred in predictions.iter().take(5) {
+                    response.push_str(&format!(
+                        "  #{:2} P={:.2} {}\n",
+                        pred.rank, pred.probability, pred.action
+                    ));
+                }
+            } else {
+                response.push_str("No predictions yet — keep chatting to build the model.\n");
+            }
+            return Ok(response);
         }
 
         // Handle /goal <content> - set a goal for Star to work toward
@@ -1230,7 +1261,18 @@ impl Runtime {
         }
 
         // Get the conversation response first (updates history, intent classification)
+        // Extract previous user message for TCMW causal chain BEFORE respond() modifies history
+        let parent_action = {
+            let history = conversation.history();
+            history.iter()
+                .rev()
+                .find(|m| m.speaker == crate::conversation::Speaker::Zachary)
+                .map(|m| m.content.clone())
+        };
         let response = conversation.respond(input);
+
+        // Record in TCMW-A causal event fabric (before LLM polish so causal chain reflects raw input)
+        self.tcmw.on_user_action(input, parent_action.as_deref(), tcmw_a::Outcome::Success);
 
         // If LLM is available, generate a real response instead of template.
         // Extract history FIRST while still holding the lock, then drop the lock
@@ -1556,7 +1598,7 @@ impl Runtime {
         // Apply LLM polish — turn rough reasoning into natural, fluent text.
         // This is the key voice integration: KG → VoiceEngine → LLM Polish → response.
         // Only runs if Bonsai-8B GGUF is present and loaded.
-        let final_response = {
+        let mut final_response = {
             #[cfg(feature = "llm")]
             {
                 if let Some(ref llm_handle) = self.llm {
@@ -1588,6 +1630,16 @@ impl Runtime {
             }
         };
 
+        // Append any TCMW-A proactive suggestion
+        if let Some(suggestion) = self.tcmw.get_staged_actions().first() {
+            let draft = match &suggestion.action_type {
+                tcmw_a::pse::StagedActionType::Draft { text } => text.clone(),
+                tcmw_a::pse::StagedActionType::PreFetch { path } => format!("Pre-loaded: {}", path),
+                tcmw_a::pse::StagedActionType::PreLoad { resource } => format!("Pre-loaded: {}", resource),
+            };
+            final_response = format!("{} ({})", final_response, draft);
+        }
+
         Ok(final_response)
     }
 
@@ -1611,8 +1663,15 @@ impl Runtime {
         // Get conversation response (this acquires + releases the conversation lock)
         let voiced = {
             let mut conversation = self.conversation.lock().unwrap();
+            let parent_action = conversation.history()
+                .iter()
+                .rev()
+                .find(|m| m.speaker == crate::conversation::Speaker::Zachary)
+                .map(|m| m.content.clone());
             let response = conversation.respond(input);
             drop(conversation);
+            // Record in TCMW-A causal event fabric
+            self.tcmw.on_user_action(input, parent_action.as_deref(), tcmw_a::Outcome::Success);
             self.voice.speak(&response.content, &self.cognition)
         };
 

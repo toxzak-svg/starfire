@@ -12,8 +12,10 @@ pub mod aih;
 pub mod pse;
 pub mod oafl;
 
+pub use cef::Outcome;
+
 use serde::{Deserialize, Serialize};
-use cef::{CEF, CausalEvent, Outcome};
+use cef::{CEF, CausalEvent};
 use bge::{BGE, SessionArchetype, ArchetypeId};
 use aih::{AIH, IntentPrediction};
 use pse::{PSE, StagedAction, StagedActionType, StagedStatus};
