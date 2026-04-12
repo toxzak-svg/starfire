@@ -5,8 +5,7 @@
 //! When neither feature is active: polish() returns the input unchanged.
 
 #[cfg(feature = "llm")]
-use crate::llm::LlmHandle;
-
+use crate::llm::{LlmEngine, LlmHandle};
 #[cfg(feature = "http_llm")]
 use crate::http_llm::HttpLlmClient;
 
@@ -18,8 +17,7 @@ use crate::http_llm::HttpLlmClient;
 pub fn polish(rough_text: &str) -> anyhow::Result<String> {
     #[cfg(feature = "llm")]
     {
-        // llm path handled by Runtime which uses the stored LlmHandle field.
-        // This module-level function is only for http_llm / no-llm paths.
+        // Uses the Runtime's stored LlmHandle field — handled in Runtime::apply_polish()
         Ok(rough_text.to_string())
     }
 

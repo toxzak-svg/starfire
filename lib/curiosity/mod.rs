@@ -9,7 +9,7 @@ pub mod connection;
 
 use crate::Store;
 use crate::reasoning::ReasoningEngine;
-use probes::{CuriosityProbe, CuriosityDepth, ProbeStatus};
+pub use probes::{CuriosityProbe, CuriosityDepth, ProbeStatus};
 use connection::ConnectionFinder;
 use std::sync::{Arc, Mutex};
 

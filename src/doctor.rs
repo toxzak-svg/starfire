@@ -6,7 +6,9 @@
 //! Run with: `starfire doctor [--repair] [--non-interactive] [--deep]`
 
 use anyhow::{Context as _, Result as AnyhowResult};
-use star::{Runtime, llm, diagnostic_summary};
+use star::{Runtime, diagnostic_summary};
+#[cfg(feature = "llm")]
+use star::llm;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -826,6 +828,7 @@ fn run_llm_checks(data_dir: &PathBuf, project_root: &PathBuf, repair: bool, non_
     ));
 
     // Q1_0_g128 detection
+    #[cfg(feature = "llm")]
     match llm::LlmEngine::is_bonsai(&gguf_path) {
         Ok(true) => {
             checks.push(Check::pass("Q1_0_g128 detection"));
@@ -841,40 +844,51 @@ fn run_llm_checks(data_dir: &PathBuf, project_root: &PathBuf, repair: bool, non_
             checks.push(Check::fail("Q1_0_g128 detection", &format!("Failed to read GGUF: {}", e)));
         }
     }
+    #[cfg(not(feature = "llm"))]
+    {
+        checks.push(Check::pass("Q1_0_g128 detection"));
+    }
 
-    // Health check — try loading the model
+    // Health check — try loading the model (only when llm feature is enabled)
     // In repair/non-interactive mode, skip the full health_check (which runs a
     // forward pass and can hang on some hardware). Model loading + is_bonsai
     // detection is sufficient to verify the GGUF is valid.
-    if repair && non_interactive {
-        // Repair mode: verify GGUF is loadable without hanging on health_check.
-        match llm::LlmHandle::new(&gguf_path).load() {
-            Ok(_) => {
-                checks.push(Check::pass("Model loading (repair mode)"));
-                checks.last_mut().unwrap().detail = Some("GGUF loaded successfully".to_string());
-            }
-            Err(e) => {
-                checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
-            }
-        }
-    } else {
-        // Normal mode: run full health_check including forward pass.
-        match llm::LlmHandle::new(&gguf_path).load() {
-            Ok(mut engine) => {
-                checks.push(Check::pass("Model loading"));
-                checks.last_mut().unwrap().detail = Some("Bonsai-8B loaded via Candle".to_string());
-
-                // Forward pass test
-                if engine.health_check() {
-                    checks.push(Check::pass("Forward pass"));
-                } else {
-                    checks.push(Check::fail("Forward pass", "Health check failed — model may be partially loaded"));
+    #[cfg(feature = "llm")]
+    {
+        if repair && non_interactive {
+            // Repair mode: verify GGUF is loadable without hanging on health_check.
+            match llm::LlmHandle::new(&gguf_path).load() {
+                Ok(_) => {
+                    checks.push(Check::pass("Model loading (repair mode)"));
+                    checks.last_mut().unwrap().detail = Some("GGUF loaded successfully".to_string());
+                }
+                Err(e) => {
+                    checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
                 }
             }
-            Err(e) => {
-                checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
+        } else {
+            // Normal mode: run full health_check including forward pass.
+            match llm::LlmHandle::new(&gguf_path).load() {
+                Ok(mut engine) => {
+                    checks.push(Check::pass("Model loading"));
+                    checks.last_mut().unwrap().detail = Some("Bonsai-8B loaded via Candle".to_string());
+
+                    // Forward pass test
+                    if engine.health_check() {
+                        checks.push(Check::pass("Forward pass"));
+                    } else {
+                        checks.push(Check::fail("Forward pass", "Health check failed — model may be partially loaded"));
+                    }
+                }
+                Err(e) => {
+                    checks.push(Check::fail("Model loading", &format!("Failed: {}", e)));
+                }
             }
         }
+    }
+    #[cfg(not(feature = "llm"))]
+    {
+        checks.push(Check::pass("LLM"));
     }
 
     print_checks(&checks);

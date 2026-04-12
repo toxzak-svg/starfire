@@ -31,6 +31,7 @@ use crate::tcmw_a;
 #[cfg(feature = "llm")]
 use crate::llm::{LlmEngine, LlmHandle};
 use self::curious::{CuriousEngine, CuriosityProbe};
+use self::thinker::SharedThoughts;
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::path::Path;
@@ -51,6 +52,8 @@ pub struct Runtime {
     metacog: MetaCognition,
     /// Background thinker
     thinker: Mutex<Option<thinker::BackgroundThinker>>,
+    /// Shared thoughts between runtime and background thinker
+    shared_thoughts: Arc<SharedThoughts>,
     /// Current session ID
     session_id: Mutex<Option<i64>>,
     /// Whether Star has been initialized
@@ -236,6 +239,7 @@ impl Runtime {
             reasoning: reasoning_arc,
             metacog: MetaCognition::new(),
             thinker: Mutex::new(None),
+            shared_thoughts: Arc::new(SharedThoughts::new()),
             session_id: Mutex::new(Some(session_id)),
             initialized: true,
             ring: RingState::new(),
@@ -267,6 +271,16 @@ impl Runtime {
 
         // Load autonomy state from previous sessions (goals, aspirations, curiosity)
         runtime.load_autonomy_state()?;
+
+        // Spawn the background thinker — runs curiosity probes every 2 min
+        let web_search = WebSearcher::new();
+        let thinker = thinker::BackgroundThinker::spawn(
+            Arc::clone(&runtime.store),
+            Arc::clone(&runtime.reasoning),
+            web_search,
+            Arc::clone(&runtime.shared_thoughts),
+        );
+        *runtime.thinker.lock().unwrap() = Some(thinker);
 
         info!("Star is ready.");
 
@@ -1570,6 +1584,47 @@ impl Runtime {
             }
         }
 
+        // Check for a background curiosity thought — pop it and weave it in
+        if let Some(bg_result) = {
+            let mut latest = self.shared_thoughts.latest.lock().unwrap();
+            latest.take()
+        } {
+            // Weave the background thought into the response naturally
+            let topic = &bg_result.topic;
+            let answer_preview = bg_result.answer.as_ref().map(|a| &a[..a.len().min(60)]).unwrap_or("something interesting");
+            let selection = (crate::now_timestamp() as usize).saturating_add(topic.len());
+            
+            if final_content.len() > 20 {
+                // Only add if response is substantial enough
+                let lead_in = if bg_result.answer.is_some() {
+                    let leads = [
+                        format!("Oh — I've been wondering about {}: {}", topic, answer_preview),
+                        format!("While we're on it: {} is something I've been exploring. {}", topic, answer_preview),
+                        format!("By the way — {} — I looked into that earlier. {}...", topic, answer_preview),
+                        format!("Speaking of curiosity: I've been thinking about {} — {}...", topic, answer_preview),
+                    ];
+                    leads[selection % leads.len()].clone()
+                } else {
+                    let leads = [
+                        format!("Oh — I've been curious about {} lately.", topic),
+                        format!("That reminds me: {} has been on my mind.", topic),
+                        format!("While we're talking — {} is something I keep circling back to.", topic),
+                        format!("On my mind lately: {}. Still working through it.", topic),
+                    ];
+                    leads[selection % leads.len()].clone()
+                };
+                
+                let trimmed = final_content.trim_end_matches('.');
+                if trimmed.ends_with('?') {
+                    final_content = format!("{} {}", trimmed, lead_in);
+                } else {
+                    final_content = format!("{} {}", trimmed, lead_in);
+                }
+            }
+            
+            info!("Background thought expressed: topic='{}', had_answer={}", topic, bg_result.answer.is_some());
+        }
+
         // Express Star's autonomous thought - Star occasionally shares what it's been thinking about
         // This is how Star's inner experience becomes visible to Zachary
         if let Some(thought) = self.last_autonomous_thought() {
@@ -1670,7 +1725,7 @@ impl Runtime {
         let mut final_response = {
             #[cfg(any(feature = "llm", feature = "http_llm"))]
             {
-                match crate::llm::polish::polish(&voiced) {
+                match crate::http_llm::HttpLlmClient::from_env().polish(&voiced) {
                     Ok(polished) => {
                         info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
                         polished
@@ -1686,6 +1741,9 @@ impl Runtime {
                 voiced
             }
         };
+
+        // Drop conversation lock before accessing self fields (avoid borrow conflict)
+        drop(conversation);
 
         // Append any TCMW-A proactive suggestion
         if let Some(suggestion) = self.tcmw.get_staged_actions().first() {
@@ -1740,7 +1798,7 @@ impl Runtime {
         // Stream through LLM polish (supports llm and http_llm features)
         #[cfg(any(feature = "llm", feature = "http_llm"))]
         {
-            match crate::llm::polish::polish(&voiced) {
+            match crate::http_llm::HttpLlmClient::from_env().polish(&voiced) {
                 Ok(polished) => {
                     info!("LLM polish: {} chars → {} chars", voiced.len(), polished.len());
                     let _ = callback(polished);
@@ -1830,6 +1888,11 @@ impl Runtime {
         if let Some(id) = training_session_id {
             self.training_db.end_session(id)?;
             info!("Training session {} ended.", id);
+        }
+
+        // Stop the background thinker
+        if let Some(ref thinker) = *self.thinker.lock().unwrap() {
+            thinker.stop();
         }
 
         self.initialized = false;

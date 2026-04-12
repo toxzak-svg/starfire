@@ -6,6 +6,14 @@
 
 use std::time::Duration;
 
+pub const DEFAULT_MODEL: &str = "dolphin3.0-qwen2.5-3b";
+
+fn default_base_url() -> String {
+    std::env::var("LLM_ENDPOINT")
+        .ok()
+        .unwrap_or_else(|| "http://127.0.0.1:1234".to_string())
+}
+
 #[derive(Debug, Clone)]
 pub struct ClientConfig {
     pub base_url: String,
@@ -15,7 +23,7 @@ pub struct ClientConfig {
 impl Default for ClientConfig {
     fn default() -> Self {
         Self {
-            base_url: "http://127.0.0.1:8081".to_string(),
+            base_url: default_base_url(),
             timeout: Duration::from_secs(60),
         }
     }
@@ -54,11 +62,9 @@ impl HttpLlmClient {
         Self { config: ClientConfig::new(base_url) }
     }
 
-    /// Read from `LLM_ENDPOINT` env var, fallback to localhost:8081.
+    /// Read from `LLM_ENDPOINT` env var, fallback to localhost:1234 (LM Studio).
     pub fn from_env() -> Self {
-        let endpoint = std::env::var("LLM_ENDPOINT")
-            .unwrap_or_else(|_| "http://127.0.0.1:8081".to_string());
-        Self::new(&endpoint)
+        Self::new(&default_base_url())
     }
 
     /// Returns true if the remote server responds to /health.
@@ -83,7 +89,7 @@ impl HttpLlmClient {
         let resp: CompletionResp = ureq::post(&self.config.completions_url())
             .timeout(self.config.timeout)
             .send_json(Req {
-                model: "bonsai-8b".to_string(),
+                model: DEFAULT_MODEL.to_string(),
                 prompt: prompt.to_string(),
                 max_tokens: max_tokens.or(Some(256)),
                 temperature: Some(0.7),
@@ -110,7 +116,7 @@ impl HttpLlmClient {
         let resp: ChatResp = ureq::post(&self.config.chat_url())
             .timeout(self.config.timeout)
             .send_json(ChatReq {
-                model: "bonsai-8b",
+                model: DEFAULT_MODEL,
                 messages: messages.to_vec(),
                 max_tokens: max_tokens.or(Some(256)),
                 temperature: Some(0.7),
@@ -126,7 +132,7 @@ impl HttpLlmClient {
     /// Polish rough text via remote LLM.
     pub fn polish(&self, rough_text: &str) -> anyhow::Result<String> {
         self.chat(&[
-            HttpChatMsg { role: "system".to_string(), content: "You are a text polish engine. Rewrite the following text to be more fluent and natural-sounding while preserving all factual content. Be concise. Do not add new information.".to_string() },
+            HttpChatMsg { role: "system".to_string(), content: "You are a voice refinement engine. The following is raw output from an AI reasoning system. Rewrite it to be more natural and engaging while preserving the exact meaning, tone, and personality. Keep all opinions, rough edges, and edge intact. Do not sanitize or water down the content.".to_string() },
             HttpChatMsg { role: "user".to_string(), content: rough_text.to_string() },
         ], Some(512))
     }

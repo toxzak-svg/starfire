@@ -85,7 +85,7 @@ impl Store {
 
     /// Initialize the database schema.
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute_batch(r#"
             -- Identity core (frozen after formation)
             CREATE TABLE IF NOT EXISTS identity (
@@ -226,7 +226,7 @@ impl Store {
 
     /// Store an identity claim (key-value pair).
     pub fn put_identity(&self, key: &str, value: &str, formed_at: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT OR REPLACE INTO identity (key, value, formed_at) VALUES (?1, ?2, ?3)",
             params![key, value, formed_at],
@@ -236,7 +236,7 @@ impl Store {
 
     /// Get an identity claim.
     pub fn get_identity(&self, key: &str) -> Result<Option<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = conn
             .query_row(
                 "SELECT value FROM identity WHERE key = ?1",
@@ -249,7 +249,7 @@ impl Store {
 
     /// Get all identity claims.
     pub fn get_all_identity(&self) -> Result<Vec<(String, String)>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT key, value FROM identity")?;
         let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         let mut result = Vec::new();
@@ -292,7 +292,7 @@ impl Store {
         }
         drop(guard);
         
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             r#"INSERT INTO memories 
                (content, domain, confidence, importance, formed_at, access_count, decay_rate, last_accessed, provenance, summary)
@@ -315,7 +315,7 @@ impl Store {
 
     /// Update a memory's access stats.
     pub fn record_memory_access(&self, memory_id: i64, now: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "UPDATE memories SET access_count = access_count + 1, last_accessed = ?1 WHERE id = ?2",
             params![now, memory_id],
@@ -325,7 +325,7 @@ impl Store {
 
     /// Get a memory by ID.
     pub fn get_memory(&self, id: i64) -> Result<Option<Memory>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = conn
             .query_row(
                 "SELECT * FROM memories WHERE id = ?1",
@@ -338,7 +338,7 @@ impl Store {
 
     /// Search memories by relevance to a query.
     pub fn search_memories(&self, query: &str, limit: usize, domain: Option<MemoryDomain>) -> Result<Vec<Memory>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         
         let domain_filter = domain.map(|d| format!("AND domain = '{}'", format!("{:?}", d).to_lowercase())).unwrap_or_default();
@@ -383,7 +383,7 @@ impl Store {
 
     /// Get all memories of a given domain.
     pub fn get_memories_by_domain(&self, domain: MemoryDomain, limit: Option<usize>) -> Result<Vec<Memory>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let limit_clause = limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
         let sql = format!(
             "SELECT * FROM memories WHERE domain = ?1 ORDER BY importance DESC, formed_at DESC{}",
@@ -401,14 +401,14 @@ impl Store {
 
     /// Delete a memory by ID.
     pub fn delete_memory(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute("DELETE FROM memories WHERE id = ?1", params![id])?;
         Ok(())
     }
 
     /// Get memories that have decayed below threshold (for cleanup).
     pub fn get_forgotten_memories(&self, now: i64, confidence_threshold: f64) -> Result<Vec<Memory>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         // This is approximate — full implementation would calculate decay per-memory
         let sql = "SELECT * FROM memories WHERE decay_rate > 0 AND importance < 0.3 AND access_count < 3";
         let mut stmt = conn.prepare(sql)?;
@@ -427,7 +427,7 @@ impl Store {
 
     /// Get total memory count.
     pub fn memory_count(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM memories", [], |row| row.get(0))?;
         Ok(count)
     }
@@ -438,7 +438,7 @@ impl Store {
 
     /// Insert a new belief.
     pub fn insert_belief(&self, belief: &Belief) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             r#"INSERT INTO beliefs 
                (content, confidence_state, confidence_score, based_on, formed_at, revised_from, reasoning)
@@ -458,7 +458,7 @@ impl Store {
 
     /// Get all beliefs.
     pub fn get_all_beliefs(&self) -> Result<Vec<Belief>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT * FROM beliefs ORDER BY formed_at DESC")?;
         let rows = stmt.query_map([], row_to_belief)?;
         let mut results = Vec::new();
@@ -470,7 +470,7 @@ impl Store {
 
     /// Get beliefs by confidence state.
     pub fn get_beliefs_by_state(&self, state: BeliefState) -> Result<Vec<Belief>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let sql = "SELECT * FROM beliefs WHERE confidence_state = ?1 ORDER BY formed_at DESC";
         let state_str = format!("{:?}", state).to_lowercase();
         let mut stmt = conn.prepare(sql)?;
@@ -484,7 +484,7 @@ impl Store {
 
     /// Get the most recent beliefs.
     pub fn get_recent_beliefs(&self, limit: usize) -> Result<Vec<Belief>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT * FROM beliefs ORDER BY formed_at DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], row_to_belief)?;
         let mut results = Vec::new();
@@ -500,7 +500,7 @@ impl Store {
 
     /// Record a reasoning event.
     pub fn record_reasoning_event(&self, event: &ReasoningEvent) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let chain_json = serde_json::to_string(&event.chain)
             .unwrap_or_else(|_| "[]".to_string());
         let state_str = format!("{:?}", event.confidence_state).to_lowercase();
@@ -529,7 +529,7 @@ impl Store {
 
     /// Search reasoning events by query pattern.
     pub fn search_reasoning_events(&self, query_pattern: &str, limit: usize) -> Result<Vec<ReasoningEvent>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let pattern = format!("%{}%", query_pattern);
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events WHERE query LIKE ?1 OR conclusion LIKE ?1 ORDER BY timestamp DESC LIMIT ?2"
@@ -544,7 +544,7 @@ impl Store {
 
     /// Get recent reasoning events.
     pub fn get_recent_reasoning_events(&self, limit: usize) -> Result<Vec<ReasoningEvent>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events ORDER BY timestamp DESC LIMIT ?1"
         )?;
@@ -558,7 +558,7 @@ impl Store {
 
     /// Get reasoning events from the last N seconds.
     pub fn get_reasoning_events_since(&self, seconds_ago: i64) -> Result<Vec<ReasoningEvent>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let since = crate::now_timestamp() - seconds_ago;
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC"
@@ -573,7 +573,7 @@ impl Store {
 
     /// Get uncertain reasoning events (gaps worth probing).
     pub fn get_uncertain_reasoning_events(&self, max_age_seconds: i64, limit: usize) -> Result<Vec<ReasoningEvent>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let since = crate::now_timestamp() - max_age_seconds;
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events 
@@ -593,7 +593,7 @@ impl Store {
     /// Detect reasoning gaps — uncertain events ranked by salience.
     /// Returns events that are worth self-probing.
     pub fn detect_reasoning_gaps(&self, max_age_days: i64, limit: usize) -> Result<Vec<ReasoningGap>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let since = crate::now_timestamp() - (max_age_days * 24 * 60 * 60);
         
         // Find uncertain events
@@ -665,7 +665,7 @@ impl Store {
 
     /// Get reasoning event count.
     pub fn reasoning_event_count(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM reasoning_events", [], |row| row.get(0))?;
         Ok(count)
     }
@@ -676,7 +676,7 @@ impl Store {
 
     /// Start a new session. Returns the session ID.
     pub fn start_session(&self) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO sessions (started_at) VALUES (?1)",
@@ -687,7 +687,7 @@ impl Store {
 
     /// End a session.
     pub fn end_session(&self, session_id: i64, summary: Option<&str>) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "UPDATE sessions SET ended_at = ?1, summary = ?2 WHERE id = ?3",
@@ -698,7 +698,7 @@ impl Store {
 
     /// Get session by ID.
     pub fn get_session(&self, id: i64) -> Result<Option<Session>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = conn
             .query_row(
                 "SELECT * FROM sessions WHERE id = ?1",
@@ -711,7 +711,7 @@ impl Store {
 
     /// Get the most recent session.
     pub fn get_last_session(&self) -> Result<Option<Session>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = conn
             .query_row(
                 "SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1",
@@ -724,7 +724,7 @@ impl Store {
 
     /// Get recent sessions.
     pub fn get_recent_sessions(&self, limit: usize) -> Result<Vec<Session>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], row_to_session)?;
         let mut results = Vec::new();
@@ -743,17 +743,17 @@ impl Store {
         Ok(MemorySnapshot {
             memory_count: self.memory_count()?,
             beliefs_count: {
-                let conn = self.conn.lock().unwrap();
+                let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 let count: i64 = conn.query_row("SELECT COUNT(*) FROM beliefs", [], |row| row.get(0))?;
                 count
             },
             sessions_count: {
-                let conn = self.conn.lock().unwrap();
+                let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 let count: i64 = conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
                 count
             },
             domain_breakdown: {
-                let conn = self.conn.lock().unwrap();
+                let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 let mut stmt = conn.prepare(
                     "SELECT domain, COUNT(*) FROM memories GROUP BY domain"
                 )?;
@@ -776,7 +776,7 @@ impl Store {
 
     /// Save an autonomy state (curiosity probe, goal, or aspiration).
     pub fn save_autonomy_state(&self, state_type: &str, content: &str, priority: f64, parent_id: Option<i64>) -> Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "INSERT INTO autonomy_state (state_type, content, priority, created_at, last_active, status, parent_id)
@@ -788,7 +788,7 @@ impl Store {
 
     /// Get all active autonomy states of a given type.
     pub fn get_active_autonomy_states(&self, state_type: &str) -> Result<Vec<AutonomyState>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT * FROM autonomy_state WHERE state_type = ?1 AND status = 'active' ORDER BY priority DESC, created_at DESC"
         )?;
@@ -817,7 +817,7 @@ impl Store {
 
     /// Mark an autonomy state as completed.
     pub fn complete_autonomy_state(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "UPDATE autonomy_state SET status = 'completed', last_active = ?1 WHERE id = ?2",
@@ -828,7 +828,7 @@ impl Store {
 
     /// Mark an autonomy state as suspended.
     pub fn suspend_autonomy_state(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "UPDATE autonomy_state SET status = 'suspended', last_active = ?1 WHERE id = ?2",
@@ -839,7 +839,7 @@ impl Store {
 
     /// Update last_active timestamp.
     pub fn touch_autonomy_state(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = crate::now_timestamp();
         conn.execute(
             "UPDATE autonomy_state SET last_active = ?1 WHERE id = ?2",
@@ -850,7 +850,7 @@ impl Store {
 
     /// Get autonomy state by ID.
     pub fn get_autonomy_state(&self, id: i64) -> Result<Option<AutonomyState>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let result = conn
             .query_row(
                 "SELECT * FROM autonomy_state WHERE id = ?1",
@@ -863,7 +863,7 @@ impl Store {
 
     /// Get child autonomy states (subgoals, etc.).
     pub fn get_child_autonomy_states(&self, parent_id: i64) -> Result<Vec<AutonomyState>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT * FROM autonomy_state WHERE parent_id = ?1 ORDER BY priority DESC"
         )?;
@@ -877,7 +877,7 @@ impl Store {
 
     /// Delete an autonomy state.
     pub fn delete_autonomy_state(&self, id: i64) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         // Also delete children
         conn.execute("DELETE FROM autonomy_state WHERE parent_id = ?1", params![id])?;
         conn.execute("DELETE FROM autonomy_state WHERE id = ?1", params![id])?;
