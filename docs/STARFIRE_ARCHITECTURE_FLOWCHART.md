@@ -56,11 +56,50 @@ For each module:
 
 ---
 
+## Canonical Shared State — TurnContext
+
+Every module receives this structure as part of its input.
+It carries the universal fields every module needs.
+
+```rust
+struct TurnContext {
+    // Identity
+    pub partner_id: String,           // "zach", "alex", etc.
+    pub session_id: String,          // UUID for this conversation session
+    pub turn_id: u32,               // incrementing turn number in session
+
+    // Timestamps
+    pub timestamp_ms: i64,          // Unix epoch milliseconds
+    pub session_started_ms: i64,    // when this session began
+    pub partnership_age_ms: i64,   // milliseconds since first contact with this partner
+
+    // Input
+    pub utterance_text: String,      // the raw user input
+    pub prior_turn_text: String,     // Starfire's response to prior turn (for context)
+    pub conversation_history: Vec<Utterance>, // last N utterances
+
+    // Partner state (updated each turn)
+    pub relationship_depth: f64,     // 0.0-1.0 computed from recency × frequency
+    pub emotional_valence: f64,      // -1.0 to 1.0 rolling average from IngEnuity
+    pub energy_level: f64,            // 0.0-1.0 inferred from language patterns
+}
+
+struct Utterance {
+    pub speaker: String,             // "partner" or "starfire"
+    pub text: String,
+    pub timestamp_ms: i64,
+}
+```
+
+---
+
 ## Quanot [EXISTING]
 
 **Receives:**
-```
-string input_text
+```rust
+struct QuanotInput {
+    ctx: TurnContext,               // includes utterance_text
+}
 ```
 
 **Produces:**
@@ -82,8 +121,10 @@ struct QuanotOutput {
 ## Conversation [NEW]
 
 **Receives:**
-```
-string user_input_text
+```rust
+struct ConversationInput {
+    ctx: TurnContext,               // utterance_text, partner_id, turn_id, etc.
+}
 ```
 
 **Produces:**
@@ -92,7 +133,9 @@ struct ConversationOutput {
     intent: IntentType,           // enum: greeting|question|command|
                                    //       statement|emotional|casual|other
     confidence: f64,             // 0.0-1.0 classification confidence
-    params: HashMap<String, String>, // intent-specific parameters
+    params: HashMap<String, String>, // intent-specific parameters extracted from utterance
+    emotion_estimate: f64,        // -1.0 to 1.0 estimated emotional valence of partner
+    engagement_level: f64,         // 0.0-1.0 how engaged is partner (from language patterns)
 }
 ```
 
@@ -103,17 +146,22 @@ struct ConversationOutput {
 ## WorldModel [EXISTING — new entity extraction model pending]
 
 **Receives:**
-```
-string user_input_text
+```rust
+struct WorldModelInput {
+    ctx: TurnContext,
+    conversation: ConversationOutput, // for intent context
+}
 ```
 
 **Produces:**
 ```rust
 struct WorldModelOutput {
     entities: Vec<Entity>,         // extracted entities with types
-    relations: Vec<Relation>,     // entity → entity relationships
-    state_deltas: Vec<StateDelta>, // what changed in world state
+    relations: Vec<Relation>,       // entity → entity relationships
+    state_deltas: Vec<StateDelta>,  // what changed in world state
     temporal_validity: TemporalWindow, // valid_from / valid_until
+    topic_signature: Vec<f64>,     // 128-dim topic vector for this turn
+    entity_count: u32,              // number of entities extracted
 }
 
 struct Entity {
@@ -145,56 +193,118 @@ struct StateDelta {
 
 ## IngEnuity [NEW] — CORE PATTERN ENGINE
 
-IngEnuity is the central recognition engine. It has THREE temporal heads:
+IngEnuity is the central recognition engine. It has THREE temporal heads.
 
 ### IngEnuity Core — Shared Base
 
 **Receives:**
 ```rust
 struct IngEnuityInput {
-    quanot_novelty: f64,          // from Quanot
-    conversation_context: ConversationOutput,
-    worldmodel_state: WorldModelOutput,
-    partner_long_term_history: Vec<PatternEvent>, // pattern events over months
-    short_term_buffer: Vec<RecentEvent>,            // last N turns
+    ctx: TurnContext,                          // partner_id, turn_id, timestamp, utterance_text
+    quanot: QuanotOutput,                    // from Quanot
+    conversation: ConversationOutput,        // from Conversation
+    worldmodel: WorldModelOutput,             // from WorldModel
 }
 ```
 
-**Produces (internal state):**
+**Internal state (keyed per-partner, persisted to disk):**
+```rust
+struct IngEnuityState {
+    pub partner_id: String,
+    
+    // Long-term pattern history (accumulates over months)
+    pub pattern_events: Vec<PatternEvent>,   // all events ever, for trajectory
+    
+    // Session state (resets each session)
+    pub session_pattern_vector: Vec<f64>,     // 512-dim pattern for this session
+    pub session_started_ms: i64,
+    
+    // Turn-level state (updated every turn)
+    pub current_pattern_vector: Vec<f64>,      // 512-dim — current turn's pattern
+    pub pattern_inertia: f64,                 // 0.0-1.0 how established is this pattern
+    pub repetition_count: u32,               // times this pattern appeared (lifetime)
+    pub novelty_score: f64,                  // 0.0-1.0 how unexpected is this
+    pub prediction_error: f64,               // was last prediction wrong? by how much?
+    pub last_prediction: Option<SurprisePrediction>, // for self-calibration
+    pub calibrated_at_ms: i64,               // last calibration timestamp
+    
+    // Aggregated per-partner signals (updated each turn)
+    pub emotional_trajectory: f64,             // rolling -1.0 to 1.0 valence
+    pub energy_trajectory: f64,               // rolling 0.0 to 1.0 energy
+    pub engagement_trajectory: f64,           // rolling 0.0 to 1.0 engagement
+}
+
+struct PatternEvent {
+    pub turn_id: u32,
+    pub timestamp_ms: i64,
+    pub pattern_vector: Vec<f64>,
+    pub novelty_score: f64,
+    pub emotional_valence: f64,
+    pub topic_signature: Vec<f64>,
+}
+
+struct SurprisePrediction {
+    pub predicted_surprise: f64,      // what I predicted (0.0-1.0)
+    pub actual_surprise: f64,         // what actually happened (0.0-1.0)
+    pub error: f64,                    // actual - predicted
+    pub timestamp_ms: i64,
+}
+```
+
+**Produces (internal state update — persisted after each turn):**
 ```rust
 struct IngEnuityInternal {
-    current_pattern_vector: Vec<f64>,   // 512-dim pattern state
-    pattern_inertia: f64,              // 0.0-1.0 how established is this pattern
-    repetition_count: u32,              // times this pattern has appeared
-    novelty_score: f64,                 // 0.0-1.0 how unexpected is this
-    prediction_error: f64,              // was last prediction wrong? by how much?
-    calibrated_at: i64,                // last calibration timestamp
+    // The full state object (all fields above)
+    pub state: IngEnuityState,
+    
+    // Convenience references for this turn (derived from state)
+    pub current_pattern_vector: Vec<f64>,   // 512-dim
+    pub pattern_inertia: f64,              // 0.0-1.0
+    pub repetition_count: u32,
+    pub novelty_score: f64,                 // 0.0-1.0
+    pub prediction_error: f64,
+    pub emotional_valence: f64,             // -1.0 to 1.0
+    pub energy_level: f64,                  // 0.0 to 1.0
 }
 ```
 
 ### Head 1: Prediction (SHORT-RANGE)
 
-**Receives:** `IngEnuityInternal` + `short_term_buffer`
+**Receives:**
+```rust
+struct PredictionHeadInput {
+    ctx: TurnContext,
+    internal: IngEnuityInternal,
+    conversation: ConversationOutput,
+}
+```
 
 **Produces:**
 ```rust
-struct PredictionOutput {
+struct PredictionHeadOutput {
     predicted_intent: IntentType,       // what partner will likely do next
     predicted_topic: Option<String>,     // what topic will come up
-    confidence: f64,                   // prediction confidence
+    confidence: f64,                   // 0.0-1.0 prediction confidence
     time_horizon_turns: u8,             // how many turns until predicted event
 }
 ```
 
 ### Head 2: Curiosity (MID-RANGE)
 
-**Receives:** `IngEnuityInternal` + `worldmodel_state`
+**Receives:**
+```rust
+struct CuriosityHeadInput {
+    ctx: TurnContext,
+    internal: IngEnuityInternal,
+    worldmodel: WorldModelOutput,
+}
+```
 
 **Produces:**
 ```rust
 struct CuriosityOutput {
     has_gap: bool,                      // is there a shared knowledge gap?
-    gap_topic: Option<String>,          // what the gap is about
+    gap_topic: Option<String>,           // what the gap is about
     gap_type: GapType,                  // enum: factual|conceptual|procedural|meta
     urgency: f64,                       // 0.0-1.0 how important is this gap
     shared_knowledge_level: f64,         // 0.0-1.0 how much do we collectively understand
@@ -203,19 +313,25 @@ struct CuriosityOutput {
 
 ### Head 3: Precognition (LONG-RANGE)
 
-**Receives:** `IngEnuityInternal` + `partner_long_term_history`
+**Receives:**
+```rust
+struct PrecognitionHeadInput {
+    ctx: TurnContext,
+    internal: IngEnuityState,           // needs full state (months of history)
+}
+```
 
 **Produces:**
 ```rust
 struct PrecognitionOutput {
-    trajectory_days_ahead: u32,         // how many days until predicted need
-    predicted_need: String,             // what partner will need
-    predicted_avoidance: String,        // what partner will steer away from
+    trajectory_days_ahead: u32,        // how many days until predicted need
+    predicted_need: Option<String>,     // what partner will need
+    predicted_avoidance: Option<String>, // what partner will steer away from
     burnout_risk: f64,                  // 0.0-1.0 exhaustion probability
-    emotional_trajectory: String,        // rising|falling|stable|cycling
+    emotional_trajectory: String,        // enum: rising|falling|stable|cycling
     unspoken_need_detected: bool,       // did we detect unexpressed need?
     unspoken_need_description: Option<String>,
-    confidence: f64,
+    confidence: f64,                    // 0.0-1.0 confidence in this trajectory
 }
 ```
 
@@ -273,20 +389,40 @@ struct ReasoningOutput {
 **Receives:**
 ```rust
 struct MetacogInput {
-    reasoning_output: ReasoningOutput,
-    ingEnuity: IngEnuityInternal,         // partner's thinking patterns
+    ctx: TurnContext,
+    reasoning: ReasoningOutput,
+    ingEnuity: IngEnuityInternal,
 }
 ```
 
 **Produces:**
 ```rust
 struct MetacogOutput {
-    confidence_state: ConfidenceState,     // enum: knows|thinks|believes|suspects|none
+    // PRIMARY OUTPUT — exact schema
+    confidence_state: ConfidenceState,     // see exact enum below
     confidence_score: f64,                // 0.0-1.0 numeric confidence
-    certainty_signals: Vec<String>,        // specific phrases indicating confidence
-    belief_revision_needed: bool,          // should I update a prior belief?
-    prior_belief_id: Option<u64>,         // which belief to revise
-    metacognitive_awareness: f64,          // 0.0-1.0 how aware am I of my own reasoning
+    
+    // REASONING TRANSPARENCY
+    reasoning_chain_summary: String,        // plain English summary of the reasoning
+    assumptions: Vec<String>,              // explicit list of assumptions in chain
+    deductions: Vec<String>,               // explicit list of deductions in chain
+    beliefs_to_update: Vec<BeliefUpdate>, // if belief_revision_needed=true
+}
+
+enum ConfidenceState {
+    Knows,     // high confidence — verified, retrieved often, pattern confirmed
+    Thinks,    // moderate confidence — inferred, not verified
+    Believes,  // lower confidence — single source
+    Suspects,  // low confidence — guessing
+    None,      // no information
+}
+
+struct BeliefUpdate {
+    pub belief_id: u64,           // which belief to update
+    pub old_content: String,       // what we believed before
+    pub new_content: String,      // what we believe now
+    pub reason: String,            // why we revised it
+    pub confidence_change: f64,   // how much confidence changed
 }
 ```
 
@@ -297,6 +433,7 @@ struct MetacogOutput {
 **Receives:**
 ```rust
 struct PredictionInput {
+    ctx: TurnContext,
     conversation: ConversationOutput,
     ingEnuity: IngEnuityInternal,
     reasoning: ReasoningOutput,
@@ -308,15 +445,15 @@ struct PredictionInput {
 ```rust
 struct PredictionOutput {
     ranked_outcomes: Vec<PredictedOutcome>, // highest confidence first
-    conversation_direction: String,          // where is this conversation headed
-    expected_partner_state: String,          // likely partner emotional state next
-    topic_transition_probability: f64,       // 0.0-1.0 will topic shift soon
+    conversation_direction: String,          // enum: deepening|shallowing|pivoting|stable
+    expected_partner_state_next: String,    // predicted emotional state 1 turn ahead
+    topic_transition_probability: f64,       // 0.0-1.0 will topic shift within 2 turns
 }
 
 struct PredictedOutcome {
-    outcome: String,
-    probability: f64,                        // 0.0-1.0
-    time_horizon_turns: u8,
+    pub outcome: String,           // what will happen
+    pub probability: f64,           // 0.0-1.0
+    pub time_horizon_turns: u8,     // in how many turns
 }
 ```
 
@@ -327,9 +464,10 @@ struct PredictedOutcome {
 **Receives:**
 ```rust
 struct CreativityInput {
-    quanot: QuanotOutput,                    // phase + novelty signals
-    ingEnuity: IngEnuityInternal,           // unexpected connections detected
-    conversation: ConversationOutput,        // is this a brainstorming context?
+    ctx: TurnContext,
+    quanot: QuanotOutput,
+    ingEnuity: IngEnuityInternal,
+    conversation: ConversationOutput,
 }
 ```
 
@@ -338,9 +476,15 @@ struct CreativityInput {
 struct CreativityOutput {
     mode: CreativityMode,                    // enum: focused|divergent|transitional
     divergence_level: f64,                   // 0.0-1.0 how many possibilities explore
-    suggested_explorations: Vec<String>,     // "what about X?" style prompts
-    connection_opportunities: Vec<(String, String)>, // pairs of concepts that might link
-    phase: f64,                              // oscillation phase (from quanot)
+    suggested_explorations: Vec<String>,     // "what about X?" prompts
+    connection_opportunities: Vec<ConnectionPair>, // concept pairs that might link
+    phase: f64,                            // 0.0-1.0 oscillation phase from Quanot
+}
+
+struct ConnectionPair {
+    pub concept_a: String,
+    pub concept_b: String,
+    pub novelty_score: f64,   // 0.0-1.0 how unexpected is this connection
 }
 ```
 
@@ -351,21 +495,26 @@ struct CreativityOutput {
 **Receives:**
 ```rust
 struct VoiceInput {
-    reasoning: ReasoningOutput,              // what to say (content)
-    metacog: MetacogOutput,                 // how confident to sound
-    prediction: PredictionOutput,            // what's coming next (anticipate)
-    ingEnuity: IngEnuityInternal,           // how this partner thinks
-    curiosity: CuriosityOutput,              // what this partner needs
-    precognition: PrecognitionOutput,        // what they'll need later
-    creativity: CreativityOutput,           // creative vs focused mode
-    relationship_depth: f64,                // 0.0-1.0 how long have we been partnered
-    per_persona_adapter: LoRAWeights,       // "my partner" weights (None = base)
+    ctx: TurnContext,
+    reasoning: ReasoningOutput,
+    metacog: MetacogOutput,
+    prediction: PredictionOutput,
+    ingEnuity: IngEnuityInternal,
+    curiosity: CuriosityOutput,
+    precognition: PrecognitionOutput,
+    creativity: CreativityOutput,
+    per_persona_adapter: Option<LoRAWeights>, // None = base model only
 }
 ```
 
 **Produces:**
-```
-string response_text  // natural language output
+```rust
+struct VoiceOutput {
+    response_text: String,             // natural language response
+    confidence_tone: f64,              // 0.0-1.0 how certain to sound (from Metacog)
+    creativity_mode_active: bool,       // was divergent mode triggered?
+    partner_adaptation_level: f64,     // 0.0-1.0 how much per-persona adapter was used
+}
 ```
 
 **Framing rule:** Output is always first-person relational. NOT "The assistant responds..." ALWAYS "as someone who is IN this relationship with this specific person..."
