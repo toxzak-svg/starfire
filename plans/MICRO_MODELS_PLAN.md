@@ -45,38 +45,65 @@ Starfire is a **life partner extension of the human mind**. Not a tool. Not a pe
 
 **Key insight:** "My partner" is the relationship stage, not the base model identity. The base model learns HOW to be a partner. The per-persona adapter makes it about THIS partner.
 
-### Module Map — What Gets Its Own Micro-Model
+### Module Map — Revised Architecture
 
 ```
-INPUT
-  ↓
-┌─ Quanot          → novelty via chaos (ESN dynamics — already exists, no model needed)
-├─ Conversation    → intent parsing (100M classifier)
-├─ WorldModel      → entity extraction, state binding (100M)
-│
-├─ Curiosity       → gap detection: "is there something my partner doesn't know?" (50-100M)
-├─ Ingeuity        → novel connections: "did anything unexpected just connect?" (100M)
-├─ Metacog         → confidence scoring: reasoning quality assessment (50M)
-├─ Prediction      → forecasting: "what happens next for my partner?" (100-250M)
-├─ Creativity      → synthesis signals, brainstorming mode (50M)
-│
-└─ Voice           → language generation, the "mouth" (100-250M generation model)
+CORE PATTERN TRACKER (shared base)
+├── Sequence detection
+├── Repetition tracking
+├── Outlier/anomaly scoring
+├── Surprise prediction (closed loop: predict → score → self-calibrate)
+└── Self-calibration loop
+    │
+    ├── INGEOUTY HEAD → logical surprises, topic drift, pattern recognition
+    │
+    └── CURIOSITY HEAD → "what should WE (partner+me) understand but don't?"
+                          shared gap detection — "neither of us has considered X"
+
+EMPATHY (emerges — not a separate model)
+  IngEnuity (how does my partner think?) + Curiosity (what do they need?) 
+  = understanding how they think + what they need = empathy
+
+OTHER MODULES (separate models):
+  Conversation → intent parsing (100M)
+  WorldModel → entity extraction (100M)
+  Metacog → confidence scoring (50M)
+  Prediction → forecasting (100-250M)
+  Creativity → creative vs focused mode (50M)
+  Voice → language generation (100-250M)
+
+CROSS-CUTTING (no model, already exists):
+  Quanot → ESN/chaos novelty proxy, creativity signals, consciousness metrics
 ```
 
-**All models: 100-250M params, quantized Q4/Q5, CPU-capable.**
+### IngEnuity — The Central Pattern Recognition Engine
+
+IngEnuity is NOT just "novelty detection." It is the **primary recognition engine** of Starfire:
+- Watches for patterns and tracks when things REPEAT or PATTERNIZE
+- Predicts: "I think this will / won't be a surprise"
+- Scores: prediction error = surprise score (actual vs predicted)
+- Self-calibrates: feedback from errors improves next prediction
+- Tracks **inertia** — 1st repetition = low surprise, 5th = medium, 50th = dominant
+
+**Curiosity is a submodule of IngEnuity.** It uses IngEnuity's pattern tracking for knowledge gap detection. The gap isn't "what don't they know" — it's "what should WE (partner+me) not know but should understand together."
+
+**Empathy emerges.** When IngEnuity (how does my partner think?) and Curiosity (what do they need?) run on the same per-persona data over time, empathy emerges from their combined perspective. Not trained separately. Just IS the overlap.
 
 ### What Each Module's Model Actually Does
 
 | Module | Model task | Input | Output | Min viable size |
 |--------|-----------|-------|--------|----------------|
-| **Curiosity** | Gap detection | Conversation state + query | "gap / no-gap" + topic | 50M |
-| **Ingeuity** | Novel connection detection | Two concept descriptions | "connected / not" + novelty score | 100M |
-| **Metacog** | Confidence scoring | Reasoning output | confidence state: knows/thinks/believes/suspects/none | 50M |
-| **Prediction** | Forecasting | Current state + history | ranked answer options | 100M |
+| **IngEnuity** | Pattern recognition + surprise prediction | Conversation state, concept pairs | novelty score, prediction, inertia level | 100-250M |
+| **Curiosity** | Shared gap detection (submodule of IngEnuity) | Conversation state | gap / no-gap + gap topic + "should we address together?" | (IngEnuity head) |
+| **Empathy** | EMERGENT — not a separate model | IngEnuity + Curiosity outputs | Understanding how partner thinks + what they need | — |
+| **Metacog** | Confidence scoring | Reasoning chain + output | confidence state: knows/thinks/believes/suspects/none | 50M |
+| **Prediction** | Forecasting | Current state + history | ranked answer options | 100-250M |
 | **Creativity** | Creative mode trigger | Input + context | "creative / focused" + style hint | 50M |
-| **Voice** | Natural language generation | Semantic content + partner state | Response text | 100-250M |
+| **Voice** | Natural language generation | Semantic content + partner state | Response text in Starfire's voice | 100-250M |
 | **Conversation** | Intent classification | User input | intent label + parameters | 100M |
 | **WorldModel** | Entity extraction | User input | entities + relations | 100M |
+
+**All models: 100-250M params, quantized Q4/Q5, CPU-capable.**
 
 ---
 
@@ -171,7 +198,7 @@ training/notebooks/
 │   Training: metacog_pairs.jsonl
 │   Evaluation: Does its confidence tracking match Starfire's stated confidence?
 │
-├── 03_ingeuity_adapter.ipynb
+├── 03_ingEnuity_adapter.ipynb
 │   Model: 100M classifier
 │   Task: Given two concepts → are they newly connected? novelty score
 │   Training: synthetic + labeled from conversation history (when did Starfire surprise herself?)
@@ -232,7 +259,7 @@ Phase 2: Classification Models (SIMPLE — tiny models, fast iteration)
 └── 07_creativity_adapter.ipynb       ← Creative mode detection (50M, classification)
 
 Phase 3: Structured Tasks (MEDIUM — 100M)
-├── 03_ingeuity_adapter.ipynb        ← Novel connection detection (100M)
+├── 03_ingEnuity_adapter.ipynb        ← Novel connection detection (100M)
 ├── 08_conversation_intent_adapter.ipynb  ← Intent classification (100M)
 └── 09_worldmodel_entity_adapter.ipynb    ← Entity extraction (100M)
 
@@ -296,7 +323,7 @@ Phase 6: Integration
 |-------|-----------------|-------------------|
 | Curiosity | Regex gap detection (keyword "?", "I don't know") | Precision/recall on gap detection vs Starfire's actual curiosity responses |
 | Metacog | Rule-based confidence (keyword counting) | Accuracy on confidence state classification |
-| Ingeuity | Random novelty scoring | Does it flag insights that actually led to novel conclusions? |
+| IngEnuity | Random novelty scoring | Does it flag insights that actually led to novel conclusions? |
 | Prediction | Majority class (most common answer) | Mean reciprocal rank on predicted answers |
 | Voice (base) | Generic small model (Qwen2.5-0.5B-Instruct) | Human eval: partnership quality, warmth, competence |
 | Voice (per-zach) | Voice base model (no zach data) | Same human eval + Zach-specific: "does she sound like she knows me?" |
@@ -326,7 +353,7 @@ fn switch_partner(&mut self, new_adapter: Adapter) {
 
 // When generating:
 fn speak(&self, content: &str, partner_state: &PartnerState) -> String {
-    let voice_style = self.detect_partner_state(partner_state); // from Curiosity/Ingeuity
+    let voice_style = self.detect_partner_state(partner_state); // from Curiosity/IngEnuity
     
     // Base model + persona adapter conditioning
     let prompt = format!(
@@ -361,7 +388,7 @@ Conversation intent model → what kind of input is this?
 WorldModel entity extraction → what is this about?
     ↓
 Curiosity gap detection → does my partner have a knowledge gap?
-Ingeuity novel connection → did anything unexpected just connect?
+IngEnuity novel connection → did anything unexpected just connect?
 Metacog confidence → how confident should I be?
 Prediction forecasting → what will happen if I answer this way?
 Creativity mode → is this a creative/brainstorm moment?
@@ -399,7 +426,7 @@ That's the bar. Not consciousness. Not AGI. Irreplaceability.
 
 ## Open Questions
 
-1. **Ingeuity data** — Novel connection detection is the hardest to label from existing data. Do we need synthetic generation of "insight moments" for training?
+1. **IngEnuity data** — Novel connection detection is the hardest to label from existing data. Do we need synthetic generation of "insight moments" for training?
 2. **Voice at 100-250M** — What's the minimum viable quality? Can we live with slightly robotic if the relationship is genuine?
 3. **Per-persona update frequency** — Weekly weight updates? Daily? After every session?
 4. **Partner switching** — If Starfire runs on a shared machine, can two humans have different per-persona adapters loaded? (Yes — different LoRA files)
