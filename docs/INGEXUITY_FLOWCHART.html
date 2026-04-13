@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowchart Editor</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{height:100vh;width:100vw;overflow:hidden;background:#0f1117;font-family:'Satoshi',sans-serif;color:#e2e4ee}
+#toolbar{
+position:fixed;top:0;left:0;right:0;height:52px;background:#181b23;border-bottom:1px solid #2a2e3d;
+display:flex;align-items:center;gap:8px;padding:0 16px;z-index:300;
+}
+#toolbar h1{font-family:'Cabinet Grotesk',sans-serif;font-size:15px;font-weight:800;color:#4f98a3;margin-right:8px}
+.sep{width:1px;height:24px;background:#2a2e3d;margin:0 4px}
+.btn{
+display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;border:1px solid #2a2e3d;
+background:#1e2130;color:#e2e4ee;font-family:'Satoshi',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
+}
+.btn:hover{background:#252b40;border-color:#4f98a3;color:#4f98a3}
+#hint{margin-left:auto;font-size:12px;color:#6b7280}
+#hint b{color:#4f98a3}
+#svgwrap{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:default}
+#mainSvg{position:absolute;top:0;left:0;background-image:radial-gradient(circle,#2a2e3d 1px,transparent 1px);background-size:28px 28px}
+#toolbar2{
+position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+background:#181b23;border:1px solid #2a2e3d;border-radius:8px;padding:6px 16px;
+font-size:12px;color:#6b7280;pointer-events:none;z-index:300;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+<h1>Flow</h1>
+<div class="sep"></div>
+<button class="btn" id="btnAdd">+ Add Node</button>
+<button class="btn" id="btnDel">Delete</button>
+<button class="btn" id="btnLabel">Label Line</button>
+<button class="btn" id="btnClear">Clear Lines</button>
+<div class="sep"></div>
+<button class="btn" id="btnFit">Fit</button>
+<div class="sep"></div>
+<span id="hint">Drag <b>dots</b> to connect &nbsp;·&nbsp; Double-click node to edit &nbsp;·&nbsp; E or double-click line to label &nbsp;·&nbsp; Del to delete</span>
+</div>
+
+<div id="svgwrap">
+<svg id="mainSvg" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+<polygon points="0 0,10 5,0 10" fill="#3a4060"/>
+</marker>
+</defs>
+</svg>
+</div>
+
+<div id="toolbar2">Drag dots on nodes to connect them</div>
+
+<script>
+(function() {
+var NS = 'http://www.w3.org/2000/svg';
+var svg = document.getElementById('mainSvg');
+var svgWrap = document.getElementById('svgwrap');
+
+// ── State ─────────────────────────────────────────────────────
+var nodes = [];
+var edges = [];
+var nid = 0, eid = 0;
+var vpx = 0, vpy = 0, vz = 1;
+var conn = null;
+var sel = {type:null, id:null};
+var pop = {t:null, d:null};
+
+// Drag state — separate from pan
+var drag = null; // {type:'node', id, offX, offY, startMX, startMY}
+
+var COLORS = [
+  {k:'default', bg:'#1e2130', bd:'#3a4060'},
+  {k:'teal',    bg:'#0e2b2e', bd:'#4f98a3'},
+  {k:'purple',  bg:'#1e1430', bd:'#7a60c0'},
+  {k:'green',   bg:'#0e2018', bd:'#4f9a60'},
+  {k:'amber',   bg:'#2a1e08', bd:'#c07840'},
+  {k:'red',     bg:'#2a0e14', bd:'#c04050'},
+];
+var CM = {};
+COLORS.forEach(function(c){ CM[c.k] = c; });
+
+var mcache = {};
+function marker(color){
+  if(mcache[color]) return mcache[color];
+  var id='m'+color.replace('#','');
+  var m=document.createElementNS(NS,'marker');
+  m.setAttribute('id',id); m.setAttribute('markerWidth',10); m.setAttribute('markerHeight',10);
+  m.setAttribute('refX',8); m.setAttribute('refY',5); m.setAttribute('orient','auto');
+  m.innerHTML='<polygon points="0 0,10 5,0 10" fill="'+color+'"/>';
+  svg.appendChild(m); mcache[color]=id; return id;
+}
+
+// ── Viewport ──────────────────────────────────────────────────
+function apply() {
+  svg.style.transform = 'translate('+vpx+'px,'+vpy+'px) scale('+vz+')';
+  svg.style.transformOrigin = '0 0';
+}
+
+function toCanvas(sx, sy) {
+  var r = svgWrap.getBoundingClientRect();
+  return { x: (sx - r.left - vpx) / vz, y: (sy - r.top - vpy) / vz };
+}
+
+// ── Node ──────────────────────────────────────────────────────
+function node(x, y, label, ck) {
+  var id = ++nid;
+  var c = CM[ck || 'default'] || CM.default;
+  var W = 150, H = 56;
+
+  var g = document.createElementNS(NS, 'g');
+
+  var rect = document.createElementNS(NS, 'rect');
+  rect.setAttribute('width', W); rect.setAttribute('height', H);
+  rect.setAttribute('rx', '12'); rect.setAttribute('ry', '12');
+  rect.setAttribute('fill', c.bg); rect.setAttribute('stroke', c.bd);
+  rect.setAttribute('stroke-width', '2');
+
+  var txt = document.createElementNS(NS, 'text');
+  txt.setAttribute('x', W/2); txt.setAttribute('y', H/2);
+  txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('dominant-baseline', 'middle');
+  txt.setAttribute('fill', '#e2e4ee'); txt.setAttribute('font-family', 'Satoshi, sans-serif');
+  txt.setAttribute('font-size', '13'); txt.setAttribute('font-weight', '500');
+  txt.setAttribute('pointer-events', 'none');
+  txt.textContent = label || 'Node';
+
+  g.appendChild(rect);
+  g.appendChild(txt);
+
+  // Port dots — 4 sides
+  var ports = ['t','b','l','r'];
+  var off = {t:[W/2,0], b:[W/2,H], l:[0,H/2], r:[W,H/2]};
+  ports.forEach(function(p) {
+    var dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', off[p][0]); dot.setAttribute('cy', off[p][1]);
+    dot.setAttribute('r', 11);
+    dot.setAttribute('fill', '#1e2130'); dot.setAttribute('stroke', c.bd);
+    dot.setAttribute('stroke-width', '2.5');
+    dot.setAttribute('cursor', 'crosshair');
+    dot.setAttribute('data-port', p);
+    dot.setAttribute('data-nid', id);
+    g.appendChild(dot);
+  });
+
+  svg.appendChild(g);
+  g.setAttribute('transform', 'translate('+x+','+y+')');
+
+  var nd = {id:id, el:g, x:x, y:y, w:W, h:H, label:label||'Node', ck:ck||'default', bd:c.bd};
+  nodes.push(nd);
+
+  // Node mousedown — start drag
+  g.addEventListener('mousedown', function(e) {
+    if (e.target.getAttribute('data-port')) return;
+    e.preventDefault(); e.stopPropagation();
+    selNode(id);
+    // Capture offset from mouse to node origin
+    var cp = toCanvas(e.clientX, e.clientY);
+    drag = {type:'node', id:id, offX: cp.x - nd.x, offY: cp.y - nd.y};
+    nd.el.style.cursor = 'grabbing';
+  });
+
+  g.addEventListener('dblclick', function(e) {
+    e.stopPropagation();
+    popNode(id, e.clientX, e.clientY);
+  });
+
+  return nd;
+}
+
+function portPos(n, p) {
+  var off = p==='t' ? [n.w/2,0] : p==='b' ? [n.w/2,n.h] : p==='l' ? [0,n.h/2] : [n.w,n.h/2];
+  return {x:n.x+off[0], y:n.y+off[1]};
+}
+
+// ── Edge ─────────────────────────────────────────────────────
+function edge(fid, fp, tid, tp, label) {
+  var f=null, t=null;
+  for(var i=0;i<nodes.length;i++){ if(nodes[i].id===fid)f=nodes[i]; if(nodes[i].id===tid)t=nodes[i]; }
+  if(!f||!t) return;
+
+  var id = ++eid;
+  var p1 = portPos(f,fp), p2 = portPos(t,tp);
+  var mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+  var dx=p2.x-p1.x;
+  var cpx1=p1.x+(dx>0?80:-80), cpy1=p1.y;
+  var cpx2=p2.x-(dx>0?80:-80), cpy2=p2.y;
+  var d='M'+p1.x+','+p1.y+' C'+cpx1+','+cpy1+','+cpx2+','+cpy2+','+p2.x+','+p2.y;
+
+  var path = document.createElementNS(NS,'path');
+  path.setAttribute('d',d); path.setAttribute('fill','none');
+  path.setAttribute('stroke',f.bd); path.setAttribute('stroke-width','3');
+  path.setAttribute('marker-end','url(#'+marker(f.bd)+')');
+  path.setAttribute('cursor','pointer');
+
+  var hit = document.createElementNS(NS,'path');
+  hit.setAttribute('d',d); hit.setAttribute('fill','none');
+  hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','14');
+  hit.setAttribute('cursor','pointer');
+
+  var lblG = document.createElementNS(NS,'g');
+  var lblBg = document.createElementNS(NS,'rect');
+  var lblTxt = document.createElementNS(NS,'text');
+  lblTxt.textContent=label||'';
+  lblTxt.setAttribute('text-anchor','middle'); lblTxt.setAttribute('dominant-baseline','middle');
+  lblTxt.setAttribute('fill','#e2e4ee'); lblTxt.setAttribute('font-family','Satoshi,sans-serif');
+  lblTxt.setAttribute('font-size','13'); lblTxt.setAttribute('font-weight','500');
+  var tw=Math.max((label||'').length*8.5+14,30),pad=6;
+  lblBg.setAttribute('x',-tw/2-pad); lblBg.setAttribute('y',-11-pad);
+  lblBg.setAttribute('width',tw+pad*2); lblBg.setAttribute('height',22+pad*2);
+  lblBg.setAttribute('rx','5'); lblBg.setAttribute('fill','#0f1117'); lblBg.setAttribute('opacity','0.93');
+  lblG.setAttribute('transform','translate('+mx+','+my+')');
+  lblG.appendChild(lblBg); lblG.appendChild(lblTxt);
+
+  svg.insertBefore(hit, svg.firstChild);
+  svg.insertBefore(path, svg.firstChild);
+  svg.appendChild(lblG);
+
+  var ed = {id:id, fid:fid, fp:fp, tid:tid, tp:tp, label:label||'', el:path, hit:hit, lblG:lblG, lblBg:lblBg, lblTxt:lblTxt, bd:f.bd};
+  edges.push(ed);
+
+  hit.addEventListener('click', function(e){ e.stopPropagation(); selEdge(id); });
+  hit.addEventListener('dblclick', function(e){ e.stopPropagation(); popEdge(id, e.clientX, e.clientY); });
+
+  return ed;
+}
+
+function updateEdge(e) {
+  var f=null, t=null;
+  for(var i=0;i<nodes.length;i++){ if(nodes[i].id===e.fid)f=nodes[i]; if(nodes[i].id===e.tid)t=nodes[i]; }
+  if(!f||!t) return;
+  var p1=portPos(f,e.fp), p2=portPos(t,e.tp);
+  var mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+  var dx=p2.x-p1.x;
+  var d='M'+p1.x+','+p1.y+' C'+(p1.x+(dx>0?80:-80))+','+p1.y+','+(p2.x-(dx>0?80:-80))+','+p2.y+','+p2.x+','+p2.y;
+  e.el.setAttribute('d',d); e.hit.setAttribute('d',d);
+  e.el.setAttribute('stroke',e.bd); e.el.setAttribute('marker-end','url(#'+marker(e.bd)+')');
+  e.lblTxt.textContent=e.label||'';
+  var tw=Math.max((e.label||'').length*8.5+14,30),pad=6;
+  e.lblBg.setAttribute('width',tw+pad*2); e.lblBg.setAttribute('x',-tw/2-pad);
+  e.lblG.setAttribute('transform','translate('+mx+','+my+')');
+}
+
+function rmEdge(e){ e.el.remove(); e.hit.remove(); e.lblG.remove(); edges.splice(edges.indexOf(e),1); }
+
+// ── Select ────────────────────────────────────────────────────
+function selNode(id) {
+  desel();
+  var n = findNode(id);
+  if(!n) return;
+  n.el.querySelector('rect').setAttribute('stroke-width','3');
+  sel={type:'node',id:id};
+  setSt('"'+n.label+'" selected — Del to delete');
+}
+
+function selEdge(id) {
+  desel();
+  var e = findEdge(id);
+  if(!e) return;
+  e.el.setAttribute('stroke-width','5'); e.el.setAttribute('stroke','#ffffff'); e.el.setAttribute('marker-end','none');
+  sel={type:'edge',id:id};
+  document.getElementById('btnLabel').disabled=false;
+  setSt('Line selected — E or double-click to label, Del to remove');
+}
+
+function desel() {
+  if(sel.type==='node'){ var n=findNode(sel.id); if(n) n.el.querySelector('rect').setAttribute('stroke-width','2'); }
+  if(sel.type==='edge'){ var e=findEdge(sel.id); if(e){ e.el.setAttribute('stroke-width','3'); e.el.setAttribute('stroke',e.bd); e.el.setAttribute('marker-end','url(#'+marker(e.bd)+')'); } document.getElementById('btnLabel').disabled=true; }
+  sel={type:null,id:null};
+}
+
+function findNode(id){ for(var i=0;i<nodes.length;i++) if(nodes[i].id===id) return nodes[i]; return null; }
+function findEdge(id){ for(var i=0;i<edges.length;i++) if(edges[i].id===id) return edges[i]; return null; }
+
+// ── Mouse ─────────────────────────────────────────────────────
+svgWrap.addEventListener('mousedown', function(e) {
+  var port = e.target.getAttribute ? e.target.getAttribute('data-port') : null;
+  if(port !== null) {
+    var nid2 = parseInt(e.target.getAttribute('data-nid'));
+    var n = findNode(nid2);
+    if(n) {
+      var pos = portPos(n, port);
+      conn = {nid:nid2, pid:port, x:pos.x, y:pos.y};
+      var line = document.createElementNS(NS,'line');
+      line.setAttribute('x1',pos.x); line.setAttribute('y1',pos.y);
+      line.setAttribute('x2',pos.x); line.setAttribute('y2',pos.y);
+      line.setAttribute('stroke',n.bd); line.setAttribute('stroke-width','2.5');
+      line.setAttribute('stroke-dasharray','8 4');
+      conn.el = line;
+      svg.appendChild(line);
+    }
+    e.preventDefault(); e.stopPropagation();
+    return;
+  }
+
+  if(e.target===svgWrap||e.target===svg) {
+    desel();
+    if(e.button===0||e.button===1) {
+      // Start pan
+      var startX=e.clientX, startY=e.clientY, origVx=vpx, origVy=vpy;
+      svgWrap.style.cursor='grabbing';
+      function onmove(ev) {
+        vpx = origVx + (ev.clientX - startX);
+        vpy = origVy + (ev.clientY - startY);
+        apply();
+      }
+      function onup() {
+        svgWrap.style.cursor='default';
+        document.removeEventListener('mousemove', onmove);
+        document.removeEventListener('mouseup', onup);
+      }
+      document.addEventListener('mousemove', onmove);
+      document.addEventListener('mouseup', onup);
+      e.preventDefault();
+    }
+  }
+});
+
+document.addEventListener('mousemove', function(e) {
+  if(conn) {
+    var cp = toCanvas(e.clientX, e.clientY);
+    conn.x=cp.x; conn.y=cp.y;
+    conn.el.setAttribute('x2',cp.x); conn.el.setAttribute('y2',cp.y);
+  }
+  if(drag && drag.type==='node') {
+    var n = findNode(drag.id);
+    if(n) {
+      var cp = toCanvas(e.clientX, e.clientY);
+      n.x = cp.x - drag.offX;
+      n.y = cp.y - drag.offY;
+      n.el.setAttribute('transform','translate('+n.x+','+n.y+')');
+      edges.forEach(function(ed){ if(ed.fid===n.id||ed.tid===n.id) updateEdge(ed); });
+    }
+  }
+});
+
+document.addEventListener('mouseup', function(e) {
+  if(conn) {
+    var targetPort = e.target.getAttribute ? e.target.getAttribute('data-port') : null;
+    var targetNid = e.target.getAttribute ? parseInt(e.target.getAttribute('data-nid')) : null;
+    if(targetPort!==null && targetNid!==null && targetNid!==conn.nid) {
+      var dup = edges.some(function(ed){ return ed.fid===conn.nid&&ed.tid===targetNid&&ed.fp===conn.pid&&ed.tp===targetPort; });
+      if(!dup) { var newEdge=edge(conn.nid,conn.pid,targetNid,targetPort,''); if(newEdge) selEdge(newEdge.id); }
+    }
+    conn.el.remove(); conn=null;
+  }
+  if(drag) {
+    var n = findNode(drag.id);
+    if(n) n.el.style.cursor='grab';
+    drag=null;
+  }
+});
+
+svgWrap.addEventListener('dblclick', function(e) {
+  var nid2 = e.target.getAttribute ? parseInt(e.target.getAttribute('data-nid')) : null;
+  if(nid2) { popNode(nid2, e.clientX, e.clientY); return; }
+  var eid2 = e.target.getAttribute ? parseInt(e.target.getAttribute('data-eid')) : null;
+  if(eid2) { popEdge(eid2, e.clientX, e.clientY); }
+});
+
+svgWrap.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  var r = svgWrap.getBoundingClientRect();
+  var mx = e.clientX - r.left, my = e.clientY - r.top;
+  var f = e.deltaY<0 ? 1.12 : 0.89;
+  var ns = Math.min(Math.max(vz*f, 0.1), 5);
+  vpx = mx - (mx-vpx)*(ns/vz);
+  vpy = my - (my-vpy)*(ns/vz);
+  vz = ns;
+  apply();
+}, {passive:false});
+
+document.addEventListener('keydown', function(e) {
+  if(pop.t) return;
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='Escape') desel();
+  if(e.key==='Delete'||e.key==='Backspace') {
+    if(sel.type==='node') {
+      var n=findNode(sel.id);
+      if(n){ edges.filter(function(ed){return ed.fid===n.id||ed.tid===n.id;}).forEach(rmEdge); n.el.remove(); nodes.splice(nodes.indexOf(n),1); }
+      desel();
+    }
+    if(sel.type==='edge') {
+      var ed=findEdge(sel.id);
+      if(ed){ rmEdge(ed); setSt('Line removed'); }
+      desel();
+    }
+  }
+  if((e.key==='e'||e.key==='E')&&sel.type==='edge') {
+    var ed=findEdge(sel.id);
+    if(ed){ var r2=ed.lblG.getBoundingClientRect(); popEdge(ed.id, r2.left+60, r2.top); }
+  }
+});
+
+// ── Popup ─────────────────────────────────────────────────────
+var popDiv = document.createElement('div');
+popDiv.style.cssText='display:none;position:fixed;z-index:400;background:#181b23;border:1px solid #2a2e3d;border-radius:10px;padding:14px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+popDiv.innerHTML=
+  '<input id="popInp" type="text" placeholder="Label…" style="width:100%;padding:8px 11px;background:#1e2130;border:1px solid #2a2e3d;border-radius:6px;color:#e2e4ee;font-family:Satoshi,sans-serif;font-size:13px;outline:none;margin-bottom:10px" />'+
+  '<div id="popColorRow" style="display:flex;gap:6px;margin-bottom:10px"></div>'+
+  '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+    '<button id="popSave" style="flex:1;min-width:60px;padding:7px 0;border-radius:6px;border:1px solid #2a2e3d;background:#1e2130;color:#e2e4ee;font-family:Satoshi,sans-serif;font-size:12px;font-weight:500;cursor:pointer">Save</button>'+
+    '<button id="popDel2" style="flex:1;min-width:60px;padding:7px 0;border-radius:6px;border:1px solid #2a2e3d;background:#1e2130;color:#e06060;font-family:Satoshi,sans-serif;font-size:12px;font-weight:500;cursor:pointer">Delete</button>'+
+    '<button id="popClose" style="flex:1;min-width:60px;padding:7px 0;border-radius:6px;border:1px solid #2a2e3d;background:#1e2130;color:#e2e4ee;font-family:Satoshi,sans-serif;font-size:12px;font-weight:500;cursor:pointer">Cancel</button>'+
+  '</div>';
+document.body.appendChild(popDiv);
+
+var popInp = document.getElementById('popInp');
+var popColorRow = document.getElementById('popColorRow');
+COLORS.forEach(function(c){
+  var dot=document.createElement('div');
+  dot.style.cssText='width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;background:'+c.bd+';transition:border-color 120ms,transform 120ms';
+  dot.dataset.k=c.k;
+  dot.addEventListener('click',function(){
+    popColorRow.querySelectorAll('div').forEach(function(d){ d.style.borderColor='transparent'; });
+    dot.style.borderColor='#fff';
+  });
+  popColorRow.appendChild(dot);
+});
+
+function popNode(id, cx, cy) {
+  var n=findNode(id); if(!n) return;
+  pop={t:'node',d:n};
+  popInp.value=n.label;
+  popInp.placeholder='Node label';
+  popColorRow.style.display='flex';
+  popColorRow.querySelectorAll('div').forEach(function(d){ d.style.borderColor=d.dataset.k===n.ck?'#fff':'transparent'; });
+  popDiv.style.left=Math.min(cx,window.innerWidth-250)+'px';
+  popDiv.style.top=Math.min(cy,window.innerHeight-230)+'px';
+  popDiv.style.display='block';
+  popInp.focus(); popInp.select();
+}
+
+function popEdge(id, cx, cy) {
+  var e=findEdge(id); if(!e) return;
+  pop={t:'edge',d:e};
+  popInp.value=e.label;
+  popInp.placeholder='Line label';
+  popColorRow.style.display='none';
+  popDiv.style.left=Math.min(cx,window.innerWidth-250)+'px';
+  popDiv.style.top=Math.min(cy,window.innerHeight-180)+'px';
+  popDiv.style.display='block';
+  popInp.focus(); popInp.select();
+}
+
+document.getElementById('popSave').onclick=function(){
+  var lbl=popInp.value.trim();
+  if(pop.t==='node') {
+    var n=pop.d;
+    n.label=lbl||'Node';
+    n.el.querySelector('text').textContent=n.label;
+    var dot=[...popColorRow.querySelectorAll('div')].find(function(d){return d.style.borderColor==='rgb(255, 255, 255)';});
+    if(dot) {
+      var c=CM[dot.dataset.k];
+      if(c){ n.ck=c.k; n.bd=c.bd;
+        n.el.querySelector('rect').setAttribute('fill',c.bg);
+        n.el.querySelector('rect').setAttribute('stroke',c.bd);
+        n.el.querySelectorAll('circle').forEach(function(circ){ circ.setAttribute('stroke',c.bd); });
+        edges.filter(function(ed){return ed.fid===n.id;}).forEach(function(ed){ ed.bd=c.bd; ed.el.setAttribute('stroke',c.bd); updateEdge(ed); });
+      }
+    }
+  } else if(pop.t==='edge') {
+    pop.d.label=lbl; updateEdge(pop.d);
+  }
+  popDiv.style.display='none'; pop={t:null,d:null};
+};
+
+document.getElementById('popDel2').onclick=function(){
+  if(pop.t==='node') {
+    var n=pop.d;
+    edges.filter(function(ed){return ed.fid===n.id||ed.tid===n.id;}).forEach(rmEdge);
+    n.el.remove(); nodes.splice(nodes.indexOf(n),1);
+  } else if(pop.t==='edge') { rmEdge(pop.d); }
+  popDiv.style.display='none'; pop={t:null,d:null}; desel();
+};
+
+document.getElementById('popClose').onclick=function(){
+  popDiv.style.display='none';
+  if(pop.t==='node') popColorRow.style.display='flex';
+  pop={t:null,d:null};
+};
+
+popInp.onkeydown=function(e){
+  if(e.key==='Enter') document.getElementById('popSave').onclick();
+  if(e.key==='Escape') { popDiv.style.display='none'; pop={t:null,d:null}; }
+};
+
+// ── Toolbar ───────────────────────────────────────────────────
+document.getElementById('btnAdd').onclick=function(){
+  var r=svgWrap.getBoundingClientRect();
+  var cp=toCanvas(r.left+r.width/2, r.top+r.height/2);
+  var n=node(cp.x-75, cp.y-28, 'New Node');
+  selNode(n.id); popNode(n.id, r.left+r.width/2, r.top+r.height/2);
+};
+
+document.getElementById('btnDel').onclick=function(){
+  if(sel.type==='node'){ var n=findNode(sel.id); if(n){ edges.filter(function(ed){return ed.fid===n.id||ed.tid===n.id;}).forEach(rmEdge); n.el.remove(); nodes.splice(nodes.indexOf(n),1); } desel(); }
+  if(sel.type==='edge'){ var ed=findEdge(sel.id); if(ed){ rmEdge(ed); setSt('Line removed'); } desel(); }
+};
+
+document.getElementById('btnLabel').onclick=function(){
+  if(sel.type==='edge'){ var ed=findEdge(sel.id); if(ed){ var r2=ed.lblG.getBoundingClientRect(); popEdge(ed.id,r2.left+60,r2.top); } }
+};
+document.getElementById('btnLabel').disabled=true;
+
+document.getElementById('btnClear').onclick=function(){
+  [...edges].forEach(rmEdge); desel(); setSt('All lines cleared');
+};
+
+document.getElementById('btnFit').onclick=fitView;
+
+function fitView(){
+  if(!nodes.length) return;
+  var minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+  nodes.forEach(function(n){ minx=Math.min(minx,n.x); miny=Math.min(miny,n.y); maxx=Math.max(maxx,n.x+n.w); maxy=Math.max(maxy,n.y+n.h); });
+  var r=svgWrap.getBoundingClientRect();
+  var fw=maxx-minx+160, fh=maxy-miny+160;
+  vz=Math.min(r.width/fw, r.height/fh, 2.0);
+  vpx=(r.width-fw*vz)/2-minx*vz+80*vz;
+  vpy=(r.height-fh*vz)/2-miny*vz+80*vz;
+  apply();
+}
+
+function setSt(msg){ document.getElementById('toolbar2').textContent=msg; }
+
+// ── Init ─────────────────────────────────────────────────────
+var W=5000, H=5000;
+svg.setAttribute('width',W); svg.setAttribute('height',H);
+
+// Initial nodes — centered in the canvas
+var cx=1500, cy=400;
+var sp=node(cx+370,cy-360,'Self / Prompt','teal');
+var um=node(cx+630,cy-360,'User Model /\nPre-cognition','purple');
+var inp=node(cx+10,cy-350,'Input','default');
+var clr=node(cx-90,cy-250,'Clarification','default');
+var cmp=node(cx+210,cy-200,'Comprehension','default');
+var itm=node(cx+610,cy-200,'Internal /\nEmotional','amber');
+var cur=node(cx+410,cy-200,'Curiosity','purple');
+var und=node(cx+190,cy-80,'Understanding','teal');
+var rsp=node(cx+470,cy-80,'Response','green');
+var rsc=node(cx+490,cy-90,'Research','default');
+var dec=node(cx+330,cy+50,'Decision','default');
+var act=node(cx+130,cy+50,'Action','default');
+var det=node(cx+330,cy+150,'Determination','teal');
+var crt=node(cx+450,cy+40,'Creative /\nIngenuity','purple');
+var out=node(cx+330,cy+250,'Output','default');
+
+function e(a,b,lbl){
+  var fp='b',tp='t';
+  if(Math.abs(a.x-b.x)>Math.abs(a.y-b.y)){ fp=a.x<b.x?'r':'l'; tp=a.x<b.x?'l':'r'; }
+  return edge(a.id,fp,b.id,tp,lbl||'');
+}
+
+e(inp,cmp,'');
+e(cmp,clr,'Not');
+e(clr,inp,'');
+e(sp,um,'');
+e(sp,inp,'');
+e(um,cmp,'');
+e(um,rsp,'');
+e(cmp,itm,'');
+e(cmp,cur,'');
+e(cmp,und,'');
+e(und,dec,'');
+e(rsp,dec,'');
+e(rsc,cur,'');
+e(rsc,crt,'');
+e(crt,dec,'');
+e(dec,det,'');
+e(dec,act,'');
+e(det,out,'');
+e(act,out,'');
+e(crt,out,'');
+
+setTimeout(fitView,200);
+
+})();
+</script>
+</body>
+</html>
