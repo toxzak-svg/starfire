@@ -110,7 +110,7 @@ EXISTING (already in Starfire)          NEW MICRO-MODELS (to build)
           ┌────────────────────┼────────────────────┐
           ▼                    ▼                    ▼
   ┌───────────────┐   ┌─────────────────┐   ┌──────────────┐
-  │  WORLDMODEL   │   │    INGEOUTY     │   │    VOICE     │
+  │  WORLDMODEL   │   │    IngEnuity     │   │    VOICE     │
   │  (entities,   │   │   (pattern      │   │  (generate   │
   │   state)      │   │    tracking,    │   │   response)  │
   └───────┬───────┘   │   repetition,   │   └──────▲───────┘
@@ -177,7 +177,7 @@ Quanot output feeds INTO:
 
 ---
 
-# PART 4: INGEOUTY — THE CORE ENGINE
+# PART 4: IngEnuity — THE CORE ENGINE
 
 IngEnuity is the PRIMARY pattern recognition engine. Everything else builds on it.
 

@@ -55,7 +55,7 @@ CORE PATTERN TRACKER (shared base)
 ├── Surprise prediction (closed loop: predict → score → self-calibrate)
 └── Self-calibration loop
     │
-    ├── INGEOUTY HEAD → logical surprises, topic drift, pattern recognition
+    ├── IngEnuity HEAD → logical surprises, topic drift, pattern recognition
     │
     └── CURIOSITY HEAD → "what should WE (partner+me) understand but don't?"
                           shared gap detection — "neither of us has considered X"
