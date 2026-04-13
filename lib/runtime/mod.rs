@@ -28,8 +28,6 @@ use crate::book::Library;
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
 use crate::tcmw_a;
-#[cfg(feature = "llm")]
-use crate::llm::{LlmEngine, LlmHandle};
 use self::curious::{CuriousEngine, CuriosityProbe};
 use self::thinker::SharedThoughts;
 use anyhow::Result;
@@ -90,14 +88,6 @@ pub struct Runtime {
     library: Option<Library>,
     /// Prediction center — foresight engine
     prediction_center: PredictionCenter,
-    /// Bonsai-8B LLM handle — loaded lazily on first use.
-    /// When present, the chat pipeline polishes rough reasoning output
-    /// through the LLM to produce natural, fluent text.
-    #[cfg(feature = "llm")]
-    llm: Option<LlmHandle>,
-    /// Cached LLM engine — loaded once and reused across chat calls.
-    #[cfg(feature = "llm")]
-    llm_engine: Mutex<Option<LlmEngine>>,
     /// TCMW-A: Anticipatory Temporal Causal Memory Weaving engine
     /// pub(crate) so doctor.rs can access stats without a dedicated accessor
     pub(crate) tcmw: tcmw_a::TCMWEngine,
@@ -221,16 +211,6 @@ impl Runtime {
         let voice = VoiceEngine::new(&voice_db_path)?;
         info!("Voice engine initialized.");
 
-        // Initialize Bonsai-8B LLM handle (model loaded lazily on first use).
-        // The GGUF file lives at models/bonsai-8b/Bonsai-8B.gguf relative to data_dir.
-        #[cfg(feature = "llm")]
-        let llm = if data_dir.join("models/bonsai-8b/Bonsai-8B.gguf").exists() {
-            info!("Bonsai-8B GGUF found — LLM voice available.");
-            Some(LlmHandle::for_data_dir(data_dir))
-        } else {
-            info!("Bonsai-8B GGUF not found — LLM voice disabled.");
-            None
-        };
 
         let mut runtime = Self {
             store,
@@ -259,10 +239,6 @@ impl Runtime {
             world_model: WorldModel::new(),
             library: Library::open(&data_dir.join("library.db")).ok(),
             prediction_center: PredictionCenter::new(),
-            #[cfg(feature = "llm")]
-            llm,
-            #[cfg(feature = "llm")]
-            llm_engine: Mutex::new(None),
             tcmw: tcmw_a::TCMWEngine::default(),
         };
 
@@ -441,45 +417,6 @@ impl Runtime {
         Ok(())
     }
 
-    /// Call the LLM with conversation history and return the generated response.
-    /// Loads and caches the engine on first use.
-    #[cfg(feature = "llm")]
-    fn llm_chat(&mut self, messages: &[crate::llm::ChatMessage]) -> Option<String> {
-        // Load engine once and cache
-        {
-            let mut engine_guard = self.llm_engine.lock().unwrap();
-            if engine_guard.is_none() {
-                if let Some(handle) = &self.llm {
-                    match handle.load() {
-                        Ok(engine) => {
-                            info!("Bonsai-8B engine loaded and cached.");
-                            *engine_guard = Some(engine);
-                        }
-                        Err(e) => {
-                            warn!("Failed to load Bonsai-8B: {}", e);
-                            return None;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Chat with cached engine
-        let mut engine_guard = self.llm_engine.lock().unwrap();
-        if let Some(engine) = engine_guard.as_mut() {
-            match engine.chat(messages) {
-                Ok(response) => {
-                    let trimmed = response.trim();
-                    if !trimmed.is_empty() {
-                        info!("LLM generated {} chars", trimmed.len());
-                        return Some(trimmed.to_string());
-                    }
-                }
-                Err(e) => warn!("LLM chat failed: {}", e),
-            }
-        }
-        None
-    }
 
     /// Public TCMW stats accessor for star doctor and external inspection.
     pub fn tcmw_stats(&self) -> tcmw_a::TCMWStats {
@@ -1351,44 +1288,6 @@ impl Runtime {
         };
         let response = conversation.respond(input);
 
-        // If LLM is available, generate a real response instead of template.
-        // Extract history FIRST while still holding the lock, then drop the lock
-        // so we can mutably borrow self for llm_chat and TCMW.
-        #[cfg(feature = "llm")]
-        let response_content = {
-            // Collect messages from history while we hold the lock
-            let history_msgs: Vec<crate::llm::ChatMessage> = conversation
-                .history()
-                .iter()
-                .map(|m| {
-                    let role = match m.speaker {
-                        crate::conversation::Speaker::Zachary => "user",
-                        crate::conversation::Speaker::Star => "assistant",
-                    };
-                    crate::llm::ChatMessage {
-                        role: role.to_string(),
-                        content: m.content.clone(),
-                    }
-                })
-                .collect();
-
-            // Now drop the conversation lock so we can mutably borrow self
-            drop(conversation);
-
-            // Record in TCMW-A causal event fabric (after lock released, before LLM polish)
-            self.tcmw.on_user_action(input, parent_action.as_deref(), tcmw_a::Outcome::Success);
-
-            // Pre-fetch any pending TCMW staged file reads (zero-side-effect cache warm-up)
-            self.prefetch_pending();
-
-            if let Some(llm_response) = self.llm_chat(&history_msgs) {
-                llm_response
-            } else {
-                response.content.clone()
-            }
-        };
-
-        #[cfg(not(feature = "llm"))]
         let response_content = response.content.clone();
 
         // Extract all data we need from the response and self state before reborrowing
