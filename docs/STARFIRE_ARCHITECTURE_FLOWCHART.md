@@ -1653,6 +1653,102 @@ Metacog
 
 # PART 5: THE FULL FLOWCHART
 
+## Alternative Mental Model — Hand-Drawn Reference
+
+This diagram was drawn by Zach. It maps the architecture to a human-readable mental model.
+Keep this alongside the formal spec.
+
+```
+                            User model / Precognition
+                                (IngEnuity LONG-range head
+                                 + Affect head + Curiosity)
+                                      │
+                         ┌────────────┼────────────┐
+                         │            │            │
+                         ▼            ▼            ▼
+                    ┌──────────┐  ┌──────────┐  ┌──────────┐
+                    │ Response │  │understanding│   (to Self/world)
+                    └────┬─────┘  └────┬─────┘
+                         │             │
+                         │      ┌──────┴───────┐
+                         │      │              │
+                         │      ▼              ▼
+                         │  ┌──────────────────────────────┐
+                         │  │       Comprehension          │
+                         │  │  (Conversation + IngEnuity)  │
+                         │  └──────────────┬───────────────┘
+                         │                 │
+                         │      ┌──────────┴──────────┐
+                         │      │                     │
+                         │      ▼ "confident"         ▼ "Not"
+                         │  ┌──────────┐       ┌─────────────┐
+                         │  │understanding│     │Clarification│
+                         │  └─────┬──────┘       └──────┬──────┘
+                         │        │                     │
+                         │        │ (loop back)         │ (loop back)
+                         │        │                     │
+                         │        └──────────┬──────────┘
+                         │                   ▼
+                         │             ┌──────────┐
+                         │             │  Input   │
+                         │             └──────────┘
+                         │
+                         ▼ "emotional"
+                    ┌─────────────┐
+                    │determination│ ◄── bidirectional ──► ┌──────────────┐
+                    │  (Affect)   │     "confident"      │ understanding│
+                    └──────┬──────┘                       └──────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼                         ▼
+        ┌──────────┐              ┌──────────┐
+        │  Action  │              │ Research │
+        │(Reasoning)│             │(Reasoning)│
+        └────┬─────┘              └────┬─────┘
+             │                         │
+             └────────────┬────────────┘
+                          ▼
+                   ┌──────────────┐
+                   │    Output    │
+                   └──────┬───────┘
+                          │
+                          ▼
+              ┌─────────────────────┐
+              │  Creative / Ingenuity │
+              │ (Quanot + Creativity │
+              │  + IngEnuity novelty)│
+              └──────────┬───────────┘
+                         │
+                         └──────────────► (feedback to determination)
+
+KEY:
+  "confident" / "Not"         → Metacog state: Knows vs Suspects/None
+  "emotional"                  → Affect: valence + arousal signals
+  Creative → determination loop → Quanot oscillation affects affect state
+  User model → understanding    → IngEnuity's model of partner informs comprehension
+```
+
+**Module mapping:**
+
+| Hand-drawn label | Starfire module(s) |
+|-----------------|-------------------|
+| User model / Precognition | IngEnuity (Precognition head) + Affect + Curiosity |
+| Self/world model | WorldModel |
+| Comprehension | Conversation + IngEnuity core |
+| understanding (↑confident) | Metacog: Knows state |
+| Clarification (↓Not) | Metacog: Suspects/None + Reasoning asking questions |
+| determination ↔ understanding | Affect (valence/arousal) coupled with IngEnuity confidence |
+| Action / Research | Reasoning (KG ops + synthesis) |
+| Creative / Ingenuity | Quanot + Creativity + IngEnuity novelty detection |
+| Output | Voice |
+
+**Notable feedback loops captured:**
+- `Output → Creative/Ingenuity → determination` — Quanot oscillation feeds back into affect state
+- `understanding ↔ determination` — pattern recognition confidence and emotional state are coupled
+- `Clarification → Input → Comprehension` — iterative clarification loop
+
+---
+
 ```
 ═══════════════════════════════════════════════════════════════════════════════
 EXISTING MODULES (already in Starfire)          NEW MICRO-MODELS (to build)
