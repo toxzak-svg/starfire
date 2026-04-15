@@ -2025,7 +2025,16 @@ impl Runtime {
     /// If a probe fires and produces a result, it becomes an autonomous thought.
     /// Returns the probe if one fired, so the caller can display it.
     pub fn maybe_fire_curiosity(&mut self) -> Option<CuriosityProbe> {
-        let probe = self.curious.maybe_fire()?;
+        // Generate fresh predictions for the idle loop — uses recent conversation state
+        let context = crate::prediction::ConversationContext::new(
+            "idle_probe".to_string(),
+            0,
+            Some(self.quanot.get_state().to_vec()),
+            Some(self.get_consciousness_proxy()),
+        );
+        let predictions = self.prediction_center.generate(&context);
+
+        let probe = self.curious.maybe_fire_with_predictions(Some(&predictions))?;
 
         // Run the probe through the reasoning engine
         let result = self.curious.run_probe(&probe);

@@ -25,6 +25,19 @@ pub enum CuriosityDepth {
     Deep,
 }
 
+impl CuriosityDepth {
+    /// Infer depth from prediction horizon.
+    pub fn from_horizon(horizon: usize) -> Self {
+        if horizon <= 1 {
+            CuriosityDepth::Surface
+        } else if horizon <= 3 {
+            CuriosityDepth::Medium
+        } else {
+            CuriosityDepth::Deep
+        }
+    }
+}
+
 /// A curiosity probe — a question Starfire is actively exploring.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CuriosityProbe {

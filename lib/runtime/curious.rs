@@ -10,6 +10,7 @@
 
 use crate::persistence::{Memory, ReasoningGap, MemoryDomain};
 use crate::reasoning::ReasoningEngine;
+use crate::prediction::Prediction;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tracing::{info, debug, warn};
@@ -54,6 +55,91 @@ impl CuriousEngine {
     pub fn note_activity(&self) {
         let mut last = self.last_activity.lock().unwrap();
         *last = Instant::now();
+    }
+
+    /// Fire a curiosity probe — prediction-driven if predictions provided, otherwise gap-driven.
+    pub fn maybe_fire_with_predictions(&self, predictions: Option<&[Prediction]>) -> Option<CuriosityProbe> {
+        // If we have predictions, try prediction-driven probe first
+        if let Some(preds) = predictions {
+            if !preds.is_empty() {
+                if let Some(probe) = self.generate_prediction_probe(preds) {
+                    let mut last = self.last_probe.lock().unwrap();
+                    *last = Some(Instant::now());
+                    return Some(probe);
+                }
+            }
+        }
+        // Fall back to gap-driven probe
+        self.maybe_fire()
+    }
+
+    /// Generate a probe from prediction center output.
+    fn generate_prediction_probe(&self, predictions: &[Prediction]) -> Option<CuriosityProbe> {
+        use crate::prediction::{PredictionStatus, PredictedCore};
+
+        // Pick highest-confidence pending prediction
+        let pred = predictions
+            .iter()
+            .filter(|p| p.status == PredictionStatus::Pending && !p.is_expired())
+            .max_by(|a, b| {
+                let score_a = a.confidence / (a.horizon as f64 + 1.0);
+                let score_b = b.confidence / (b.horizon as f64 + 1.0);
+                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+            })?;
+
+        let (question, conclusion, topic) = match &pred.core {
+            PredictedCore::Question { question_text, topic_domain, .. } => {
+                (
+                    format!("What is '{}' and why does it matter?", topic_domain),
+                    format!("Curious about '{}'", topic_domain),
+                    topic_domain.clone(),
+                )
+            }
+            PredictedCore::Conclusion { topic, predicate, .. } => {
+                (
+                    format!("If '{}' then what follows from '{}'?", topic, predicate),
+                    format!("Exploring '{}'", predicate),
+                    topic.clone(),
+                )
+            }
+            PredictedCore::NecessaryTruth { entity_id, property, .. } => {
+                (
+                    format!("Why does '{}' have the property '{}'?", entity_id, property),
+                    format!("Necessary: {} has {}", entity_id, property),
+                    entity_id.clone(),
+                )
+            }
+            PredictedCore::StateChange { entity_id, property, to, .. } => {
+                (
+                    format!("If '{}' becomes '{}', what changes about '{}'?", property, to, entity_id),
+                    format!("State shift: {} -> {}", property, to),
+                    entity_id.clone(),
+                )
+            }
+            PredictedCore::BeliefChange { to_confidence, .. } => {
+                (
+                    format!("What would shift this belief toward {:.0}% confidence?", to_confidence * 100.0),
+                    format!("Belief target: {:.0}%", to_confidence * 100.0),
+                    "belief".to_string(),
+                )
+            }
+        };
+
+        let gap = ReasoningGap {
+            event_id: 0, // No backing event
+            query: question.clone(),
+            conclusion,
+            topic: topic.clone(),
+            salience: pred.confidence,
+            emotional_valence: 0.0,
+            why_it_matters: format!("Predicted this would be important (horizon {})", pred.horizon),
+        };
+
+        Some(CuriosityProbe {
+            gap,
+            question,
+            topic,
+        })
     }
 
     /// Check if we should fire a curiosity probe.

@@ -9,6 +9,7 @@ pub mod connection;
 
 use crate::Store;
 use crate::reasoning::ReasoningEngine;
+use crate::prediction::{Prediction, PredictionKind, PredictionStatus};
 pub use probes::{CuriosityProbe, CuriosityDepth, ProbeStatus};
 use connection::ConnectionFinder;
 use std::sync::{Arc, Mutex};
@@ -51,6 +52,101 @@ impl CuriousEngine {
     /// Note that activity occurred (reset idle timer).
     pub fn note_activity(&mut self) {
         self.last_probe_time = None;
+    }
+
+    /// Fire a curiosity probe if conditions are met — called by the idle loop.
+    /// Uses predictions if available, otherwise falls back to the probe strategy.
+    pub fn maybe_fire(&mut self, predictions: Option<&[Prediction]>) -> Option<CuriosityProbe> {
+        if !self.should_fire() {
+            return None;
+        }
+
+        // Priority 1: prediction-driven probe
+        if let Some(preds) = predictions {
+            if let Some(probe) = self.generate_prediction_driven_probe(preds) {
+                self.last_probe_time = Some(crate::now_timestamp());
+                return Some(probe);
+            }
+        }
+
+        // Priority 2: strategy-driven probe
+        let probe = self.generate_probe()?;
+        self.last_probe_time = Some(crate::now_timestamp());
+        Some(probe)
+    }
+
+    /// Generate a curiosity probe driven by prediction center output.
+    /// Picks the highest-priority pending prediction and turns it into a probe question.
+    fn generate_prediction_driven_probe(&self, predictions: &[Prediction]) -> Option<CuriosityProbe> {
+        // Find the best pending prediction: highest confidence, shortest horizon
+        let pred = predictions
+            .iter()
+            .filter(|p| p.status == PredictionStatus::Pending && !p.is_expired())
+            .max_by(|a, b| {
+                // Score: confidence weighted by inverse horizon (prefer near-term)
+                let score_a = a.confidence / (a.horizon as f64 + 1.0);
+                let score_b = b.confidence / (b.horizon as f64 + 1.0);
+                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+            })?;
+
+        let (question, topic) = self.prediction_to_question(pred)?;
+
+        Some(CuriosityProbe {
+            id: uuid_simple(),
+            question,
+            topic,
+            why_interested: format!("I predicted this would matter: {}", &pred.description[..pred.description.len().min(80)]),
+            related_concepts: self.prediction_entities(pred),
+            depth: CuriosityDepth::from_horizon(pred.horizon),
+            status: ProbeStatus::Probing,
+            tentative_answer: None,
+            confidence: crate::persistence::BeliefState::Suspects,
+            discovered_at: crate::now_timestamp(),
+        })
+    }
+
+    /// Extract a question + topic from a prediction.
+    fn prediction_to_question(&self, pred: &Prediction) -> Option<(String, String)> {
+        match &pred.core {
+            crate::prediction::PredictedCore::Question { question_text, topic_domain, .. } => {
+                Some((question_text.clone(), topic_domain.clone()))
+            }
+            crate::prediction::PredictedCore::Conclusion { topic, predicate, .. } => {
+                Some((
+                    format!("What does '{}' tell us about {}?", predicate, topic),
+                    topic.clone(),
+                ))
+            }
+            crate::prediction::PredictedCore::NecessaryTruth { entity_id, property, .. } => {
+                Some((
+                    format!("Why must {} have property '{}'?", entity_id, property),
+                    entity_id.clone(),
+                ))
+            }
+            crate::prediction::PredictedCore::BeliefChange { belief_id: _, to_confidence, .. } => {
+                Some((
+                    format!("What would shift this belief toward {:.0}% confidence?", to_confidence * 100.0),
+                    "belief_change".to_string(),
+                ))
+            }
+            crate::prediction::PredictedCore::StateChange { entity_id, property, to, .. } => {
+                Some((
+                    format!("If {} becomes {}, what follows from that?", entity_id, to),
+                    format!("{}:{}", entity_id, property),
+                ))
+            }
+        }
+    }
+
+    /// Extract entity/topic strings from a prediction for related_concepts.
+    fn prediction_entities(&self, pred: &Prediction) -> Vec<String> {
+        match &pred.core {
+            crate::prediction::PredictedCore::Question { topic_domain, .. } => vec![topic_domain.clone()],
+            crate::prediction::PredictedCore::Conclusion { topic, .. } => vec![topic.clone()],
+            crate::prediction::PredictedCore::NecessaryTruth { entity_id, .. } => vec![entity_id.clone()],
+            crate::prediction::PredictedCore::StateChange { entity_id, .. } => vec![entity_id.clone()],
+            crate::prediction::PredictedCore::BeliefChange { .. } => Vec::new(),
+        }
     }
 
     /// Check if a new probe should be fired (based on idle time).
@@ -163,8 +259,22 @@ impl CuriousEngine {
         if let Some(probe) = self.active_probes.iter_mut().find(|p| p.id == probe_id) {
             probe.status = ProbeStatus::Answered;
             probe.tentative_answer = Some(answer.to_string());
-            if let Some(idx) = self.active_probes.iter().position(|p| p.id == probe_id) {
-                let _ = self.active_probes.remove(idx);
+        }
+        self.active_probes.retain(|p| p.id != probe_id);
+        if let Some(completed) = self.active_probes.iter().find(|p| p.id == probe_id).cloned() {
+            self.completed_probes.push(completed);
+        }
+        self.active_probes.retain(|p| p.id != probe_id);
+    }
+
+    /// Move a completed or abandoned probe to the archive.
+    pub fn archive_probe(&mut self, probe_id: &str) {
+        if let Some(pos) = self.active_probes.iter().position(|p| p.id == probe_id) {
+            let probe = self.active_probes.remove(pos);
+            if probe.status == ProbeStatus::Answered {
+                self.completed_probes.push(probe);
+            } else {
+                self.abandoned_probes.push(probe);
             }
         }
     }
