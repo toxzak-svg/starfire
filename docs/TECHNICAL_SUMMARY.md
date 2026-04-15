@@ -1,9 +1,11 @@
 # Starfire Technical Summary — 2026-04-15
 
 ## Project Overview
-**Starfire** is a modular AGI architecture written in Rust. Its goal: emergent desktop intelligence without cloud dependencies or GPU requirements. Currently Ships: a 20.6MB binary with 30+ modules and 266 passing tests.
+**Starfire** is a modular AGI architecture written in Rust. Its goal: emergent desktop intelligence without cloud dependencies or GPU requirements.
 
-> ⚠️ **Critical Status**: Bonsai-8B was removed from Starfire on 2026-04-13. Starfire currently has NO local inference. It can reason, plan, remember, and observe — but cannot generate unassisted text without an external LLM API.
+**What Ships Today:** 20.6MB binary with 30+ modules, 266 unit tests, Railway-deployed web UI. Reasoning, planning, memory, curiosity — all work. Text generation — **BROKEN** (see below).
+
+> ⚠️ **Critical Status**: Bonsai-8B was removed from Starfire on 2026-04-13. Starfire has **NO local inference** and cannot generate unassisted text without an external LLM API. This is the central problem to solve.
 
 ---
 
@@ -34,22 +36,17 @@
 - `voice/`: VoiceEngine — shapes tone/style of expression
 
 ### Support Modules
-- `book/`: Library system — hierarchical knowledge storage (book → chapter → section)
+- `book/`: Library system — hierarchical knowledge storage
 - `crumbs/`: CrumbStore — distributed memory (local + GitHub Gist sync)
 - `quanot/`: Reservoir computing (128 input dim, 1000 reservoir)
 - `world_model/`: Grounded perceptual representation
 - `goals/`: Hierarchical goal memory
-- `research/`: Cached research entries
-- `fact_lock/`: Atomic fact updates
-- `multimodal/`: Cross-modal binding
 - `capabilities/`: FileReader, WebReader, WebSearcher (file system + HTTP)
-- `input_normalizer/`: Text preprocessing
-- `math/`: Mathematical reasoning
-- `asru/`: **[NEW]** Anticipatory Self-Reshaping Update — regime controller (see below)
+- `asru/`: **[NEW]** Anticipatory Self-Reshaping Update — regime controller
 
-### Streaming/Inference
-- `llm-server/`: HTTP server wrapping GGUF models (orphaned — hardcoded to Bonsai-8B)
-- `http_llm.rs` (runtime/): HTTP client for LLM polish — needs external server
+### Text Generation
+- `http_llm.rs`: HTTP client calling external LLM server at `LLM_ENDPOINT` env var (default `127.0.0.1:1234`)
+- **No local generation** — requires external API endpoint
 
 ---
 
@@ -59,7 +56,7 @@
 - ✅ Persistent memory across sessions (SQLite)
 - ✅ TCMW-A anticipation engine with OAFL feedback loop
 - ✅ Curiosity engine (background thinker)
-- ✅ Quanot reservoir (untested at scale)
+- ✅ Quanot reservoir
 - ✅ File reading, web search, web fetch
 - ✅ 266 unit tests passing
 - ✅ Railway-deployed web UI
@@ -67,115 +64,141 @@
 
 ---
 
-## What's Broken / Missing
+## The Core Problem
 
-### 🔴 Critical
-1. **No LLM backend** — Bonsai removed, no replacement configured. Starfire cannot generate text without external API.
-2. **llm-server** is orphaned — references Bonsai, vocab_size=151669, quantized_llama loader. Won't work with other models without rewrite.
-3. **http_llm client** is wired but points to nothing — no LLM server URL configured.
+**Starfire cannot generate text without an external LLM API.**
 
-### 🟡 Medium
-4. **ASRU** is built but not integrated into Runtime — it's a standalone regime controller with no hook into the actual pipeline.
-5. **Grammar_corrector** (intention_cnn) is broken — ONNX binary corrupted via Telegram transfer. vocab_size mismatch (76 vs 78).
-6. **car_small** (840K SSM) is in lib/ but unused — could serve as lightweight generation head.
-7. **No streaming** — generate_impl blocks, all tokens returned at end.
+The original design used Bonsai-8B via Candle (local GGUF inference). That was removed on 2026-04-13. The current options to restore text generation:
 
-### 🟢 Nice to Have
-8. Book library needs populating (empty at startup)
-9. Quanot reservoir not benchmarked against real tasks
-10. Multimodal module is stub (no image/audio processing)
+### Option A: Keep External API (Status Quo)
+Use `http_llm.rs` to call Groq/Minimax/OpenAI. This works today but:
+- Requires API key + internet
+- Cloud dependency
+- Cost per token
 
----
+### Option B: ASRU + HGSEL (The Claimed Path)
+Replace LLM dependency with a regime-routed sparse expert system:
+- ASRU (Anticipatory Self-Reshaping Update): regime controller
+- HGSEL (Hash-based Sparse Expert Layer): 64 tiny FFN experts, k=2 active per token
+- ASRU controls HGSEL via **salt parameter** — changes expert routing without retraining
 
-## ASRU — Anticipatory Self-Reshaping Update (NEW)
-
-### Purpose
-Regime-based plasticity controller to replace the need for a large general-purpose LLM. Instead of one big model that does everything, ASRU manages a pool of small specialist modules, routing between them based on detected reasoning regime.
-
-### Key Idea
-Two-timescale architecture:
-- **Fast loop** (per forward pass): Update plasticity mask M_t based on Lyapunov exponents + RQA metrics
-- **Slow loop** (episodic, ~100 steps): Basin analysis + symmetry breaking — reassign column roles in anticipation of next regime
-
-### Modules
-- `regime_classifier.rs`: Heuristic classifier → 6 metastable reasoning modes (SymbolicManipulation, EmotionalResonance, CausalReasoning, AssociativeRecall, Exploratory, SteadyState)
-- `fragility.rs`: LyapunovEstimator (Wolf nearest-neighbor), RQAAnalyzer, AttractorFragility composite AFI
-- `regime_memory.rs`: RegimeTracker — dwell time stats (Welford), transition matrix, MFPT, escape rates
-- `engine.rs`: ASRUEngine — fast/slow loop orchestration, column role pool, viscosity field
-
-### Metastable Framework (per Ton0Fun, 2026-04-15)
-- **Attractor = metastable reasoning mode** — not asymptotic fixed point
-- Regime fragility = escape rate + inverse mean dwell time
-- AFI = w_λ·AFI_λ + w_μ·AFI_μ + w_κ·AFI_κ
-  - AFI_λ: 1/(τ_mix+1), τ_mix = -1/ln(|λ₂|)
-  - AFI_μ: Gini coefficient of stationary distribution
-  - AFI_κ: normalized condition number of transition graph
-- Formal: `AFI_MARKOV_CHAIN_FORMAL.md` + experimental pipeline `metastable_discovery_pipeline.ipynb`
-
-### What's Missing to Be a Generator Replacement
-ASRU as built is a **controller** — it classifies regimes and manages plasticity. It has no generation head. To replace an LLM:
-1. **Add a generation head** — a small neural text generator docked into ASRU
-2. **car_small** (840K params) is the natural candidate — already in lib/
-3. Each column in the pool would specialize by regime
-
-### Integration Status
-- ASRU compiles ✅ (11 warnings)
-- Not wired into Runtime — zero calls from runtime/mod.rs
-- No actual trajectory data feeding into FragilityEstimator
-- Regime classifier is heuristic rules, not learned on actual activation data
+**This is the stated goal. Here is the reality:**
 
 ---
 
-## Key Dependencies
-- Rust 1.75+
-- SQLite (rusqlite)
-- candle-core + candle-transformers (for GGUF parsing — but Bonsai is gone)
-- tokio (async HTTP)
-- serde + serde_json
-- tracing + tracing-subscriber
+## Ambition vs. Bandwidth Gap
+
+### What ASRU+HGSEL Claims to Do
+> Replace an LLM with a regime-routed sparse expert pool — no training, no cloud, fully local, runs on any laptop
+
+### What's Actually Built
+| Component | Status |
+|---|---|
+| ASRU regime classifier | Built (Rust) — heuristic rules, not learned |
+| ASRU fragility estimator | Built (Rust) — Lyapunov + RQA metrics |
+| ASRU engine (two-timescale loop) | Built (Rust) — compiles, not integrated |
+| HGSEL expert bank (Python) | Built — 64-expert sparse dispatch |
+| HGSEL multi-hash router (Python) | Built — deterministic, no learned params |
+| car_small SSM (840K) | In lib/ — DonkeyCar control, not text gen |
+| Regime → salt mapping | Designed on paper — unvalidated |
+| Regime classifier (learned) | Not built |
+| Generation head | Not built |
+
+### Specific Gaps to Close
+
+**1. No generation head exists.**
+car_small (840K params) is in the codebase but is a DonkeyCar controller, not a text generator. It needs either:
+- Retraining on text data for text generation, OR
+- Swapping in a pretrained SSM (Mamba-130M, RWKV-100M)
+
+**2. HGSEL is Python, not Rust.**
+The HGSEL expert bank + multi-hash router exists in `hgsel-moe/` as a Python package. A Rust port would be needed to integrate into starfire's binary — or the architecture needs a Python subprocess bridge.
+
+**3. ASRU is not wired into Runtime.**
+ASRU engine compiles but has zero calls from Runtime. The regime classifier + fragility estimator + salt computation pipeline is untested in the actual system.
+
+**4. Salt → expert routing mapping is unvalidated.**
+The theoretical mapping from AFI + regime + viscosity → salt → expert activation exists on paper only. No experiments confirm this produces coherent text.
+
+**5. TCMW-A predictions not wired to ASRU.**
+TCMW-A predicts user actions (regime transitions) before they happen. This anticipatory signal should feed into ASRU's slow loop — but the wiring doesn't exist yet.
 
 ---
 
-## Deployment
-- **Binary**: `star.exe` ~20.6MB (release)
-- **Web UI**: Railway-deployed
-- **Data**: SQLite at `~/.openclaw/star.db` + `training.db`
-- **Local only**: No external API required (currently — but also no generation)
+## What ASRU+HGSEL Would Require to Build
+
+### Phase 1: Generation Head (1-2 weeks)
+- Integrate pretrained SSM as text generator (RWKV-100M or Mamba-130M via candle)
+- OR retrain car_small on text generation data
+- Validate: can it produce coherent short responses?
+
+### Phase 2: HGSEL Integration (2-3 weeks)
+- Port HGSEL expert bank to Rust, OR
+- Build Python subprocess bridge for HGSEL + call from starfire runtime
+- Integrate regime classifier output → HGSEL salt parameter
+- Validate: salt changes produce different expert activation patterns?
+
+### Phase 3: ASRU Wired into Pipeline (1-2 weeks)
+- Hook ASRU engine into Runtime.chat()
+- Connect TCMW-A predictions → ASRU anticipatory signals
+- Validate: regime shifts produce measurable plasticity changes
+
+### Phase 4: End-to-End (1 week)
+- Full generation: input → regime classify → AFI → salt → HGSEL → output
+- Benchmark against external API quality
+- Tune salt mapping via hill climbing
+
+**Estimated total: 6-8 weeks for a first working prototype.**
 
 ---
 
-## Research Evolver
-- Separate project: `projects/research_evolver/`
-- Gen 0-4 complete (Blackbox DB)
-- Gen 5 ready to run
-- Tracks ReasoningGenome + QuantGenome evolution
-- Novelty search + stage-aware selection + lineage reporting
-- Kaggle notebook ready for GPU training
+## Realistic Expectations
+
+**What a first ASRU+HGSEL prototype can achieve:**
+- Short responses (1-3 sentences) in narrow domains
+- Regime-appropriate tone (emotional vs. analytical vs. factual)
+- No cloud, no GPU, CPU-only
+- Quality will be below a 1B-parameter transformer initially
+
+**What it won't achieve (without sustained iteration):**
+- General-purpose conversation at ChatGPT level
+- Long coherent documents
+- Complex reasoning requiring multi-hop chains
+
+**The value proposition:** Fully local, no API cost, regime-adaptive routing. If the quality target is "useful on laptop without internet" — achievable. If the target is "beat GPT-4" — not realistic on this timeline.
 
 ---
 
-## circuit_lm
-- Separate project: `projects/circuit_lm/`
-- Hybrid architecture: circuit (fast/structural) + neural corrector (slow/precise)
-- GGUF parser working ✅ (qwen2.5-1.5B, 339 tensors parsed)
-- Training pipeline built (scripts/convert_starfire_data.py, train_starfire.py)
-- 1548 personal examples converted
+## Orphaned Modules (Cleaned Up 2026-04-15)
+
+**Removed:**
+- `grammar_corrector/` — broken ONNX, no LLM feature
+- `fabqrc/` — archived (FABQ-RC was dead end)
+- `llm-server/` — Bonsai-only, orphaned
+- `models/bonsai-8b/` — Bonsai deleted
+- `http_llm` feature — removed from default (wasn't wired)
+
+**Still needs investigation:**
+- `reflex/` — unknown if used
+- `research/` — unknown if used
+- `multimodal/` — stub, no implementation
+- `fact_lock/` — unknown if used
+- `input_normalizer/` — large but possibly legacy
 
 ---
 
-## To-Do Priority (Honest Assessment)
-1. **[CRITICAL]** Configure actual LLM backend — Groq/Minimax HTTP or local model
-2. **[HIGH]** Wire ASRU into Runtime OR remove it (it's bloat until integrated)
-3. **[HIGH]** Add generation head to ASRU if we want it to replace LLM
-4. **[MEDIUM]** Fix/replace grammar_corrector (ONNX broken)
-5. **[MEDIUM]** Integrate car_small as ASRU generation head
-6. **[LOW]** Book library population
-7. **[LOW]** Quanot benchmarking
+## Key Contacts
+- **Zachary Maronek (Zach)**: GitHub toxzak-svg
+- **Starfire**: `projects/starfire/` (Rust, Apache 2.0)
+- **HGSEL-MoE**: `projects/hgsel-moe/` (Python, Apache 2.0)
+- **Research Evolver**: `projects/research_evolver/` (Python)
 
 ---
 
-## Contacts
-- GitHub: toxzak-svg / toxzak
-- Main dev: Zachary Maronek (Zach)
-- This project: Starfire at `projects/starfire/`
-- Evolver: research_evolver at `projects/research_evolver/`
+## Open Questions for Third Party
+
+1. Which pretrained SSM to use as generation head — RWKV-100M or Mamba-130M?
+2. Build HGSEL as Rust module or Python subprocess bridge?
+3. What's the quality bar for "success"? (Short responses? Full conversation?)
+4. Timeline expectations — 6-8 weeks is the honest estimate. Is that acceptable?
+5. Who owns training/fine-tuning of the generation head?

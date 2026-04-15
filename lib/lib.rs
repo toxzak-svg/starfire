@@ -43,6 +43,7 @@ pub mod personality;
 pub mod reflex;
 pub mod book;
 pub mod http_llm;
+pub mod asru;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

@@ -11,12 +11,13 @@ path = "lib.rs"
 
 [features]
 default = ["http_llm"]
-llm = ["candle-core", "candle-transformers", "tokenizers"]
+llm = ["candle-core", "candle-nn", "candle-transformers", "tokenizers"]
 # http_llm feature enables remote HTTP llm-server polish path (ureq is always available)
 http_llm = []
 
 [dependencies]
 candle-core = { path = "../../candle/candle-core", optional = true }
+candle-nn = { path = "../../candle/candle-nn", optional = true }
 candle-transformers = { path = "../../candle/candle-transformers", optional = true }
 tokenizers = { version = "0.22.0", default-features = false, optional = true }
 safetensors.workspace = true
