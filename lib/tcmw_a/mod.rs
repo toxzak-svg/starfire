@@ -18,10 +18,10 @@ pub use pse::{StagedAction, StagedActionType};
 
 use serde::{Deserialize, Serialize};
 use cef::{CEF, CausalEvent};
-use bge::{BGE, SessionArchetype, ArchetypeId};
+use bge::BGE;
 use aih::AIH;
-use pse::{PSE, StagedStatus};
-use oafl::{OAFL, PredictionDelta, MatchQuality};
+use pse::PSE;
+use oafl::{OAFL, MatchQuality};
 
 /// TCMW-A configuration
 #[derive(Debug, Clone)]
@@ -30,7 +30,6 @@ pub struct TCMWConfig {
     pub cone_depth: usize,
     pub staging_threshold: f64,
     pub half_life_secs: i64,
-    pub max_archetypes: usize,
     pub k_means_k: usize,
     pub ema_alpha: f64,
     pub revision_threshold: f64,
@@ -43,7 +42,6 @@ impl Default for TCMWConfig {
             cone_depth: 5,
             staging_threshold: 0.5,
             half_life_secs: 3600,
-            max_archetypes: 20,
             k_means_k: 5,
             ema_alpha: 0.3,
             revision_threshold: 0.4,
@@ -75,7 +73,7 @@ impl TCMWEngine {
         Self {
             config: config.clone(),
             cef: CEF::new(config.half_life_secs),
-            bge: BGE::new(config.max_archetypes, config.k_means_k),
+            bge: BGE::new(config.k_means_k),
             aih: AIH::new(config.lambda, config.cone_depth),
             pse: PSE::new(config.staging_threshold),
             oafl: OAFL::new(config.ema_alpha, config.revision_threshold),

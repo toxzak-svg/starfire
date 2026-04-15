@@ -2,7 +2,6 @@
 
 use crate::book::{Density, LibraryManifest, Section};
 use super::db::Connection;
-use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
 /// Result of a semantic sweep across the library.

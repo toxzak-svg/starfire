@@ -18,6 +18,7 @@ pub struct BeliefRevisionEngine {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct StateSnapshot {
     /// Reservoir state at this point
     state: Vec<f64>,
@@ -276,6 +277,7 @@ impl BeliefRevisionEngine {
 
 /// A known conclusion template
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct KnownConclusion {
     predicate: String,
     pre_state: Vec<f64>,

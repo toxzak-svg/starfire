@@ -8,7 +8,6 @@
 //! without expensive full-state simulation (~14× speedup).
 
 use serde::{Deserialize, Serialize};
-use rand::Rng;
 use super::aih::IntentPrediction;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

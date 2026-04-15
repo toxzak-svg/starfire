@@ -45,12 +45,12 @@ pub struct BasinNode {
     /// Confidence in current value
     pub confidence: f64,
     /// Possible alternative values (other basins)
-    pub alternatives: Vec<AlternativeBasin>,
+    pub(crate) alternatives: Vec<AlternativeBasin>,
 }
 
 /// An alternative basin for a node
 #[derive(Debug, Clone)]
-struct AlternativeBasin {
+pub(crate) struct AlternativeBasin {
     pub value: PropertyValue,
     pub energy: f64, // Lower energy = more stable
 }
@@ -95,6 +95,7 @@ pub enum ConstraintType {
 
 /// Current basin state
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct BasinState {
     /// Current assignment of nodes to basins
     assignments: HashMap<NodeId, PropertyValue>,
@@ -231,7 +232,7 @@ impl BasinEngine {
 
     /// Compute where a basin wants to move under constraint pressure
     fn compute_pressure(&self, node_id: &NodeId) -> Option<BasinPressure> {
-        let node = self.nodes.get(node_id)?;
+        let _node = self.nodes.get(node_id)?;
 
         // Sum constraint forces
         let mut force_direction: HashMap<String, f64> = HashMap::new();

@@ -579,24 +579,6 @@ impl ReasoningEngine {
         }
     }
 
-    /// Check if a query looks like a math expression.
-    /// Check if a query looks like a math expression.
-    fn looks_like_math(&self, query: &str) -> bool {
-        let lower = query.to_lowercase();
-        let has_number = query.chars().any(|c| c.is_ascii_digit());
-        let has_operator = query.contains('+')
-            || query.contains('-')
-            || query.contains('*')
-            || query.contains('/')
-            || query.contains('^')
-            || query.contains('=');
-        let has_word_math = lower.contains("divided by")
-            || lower.contains("times")
-            || lower.contains("multiplied by")
-            || lower.contains("plus")
-            || lower.contains("minus");
-        (has_number && has_operator) || has_word_math
-    }
 
     /// Handle a math query.
     fn answer_math(&mut self, query: &str) -> ReasoningResult {

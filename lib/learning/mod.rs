@@ -332,7 +332,7 @@ impl FewShotLearner {
     ///
     /// Strategy: score each hypothesis by how well it applies to the given domain
     /// (via predicted_applies_to), plus a bonus if it was formed from examples in that domain.
-    pub fn predict(&self, input: &str, domain: &str) -> Option<(String, f64)> {
+    pub fn predict(&self, _input: &str, domain: &str) -> Option<(String, f64)> {
         if self.hypotheses.is_empty() {
             return None;
         }

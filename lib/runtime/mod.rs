@@ -26,7 +26,7 @@ use crate::voice::VoiceEngine;
 use crate::quanot::{Quanot, QuanotResult};
 use crate::book::Library;
 use crate::world_model::WorldModel;
-use crate::prediction::{PredictionCenter, ConversationContext};
+use crate::prediction::PredictionCenter;
 use crate::tcmw_a;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use self::thinker::SharedThoughts;
@@ -385,7 +385,7 @@ impl Runtime {
     /// Load autonomy state from previous sessions (goals, aspirations, curiosity probes).
     /// This allows Star to remember what it was working on across restarts.
     fn load_autonomy_state(&mut self) -> Result<()> {
-        use crate::persistence::AutonomyState;
+        
 
         // Load aspirations (long-term goals)
         let aspirations = self.store.get_aspirations()?;
@@ -518,7 +518,7 @@ impl Runtime {
             if let Some(ref library) = self.library {
                 let mut report = String::new();
                 report.push_str(&format!("Book Library — {} books\n\n", library.manifest().books.len()));
-                for (book_id, header) in &library.manifest().books {
+                for (_book_id, header) in &library.manifest().books {
                     report.push_str(&format!(
                         "• {} (prefix: {})\n  {} sections, {} tokens\n",
                         header.name,
@@ -597,7 +597,7 @@ impl Runtime {
         if input.trim().starts_with("/goal ") {
             let goal_content = input.trim().strip_prefix("/goal ").unwrap().trim();
             if !goal_content.is_empty() {
-                let id = self.store.save_autonomy_state(
+                let _id = self.store.save_autonomy_state(
                     crate::persistence::Store::AUTONOMY_GOAL,
                     goal_content,
                     0.7,
@@ -611,7 +611,7 @@ impl Runtime {
         if input.trim().starts_with("/aspiration ") {
             let asp_content = input.trim().strip_prefix("/aspiration ").unwrap().trim();
             if !asp_content.is_empty() {
-                let id = self.store.save_autonomy_state(
+                let _id = self.store.save_autonomy_state(
                     crate::persistence::Store::AUTONOMY_ASPIRATION,
                     asp_content,
                     0.9,
@@ -1279,7 +1279,7 @@ impl Runtime {
 
         // Get the conversation response first (updates history, intent classification)
         // Extract previous user message for TCMW causal chain BEFORE respond() modifies history
-        let parent_action = {
+        let _parent_action = {
             let history = conversation.history();
             history.iter()
                 .rev()

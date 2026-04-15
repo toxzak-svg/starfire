@@ -404,7 +404,7 @@ impl InputNormalizer {
         }
 
         // Handle common leet multi-char patterns
-        let text_lower = result.to_lowercase();
+        let _text_lower = result.to_lowercase();
 
         // Common word-level leet patterns
         let word_leet = [
@@ -607,7 +607,7 @@ impl InputNormalizer {
         }
 
         // Check if it contains adjacent keyboard proximity errors
-        let qwerty_proximity = [
+        let _qwerty_proximity = [
             ("q", "wa"), ("w", "qe"), ("e", "wr"), ("r", "et"), ("t", "ry"),
             ("y", "tu"), ("u", "yi"), ("i", "uo"), ("o", "ip"), ("p", "o"),
             ("a", "qs"), ("s", "ad"), ("d", "sf"), ("f", "dg"), ("g", "fh"),

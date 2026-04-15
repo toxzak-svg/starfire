@@ -5,7 +5,6 @@
 //! We predict which gaps have the highest "gravity" (tension × relevance × fertility).
 
 use super::types::*;
-use std::collections::HashMap;
 
 /// Question Gravity Engine — predicts which curiosity questions will fire
 pub struct QuestionGravityEngine {

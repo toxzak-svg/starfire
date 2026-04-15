@@ -23,6 +23,7 @@ pub struct MetaPredictionEngine {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct EngineHistory {
     pub engine: PredictionEngine,
     /// Cumulative accuracy
@@ -44,7 +45,7 @@ impl EngineHistory {
     }
 
     fn update(&mut self, correct: bool) {
-        let n = self.recent_outcomes.len() as f64;
+        let _n = self.recent_outcomes.len() as f64;
         
         // Update accuracy with exponential moving average
         self.accuracy = self.accuracy * 0.9 + if correct { 0.1 } else { 0.0 };
@@ -77,6 +78,7 @@ impl EngineHistory {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct KindHistory {
     pub kind: PredictionKind,
     pub accuracy: f64,
@@ -286,7 +288,7 @@ impl MetaPredictionEngine {
     }
 
     /// Record the outcome of a prediction for future calibration
-    pub fn record_outcome(&mut self, prediction_id: PredictionId, outcome: PredictionOutcome) {
+    pub fn record_outcome(&mut self, _prediction_id: PredictionId, outcome: PredictionOutcome) {
         // Map outcome to correctness
         let correct = match outcome {
             PredictionOutcome::Confirmed => true,

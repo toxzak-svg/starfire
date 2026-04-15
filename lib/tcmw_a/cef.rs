@@ -9,7 +9,6 @@
 //! Emits events to the BGE on each record.
 
 use serde::{Deserialize, Serialize};
-use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {

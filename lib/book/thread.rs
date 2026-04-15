@@ -13,7 +13,7 @@ use rusqlite::OptionalExtension;
 /// anywhere (database, message, file) and used to restore the focus later.
 pub fn stash(
     conn: &Connection,
-    manifest: &LibraryManifest,
+    _manifest: &LibraryManifest,
     focus_id: &FocusId,
 ) -> anyhow::Result<String> {
     // Get focus from DB

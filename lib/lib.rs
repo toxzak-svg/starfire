@@ -40,6 +40,7 @@ pub mod prediction;
 pub mod tcmw_a;
 pub mod input_normalizer;
 pub mod personality;
+pub mod reflex;
 pub mod book;
 pub mod http_llm;
 

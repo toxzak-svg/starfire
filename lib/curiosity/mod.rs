@@ -9,7 +9,7 @@ pub mod connection;
 
 use crate::Store;
 use crate::reasoning::ReasoningEngine;
-use crate::prediction::{Prediction, PredictionKind, PredictionStatus};
+use crate::prediction::{Prediction, PredictionStatus};
 pub use probes::{CuriosityProbe, CuriosityDepth, ProbeStatus};
 use connection::ConnectionFinder;
 use std::sync::{Arc, Mutex};
@@ -315,7 +315,7 @@ impl CuriousEngine {
 
     /// Load active curiosity probes from the database (cross-session persistence).
     pub fn load_persisted_probes(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::persistence::AutonomyState;
+        
         
         let probes = self.store.get_active_curiosity_probes()?;
         

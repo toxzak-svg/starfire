@@ -88,7 +88,7 @@ impl CuriousEngine {
             })?;
 
         let (question, conclusion, topic) = match &pred.core {
-            PredictedCore::Question { question_text, topic_domain, .. } => {
+            PredictedCore::Question { question_text: _, topic_domain, .. } => {
                 (
                     format!("What is '{}' and why does it matter?", topic_domain),
                     format!("Curious about '{}'", topic_domain),
@@ -393,7 +393,7 @@ impl CuriousEngine {
     /// Load active curiosity probes from the database (cross-session persistence).
     /// This allows Star to remember what she was curious about across restarts.
     pub fn load_persisted_probes(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::persistence::AutonomyState;
+        
         
         let probes = self.store.get_active_curiosity_probes()?;
         

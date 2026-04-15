@@ -430,9 +430,6 @@ impl ChapterId {
     fn new() -> Self {
         Self(format!("chap_{}", random::<u64>()))
     }
-    fn as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -464,21 +461,17 @@ impl FocusId {
 struct Bookmark {
     book: String,
     chapter: String,
-    section: String,
-    subsection: Option<String>,
 }
 
 impl Bookmark {
     fn parse(s: &str) -> anyhow::Result<Self> {
         let parts: Vec<&str> = s.split(':').collect();
-        if parts.len() < 3 {
-            anyhow::bail!("Bookmark must have at least 3 parts: book:chapter:section");
+        if parts.len() < 2 {
+            anyhow::bail!("Bookmark must have at least 2 parts: book:chapter");
         }
         Ok(Self {
             book: parts[0].to_string(),
             chapter: parts[1].to_string(),
-            section: parts[2].to_string(),
-            subsection: parts.get(3).map(|s| s.to_string()),
         })
     }
 }
@@ -507,17 +500,13 @@ mod tests {
 
     #[test]
     fn test_bookmark_parse() {
-        let b = Bookmark::parse("railway:env:secrets").unwrap();
+        let b = Bookmark::parse("railway:env").unwrap();
         assert_eq!(b.book, "railway");
         assert_eq!(b.chapter, "env");
-        assert_eq!(b.section, "secrets");
-        assert!(b.subsection.is_none());
 
         let b2 = Bookmark::parse("medical:symptoms:fever:child").unwrap();
         assert_eq!(b2.book, "medical");
         assert_eq!(b2.chapter, "symptoms");
-        assert_eq!(b2.section, "fever");
-        assert_eq!(b2.subsection, Some("child".to_string()));
     }
 
     #[test]

@@ -13,7 +13,7 @@ use rusqlite::OptionalExtension;
 /// 4. Return loaded sections + whether truncation occurred
 pub fn page_in(
     conn: &Connection,
-    manifest: &LibraryManifest,
+    _manifest: &LibraryManifest,
     focus_id: &FocusId,
     max_tokens: usize,
 ) -> anyhow::Result<Vec<Section>> {

@@ -114,18 +114,17 @@ pub struct BGE {
     action_history: Vec<String>,
     action_counts: HashMap<String, usize>,
     k_means_k: usize,
-    max_archetypes: usize,
     needs_revision: bool,
 }
 
 impl Default for BGE {
     fn default() -> Self {
-        Self::new(20, 5)
+        Self::new(5)
     }
 }
 
 impl BGE {
-    pub fn new(max_archetypes: usize, k_means_k: usize) -> Self {
+    pub fn new(k_means_k: usize) -> Self {
         Self {
             archetypes: Vec::new(),
             current_archetype: None,
@@ -133,7 +132,6 @@ impl BGE {
             action_history: Vec::new(),
             action_counts: HashMap::new(),
             k_means_k,
-            max_archetypes,
             needs_revision: false,
         }
     }
@@ -313,7 +311,7 @@ mod tests {
 
     #[test]
     fn test_archetype_detection() {
-        let mut bge = BGE::new(10, 3);
+        let mut bge = BGE::new(3);
         let events = vec![];
         bge.observe_action("open VSCode", &events);
         bge.observe_action("write code", &events);
@@ -331,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_archetype_frequency_increment() {
-        let mut bge = BGE::new(10, 3);
+        let mut bge = BGE::new(3);
         let events = vec![];
 
         bge.observe_action("action1", &events);
