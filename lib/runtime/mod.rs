@@ -830,6 +830,41 @@ impl Runtime {
         // Update emotional/cognitive state from Zachary's input
         self.cognition.update_emotion_from_input(input);
 
+        // Handle "im X" utterances — classify via grammar_corrector before KG reasoning
+        #[cfg(feature = "llm")]
+        {
+            use crate::grammar_corrector::{ImIntentionClassifier, ImIntention, is_im_utterance, extract_name};
+            if is_im_utterance(input) {
+                let clf = ImIntentionClassifier::new().unwrap();
+                let (intention, _conf) = clf.classify(input);
+                match intention {
+                    ImIntention::Name => {
+                        if let Some(name) = extract_name(input) {
+                            self.identity.name = Some(name.clone());
+                            let _ = self.store.insert_memory(&crate::persistence::Memory {
+                                id: None,
+                                content: format!("Zachary's name is {}", name),
+                                domain: crate::persistence::MemoryDomain::Identity,
+                                confidence: Some(0.95),
+                                importance: 0.8,
+                                formed_at: crate::now_timestamp(),
+                                access_count: 0,
+                                decay_rate: 0.01,
+                                last_accessed: None,
+                                provenance: Some("im_utterance".to_string()),
+                                summary: None,
+                            });
+                            return Ok(format!("Zachary — got it. {} is a good name.", name));
+                        }
+                    },
+                    ImIntention::Apology => {
+                        return Ok("No need to apologize, Zachary. I'm not going anywhere.".to_string());
+                    },
+                    _ => {}
+                }
+            }
+        }
+
         // Handle metacognitive questions BEFORE normal processing
         // Priority: direct questions first, then emotional signals
         let lower = input.to_lowercase().trim().to_string();

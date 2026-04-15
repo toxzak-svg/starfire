@@ -44,6 +44,8 @@ pub mod reflex;
 pub mod book;
 pub mod http_llm;
 pub mod asru;
+#[cfg(feature = "llm")]
+pub mod grammar_corrector;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
