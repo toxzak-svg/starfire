@@ -3,6 +3,7 @@
 //! Uses world model state to predict future states and outcomes.
 
 use super::{EntityId, PropertyValue, WorldModel};
+use crate::reasoning::knowledge::RelationType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

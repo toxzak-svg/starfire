@@ -1,6 +1,6 @@
 //! Curriculum Scheduler — Schedules learning sessions
 
-use super::{CurriculumEngine, GapId, LearningTask};
+use super::{CurriculumEngine, GapId, KnowledgeGap, LearningTask, GapType};
 
 /// Scheduling policy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
