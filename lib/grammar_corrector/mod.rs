@@ -74,6 +74,9 @@ impl ImIntentionClassifier {
         if is_im_utterance(text) {
             if text.to_lowercase().contains("sorry") || text.to_lowercase().contains("apologize") {
                 (ImIntention::Apology, 0.8)
+            } else if text.to_lowercase().contains("going to") {
+                // "I'm going to [verb]" — future-oriented intent
+                (ImIntention::Intent, 0.85)
             } else if text.to_lowercase().starts_with("i'm ") || text.to_lowercase().starts_with("im ") {
                 if let Some(name) = extract_name(text) {
                     if name.chars().all(|c| c.is_lowercase() || c == '\'') {
@@ -81,6 +84,8 @@ impl ImIntentionClassifier {
                     }
                 }
                 (ImIntention::State, 0.7)
+            } else if text.to_lowercase().starts_with("i will ") || text.to_lowercase().starts_with("i'll ") {
+                (ImIntention::Intent, 0.8)
             } else {
                 (ImIntention::Other, 0.5)
             }
