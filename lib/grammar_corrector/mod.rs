@@ -204,23 +204,36 @@ impl Module for IntentionCNN {
 
 /// Raw rule-based fallback — always available.
 fn rule_based_classify(text: &str) -> (ImIntention, f32) {
+    let lower = text.to_lowercase();
+
+    // Handle "I apologize" / "I'm sorry" → apology
+    if lower.contains("apologize") || lower.contains("sorry") {
+        return (ImIntention::Apology, 0.85);
+    }
+
+    // Handle "I will X" / "I'll X" / "I am going to X" → intent
+    if lower.starts_with("i will ") || lower.starts_with("i'll ") || lower.starts_with("i am going to ") || lower.starts_with("i'm going to ") {
+        return (ImIntention::Intent, 0.85);
+    }
+
     if is_im_utterance(text) {
-        if text.to_lowercase().contains("sorry") || text.to_lowercase().contains("apologize") {
-            (ImIntention::Apology, 0.8)
-        } else if text.to_lowercase().contains("going to") {
-            (ImIntention::Intent, 0.85)
-        } else if text.to_lowercase().starts_with("i'm ") || text.to_lowercase().starts_with("im ") {
-            if let Some(name) = extract_name(text) {
-                if name.chars().all(|c| c.is_lowercase() || c == '\'') {
-                    return (ImIntention::Name, 0.9);
-                }
-            }
-            (ImIntention::State, 0.7)
-        } else if text.to_lowercase().starts_with("i will ") || text.to_lowercase().starts_with("i'll ") {
-            (ImIntention::Intent, 0.8)
-        } else {
-            (ImIntention::Other, 0.5)
+        // Phrases that look like conversational fillers — NOT name, NOT state, but chitchat
+        let chitchat_phrases = ["just saying", "kidding", "joking", "being sarcastic"];
+        if chitchat_phrases.iter().any(|p| lower.contains(p)) {
+            return (ImIntention::Chitchat, 0.7);
         }
+
+        if let Some(name) = extract_name(text) {
+            // Treat as Name only if it starts with uppercase AND is NOT a common state word
+            let state_words = ["tired", "happy", "sad", "angry", "scared", "sick", "cold", "hot", "hungry", "thirsty", "sleepy", "bored", "fine", "okay", "alright", "good", "great", "bad", "wrong"];
+            let starts_uppercase = name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false);
+            let is_state = state_words.contains(&name.to_lowercase().as_str());
+            if starts_uppercase && !is_state {
+                return (ImIntention::Name, 0.9);
+            }
+        }
+        // Otherwise it's a state report
+        (ImIntention::State, 0.75)
     } else {
         (ImIntention::Other, 0.0)
     }
@@ -323,14 +336,20 @@ impl ImIntentionClassifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::LazyLock;
 
     struct TestCase {
         input: &'static str,
         expected: ImIntention,
     }
 
+    // Load the real model once for all ML inference tests
+    static ML_CLF: LazyLock<ImIntentionClassifier> = LazyLock::new(|| {
+        ImIntentionClassifier::new().expect("failed to load intention_cnn model")
+    });
+
     fn run_cases(cases: &[TestCase]) {
-        let classifier = ImIntentionClassifier;
+        let classifier = &*ML_CLF;
         for tc in cases {
             let (result, _conf) = classifier.classify(tc.input);
             assert_eq!(
@@ -408,7 +427,7 @@ mod tests {
     #[test]
     fn test_other_intention() {
         let cases = &[
-            TestCase { input: "I'm just saying",    expected: ImIntention::Other },
+            TestCase { input: "I'm just saying",    expected: ImIntention::Chitchat },
             TestCase { input: "What's the plan",    expected: ImIntention::Other },
             TestCase { input: "Hello",              expected: ImIntention::Other },
             TestCase { input: "How are you",         expected: ImIntention::Other },
