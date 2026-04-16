@@ -161,9 +161,10 @@ impl IntentionCNN {
             .broadcast_add(&beta.reshape(ts)?)
     }
 
-    /// Max-pool then squeeze the last two dims to (batch, channels).
+    /// Max-pool over seq dim (dim=2), then remove the singleton pooled dim.
+    /// Input: (batch, channels, seq_len) → Output: (batch, channels)
     fn maxpool_squeeze(&self, x: &Tensor) -> CResult<Tensor> {
-        x.max_keepdim(2)?.squeeze(2)?.squeeze(1)
+        x.max_keepdim(2)?.squeeze(2)
     }
 }
 
