@@ -874,6 +874,14 @@ impl Runtime {
                         if lower.contains("sad") || lower.contains("down") || lower.contains("upset") {
                             return Ok("I'm here. What's going on?".to_string());
                         }
+                        // Fallback: extract and acknowledge the raw state
+                        let raw_state = extract_name(state_text)
+                            .map(|s| s.to_lowercase())
+                            .unwrap_or_else(|| state_text.to_lowercase());
+                        return Ok(format!(
+                            "That makes sense. Being {} is hard. I'm here if you want to talk about it.",
+                            raw_state
+                        ));
                     },
                     _ => {}
                 }
