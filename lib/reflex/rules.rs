@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_ego_domain() {
         let layer = ReflexLayer::new();
-        let result = layer.process("what is your name?");
+        let result = layer.process("what's your name?");
         assert_eq!(result.domain, Domain::Ego);
     }
 
