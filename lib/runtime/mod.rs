@@ -31,7 +31,7 @@ use crate::tcmw_a;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use self::thinker::SharedThoughts;
 use anyhow::Result;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::path::Path;
 use tracing::{info, warn};
 
@@ -834,9 +834,12 @@ impl Runtime {
         #[cfg(feature = "llm")]
         {
             use crate::grammar_corrector::{ImIntentionClassifier, ImIntention, is_im_utterance, extract_name};
+            // Load once on first use; stays warm for all subsequent calls
+            static CLSF: LazyLock<ImIntentionClassifier> = LazyLock::new(|| {
+                ImIntentionClassifier::new().expect("failed to load ImIntentionClassifier")
+            });
             if is_im_utterance(input) {
-                let clf = ImIntentionClassifier::new().unwrap();
-                let (intention, _conf) = clf.classify(input);
+                let (intention, _conf) = CLSF.classify(input);
                 match intention {
                     ImIntention::Name => {
                         if let Some(name) = extract_name(input) {
