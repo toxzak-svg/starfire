@@ -89,3 +89,104 @@ impl ImIntentionClassifier {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestCase {
+        input: &'static str,
+        expected: ImIntention,
+    }
+
+    fn run_cases(cases: &[TestCase]) {
+        let classifier = ImIntentionClassifier;
+        for tc in cases {
+            let (result, _conf) = classifier.classify(tc.input);
+            assert_eq!(
+                result, tc.expected,
+                "classify(\"{}\") = {:?}, expected {:?}",
+                tc.input, result, tc.expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_im_utterance_detection() {
+        assert!(is_im_utterance("I'm John"));
+        assert!(is_im_utterance("im going"));
+        assert!(is_im_utterance("I am tired"));
+        assert!(!is_im_utterance("Hello there"));
+        assert!(!is_im_utterance("What's up"));
+    }
+
+    #[test]
+    fn test_name_extraction() {
+        assert_eq!(extract_name("I'm John"), Some("John".to_string()));
+        assert_eq!(extract_name("I'm Sarah O'Connor"), Some("Sarah".to_string()));
+        assert_eq!(extract_name("i'm alex"), Some("alex".to_string()));
+        assert_eq!(extract_name("I am tired"), Some("tired".to_string()));
+        assert_eq!(extract_name("Hello"), None);
+    }
+
+    #[test]
+    fn test_name_intention() {
+        // Python model: capitalized name after "I'm" → Name
+        let cases = &[
+            TestCase { input: "I'm John",         expected: ImIntention::Name },
+            TestCase { input: "I'm Sarah",        expected: ImIntention::Name },
+            TestCase { input: "I'm O'Connor",     expected: ImIntention::Name },
+            TestCase { input: "Im Zachary",       expected: ImIntention::Name },
+            TestCase { input: "i am Max",          expected: ImIntention::Name },
+        ];
+        run_cases(cases);
+    }
+
+    #[test]
+    fn test_state_intention() {
+        // Python model: lowercase adjective/verb after "I'm" → State
+        let cases = &[
+            TestCase { input: "I'm tired",        expected: ImIntention::State },
+            TestCase { input: "I'm happy",         expected: ImIntention::State },
+            TestCase { input: "I'm frustrated",    expected: ImIntention::State },
+            TestCase { input: "I'm hungry",        expected: ImIntention::State },
+            TestCase { input: "Im cold",           expected: ImIntention::State },
+            TestCase { input: "i am busy",         expected: ImIntention::State },
+        ];
+        run_cases(cases);
+    }
+
+    #[test]
+    fn test_apology_intention() {
+        // Python model: contains "sorry" or "apologize" → Apology
+        let cases = &[
+            TestCase { input: "I'm sorry",         expected: ImIntention::Apology },
+            TestCase { input: "I'm so sorry",      expected: ImIntention::Apology },
+            TestCase { input: "I apologize",       expected: ImIntention::Apology },
+            TestCase { input: "I'm sorry about that", expected: ImIntention::Apology },
+        ];
+        run_cases(cases);
+    }
+
+    #[test]
+    fn test_intent_intention() {
+        // Python model: "I'm going to [verb]" or future-oriented → Intent
+        let cases = &[
+            TestCase { input: "I'm going to the store",  expected: ImIntention::Intent },
+            TestCase { input: "I'm going to try",        expected: ImIntention::Intent },
+            TestCase { input: "I will go",               expected: ImIntention::Intent },
+        ];
+        run_cases(cases);
+    }
+
+    #[test]
+    fn test_other_intention() {
+        let cases = &[
+            TestCase { input: "I'm just saying",    expected: ImIntention::Other },
+            TestCase { input: "What's the plan",    expected: ImIntention::Other },
+            TestCase { input: "Hello",              expected: ImIntention::Other },
+            TestCase { input: "How are you",         expected: ImIntention::Other },
+        ];
+        run_cases(cases);
+    }
+}
