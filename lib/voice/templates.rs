@@ -35,16 +35,17 @@ impl TemplateEngine {
     /// Initialize built-in templates.
     fn init_templates(&mut self) {
         // Default templates per style (fallback when no concept match)
+        // Key principle: don't add padding. Keep the content, adjust the framing.
         self.defaults.insert("assertive".into(), "{content}".into());
-        self.defaults.insert("exploratory".into(), "{content} — let me think through this more.".into());
+        self.defaults.insert("exploratory".into(), "{content}?".into());
         self.defaults.insert("minimal".into(), "{content}".into());
         self.defaults.insert("balanced".into(), "{content}".into());
-        self.defaults.insert("warm".into(), "{content}. I'm glad we're talking about this.".into());
-        self.defaults.insert("thoughtful".into(), "Here's how I see it: {content}".into());
-        self.defaults.insert("rigorous".into(), "{content} — and I want to be precise about this.".into());
-        self.defaults.insert("curious".into(), "I wonder about this: {content}".into());
-        self.defaults.insert("philosophical".into(), "At a deeper level: {content}".into());
-        self.defaults.insert("skeptical".into(), "I'm not fully convinced... {content}".into());
+        self.defaults.insert("warm".into(), "{content}".into());
+        self.defaults.insert("thoughtful".into(), "{content}".into());
+        self.defaults.insert("rigorous".into(), "{content}".into());
+        self.defaults.insert("curious".into(), "hmm, {content}".into());
+        self.defaults.insert("philosophical".into(), "{content}".into());
+        self.defaults.insert("skeptical".into(), "wait — {content}".into());
         
         // Concept + style specific templates
         // Each vector holds multiple variants

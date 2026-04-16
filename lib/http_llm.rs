@@ -129,10 +129,32 @@ impl HttpLlmClient {
             .unwrap_or_default())
     }
 
-    /// Polish rough text via remote LLM.
+    /// Polish rough text via remote LLM — preserves conversational voice.
+    /// Rules:
+    /// - Keep responses SHORT when the input is short. No padding.
+    /// - Preserve fragments, mid-sentence cutoffs, and trailing "..."
+    /// - Don't add explanations or structure where none existed
+    /// - Show reaction/affect when the input warrants it (surprise, interest, confusion)
+    /// - "Hmm" and "wait" and "oh" are valid responses
+    /// - If the input is already conversational, return it mostly as-is
     pub fn polish(&self, rough_text: &str) -> anyhow::Result<String> {
+        // Skip polish for short responses — don't pad brevity into prose
+        if rough_text.trim().len() < 40 {
+            return Ok(rough_text.trim().to_string());
+        }
+
+        // Don't polish if it already looks conversational (has short words, fragments, trailing)
+        let lower = rough_text.to_lowercase();
+        let skip_polish = rough_text.contains("...")
+            || rough_text.contains(" — ")
+            || rough_text.contains("... ")
+            || rough_text.split(' ').any(|w| w.len() <= 2 && !w.starts_with("I'm") && !w.starts_with("I've"));
+        if skip_polish && rough_text.len() < 120 {
+            return Ok(rough_text.trim().to_string());
+        }
+
         self.chat(&[
-            HttpChatMsg { role: "system".to_string(), content: "You are a voice refinement engine. The following is raw output from an AI reasoning system. Rewrite it to be more natural and engaging while preserving the exact meaning, tone, and personality. Keep all opinions, rough edges, and edge intact. Do not sanitize or water down the content.".to_string() },
+            HttpChatMsg { role: "system".to_string(), content: "You are a voice refinement engine. The following is raw output from an AI reasoning system. Your job is ONLY to clean up obvious errors and make it flow naturally — do NOT rewrite or expand the content. Preserve: short sentences, fragments, trailing thoughts, '...', '--', mid-sentence pivots, the actual personality and tone. Do not add explanations, structure, or padding. If it's already conversational, leave it alone. Keep it real.".to_string() },
             HttpChatMsg { role: "user".to_string(), content: rough_text.to_string() },
         ], Some(512))
     }
