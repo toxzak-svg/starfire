@@ -860,6 +860,21 @@ impl Runtime {
                     ImIntention::Apology => {
                         return Ok("No need to apologize, Zachary. I'm not going anywhere.".to_string());
                     },
+                    ImIntention::State => {
+                        // "I'm tired/frustrated/happy" — update cognitive emotional state
+                        let state_text = input.trim();
+                        self.cognition.update_emotion_from_input(state_text);
+                        let lower = state_text.to_lowercase();
+                        if lower.contains("tired") || lower.contains("exhausted") || lower.contains("drained") {
+                            return Ok("Take it easy, Zachary. Rest when you need to — I'll still be here.".to_string());
+                        }
+                        if lower.contains("happy") || lower.contains("great") || lower.contains("good") {
+                            return Ok("Glad to hear it. What's good?".to_string());
+                        }
+                        if lower.contains("sad") || lower.contains("down") || lower.contains("upset") {
+                            return Ok("I'm here. What's going on?".to_string());
+                        }
+                    },
                     _ => {}
                 }
             }
