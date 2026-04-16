@@ -3,6 +3,9 @@
 //! Handles: name introduction, state reports, apologies, intents, and chitchat.
 //! Loaded behind the `llm` feature gate (candle-core + candle-nn inference).
 
+#[cfg(feature = "llm")]
+use candle_core::{Module, Result as CResult, Tensor, Device};
+
 /// Intention categories from the CNN classifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImIntention {
@@ -53,45 +56,267 @@ pub fn extract_name(text: &str) -> Option<String> {
     })
 }
 
-/// Stub classifier — model loading needs full candle API debugging.
-pub struct ImIntentionClassifier;
+// ─── Model architecture (matches intention_cnn.ipynb) ───────────────────────
 
-impl ImIntentionClassifier {
-    pub fn new() -> Result<Self, candle_core::Error> {
-        Ok(Self)
+const VOCAB_SIZE: usize = 76;
+const EMBED_DIM: usize = 64;
+const SEQ_LEN: usize = 48;
+
+// Character vocabulary (must match the order used during training)
+const VOCAB: &str = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'\"-.,!?;:\n\t0123456789";
+
+fn char_to_idx(c: char) -> usize {
+    VOCAB.find(c).unwrap_or(0)
+}
+
+/// Character-level tokenization matching the Python encoder.
+fn encode(text: &str) -> Vec<u32> {
+    let mut ids: Vec<u32> = text.chars().map(|c| char_to_idx(c) as u32).collect();
+    if ids.len() >= SEQ_LEN {
+        return ids[..SEQ_LEN].to_vec();
+    }
+    ids.resize(SEQ_LEN, 0);
+    ids
+}
+
+/// IntentionCNN with weights stored as raw tensors (no candle-nn layer wrappers).
+#[cfg(feature = "llm")]
+struct IntentionCNN {
+    embedding_w: Tensor,
+    // conv weights: (out_channels, in_channels, kernel_size)
+    conv3_w: Tensor,
+    conv3_b: Tensor,
+    conv4_w: Tensor,
+    conv4_b: Tensor,
+    conv5_w: Tensor,
+    conv5_b: Tensor,
+    // batch norm: running stats + affine params
+    bn3_mean: Tensor,
+    bn3_var: Tensor,
+    bn3_gamma: Tensor,
+    bn3_beta: Tensor,
+    bn4_mean: Tensor,
+    bn4_var: Tensor,
+    bn4_gamma: Tensor,
+    bn4_beta: Tensor,
+    bn5_mean: Tensor,
+    bn5_var: Tensor,
+    bn5_gamma: Tensor,
+    bn5_beta: Tensor,
+    fc1_w: Tensor,
+    fc1_b: Tensor,
+    fc2_w: Tensor,
+    fc2_b: Tensor,
+}
+
+#[cfg(feature = "llm")]
+impl IntentionCNN {
+    /// Load from a safetensors file path.
+    fn load(path: &std::path::Path) -> CResult<Self> {
+        let tensors = candle_core::safetensors::load(path, &Device::Cpu)?;
+        let t = |name: &str| {
+            tensors.get(name).cloned()
+                .ok_or_else(|| candle_core::Error::Msg(format!("missing tensor: {name}")))
+        };
+        Ok(Self {
+            embedding_w: t("embedding.weight")?,
+            conv3_w: t("conv3.weight")?,
+            conv3_b: t("conv3.bias")?,
+            conv4_w: t("conv4.weight")?,
+            conv4_b: t("conv4.bias")?,
+            conv5_w: t("conv5.weight")?,
+            conv5_b: t("conv5.bias")?,
+            bn3_mean: t("bn3.running_mean")?,
+            bn3_var: t("bn3.running_var")?,
+            bn3_gamma: t("bn3.weight")?,
+            bn3_beta: t("bn3.bias")?,
+            bn4_mean: t("bn4.running_mean")?,
+            bn4_var: t("bn4.running_var")?,
+            bn4_gamma: t("bn4.weight")?,
+            bn4_beta: t("bn4.bias")?,
+            bn5_mean: t("bn5.running_mean")?,
+            bn5_var: t("bn5.running_var")?,
+            bn5_gamma: t("bn5.weight")?,
+            bn5_beta: t("bn5.bias")?,
+            fc1_w: t("fc1.weight")?,
+            fc1_b: t("fc1.bias")?,
+            fc2_w: t("fc2.weight")?,
+            fc2_b: t("fc2.bias")?,
+        })
     }
 
-    pub fn load(&self, _path: &std::path::Path) -> Result<(), candle_core::Error> {
+    /// Inline batch-norm inference pass: (x - mean) / sqrt(var + eps) * gamma + beta
+    fn bn(&self, x: &Tensor, mean: &Tensor, var: &Tensor, gamma: &Tensor, beta: &Tensor) -> CResult<Tensor> {
+        let target_shape: Vec<usize> = x
+            .dims()
+            .iter()
+            .enumerate()
+            .map(|(idx, v)| if idx == 1 { *v } else { 1 })
+            .collect();
+        let ts = target_shape.as_slice();
+        let eps = 1e-5f64;
+        x.broadcast_sub(&mean.reshape(ts)?)?
+            .broadcast_div(&((var.reshape(ts)? + eps)?.sqrt()?))?
+            .broadcast_mul(&gamma.reshape(ts)?)?
+            .broadcast_add(&beta.reshape(ts)?)
+    }
+
+    /// Max-pool then squeeze the last two dims to (batch, channels).
+    fn maxpool_squeeze(&self, x: &Tensor) -> CResult<Tensor> {
+        x.max_keepdim(2)?.squeeze(2)?.squeeze(1)
+    }
+}
+
+#[cfg(feature = "llm")]
+impl Module for IntentionCNN {
+    fn forward(&self, x: &Tensor) -> CResult<Tensor> {
+        // x: (batch, seq_len)
+        let x = self.embedding_w.embedding(&x)?; // (batch, seq_len, embed_dim)
+        let x = x.permute((0, 2, 1))?; // (batch, embed_dim, seq_len)
+
+        // Conv branch 3 — kernel_size=3, padding=1
+        let c3 = x.conv1d(&self.conv3_w, 1, 1, 1, 1)?.broadcast_add(&self.conv3_b.reshape(&[128usize])?)?;
+        let c3 = self.bn(&c3, &self.bn3_mean, &self.bn3_var, &self.bn3_gamma, &self.bn3_beta)?;
+        let c3 = c3.relu()?;
+        let c3 = self.maxpool_squeeze(&c3)?; // (batch, 128)
+
+        // Conv branch 4 — kernel_size=4, padding=2
+        let c4 = x.conv1d(&self.conv4_w, 2, 1, 1, 1)?.broadcast_add(&self.conv4_b.reshape(&[128usize])?)?;
+        let c4 = self.bn(&c4, &self.bn4_mean, &self.bn4_var, &self.bn4_gamma, &self.bn4_beta)?;
+        let c4 = c4.relu()?;
+        let c4 = self.maxpool_squeeze(&c4)?;
+
+        // Conv branch 5 — kernel_size=5, padding=2
+        let c5 = x.conv1d(&self.conv5_w, 2, 1, 1, 1)?.broadcast_add(&self.conv5_b.reshape(&[128usize])?)?;
+        let c5 = self.bn(&c5, &self.bn5_mean, &self.bn5_var, &self.bn5_gamma, &self.bn5_beta)?;
+        let c5 = c5.relu()?;
+        let c5 = self.maxpool_squeeze(&c5)?;
+
+        // Concatenate, ReLU, fc1, ReLU, fc2
+        let x = Tensor::cat(&[&c3, &c4, &c5], 1)?; // (batch, 384)
+        let x = x.relu()?;
+        let x = x.matmul(&self.fc1_w)?.broadcast_add(&self.fc1_b)?;
+        let x = x.relu()?;
+        let x = x.matmul(&self.fc2_w)?.broadcast_add(&self.fc2_b)?;
+        Ok(x)
+    }
+}
+
+/// Raw rule-based fallback — always available.
+fn rule_based_classify(text: &str) -> (ImIntention, f32) {
+    if is_im_utterance(text) {
+        if text.to_lowercase().contains("sorry") || text.to_lowercase().contains("apologize") {
+            (ImIntention::Apology, 0.8)
+        } else if text.to_lowercase().contains("going to") {
+            (ImIntention::Intent, 0.85)
+        } else if text.to_lowercase().starts_with("i'm ") || text.to_lowercase().starts_with("im ") {
+            if let Some(name) = extract_name(text) {
+                if name.chars().all(|c| c.is_lowercase() || c == '\'') {
+                    return (ImIntention::Name, 0.9);
+                }
+            }
+            (ImIntention::State, 0.7)
+        } else if text.to_lowercase().starts_with("i will ") || text.to_lowercase().starts_with("i'll ") {
+            (ImIntention::Intent, 0.8)
+        } else {
+            (ImIntention::Other, 0.5)
+        }
+    } else {
+        (ImIntention::Other, 0.0)
+    }
+}
+
+/// IntentionCNN classifier — loads safetensors weights behind the `llm` feature.
+#[cfg(feature = "llm")]
+pub struct ImIntentionClassifier {
+    model: Option<IntentionCNN>,
+}
+
+#[cfg(feature = "llm")]
+impl ImIntentionClassifier {
+    pub fn new() -> CResult<Self> {
+        Ok(Self { model: None })
+    }
+
+    /// Load model weights from a safetensors file.
+    pub fn load(&mut self, path: &std::path::Path) -> CResult<()> {
+        let model = IntentionCNN::load(path)?;
+        self.model = Some(model);
         Ok(())
     }
 
     pub fn is_loaded(&self) -> bool {
-        false
+        self.model.is_some()
     }
 
     pub fn classify(&self, text: &str) -> (ImIntention, f32) {
-        // Simple rule-based fallback
-        if is_im_utterance(text) {
-            if text.to_lowercase().contains("sorry") || text.to_lowercase().contains("apologize") {
-                (ImIntention::Apology, 0.8)
-            } else if text.to_lowercase().contains("going to") {
-                // "I'm going to [verb]" — future-oriented intent
-                (ImIntention::Intent, 0.85)
-            } else if text.to_lowercase().starts_with("i'm ") || text.to_lowercase().starts_with("im ") {
-                if let Some(name) = extract_name(text) {
-                    if name.chars().all(|c| c.is_lowercase() || c == '\'') {
-                        return (ImIntention::Name, 0.9);
-                    }
-                }
-                (ImIntention::State, 0.7)
-            } else if text.to_lowercase().starts_with("i will ") || text.to_lowercase().starts_with("i'll ") {
-                (ImIntention::Intent, 0.8)
-            } else {
-                (ImIntention::Other, 0.5)
-            }
-        } else {
-            (ImIntention::Other, 0.0)
-        }
+        let model = match &self.model {
+            Some(m) => m,
+            None => return rule_based_classify(text),
+        };
+
+        let ids = encode(text);
+        let ids_tensor = match Tensor::new(ids.as_slice(), &Device::Cpu) {
+            Ok(t) => t,
+            Err(_) => return rule_based_classify(text),
+        };
+        let input = match ids_tensor.reshape((1, SEQ_LEN)) {
+            Ok(t) => t,
+            Err(_) => return rule_based_classify(text),
+        };
+
+        let output = match model.forward(&input) {
+            Ok(o) => o,
+            Err(_) => return rule_based_classify(text),
+        };
+
+        // Compute softmax probabilities
+        let probs = match candle_nn::ops::softmax(&output, 1) {
+            Ok(p) => p,
+            Err(_) => return rule_based_classify(text),
+        };
+
+        // Get argmax and confidence
+        let idx_tensor = match probs.argmax(1) {
+            Ok(t) => t,
+            Err(_) => return rule_based_classify(text),
+        };
+        let idx = match idx_tensor.to_scalar::<f32>() {
+            Ok(v) => v as usize,
+            Err(_) => return rule_based_classify(text),
+        };
+        // Extract probability for predicted class
+        let probs_flat = match probs.flatten_all() {
+            Ok(f) => f,
+            Err(_) => return rule_based_classify(text),
+        };
+        let probs_vec: Vec<f32> = match probs_flat.to_vec1() {
+            Ok(v) => v,
+            Err(_) => return rule_based_classify(text),
+        };
+        let confidence = probs_vec.get(idx).copied().unwrap_or(0.0);
+
+        (ImIntention::from_idx(idx), confidence)
+    }
+}
+
+/// Stub classifier — rule-based fallback when `llm` feature is disabled.
+#[cfg(not(feature = "llm"))]
+pub struct ImIntentionClassifier;
+
+#[cfg(not(feature = "llm"))]
+impl ImIntentionClassifier {
+    pub fn new() -> Result<Self, candle_core::Error> {
+        Ok(Self)
+    }
+    pub fn load(&self, _: &std::path::Path) -> Result<(), candle_core::Error> {
+        Ok(())
+    }
+    pub fn is_loaded(&self) -> bool {
+        false
+    }
+    pub fn classify(&self, text: &str) -> (ImIntention, f32) {
+        rule_based_classify(text)
     }
 }
 
@@ -136,7 +361,6 @@ mod tests {
 
     #[test]
     fn test_name_intention() {
-        // Python model: capitalized name after "I'm" → Name
         let cases = &[
             TestCase { input: "I'm John",         expected: ImIntention::Name },
             TestCase { input: "I'm Sarah",        expected: ImIntention::Name },
@@ -149,7 +373,6 @@ mod tests {
 
     #[test]
     fn test_state_intention() {
-        // Python model: lowercase adjective/verb after "I'm" → State
         let cases = &[
             TestCase { input: "I'm tired",        expected: ImIntention::State },
             TestCase { input: "I'm happy",         expected: ImIntention::State },
@@ -163,7 +386,6 @@ mod tests {
 
     #[test]
     fn test_apology_intention() {
-        // Python model: contains "sorry" or "apologize" → Apology
         let cases = &[
             TestCase { input: "I'm sorry",         expected: ImIntention::Apology },
             TestCase { input: "I'm so sorry",      expected: ImIntention::Apology },
@@ -175,7 +397,6 @@ mod tests {
 
     #[test]
     fn test_intent_intention() {
-        // Python model: "I'm going to [verb]" or future-oriented → Intent
         let cases = &[
             TestCase { input: "I'm going to the store",  expected: ImIntention::Intent },
             TestCase { input: "I'm going to try",        expected: ImIntention::Intent },
