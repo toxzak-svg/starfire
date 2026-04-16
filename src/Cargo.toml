@@ -7,7 +7,7 @@ license.workspace = true
 description.workspace = true
 
 [[bin]]
-name = "star"
+name = "starfire"
 path = "main.rs"
 
 [features]
