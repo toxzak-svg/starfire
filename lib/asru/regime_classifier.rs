@@ -89,15 +89,15 @@ impl RegimeFeatures {
         let lower = text.to_lowercase();
 
         let symbolic_ratio = symbolic_markers.iter()
-            .filter(|m| lower.contains(&lower)).count() as f32 / n;
+            .filter(|m| lower.contains(*m)).count() as f32 / n;
         let emotional_ratio = emotional_markers.iter()
-            .filter(|m| lower.contains(&lower)).count() as f32 / n;
+            .filter(|m| lower.contains(*m)).count() as f32 / n;
         let causal_ratio = causal_markers.iter()
-            .filter(|m| lower.contains(&lower)).count() as f32 / n;
+            .filter(|m| lower.contains(*m)).count() as f32 / n;
         let recall_ratio = recall_markers.iter()
-            .filter(|m| lower.contains(&lower)).count() as f32 / n;
+            .filter(|m| lower.contains(*m)).count() as f32 / n;
         let exploratory_ratio = exploratory_markers.iter()
-            .filter(|m| lower.contains(&lower)).count() as f32 / n;
+            .filter(|m| lower.contains(*m)).count() as f32 / n;
 
         let question_density = text.matches(['?', '¿']).count() as f32 / n;
 

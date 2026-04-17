@@ -447,6 +447,10 @@ impl ASRUEngine {
         &self.m_t
     }
 
+    pub fn meta_state_mut(&mut self) -> &mut MetaStateField {
+        &mut self.m_t
+    }
+
     pub fn current_regime(&self) -> ReasoningRegime {
         self.tracker.current_regime()
     }
@@ -467,8 +471,47 @@ impl ASRUEngine {
         &self.columns
     }
 
+    pub fn tracker(&self) -> &RegimeTracker {
+        &self.tracker
+    }
+
+    pub fn tracker_mut(&mut self) -> &mut RegimeTracker {
+        &mut self.tracker
+    }
+
+    pub fn set_viscosity(&mut self, v: f32) {
+        self.viscosity = v;
+    }
+
+    pub fn set_fragility_threshold(&mut self, v: f32) {
+        self.fragility_threshold = v;
+    }
+
     pub fn viscosity(&self) -> f32 {
         self.viscosity
+    }
+
+    pub fn fragility_threshold(&self) -> f32 {
+        self.fragility_threshold
+    }
+
+    pub fn columns_mut(&mut self) -> &mut [Column] {
+        &mut self.columns
+    }
+
+    pub fn set_meta_state(&mut self, routing: RoutingConfig, plasticity: PlasticityMask, evaluation: EvalMetrics, interface: InterfaceShape) {
+        self.m_t.routing = routing;
+        self.m_t.plasticity = plasticity;
+        self.m_t.evaluation = evaluation;
+        self.m_t.interface = interface;
+    }
+
+    pub fn set_column(&mut self, idx: usize, role: ColumnRole, plasticity: f32, stress: f32) {
+        if idx < self.columns.len() {
+            self.columns[idx].role = role;
+            self.columns[idx].plasticity = plasticity;
+            self.columns[idx].stress = stress;
+        }
     }
 }
 

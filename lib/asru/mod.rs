@@ -35,6 +35,7 @@ pub mod regime_classifier;
 pub mod fragility;
 pub mod regime_memory;
 pub mod engine;
+pub mod checkpoint;
 
 pub use regime_classifier::{
     ReasoningRegime, RegimeFeatures, RegimePrediction,
@@ -44,7 +45,5 @@ pub use fragility::{
     LyapunovEstimator, RQAAnalyzer, FragilityEstimator,
 };
 pub use regime_memory::{RegimeStats, RegimeTransition, RegimeMemory, RegimeTracker};
-pub use engine::{
-    ASRUEngine, MetaStateField, RoutingConfig, PlasticityMask,
-    EvalMetrics, InterfaceShape, ColumnRole, Column,
-};
+pub use checkpoint::{ASRUCheckpoint, AutoCheckpoint};
+pub use engine::{ASRUEngine, MetaStateField, RoutingConfig, PlasticityMask, EvalMetrics, InterfaceShape, ColumnRole, Column};

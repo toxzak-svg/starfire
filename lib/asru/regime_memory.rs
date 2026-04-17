@@ -241,6 +241,37 @@ impl RegimeMemory {
     pub fn global_fragility(&self) -> f64 {
         self.global_fragility
     }
+
+    /// Restore memory state directly from checkpoint data (bypasses observation pipeline)
+    pub fn restore_state(
+        &mut self,
+        regime: ReasoningRegime,
+        dwell: u64,
+        stats: HashMap<ReasoningRegime, RegimeStats>,
+        transitions: HashMap<(ReasoningRegime, ReasoningRegime), u64>,
+        total_transitions: u64,
+        history: Vec<ReasoningRegime>,
+        global_fragility: f64,
+    ) {
+        self.current_regime = regime;
+        self.current_dwell = dwell;
+        self.stats = stats;
+        self.transitions = transitions;
+        self.total_transitions = total_transitions;
+        self.global_fragility = global_fragility;
+        self.history = history;
+        if self.history.len() > self.max_history {
+            self.history.split_off(self.max_history);
+        }
+    }
+
+    pub fn total_transitions(&self) -> u64 {
+        self.total_transitions
+    }
+
+    pub fn transitions(&self) -> &HashMap<(ReasoningRegime, ReasoningRegime), u64> {
+        &self.transitions
+    }
 }
 
 /// Combined regime + fragility tracker for ASRU
@@ -306,6 +337,29 @@ impl RegimeTracker {
     /// Reset fragility trajectory (call on regime change)
     pub fn reset_trajectory(&mut self) {
         self.fragility.reset();
+    }
+
+    /// Restore tracker state from checkpoint data
+    pub fn restore_state(
+        &mut self,
+        regime: ReasoningRegime,
+        dwell: u64,
+        stats: HashMap<ReasoningRegime, RegimeStats>,
+        transitions: HashMap<(ReasoningRegime, ReasoningRegime), u64>,
+        total_transitions: u64,
+        history: Vec<ReasoningRegime>,
+        global_fragility: f64,
+    ) {
+        self.memory.restore_state(regime, dwell, stats, transitions, total_transitions, history, global_fragility);
+    }
+
+    /// Expose memory for checkpoint access
+    pub fn memory(&self) -> &RegimeMemory {
+        &self.memory
+    }
+
+    pub fn memory_mut(&mut self) -> &mut RegimeMemory {
+        &mut self.memory
     }
 }
 
