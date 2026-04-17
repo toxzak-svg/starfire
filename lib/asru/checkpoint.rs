@@ -162,7 +162,7 @@ pub struct AutoCheckpoint { interval_secs: u64, last_checkpoint: i64 }
 impl AutoCheckpoint {
     pub fn new(interval_secs: u64) -> Self {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
-        Self { interval_secs, last_checkpoint: now }
+        Self { interval_secs, last_checkpoint: now.saturating_sub(interval_secs as i64) }
     }
     pub fn should_checkpoint(&self) -> bool {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
