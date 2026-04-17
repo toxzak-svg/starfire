@@ -220,8 +220,8 @@ fn chat_loop_stream(data_dir: PathBuf) -> anyhow::Result<()> {
             break;
         }
         
-        print!("\n");
-        let mut complete = String::new();
+        println!();
+        let _complete = String::new();
         match runtime.chat_stream(input, |tok| {
             print!("{}", tok);
             std::io::Write::flush(&mut std::io::stdout()).ok();

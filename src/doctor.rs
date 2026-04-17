@@ -60,6 +60,7 @@ impl Check {
         }
     }
 
+    #[allow(dead_code)]
     fn warn_with_fix(name: &str, detail: &str, fix: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -78,6 +79,7 @@ impl Check {
         }
     }
 
+    #[allow(dead_code)]
     fn fail_with_fix(name: &str, detail: &str, fix: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -949,12 +951,12 @@ fn run_autonomy_checks(data_dir: &PathBuf) -> (usize, usize, usize) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn run_tcmw_checks(data_dir: &PathBuf, repair: bool, non_interactive: bool) -> (usize, usize, usize) {
-    use star::tcmw_a::{self, TCMWEngine};
+    use star::tcmw_a;
 
     let mut checks = Vec::new();
 
     // TCMWEngine lives in Runtime — build a minimal Runtime to access it
-    let mut runtime = match Runtime::new(data_dir) {
+    let runtime = match Runtime::new(data_dir) {
         Ok(r) => r,
         Err(e) => {
             checks.push(Check::fail("Runtime (for TCMW)", &format!("Failed: {}", e)));

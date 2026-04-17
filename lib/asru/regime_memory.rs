@@ -261,7 +261,7 @@ impl RegimeMemory {
         self.global_fragility = global_fragility;
         self.history = history;
         if self.history.len() > self.max_history {
-            self.history.split_off(self.max_history);
+            let _ = self.history.split_off(self.max_history);
         }
     }
 
