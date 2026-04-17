@@ -74,14 +74,16 @@ fn make_rules() -> Vec<ClassRule> {
             "identity_declaration",
         ),
         ClassRule(
-            regex::Regex::new(r"(?i)\b(i (prefer|like|love|enjoy|hate|dislike|want|don'?t like|never|always)|my (favourite|favorite|preferred))\b").expect("preference regex"),
-            Domain::Preference,
-            "preference_statement",
-        ),
-        ClassRule(
+            // Intent must come before Preference: both match 'want' but 'want to [verb]'
+            // specifically indicates intent (plan/action), while bare 'want' is preference.
             regex::Regex::new(r"(?i)\b(i (need|want to|am trying to|plan to|intend to|would like to)|my goal is|help me|can you|please|tell me how)\b").expect("intent regex"),
             Domain::Intent,
             "intent_expression",
+        ),
+        ClassRule(
+            regex::Regex::new(r"(?i)\b(i (prefer|like|love|enjoy|hate|dislike|want|don'?t like|never|always)|my (favourite|favorite|preferred))\b").expect("preference regex"),
+            Domain::Preference,
+            "preference_statement",
         ),
         ClassRule(
             regex::Regex::new(r"(?i)\b(how (do|can|to)|steps? (to|for)|procedure|process|workflow|walk me through|guide me|tutorial|show me the steps)\b").expect("procedural regex"),
