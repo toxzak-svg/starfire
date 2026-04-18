@@ -82,8 +82,8 @@ impl RegimeFeatures {
 
         let symbolic_markers = ["math", "calculate", "proof", "equation", "solve", "=", "+", "-", "×", "÷", "prove", "theorem", "algebra", "geometry", "logic", "if and only if", "therefore", "thus", "hence", "implies", "∀", "∃", "∈", "⊂", "∪", "∩"];
         let emotional_markers = ["feel", "feeling", "emotion", "happy", "sad", "angry", "scared", "love", "hate", "fear", "anxiety", "worried", "hope", "hope", "miss", "lonely", "upset", "frustrated", "excited", "depressed", "anxious", "stressed", "overwhelmed", "cherish", "grateful", "appreciate", "sorry", "apologize", "sad", "hurt"];
-        let causal_markers = ["because", "causes", "leads to", "result", "therefore", "thus", "hence", "effect", "impact", "consequence", "reason", "since", "due to", "so that", "why", "how", "affects", "influences", "produces", "yields", "entails"];
-        let recall_markers = ["remember", "recall", "earlier", "previously", "before", "past", "when i", "i remember", "once", "forget", "remind", "mentioned", "said", "told me", "back when", "as i said", "i think i"];
+        let causal_markers = ["because", "causes", "leads to", "result", "effect", "impact", "consequence", "reason", "since", "due to", "so that", "why", "how", "affects", "influences", "produces", "yields", "entails"];
+        let recall_markers = ["i remember", "i think i", "back when", "mentioned", "told me"];
         let exploratory_markers = ["wonder", "maybe", "perhaps", "might", "could be", "what if", "explore", "curious", "not sure", "unsure", "guess", "hypothesize", "speculate", "imagine", "suppose", "assume", "theorize", "probably", "possibly", "seems like"];
 
         let lower = text.to_lowercase();
@@ -123,21 +123,21 @@ impl RegimeFeatures {
 
     /// Classify into a reasoning regime using heuristic rules
     pub fn classify(&self) -> ReasoningRegime {
-        let t = 0.05; // threshold
+        let t = 0.06; // require meaningful signal
 
         // Emotional resonance: high emotional + social density
         if self.emotional_ratio > t && self.social_density > 0.1 {
             return ReasoningRegime::EmotionalResonance;
         }
 
-        // Symbolic manipulation: high symbolic ratio
-        if self.symbolic_ratio > t {
-            return ReasoningRegime::SymbolicManipulation;
-        }
-
         // Causal reasoning: high causal markers
         if self.causal_ratio > t {
             return ReasoningRegime::CausalReasoning;
+        }
+
+        // Symbolic manipulation: high symbolic ratio
+        if self.symbolic_ratio > t {
+            return ReasoningRegime::SymbolicManipulation;
         }
 
         // Associative recall: high recall markers
