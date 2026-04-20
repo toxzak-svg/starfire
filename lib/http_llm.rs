@@ -6,7 +6,7 @@
 
 use std::time::Duration;
 
-pub const DEFAULT_MODEL: &str = "dolphin3.0-qwen2.5-3b";
+pub const DEFAULT_MODEL: &str = "nvidia_nvidia-nemotron-nano-9b-v2";
 
 fn default_base_url() -> String {
     std::env::var("LLM_ENDPOINT")
