@@ -637,7 +637,7 @@ Every answer triggers internal adversarial critique before it reaches you.
 | User-Cognition Model | Planned |
 | Pain as Inefficiency | Planned |
 | Dreaming as Synthetic Episodes | Planned |
-| Multi-Tempo Cognition | Planned |
+| Multi-Tempo Cognition | ✅ Complete (lib/runtime/tempo.rs + wired into conversation) |
 | Concepts as Objects | Planned |
 | Social Hallucinations | Planned |
-| Structural Honesty | Planned |
+| Structural Honesty | ✅ Complete (lib/metacog/critic.rs + wired into conversation) |

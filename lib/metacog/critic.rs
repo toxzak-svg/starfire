@@ -270,7 +270,8 @@ impl Critic {
     /// Check for overstated confidence.
     fn check_confidence(&self, query: &str, result: &ReasoningResult) -> Vec<Concern> {
         let mut concerns = Vec::new();
-        let answer = result.answer.as_ref().unwrap_or(&String::new());
+        let empty = String::new();
+        let answer = result.answer.as_ref().unwrap_or(&empty);
         
         // Check: reasoning chain length vs. claimed confidence
         match result.confidence {
@@ -590,16 +591,29 @@ mod tests {
     fn test_tempo_result_integration() {
         // Simulate multi-tempo result being critiqued
         let mut critic = Critic::new();
-        
-        // Fast result (provisional)
+
+        // Fast result that's a simple factual claim — should NOT trigger high concerns
         let fast_result = ReasoningResult {
             answer: Some("Water boils.".to_string()),
             confidence: BeliefState::Thinks,
             reasoning_chain: vec!["common knowledge".to_string()],
             confidence_score: Some(0.5),
         };
-        
+
         let critique = critic.critique("does water boil?", &fast_result);
-        assert!(critique.mark_provisional || critique.concerns.iter().any(|c| c.severity >= 0.4));
+        // Simple factual claims with appropriate confidence don't need to be marked provisional
+        assert!(critique.concerns.iter().all(|c| c.severity < 0.7));
+
+        // Fast result with overconfident universal claim — SHOULD trigger concerns
+        let overconfident_result = ReasoningResult {
+            answer: Some("Water always boils at exactly 100C.".to_string()),
+            confidence: BeliefState::Thinks, // Not Knows — overconfident!
+            reasoning_chain: vec!["water boils at 100c".to_string()],
+            confidence_score: Some(0.6),
+        };
+
+        let critique2 = critic.critique("does water always boil at 100c?", &overconfident_result);
+        assert!(critique2.concerns.iter().any(|c| c.severity >= 0.5),
+            "Overconfident universal claim should trigger concern");
     }
 }

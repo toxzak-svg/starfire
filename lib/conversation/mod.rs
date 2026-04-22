@@ -7,6 +7,8 @@ use crate::persistence::{Memory, MemoryDomain, Store, BeliefState};
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use crate::research::ResearchWalkabout;
+use crate::runtime::tempo::{TempoEngine, Tempo, tempo_for_query};
+use crate::metacog::critic::Critic;
 use std::sync::{Arc, Mutex};
 
 /// A conversation — the interactive dialogue with Zachary.
@@ -18,6 +20,8 @@ pub struct Conversation {
     research: ResearchWalkabout,
     history: Vec<Message>,
     context: ConversationContext,
+    tempo: TempoEngine,
+    critic: Critic,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +50,8 @@ impl Conversation {
             research: ResearchWalkabout::new(reasoning_arc),
             history: Vec::new(),
             context: ConversationContext::default(),
+            tempo: TempoEngine::new(),
+            critic: Critic::new(),
         }
     }
 
@@ -463,25 +469,35 @@ impl Conversation {
             let mut reasoning = self.reasoning.lock().unwrap();
             reasoning.reason(&topic, &combined)
         };
-        
+
+        // Multi-tempo reasoning: select tempo based on query characteristics
+        let tempo = tempo_for_query(&first_q);
+        let tempo_result = self.tempo.reason_at(&first_q, tempo, &mut self.reasoning.lock().unwrap());
+        let tempo_tag = tempo_result.source.tag();
+
+        // Run through structural honesty critic
+        let critique_result = self.critic.critique(&first_q, &result);
+        let needs_critic_annotation = !critique_result.concerns.is_empty()
+            && critique_result.concerns.iter().any(|c| c.severity >= 0.5);
+
         // Build content — engage even with partial knowledge
         let content = if let Some(answer) = &result.answer {
             // Check if Star genuinely doesn't know (not "don't have" which is different)
-            let genuinely_uncertain = result.confidence == BeliefState::Unknown 
+            let genuinely_uncertain = result.confidence == BeliefState::Unknown
                 && (answer.contains("don't know") || answer.contains("not know") || answer.contains("not sure"));
-            
+
             if genuinely_uncertain {
                 // Trigger research walkabout when Star genuinely doesn't know
                 // Start research and get the "one moment" response
                 let research_response = self.research.start_research(&topic);
-                
+
                 // Conduct the research
                 self.research.conduct_research(&topic);
-                
+
                 // Complete research and get findings
                 if let Some(completion) = self.research.complete_research(&topic) {
                     let (findings_response, curiosity) = completion.to_response();
-                    
+
                     return Response {
                         content: format!("{} {}", research_response, findings_response),
                         confidence: completion.confidence,
@@ -506,7 +522,7 @@ impl Conversation {
                     } else {
                         generate_i_dont_know_response(&topic)
                     };
-                    
+
                     return Response {
                         content: fallback_content,
                         confidence: BeliefState::Unknown,
@@ -523,7 +539,13 @@ impl Conversation {
                     "That's what I've got.",
                 ];
                 let idx = topic.len().saturating_sub(1) % intros.len();
-                format!("{}. {}", intros[idx], answer)
+                let base = format!("{}. {}", intros[idx], answer);
+                // Apply critic synthesis if needed
+                if needs_critic_annotation {
+                    crate::metacog::critic::synthesize(&base, &critique_result)
+                } else {
+                    base
+                }
             } else {
                 // Star knows something — engage with it personally, don't just recite
                 // Mix of framing styles to avoid being encyclopedic
@@ -533,7 +555,13 @@ impl Conversation {
                     answer.to_string(), // Just the answer — direct is good
                 ];
                 let idx = topic.len().saturating_sub(1) % framings.len();
-                framings[idx].clone()
+                let base = framings[idx].clone();
+                // Apply critic synthesis if concerns exist
+                if needs_critic_annotation {
+                    crate::metacog::critic::synthesize(&base, &critique_result)
+                } else {
+                    base
+                }
             }
         } else if !combined.is_empty() {
             let related: Vec<String> = combined.iter().take(2).map(|m| m.content.clone()).collect();

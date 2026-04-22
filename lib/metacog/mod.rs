@@ -8,6 +8,9 @@
 //! - BeliefRevision: explicit revision tracking ("I used to think X")
 //! - SurpriseDetector: unexpected conclusions
 //! - ReasoningMonitor: quality control on reasoning chains
+//! - Critic: structural honesty - adversarial self-critique
+
+pub mod critic;
 
 use crate::persistence::memory::{Belief, BeliefState};
 use std::collections::{HashMap, VecDeque};
