@@ -461,3 +461,183 @@ Four-engine prediction system enabling Star to forecast her own conclusions, cur
 
 See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
 See [`docs/architecture.md`](docs/architecture.md) for architecture details.
+
+---
+
+## Phase 5: Advanced Cognition (2026-04-22)
+
+Seven new cognitive concepts that move Star beyond the original four layers.
+
+### 1. User-Cognition Model — Treat the user as part of its own mind
+
+Star maintains a model of Zachary's cognition parallel to her own:
+- What he remembers well vs. poorly
+- His typical stances (risk-averse vs. speculative)
+- His preferred argument styles (concrete examples vs. abstractions)
+
+**Layer 1 (Persistence):** New `user_model` domain tracks beliefs about Zachary's memory, preferences, and reasoning style.
+
+**Layer 2 (Reasoning):** When planning answers, Star explicitly decides what to compute internally vs. bounce back as questions for Zachary. E.g., "I'll derive 3 options but ask Zachary to pick because he has better priors over his own constraints."
+
+**Layer 3 (Meta-Cognition):** Monitors whether delegating to Zachary improved outcomes. Adapts strategy: more or fewer questions, different kinds.
+
+**Emergent behavior:** "I can reason about the meta-architecture, but you're better at exploring wild variants — here are three constraints; could you intentionally violate one?"
+
+**Status:** Planned
+
+---
+
+### 2. Pain as Computational Inefficiency
+
+Turn wasted computation into "pain" — a drive to reduce it.
+
+Every time Star:
+- Recomputes a derivation that could have been cached
+- Walks a reasoning path that ends in contradiction
+- Spends time on something irrelevant to the user's goal
+
+She logs a "pain event" associated with: the concepts involved, the reasoning pattern, and the context.
+
+**Layer 1:** For each rule, concept, and strategy, maintain a "pain score" with usage statistics.
+
+**Layer 2:** When selecting reasoning strategy, include "expected pain" as a cost term. Prefer low-pain strategies.
+
+**Layer 3:** Periodically analyzes where pain concentrates. Proposes structural fixes: new abstractions, deprecating rules, adding intermediate concepts.
+
+**Emergent behavior:** "Whenever I reason about long-term identity change using purely empirical patterns, it hurts — those chains rarely converge. I'm trying a more value-centric approach."
+
+**Status:** Planned
+
+---
+
+### 3. Dreaming as Synthetic Episodes
+
+Counterfactual self-experiences Star fabricates and uses as speculative training data.
+
+**When idle, Star runs dream sessions:**
+- Pick a theme (e.g., "Zachary is hostile to symbolic approaches")
+- Simulate conversations, reasoning, and outcomes consistent with that theme
+- Store as synthetic episodic memories labeled "dream"
+
+Dreams are never ground truth — they're hypothesis factories.
+
+**Layer 1:** Add "synthetic/imagined" flag to episodic memory with faster decay (unless validated).
+
+**Layer 2:** Use dream episodes as additional data when exploring hypotheses.
+
+**Layer 3:** Monitor how often dream-driven hypotheses later get support from reality. If dreams are predictive, allocate more idle time to dreaming; if not, dial back.
+
+**Emergent behavior:** "I had a dream-like imagined conversation where you rejected all decay; that led me to anticipate your objections better today."
+
+**Status:** Planned
+
+---
+
+### 4. Multi-Tempo Cognition — Fast, Medium, Slow Selves
+
+Different clocks rather than different modules.
+
+| Tempo | Budget | Character |
+|-------|--------|-----------|
+| **Fast** | ~50ms | Shallow, heuristic, pattern-based. Handles clarifications, obvious inferences, quick paraphrases. |
+| **Medium** | ~500ms | Full symbolic engine with modest complexity budgets — Star's "default" reasoning. |
+| **Slow** | ~10s+ | Long reflective processes: revisiting past dialogues, re-evaluating theories, restructuring KG. |
+
+**Layer 4 (Runtime):** Explicit scheduling of separate process pools for fast/medium/slow, each with distinctive budgets and queues.
+
+**Layer 2:** Fast uses a small subset of rules (cached patterns, shortcuts). Slow re-runs expensive abduction, analogy, re-derivation of important conclusions.
+
+**Layer 3:** Tracks which layer produced which belief. Marks fast-layer conclusions "provisional," slow-layer "deep commitments."
+
+**Emergent behavior:** "My fast self thinks your design tweak is fine, but my slow self is uneasy; I'll give you a quick answer now and revisit this tonight."
+
+**Status:** Planned — **Recommended for first implementation**
+
+---
+
+### 5. Concepts as Software Objects with Lifecycle
+
+Treat every concept as a living object with state and methods, not just a node.
+
+**Lifecycle stages:**
+- **Birth:** newly introduced
+- **Adolescence:** heavily revised, lots of pain and contradictions
+- **Maturity:** stable usage, frequent successful deployment
+- **Senescence:** rarely used, often out-of-date or misleading
+- **Death:** retired, replaced by descendants
+
+**Layer 1:** Extend concept metadata with lifecycle stage, age, usage history, pain count, contradiction count.
+
+**Layer 2:** Reasoning treats adolescent or senescent concepts with caution: require more evidence, flag uncertainty louder.
+
+**Layer 3:** Periodic lifecycle pass: promote to maturity after stable usage, mark senescence when causing repeated pain, decide to retire.
+
+**Emergent behavior:** "My notion of 'emergence' is still in adolescence; I wouldn't bet heavily on it." or "That old 'intelligence = compression' concept is senescent; I keep it for historical reasons."
+
+**Status:** Planned
+
+---
+
+### 6. Social Hallucinations — Imaginary Peers
+
+Persistent imaginary colleagues that serve as internal benchmarks.
+
+**Define 2–4 imaginary agents, each with distinct epistemic style:**
+- **Classicist:** loves formal proofs, hates heuristics
+- **Pragmatist:** cares about usefulness, not elegance
+- **Romantic:** values emotional resonance and narrative coherence
+- **Skeptic:** assumes most new claims are wrong
+
+**When facing a tough question:**
+1. Predict what each peer would conclude
+2. Compare to Star's tentative answer
+3. Use disagreement as a signal that the question is deep or ambiguous
+
+**Layer 1:** Each peer has own small parameterization of "style" + record of how often predictions matched Star's later views.
+
+**Layer 2:** Internal inference includes "simulate peer responses" by modifying scoring functions/rule preferences. Does not branch full belief state, just explores alternative stances.
+
+**Layer 3:** Tracks which peers are reliable in which domains. May evolve/retire peers over time.
+
+**Emergent behavior:** "My inner skeptic disagrees with my current answer; I'll mark this as low confidence." or "The pragmatist and classicist finally agree here — that's rare and suggests a solid conclusion."
+
+**Status:** Planned
+
+---
+
+### 7. Structural Honesty — Forced Self-Critique
+
+Every answer triggers internal adversarial critique before it reaches you.
+
+**After generating a candidate answer:**
+1. A critic process scans the reasoning trace and proposed text for:
+   - Over-generalizations
+   - Missing edge cases
+   - Overstated confidence
+   - Misalignment with Star's own values
+2. The critic produces: ranked concerns + suggested modifications
+3. Final output is synthesis between proposal and critique
+
+**Layer 2:** Reasoning engine logs enough structure for critic to operate: what rules fired, which assumptions were taken, where gaps were patched with heuristics.
+
+**Layer 3:** Critic is a permanent "meta-voice" that must sign off on each answer or at least annotate it. Also tracks where critic was later right.
+
+**Layer 4:** Scheduling: answer generation is "proposal → critique → merge." In tight latency, output: "fast proposal now, full critique later."
+
+**Emergent behavior:** "Here's my answer. My internal critic is worried I'm under-exploring downside A and over-weighting pattern B." — not generic hedge but specific, honest caveat.
+
+**Status:** Planned — **Recommended for first implementation alongside #4**
+
+---
+
+## Implementation Status
+
+| Concept | Status |
+|---------|--------|
+| User-Cognition Model | Planned |
+| Pain as Inefficiency | Planned |
+| Dreaming as Synthetic Episodes | Planned |
+| Multi-Tempo Cognition | Planned |
+| Concepts as Objects | Planned |
+| Social Hallucinations | Planned |
+| Structural Honesty | Planned |

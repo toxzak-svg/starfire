@@ -7,6 +7,7 @@
 
 pub mod thinker;
 pub mod curious;
+pub mod tempo;
 
 use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot, BeliefState};
 use crate::persistence::memory::Belief;
@@ -25,6 +26,7 @@ use crate::voice::VoiceEngine;
 use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
+use crate::personality::PersonalityEmergence;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -72,6 +74,8 @@ pub struct Runtime {
     curious: CuriousEngine,
     /// Voice engine — shapes how Starfire expresses herself
     voice: VoiceEngine,
+    /// Personality emergence — Star's authentic character
+    personality: PersonalityEmergence,
     /// Quanot reservoir computing system
     quanot: Quanot,
     /// World model — grounded perceptual representation
@@ -197,6 +201,10 @@ impl Runtime {
         let voice = VoiceEngine::new(&voice_db_path)?;
         info!("Voice engine initialized.");
 
+        // Initialize personality emergence system
+        let personality = PersonalityEmergence::new(identity.clone());
+        info!("Personality engine initialized.");
+
         let mut runtime = Self {
             store,
             identity,
@@ -217,6 +225,7 @@ impl Runtime {
             last_autonomous_thought: Mutex::new(None),
             curious,
             voice,
+            personality,
             // Quanot: input_dim=128, reservoir_size=1000
             quanot: Quanot::new(128, 1000),
             world_model: WorldModel::new(),
@@ -1278,7 +1287,32 @@ impl Runtime {
         let _predictions = self.prediction_center.generate(&context);
 
         // Apply voice engine — shape how Starfire expresses herself
-        let voiced = self.voice.speak(&final_content, &self.cognition);
+        // Get relevant memories for this response
+        let memories = self.store.search_memories(&event_topic, 5, None).unwrap_or_default();
+        let memories_ref: Vec<Memory> = memories.iter().map(|m| Memory {
+            id: m.id,
+            content: m.content.clone(),
+            domain: m.domain,
+            importance: m.importance,
+            formed_at: m.formed_at,
+            access_count: m.access_count,
+            decay_rate: m.decay_rate,
+            last_accessed: m.last_accessed,
+            confidence: m.confidence,
+            provenance: m.provenance.clone(),
+            summary: m.summary.clone(),
+        }).collect();
+        // Process through quanot for creativity/novelty metrics
+        let quanot_result = self.quanot.process(input);
+        // Get response modifiers from personality
+        let modifiers = self.personality.response_modifiers();
+        let voiced = self.voice.speak(
+            &final_content,
+            &self.cognition,
+            &modifiers,
+            Some(&quanot_result),
+            &memories_ref,
+        );
 
         Ok(voiced)
     }

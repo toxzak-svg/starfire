@@ -63,3 +63,42 @@ impl Default for WebSearcher {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_web_searcher_new() {
+        let _searcher = WebSearcher::new();
+    }
+
+    #[test]
+    fn test_web_searcher_default() {
+        let _searcher = WebSearcher::default();
+    }
+
+    #[test]
+    fn test_search_result_fields() {
+        let result = SearchResult {
+            answer: Some("The answer is 42.".to_string()),
+            url: Some("https://example.com".to_string()),
+            related: vec!["topic A".to_string(), "topic B".to_string()],
+        };
+        assert_eq!(result.answer.as_deref(), Some("The answer is 42."));
+        assert_eq!(result.url.as_deref(), Some("https://example.com"));
+        assert_eq!(result.related.len(), 2);
+    }
+
+    #[test]
+    fn test_search_result_empty() {
+        let result = SearchResult {
+            answer: None,
+            url: None,
+            related: vec![],
+        };
+        assert!(result.answer.is_none());
+        assert!(result.url.is_none());
+        assert!(result.related.is_empty());
+    }
+}

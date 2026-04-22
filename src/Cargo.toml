@@ -10,6 +10,34 @@ description.workspace = true
 name = "star"
 path = "main.rs"
 
+[[bin]]
+name = "integration_test"
+path = "bin/integration_test.rs"
+
+[[bin]]
+name = "quanot_bench"
+path = "bin/quanot_bench.rs"
+
+[[bin]]
+name = "train_model"
+path = "bin/train_model.rs"
+
+[[bin]]
+name = "test_gen"
+path = "bin/test_gen.rs"
+
+[[bin]]
+name = "quick_gen"
+path = "bin/quick_gen.rs"
+
+[[bin]]
+name = "test_save_load"
+path = "bin/test_save_load.rs"
+
+[[bin]]
+name = "test_trained"
+path = "bin/test_trained.rs"
+
 [dependencies]
 star = { path = "../lib" }
 rusqlite.workspace = true

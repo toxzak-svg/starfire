@@ -166,3 +166,120 @@ impl Default for ContextFuser {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_reasoning_mode_analytical() {
+        let mode = ReasoningMode::from_query_and_ring("why does this happen?", 0.5, 0.5);
+        assert_eq!(mode, ReasoningMode::Analytical);
+    }
+
+    #[test]
+    fn test_reasoning_mode_creative() {
+        let mode = ReasoningMode::from_query_and_ring("what if we imagine a new solution?", 0.5, 0.5);
+        assert_eq!(mode, ReasoningMode::Creative);
+    }
+
+    #[test]
+    fn test_reasoning_mode_reflective() {
+        let mode = ReasoningMode::from_query_and_ring("how do i feel about this?", 0.5, 0.5);
+        assert_eq!(mode, ReasoningMode::Reflective);
+    }
+
+    #[test]
+    fn test_reasoning_mode_curious() {
+        let mode = ReasoningMode::from_query_and_ring("what is entropy? explain it.", 0.5, 0.5);
+        assert_eq!(mode, ReasoningMode::Curious);
+    }
+
+    #[test]
+    fn test_reasoning_mode_default() {
+        let mode = ReasoningMode::from_query_and_ring("tell me a story", 0.5, 0.5);
+        assert_eq!(mode, ReasoningMode::Default);
+    }
+
+    #[test]
+    fn test_context_fuser_default_valence() {
+        let fuser = ContextFuser::new();
+        assert_eq!(fuser.valence(), 0.0);
+    }
+
+    #[test]
+    fn test_record_valence_updates() {
+        let mut fuser = ContextFuser::new();
+        fuser.record_valence(1.0);
+        assert!(fuser.valence() > 0.0);
+        assert!(fuser.valence() < 1.0);
+    }
+
+    #[test]
+    fn test_record_valence_weighted_average() {
+        let mut fuser = ContextFuser::new();
+        fuser.record_valence(1.0);
+        let first = fuser.valence();
+        fuser.record_valence(1.0);
+        assert!(fuser.valence() > first);
+    }
+
+    #[test]
+    fn test_set_engagement() {
+        let mut fuser = ContextFuser::new();
+        fuser.set_engagement(0.9);
+        assert_eq!(fuser.engagement(), 0.9);
+    }
+
+    #[test]
+    fn test_should_express_curiosity_high_engagement() {
+        let mut fuser = ContextFuser::new();
+        fuser.set_engagement(0.8);
+        assert!(fuser.should_express_curiosity());
+    }
+
+    #[test]
+    fn test_should_express_curiosity_positive_valence() {
+        let mut fuser = ContextFuser::new();
+        fuser.record_valence(1.0);
+        assert!(fuser.should_express_curiosity());
+    }
+
+    #[test]
+    fn test_should_not_express_curiosity_default() {
+        let fuser = ContextFuser::new();
+        assert!(!fuser.should_express_curiosity());
+    }
+
+    #[test]
+    fn test_infer_topic() {
+        let fuser = ContextFuser::new();
+        let topic = fuser.infer_topic("tell me about quantum computing and its applications");
+        assert_eq!(topic, "tell me about");
+    }
+
+    #[test]
+    fn test_should_reference_history_false_initially() {
+        let fuser = ContextFuser::new();
+        assert!(!fuser.should_reference_history());
+    }
+
+    #[test]
+    fn test_history_reference_none_initially() {
+        let fuser = ContextFuser::new();
+        assert!(fuser.history_reference().is_none());
+    }
+
+    #[test]
+    fn test_get_curiosity_topic_empty() {
+        let fuser = ContextFuser::new();
+        assert!(fuser.get_curiosity_topic().is_none());
+    }
+
+    #[test]
+    fn test_update_ring_from_response() {
+        let mut fuser = ContextFuser::new();
+        fuser.update_ring_from_response("some response", 1.0);
+        assert!(fuser.valence() > 0.0);
+    }
+}

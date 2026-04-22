@@ -39,6 +39,8 @@ pub mod research;
 pub mod prediction;
 pub mod input_normalizer;
 pub mod personality;
+pub mod neural;
+pub mod language_model;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
@@ -46,3 +48,6 @@ pub use persistence::Memory;
 pub use persistence::Store;
 pub use persistence::memory::BeliefState;
 pub use persistence::memory::Belief;
+
+// Multi-tempo cognition exports
+pub use runtime::tempo::{Tempo, TempoEngine, TempoResult, tempo_for_query};

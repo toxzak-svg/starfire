@@ -341,9 +341,49 @@ The Phase 1 completion bar: **2-hour conversation test — fully coherent memory
 
 ---
 
+## Phase 5: Advanced Cognition
+
+### Multi-Tempo Cognition (`lib/runtime/tempo.rs`)
+
+Different reasoning "clocks" — fast, medium, and slow selves:
+
+| Tempo | Budget | Character |
+|-------|--------|-----------|
+| **Fast** | ~50ms | Cached patterns, heuristics, obvious inferences |
+| **Medium** | ~500ms | Full symbolic engine, modest complexity |
+| **Slow** | ~10s+ | Long reflection, KG restructuring, re-evaluation |
+
+Fast reasoning uses cached responses and simple heuristics. Slow reasoning runs multiple passes with different framings and synthesizes the results. Each `TempoResult` includes a `ReasoningSource` that tags which tempo was used, enabling Star to say things like "my fast self thinks X but my slow self is uneasy."
+
+Auto-selection based on query characteristics:
+- Very short simple queries → Fast
+- "think carefully", "reconsider", "revisit" → Slow
+- "why", "how", "what" questions → Medium
+- Novel/complex queries → Slow
+
+### Structural Honesty (`lib/metacog/critic.rs`)
+
+Adversarial self-critique before every answer reaches the user.
+
+The critic scans for:
+- **OverGeneralization** — "all", "always", "every" without `Knows` confidence
+- **MissingEdgeCases** — normative questions without acknowledging exceptions
+- **OverstatedConfidence** — `Knows` with empty chain, definitive language on low confidence
+- **ValueMisalignment** — conclusions that conflict with Star's stated values
+- **LogicalGap** — jumps in reasoning chain, disparate elements
+
+Critique produces ranked concerns + annotation. Synthesis merges proposal and critique:
+- High severity (≥0.7) → answer rejected, caveat added
+- Medium (≥0.4) → soft annotation appended
+- Clean answer → no annotation
+
+Example output: "Fire produces heat. (My internal critic flags concerns about over-generalization.)"
+
+---
+
 ## Cognitive State
 
-`cognition.rs`
+`lib/cognition.rs`
 
 Tracks Star's state during a conversation:
 

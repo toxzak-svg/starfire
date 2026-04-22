@@ -5,12 +5,15 @@
 
 use crate::persistence::BeliefState;
 use crate::reasoning::ReasoningEngine;
+use crate::knowledge::search::WebSearcher;
 use std::sync::{Arc, Mutex};
 
 /// Research walkabout engine — handles autonomous exploration of unknown topics.
 pub struct ResearchWalkabout {
     /// Reasoning engine to add discovered knowledge to
     reasoning: Arc<Mutex<ReasoningEngine>>,
+    /// Web searcher for looking up topics
+    web_searcher: WebSearcher,
     /// Whether a research walkabout is currently in progress
     is_researching: bool,
     /// Topics currently being researched
@@ -50,6 +53,7 @@ impl ResearchWalkabout {
     pub fn new(reasoning: Arc<Mutex<ReasoningEngine>>) -> Self {
         Self {
             reasoning,
+            web_searcher: WebSearcher::new(),
             is_researching: false,
             active_research: Vec::new(),
             completed_research: Vec::new(),
@@ -93,28 +97,48 @@ impl ResearchWalkabout {
     }
 
     /// Run the actual research — this is where Star "walks" through the topic.
-    /// In this implementation, we reason about the topic and generate plausible
-    /// findings based on the knowledge graph and reasoning.
+/// Uses web search to find real information about the topic.
     pub fn conduct_research(&mut self, topic: &str) {
         if let Some(research) = self.active_research.iter_mut().find(|r| r.original_topic == topic) {
+            // First: search the web for this topic
+            if let Ok(search_result) = self.web_searcher.search(topic) {
+                // Add the answer if found
+                if let Some(answer) = &search_result.answer {
+                    if !answer.is_empty() {
+                        research.findings.push(ResearchFinding {
+                            content: answer.clone(),
+                            source: search_result.url.clone(),
+                            confidence: 0.8,
+                        });
+                    }
+                }
+                
+                // Add related information
+                for related in search_result.related.iter().take(3) {
+                    research.findings.push(ResearchFinding {
+                        content: related.clone(),
+                        source: None,
+                        confidence: 0.5,
+                    });
+                }
+            }
+            
+            // Also try to reason about the topic from different angles
             let mut reasoning = match self.reasoning.lock() {
                 Ok(r) => r,
                 Err(_) => return,
             };
             
-            // Try to reason about the topic from different angles
             let angles = [
                 format!("What is {}", topic),
                 format!("How does {} work", topic),
                 format!("Why is {} important", topic),
-                format!("What are examples of {}", topic),
             ];
             
             for angle in &angles {
                 let result = reasoning.reason(angle, &[]);
                 
                 if let Some(answer) = &result.answer {
-                    // Only add if it's not already a "don't know" response
                     let lower = answer.to_lowercase();
                     if !lower.contains("don't know") && !lower.contains("i don't") && !lower.contains("not sure") {
                         research.findings.push(ResearchFinding {
@@ -123,29 +147,6 @@ impl ResearchWalkabout {
                             confidence: result.confidence_score.unwrap_or(0.5),
                         });
                     }
-                }
-                
-                for chain_item in &result.reasoning_chain {
-                    let lower = chain_item.to_lowercase();
-                    if !lower.contains("don't know") && !lower.contains("i don't") {
-                        research.findings.push(ResearchFinding {
-                            content: chain_item.clone(),
-                            source: None,
-                            confidence: 0.4,
-                        });
-                    }
-                }
-            }
-            
-            // Also check what knowledge graph already has
-            let kg = reasoning.knowledge();
-            if let Some(entity) = kg.get_entity(&topic.to_lowercase()) {
-                if let Some(desc) = &entity.description {
-                    research.findings.push(ResearchFinding {
-                        content: format!("I have some knowledge: {}", desc),
-                        source: Some("knowledge graph".to_string()),
-                        confidence: 0.6,
-                    });
                 }
             }
         }
@@ -258,6 +259,7 @@ impl Clone for ResearchWalkabout {
     fn clone(&self) -> Self {
         Self {
             reasoning: Arc::clone(&self.reasoning),
+            web_searcher: WebSearcher::new(),
             is_researching: self.is_researching,
             active_research: self.active_research.clone(),
             completed_research: self.completed_research.clone(),

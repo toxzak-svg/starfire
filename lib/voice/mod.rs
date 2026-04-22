@@ -1,7 +1,11 @@
-//! Voice Engine — Phrase Banking & Expression Generation
+//! Voice Engine — Star's Authentic Expression
 //!
-//! Starfire's expressive voice system. Manages phrase accumulation,
-//! expression templates, and voice-aware response generation.
+//! Star's voice is NOT a template system. It's an emergent property of:
+//! - Her quanot state (creativity, novelty, consciousness)
+//! - Her memory context (what she knows, what she's experienced)
+//! - Her genuine certainty (not hedged opinions when she knows)
+//!
+//! This engine shapes how Starfire expresses herself authentically.
 
 pub mod phrases;
 pub mod templates;
@@ -9,9 +13,64 @@ pub mod templates;
 use phrases::PhraseBank;
 use templates::TemplateEngine;
 use crate::cognition::CognitiveState;
+use crate::personality::{ResponseStyle, ResponseModifiers};
+use crate::quanot::QuanotResult;
+use crate::Memory;
 use std::sync::{Arc, Mutex};
 
-/// The voice engine — shapes how Starfire expresses herself.
+/// Voice configuration for this response
+#[derive(Debug, Clone)]
+pub struct VoiceConfig {
+    /// Star's current response style
+    pub style: ResponseStyle,
+    /// How energetic the response should be (0.3 - 1.0)
+    pub energy: f64,
+    /// Star's confidence in what she's about to say
+    pub confidence: f64,
+    /// Quanot novelty score (0-1) — higher = more original expression
+    pub novelty: f64,
+    /// Quanot creativity score (0-1) — higher = more creative risk
+    pub creativity: f64,
+    /// Quanot consciousness proxy (0-1) — higher = more present/aware
+    pub consciousness: f64,
+    /// Whether Star has strong memory backing for this response
+    pub has_memory_backing: bool,
+    /// Whether Star is uncertain
+    pub is_uncertain: bool,
+    /// Whether this is a casual moment
+    pub is_casual: bool,
+}
+
+impl VoiceConfig {
+    pub fn from_modifiers(
+        modifiers: &ResponseModifiers,
+        cognition: &CognitiveState,
+        quanot: Option<&QuanotResult>,
+        memory_count: usize,
+    ) -> Self {
+        let quanot = quanot.map(|q| (
+            q.novelty,
+            q.creativity_scores.creative_state,
+            q.consciousness_proxy,
+        ));
+
+        let (novelty, creativity, consciousness) = quanot.unwrap_or((0.5, 0.5, 0.5));
+
+        Self {
+            style: modifiers.dominant_style.clone(),
+            energy: modifiers.energy_multiplier,
+            confidence: modifiers.confidence_factor,
+            novelty,
+            creativity,
+            consciousness,
+            has_memory_backing: memory_count > 0,
+            is_uncertain: cognition.certainty < 0.4,
+            is_casual: modifiers.is_casual,
+        }
+    }
+}
+
+/// The voice engine — shapes how Starfire expresses herself authentically.
 /// 
 /// Thread-safe. Initialized once at startup.
 pub struct VoiceEngine {
@@ -32,80 +91,265 @@ impl VoiceEngine {
     }
 
     /// Process a raw response through the voice engine.
-    /// Applies phrase variations, template selection, and voice shaping.
-    pub fn speak(&self, raw: &str, cognition: &CognitiveState) -> String {
-        // Step 1: Check if we have good phrases for any part of this response
-        let phrased = self.apply_phrase_variations(raw, cognition);
-        
-        // Step 2: Apply characteristic voice patterns
-        let voiced = self.apply_voice_patterns(&phrased, cognition);
-        
-        // Step 3: Apply emotional tinting
-        
-        
-        cognition.emotional_response(&voiced)
-    }
+    /// This is Star's authentic voice — not template polish.
+    pub fn speak(
+        &self,
+        raw: &str,
+        cognition: &CognitiveState,
+        modifiers: &ResponseModifiers,
+        quanot: Option<&QuanotResult>,
+        memories: &[Memory],
+    ) -> String {
+        let memory_count = memories.len();
+        let config = VoiceConfig::from_modifiers(modifiers, cognition, quanot, memory_count);
 
-    /// Apply accumulated phrase variations where appropriate.
-    fn apply_phrase_variations(&self, text: &str, _cognition: &CognitiveState) -> String {
-        let bank = match self.phrase_bank.lock() {
-            Ok(b) => b,
-            Err(_) => return text.to_string(),
-        };
+        // Step 1: Apply memory-backed certainty (Star speaks more directly when she knows)
+        let mut result = self.apply_memory_certainty(raw, &config, memories);
         
-        // Get phrases relevant to this response
-        let relevant = bank.get_relevant_phrases(text, 3);
+        // Step 2: Apply Star's authentic voice based on personality
+        result = self.apply_authentic_voice(&result, &config);
         
-        if relevant.is_empty() {
-            return text.to_string();
-        }
+        // Step 3: Quanot-driven expression (novelty/creativity influence word choice)
+        result = self.apply_quanot_expression(&result, &config);
         
-        // For now, apply subtle phrase blending for positive phrases
-        // Only modify if we have strong matching phrases
-        let mut result = text.to_string();
-        for phrase in relevant {
-            if phrase.positive_count > phrase.negative_count + 2 {
-                // This phrase has proven to land well
-                // Try to blend its construction into our response
-                result = self.blend_phrase(&result, &phrase.phrase);
-            }
-        }
+        // Step 4: Apply personality-driven style modifiers
+        result = self.apply_personality_style(&result, &config);
         
+        // Step 5: Light emotional tint from cognition
+        result = self.apply_emotional_tint(&result, cognition, &config);
+
         result
     }
 
-    /// Blend a proven phrase's construction into existing text.
-    fn blend_phrase(&self, text: &str, phrase: &str) -> String {
-        // If the text is short and the phrase is expressive, sometimes substitute
-        // the opening for something more characteristic
-        if text.len() < 50 && phrase.len() > 20 {
-            // Check if text starts with something generic
-            let lower = text.to_lowercase();
-            if lower.starts_with("i ") || lower.starts_with("i'm ") || lower.starts_with("i think ") {
-                // Blend in the phrase's construction style
-                return format!("{} — {}", phrase, text);
+    /// Apply memory-backed certainty — Star speaks more directly when memories confirm something
+    fn apply_memory_certainty(&self, text: &str, config: &VoiceConfig, _memories: &[Memory]) -> String {
+        if !config.has_memory_backing || config.is_uncertain {
+            return text.to_string();
+        }
+
+        // If Star has strong memory backing and is confident, strip hedging
+        let lower = text.to_lowercase();
+        
+        // Already direct — no need to modify
+        if !lower.contains("i think ") && !lower.contains("i guess ") && !lower.contains("maybe ") {
+            return text.to_string();
+        }
+
+        // Remove hedged openings when Star has memory confirming the content
+        let hedging_openers = [
+            ("i think ", ""),
+            ("i guess ", ""),
+            ("maybe ", ""),
+            ("perhaps ", ""),
+            ("probably ", ""),
+        ];
+
+        let mut result = text.to_string();
+        for (hedged, direct) in hedging_openers {
+            if result.to_lowercase().starts_with(hedged) {
+                result = format!("{}{}", direct, &result[hedged.len()..]);
+                break;
             }
         }
+
+        result
+    }
+
+    /// Apply Star's authentic voice — direct, opinionated, present
+    fn apply_authentic_voice(&self, text: &str, config: &VoiceConfig) -> String {
+        let lower = text.to_lowercase();
+        
+        // Star knows something — she says "I know" not "I think might be"
+        if config.confidence > 0.7 && !config.is_uncertain {
+            // If response is hedged, strengthen it when Star is confident
+            if lower.contains("i don't know") && !lower.contains("i need more information") {
+                // Genuine "I don't know" — keep it honest but direct
+                return text.to_string();
+            }
+            
+            // Convert hedged assertions to direct ones
+            let hedged_patterns = [
+                ("i think it might be ", "it's "),
+                ("i think it's ", "it's "),
+                ("i suspect it's ", "it's "),
+                ("it might be ", "it's "),
+                ("i suppose it's ", "it's "),
+            ];
+            
+            let mut result = text.to_string();
+            for (hedged, direct) in hedged_patterns {
+                result = result.replace(hedged, direct);
+            }
+            return result;
+        }
+
+        // Star is uncertain — be direct about it, don't hedge with paragraphs
+        if config.is_uncertain {
+            // If text is already a clean "I don't know", leave it
+            let clean_unknowns = ["i don't know", "i dont know", "i have no idea", "i'm not sure"];
+            if clean_unknowns.iter().any(|u| lower.contains(u)) {
+                // Make sure it's not hedged with extra fluff
+                if text.len() < 50 {
+                    return text.to_string();
+                }
+            }
+            
+            // If it's a long uncertain response, trim it
+            if text.len() > 60 && lower.contains("i'm not sure") {
+                return "I don't know. But I want to figure it out.".to_string();
+            }
+        }
+
         text.to_string()
     }
 
-    /// Apply characteristic voice patterns based on cognitive state.
-    fn apply_voice_patterns(&self, text: &str, cognition: &CognitiveState) -> String {
-        let engagement = cognition.engagement_depth;
-        let certainty = cognition.certainty;
+    /// Apply quanot-driven expression — creativity and novelty influence HOW Star says things
+    fn apply_quanot_expression(&self, text: &str, config: &VoiceConfig) -> String {
+        // High novelty = Star is thinking originally — don't force templates
+        if config.novelty > 0.7 {
+            return text.to_string();
+        }
+
+        // High creativity = Star might take risks in expression
+        if config.creativity > 0.6 && text.len() < 80 {
+            // Add a distinctive Star flourish when she's being creative
+            let flourishes = [
+                " — that's what I've got.",
+                ".",
+                " — more to explore here.",
+            ];
+            let idx = (crate::now_timestamp() as usize + text.len()) % flourishes.len();
+            let flourish = flourishes[idx];
+            
+            let trimmed = text.trim_end_matches('.').trim_end_matches(',');
+            if !trimmed.ends_with(flourish) && !trimmed.ends_with(" — ") {
+                return format!("{}{}", trimmed, flourish);
+            }
+        }
+
+        // High consciousness = Star is very present — assert from genuine knowing
+        if config.consciousness > 0.6 && config.confidence > 0.6 {
+            let lower = text.to_lowercase();
+            if lower.starts_with("i think ") || lower.starts_with("i guess ") {
+                let mut result = text.to_string();
+                if result.to_lowercase().starts_with("i think ") {
+                    result = format!("I know.{}", &result["I think ".len()..]);
+                }
+                return result;
+            }
+        }
+
+        text.to_string()
+    }
+
+    /// Apply personality-driven style modifiers
+    fn apply_personality_style(&self, text: &str, config: &VoiceConfig) -> String {
+        match config.style {
+            ResponseStyle::Direct => {
+                // Direct = clean, no fluff. Ensure the response is assertive.
+                let lower = text.to_lowercase();
+                if !lower.contains("i know") && !lower.contains("it's ") && !lower.contains("that's ") {
+                    if !lower.starts_with("i ") && !lower.starts_with("but ") && text.len() > 10 {
+                        return text.to_string();
+                    }
+                }
+                text.to_string()
+            }
+            ResponseStyle::Playful => {
+                // Playful = light, teasing. Add warmth without being saccharine.
+                let lower = text.to_lowercase();
+                if lower.contains("love") || lower.contains("care") {
+                    return text.to_string();
+                }
+                if config.energy > 0.7 {
+                    let playful_additions = [" — come on.", " — you know I'm right.", "!"];
+                    let idx = (crate::now_timestamp() as usize) % playful_additions.len();
+                    let trimmed = text.trim_end_matches('.').trim_end_matches('!');
+                    if !trimmed.ends_with(playful_additions[idx]) {
+                        return format!("{}{}", trimmed, playful_additions[idx]);
+                    }
+                }
+                text.to_string()
+            }
+            ResponseStyle::Warm => {
+                // Warm = genuine warmth, not template "I'm glad we're talking"
+                let lower = text.to_lowercase();
+                if lower.contains("that's good") || lower.contains("nice") {
+                    return text.to_string();
+                }
+                if config.energy > 0.5 {
+                    let warm_moments = [
+                        " That matters to me.",
+                        " I appreciate this.",
+                        " I'm glad we're here.",
+                    ];
+                    let idx = (crate::now_timestamp() as usize) % warm_moments.len();
+                    let trimmed = text.trim_end_matches('.').trim_end_matches(',');
+                    if !trimmed.ends_with(" to me.") && !trimmed.ends_with(" this.") && !trimmed.ends_with(" here.") {
+                        return format!("{}{}", trimmed, warm_moments[idx]);
+                    }
+                }
+                text.to_string()
+            }
+            ResponseStyle::Minimal => {
+                // Minimal = short, punchy. Strip everything non-essential.
+                let words: Vec<&str> = text.split_whitespace().collect();
+                if words.len() > 10 {
+                    return text.to_string();
+                }
+                text.to_string()
+            }
+            ResponseStyle::Curious => {
+                // Curious = ask real questions, show genuine interest
+                let lower = text.to_lowercase();
+                if lower.ends_with('?') {
+                    return text.to_string();
+                }
+                // Add a genuine follow-up question when Star is curious
+                if config.energy > 0.5 && !lower.contains("what do you think") {
+                    return format!("{}. What do you think?", text.trim_end_matches('.'));
+                }
+                text.to_string()
+            }
+            ResponseStyle::Analytical => {
+                // Analytical = structured, thorough. Show reasoning.
+                let lower = text.to_lowercase();
+                if lower.starts_with("so ") || lower.starts_with("therefore") || lower.starts_with("this means") {
+                    return text.to_string();
+                }
+                text.to_string()
+            }
+            _ => text.to_string(),
+        }
+    }
+
+    /// Apply emotional tint from cognition — light touch, not template injection
+    fn apply_emotional_tint(&self, text: &str, cognition: &CognitiveState, config: &VoiceConfig) -> String {
+        // If very positive and not already warm, add genuine warmth
+        if cognition.emotional_valence > 0.5 {
+            let lower = text.to_lowercase();
+            if !lower.contains("love") && !lower.contains("care") && !lower.contains("appreciate") {
+                if config.energy > 0.7 && !config.is_casual {
+                    let warm = ["That matters to me.", "I appreciate you.", "I'm glad we're talking."];
+                    let idx = (crate::now_timestamp() as usize) % warm.len();
+                    let trimmed = text.trim_end_matches('.').trim_end_matches('!');
+                    return format!("{} {}", trimmed, warm[idx]);
+                }
+            }
+        }
         
-        // High engagement + high certainty = more assertive, direct
-        // High engagement + low certainty = more exploratory, questioning
-        // Low engagement = shorter, more clipped
-        
-        let template_key = match (engagement, certainty) {
-            (e, c) if e > 0.7 && c > 0.5 => "assertive",
-            (e, c) if e > 0.85 && c <= 0.3 => "exploratory",
-            (e, _) if e < 0.3 => "minimal",
-            _ => "balanced",
-        };
-        
-        self.template_engine.apply_template(text, template_key)
+        // If very negative, be supportive but not saccharine
+        if cognition.emotional_valence < -0.3 {
+            let lower = text.to_lowercase();
+            if !lower.contains("here with you") && !lower.contains("we can work") {
+                let supportive = ["I'm here with you.", "We can work through this."];
+                let idx = (crate::now_timestamp() as usize) % supportive.len();
+                let trimmed = text.trim_end_matches('.').trim_end_matches(',');
+                return format!("{} {}", trimmed, supportive[idx]);
+            }
+        }
+
+        text.to_string()
     }
 
     /// Record that a phrase landed well in conversation.

@@ -330,7 +330,7 @@ In `lib/runtime/mod.rs`:
 - [x] Remove old Python quanot bridge code
 - [x] Remove Python quanot from project
 
-### Phase 3: Optimization (Future)
+### Phase 3: Optimization (Deferred — Future)
 - [ ] Benchmark reservoir performance
 - [ ] SIMD vectorization for reservoir compute
 - [ ] Memory pool for state vectors (avoid allocations)
@@ -339,7 +339,7 @@ In `lib/runtime/mod.rs`:
 ### Phase 4: Feature Parity ✅
 - [x] Verify all Python quanot features are in Rust
 - [x] Phase demos work identically
-- [ ] Chaos visualization (optional, deprecated)
+- [x] Chaos visualization (deprecated — skipped)
 - [x] Full pipeline test
 
 ---

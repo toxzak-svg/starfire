@@ -470,9 +470,9 @@ starfire/lib/Cargo.toml
 - [x] `lib/curiosity/connection.rs` — 20+ known analogies across domains, ConnectionFinder
 - [x] `lib/curiosity/expression.rs` — 4 expression styles (warm/analytical/excited/contemplative)
 
-### ⏳ Phase 6: Web Search Synthesis — PENDING
-- [ ] `lib/knowledge/web_synthesis.rs` — Search result synthesis pipeline
-- [ ] "I researched X" meta-awareness
+### ✅ Phase 6: Web Search Synthesis — COMPLETE
+- [x] `lib/knowledge/web_synthesis.rs` — Search result synthesis pipeline
+- [x] "I researched X" meta-awareness via recently_researched tracking
 
 ### Build Environment Note
 **Build failed on this machine** — missing MSVC linker (`link.exe`) and MinGW dlltool.

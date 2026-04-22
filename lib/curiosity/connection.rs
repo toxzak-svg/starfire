@@ -342,3 +342,107 @@ impl ConnectionFinder {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_has_analogies() {
+        let finder = ConnectionFinder::new();
+        assert!(!finder.all_connections().is_empty());
+    }
+
+    #[test]
+    fn test_all_connections_returns_multiple() {
+        let finder = ConnectionFinder::new();
+        let connections = finder.all_connections();
+        assert!(connections.len() > 5);
+    }
+
+    #[test]
+    fn test_all_connections_strength() {
+        let finder = ConnectionFinder::new();
+        for conn in finder.all_connections() {
+            assert_eq!(conn.strength, 0.8);
+            assert!(!conn.source.is_empty());
+            assert!(!conn.target.is_empty());
+            assert!(!conn.similarity.is_empty());
+            assert!(!conn.insight.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_find_connection_known_pair() {
+        let finder = ConnectionFinder::new();
+        let result = finder.find_connection("entropy", "time");
+        assert!(result.is_some());
+        let conn = result.unwrap();
+        assert!(!conn.similarity.is_empty());
+        assert!(!conn.insight.is_empty());
+    }
+
+    #[test]
+    fn test_find_connection_unknown_pair() {
+        let finder = ConnectionFinder::new();
+        let result = finder.find_connection("banana", "zebra");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_connection_dna_source_code() {
+        let finder = ConnectionFinder::new();
+        let result = finder.find_connection("DNA", "source code");
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_generate_question_non_empty() {
+        let finder = ConnectionFinder::new();
+        let question = finder.generate_question();
+        assert!(!question.is_empty());
+        assert!(
+            question.contains("How is") || question.contains("Is") || question.contains("What if") || question.contains("Could")
+        );
+    }
+
+    #[test]
+    fn test_deepen_question_known_concept() {
+        let finder = ConnectionFinder::new();
+        let deepening = finder.deepen_question("How is entropy related to time?");
+        assert!(deepening.is_some());
+        assert!(!deepening.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_deepen_question_unknown_concept() {
+        let finder = ConnectionFinder::new();
+        let deepening = finder.deepen_question("What is the price of milk?");
+        assert!(deepening.is_none());
+    }
+
+    #[test]
+    fn test_random_connection_returns_valid() {
+        let finder = ConnectionFinder::new();
+        let conn = finder.random_connection();
+        assert!(!conn.source.is_empty());
+        assert!(!conn.target.is_empty());
+        assert_eq!(conn.strength, 0.8);
+    }
+
+    #[test]
+    fn test_concept_connection_fields() {
+        let conn = ConceptConnection {
+            source: "A".to_string(),
+            target: "B".to_string(),
+            similarity: "both are things".to_string(),
+            disanalogy: Some("A is not B".to_string()),
+            insight: "interesting".to_string(),
+            strength: 0.5,
+        };
+        assert_eq!(conn.source, "A");
+        assert_eq!(conn.target, "B");
+        assert_eq!(conn.strength, 0.5);
+        assert!(conn.disanalogy.is_some());
+    }
+}

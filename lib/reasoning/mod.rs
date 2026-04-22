@@ -792,24 +792,13 @@ impl ReasoningEngine {
 
     /// Abduction: hypothesize a cause for an observation.
     fn abduct_cause(&self, observation: &str) -> Option<String> {
-        // Find known effects and work backwards
         let effects = self.knowledge.get_effects(observation);
         
-        // Simple abductive reasoning: if X causes Y, and we see Y, maybe X
         if !effects.is_empty() {
-            // Pick the most confident effect's source
             return effects.first().cloned();
         }
         
-        // Fallback: look for common cause patterns
-        let known_causes = [(observation, vec!["it seems connected to how things work", 
-                             "maybe something about its nature",
-                             "perhaps an underlying principle"])];
-        
-        known_causes.first().map(|(o, hints)| {
-            let hint = hints[(o.len() + observation.len()) % hints.len()];
-            format!("{} — {}", o, hint)
-        })
+        None
     }
 
     /// Synthesis: combine knowledge to produce novel insights.
@@ -896,7 +885,7 @@ pub enum QueryType {
 }
 
 /// Result of a reasoning operation.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ReasoningResult {
     pub answer: Option<String>,
     pub confidence: BeliefState,

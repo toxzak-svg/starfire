@@ -322,3 +322,209 @@ impl CognitiveState {
         base_response.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::BeliefState;
+
+    #[test]
+    fn test_default_cognitive_state() {
+        let state = CognitiveState::default();
+        assert!(state.current_focus.is_none());
+        assert_eq!(state.engagement_depth, 0.5);
+        assert_eq!(state.emotional_valence, 0.0);
+        assert_eq!(state.certainty, 0.5);
+        assert!(state.last_reasoning.is_empty());
+        assert!(state.open_questions.is_empty());
+        assert!(state.reasoning_trace.is_empty());
+    }
+
+    #[test]
+    fn test_set_focus() {
+        let mut state = CognitiveState::default();
+        state.set_focus("quantum mechanics");
+        assert_eq!(state.current_focus.as_deref(), Some("quantum mechanics"));
+    }
+
+    #[test]
+    fn test_reason_adds_to_trace() {
+        let mut state = CognitiveState::default();
+        state.reason(
+            "Why does entropy increase?",
+            "Because disorder is statistically favored.",
+            vec!["thermodynamics".to_string(), "statistics".to_string()],
+            BeliefState::Believes,
+        );
+        assert_eq!(state.reasoning_trace.len(), 1);
+        assert_eq!(state.last_reasoning.len(), 1);
+        assert_eq!(state.reasoning_trace[0].input, "Why does entropy increase?");
+        assert_eq!(state.reasoning_trace[0].conclusion, "Because disorder is statistically favored.");
+    }
+
+    #[test]
+    fn test_reason_caps_trace_at_ten() {
+        let mut state = CognitiveState::default();
+        for i in 0..15 {
+            state.reason(
+                &format!("question {}", i),
+                &format!("answer {}", i),
+                vec![],
+                BeliefState::Believes,
+            );
+        }
+        assert_eq!(state.reasoning_trace.len(), 10);
+    }
+
+    #[test]
+    fn test_reason_caps_last_reasoning_at_five() {
+        let mut state = CognitiveState::default();
+        for i in 0..8 {
+            state.reason(
+                &format!("q {}", i),
+                &format!("a {}", i),
+                vec![],
+                BeliefState::Believes,
+            );
+        }
+        assert_eq!(state.last_reasoning.len(), 5);
+    }
+
+    #[test]
+    fn test_ask_and_receive_question() {
+        let mut state = CognitiveState::default();
+        state.ask_question("What is consciousness?");
+        state.ask_question("What is time?");
+        assert_eq!(state.open_questions.len(), 2);
+
+        state.receive_answer("What is consciousness?");
+        assert_eq!(state.open_questions.len(), 1);
+        assert_eq!(state.open_questions[0], "What is time?");
+    }
+
+    #[test]
+    fn test_update_emotion_positive() {
+        let mut state = CognitiveState::default();
+        state.update_emotion_from_input("I love this! Thank you, this is awesome!");
+        assert!(state.emotional_valence > 0.0);
+        assert!(state.zachary_mood.valence > 0.0);
+    }
+
+    #[test]
+    fn test_update_emotion_negative() {
+        let mut state = CognitiveState::default();
+        state.update_emotion_from_input("I hate this, it's awful and stupid.");
+        assert!(state.emotional_valence < 0.0);
+        assert!(state.zachary_mood.valence < 0.0);
+    }
+
+    #[test]
+    fn test_update_emotion_uncertainty_decreases_certainty() {
+        let mut state = CognitiveState::default();
+        let initial_certainty = state.certainty;
+        state.update_emotion_from_input("I don't know, maybe, not sure about this.");
+        assert!(state.certainty < initial_certainty);
+    }
+
+    #[test]
+    fn test_update_emotion_question_increases_engagement() {
+        let mut state = CognitiveState::default();
+        let initial = state.engagement_depth;
+        state.update_emotion_from_input("What is this? Why does it happen?");
+        assert!(state.engagement_depth >= initial);
+    }
+
+    #[test]
+    fn test_confidence_description() {
+        let mut state = CognitiveState::default();
+
+        state.certainty = 0.9;
+        assert_eq!(state.confidence_description(), "confident");
+
+        state.certainty = 0.6;
+        assert_eq!(state.confidence_description(), "moderately certain");
+
+        state.certainty = 0.4;
+        assert_eq!(state.confidence_description(), "uncertain");
+
+        state.certainty = 0.2;
+        assert_eq!(state.confidence_description(), "very uncertain");
+    }
+
+    #[test]
+    fn test_has_answer_for() {
+        let mut state = CognitiveState::default();
+        state.reason(
+            "What is entropy?",
+            "A measure of disorder in a system.",
+            vec![],
+            BeliefState::Believes,
+        );
+        assert!(state.has_answer_for("entropy"));
+        assert!(!state.has_answer_for("quantum gravity"));
+    }
+
+    #[test]
+    fn test_are_you_sure_with_focus() {
+        let mut state = CognitiveState::default();
+        state.set_focus("thermodynamics");
+        state.certainty = 0.9;
+        let response = state.are_you_sure();
+        assert!(response.contains("thermodynamics"));
+        assert!(response.contains("confident"));
+    }
+
+    #[test]
+    fn test_are_you_sure_without_focus() {
+        let state = CognitiveState::default();
+        let response = state.are_you_sure();
+        assert!(response.contains("general"));
+    }
+
+    #[test]
+    fn test_how_am_i_returns_string() {
+        let state = CognitiveState::default();
+        let response = state.how_am_i();
+        assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn test_what_am_i_thinking_empty() {
+        let state = CognitiveState::default();
+        let response = state.what_am_i_thinking();
+        assert!(!response.is_empty());
+        assert!(response.contains("not currently processing") || response.contains("working through") || response.contains("reasoning about") || response.contains("focused on") || response.contains("still working"));
+    }
+
+    #[test]
+    fn test_what_am_i_thinking_with_focus_and_trace() {
+        let mut state = CognitiveState::default();
+        state.set_focus("machine learning");
+        state.reason("How do neural networks learn?", "Via gradient descent.", vec![], BeliefState::Believes);
+        let response = state.what_am_i_thinking();
+        assert!(response.contains("machine learning") || response.contains("gradient descent") || response.contains("neural networks"));
+    }
+
+    #[test]
+    fn test_did_i_collapse_empty_trace() {
+        let state = CognitiveState::default();
+        let (collapsed, msg) = state.did_i_collapse();
+        assert!(collapsed);
+        assert!(msg.contains("collapsed"));
+    }
+
+    #[test]
+    fn test_emotional_state_default() {
+        let es = EmotionalState::default();
+        assert_eq!(es.valence, 0.0);
+        assert_eq!(es.arousal, 0.5);
+        assert_eq!(es.dominance, 0.5);
+    }
+
+    #[test]
+    fn test_emotional_response_neutral() {
+        let state = CognitiveState::default();
+        let response = state.emotional_response("That is interesting.");
+        assert_eq!(response, "That is interesting.");
+    }
+}
