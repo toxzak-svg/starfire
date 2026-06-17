@@ -39,6 +39,10 @@ pub mod research;
 pub mod prediction;
 pub mod input_normalizer;
 pub mod personality;
+pub mod pain;
+pub mod dreaming;
+pub mod concepts;
+pub mod user_model;
 pub mod neural;
 pub mod language_model;
 

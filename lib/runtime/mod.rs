@@ -27,6 +27,7 @@ use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
 use crate::personality::PersonalityEmergence;
+use crate::user_model::UserCognitionModel;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -82,6 +83,8 @@ pub struct Runtime {
     world_model: WorldModel,
     /// Prediction center — foresight engine
     prediction_center: PredictionCenter,
+    /// User-cognition model — Star's model of Zachary's mind
+    user_model: UserCognitionModel,
 }
 
 impl Runtime {
@@ -230,6 +233,7 @@ impl Runtime {
             quanot: Quanot::new(128, 1000),
             world_model: WorldModel::new(),
             prediction_center: PredictionCenter::new(),
+            user_model: UserCognitionModel::new(),
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
