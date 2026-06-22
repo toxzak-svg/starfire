@@ -45,6 +45,7 @@ pub mod concepts;
 pub mod user_model;
 pub mod neural;
 pub mod language_model;
+pub mod variation;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

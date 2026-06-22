@@ -1207,10 +1207,25 @@ impl Runtime {
                 && final_content.len() > 20
                 && !final_content.to_lowercase().contains(&thought.topic.to_lowercase())
             {
-                // Use timestamp to determine if we express this time (roughly 30% of the time)
-                // to avoid being repetitive
+                // Phase 0c: quanot-aware gate replaces the pure clock-tick
+                // `(now % 10) < 3`. The reservoir state's L2 norm acts as a
+                // proxy for "Star is currently thinking" — when state is more
+                // active (higher norm), autonomous thoughts are more relevant
+                // to share. When state is quiescent, threshold stays low and
+                // idle thoughts stay quiet.
+                //
+                // Threshold range: 2/10 (idle) to 7/10 (active quanot state).
+                // Replaces the original fixed 3/10 (~30%) gate.
                 let now = crate::now_timestamp();
-                let should_express = (now % 10) < 3; // ~30% chance
+                let state = self.quanot.get_state();
+                let state_activity: f64 = state.iter().map(|x| x * x).sum::<f64>().sqrt();
+                let activity_norm = if state.is_empty() {
+                    0.0
+                } else {
+                    (state_activity / state.len() as f64).min(1.0)
+                };
+                let threshold: i64 = 2 + (activity_norm * 5.0).round() as i64;
+                let should_express = (now % 10) < threshold;
 
                 if should_express {
                     // Use timestamp + topic length for varied expression styles

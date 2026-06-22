@@ -9,6 +9,7 @@ use crate::metacog::MetaCognition;
 use crate::research::ResearchWalkabout;
 use crate::runtime::tempo::{TempoEngine, Tempo, tempo_for_query};
 use crate::metacog::critic::Critic;
+use crate::variation::pick_unused_in_last_4;
 use std::sync::{Arc, Mutex};
 
 /// A conversation — the interactive dialogue with Zachary.
@@ -212,7 +213,7 @@ impl Conversation {
                         "You're back. I'm here.".to_string(),
                         "Here again. I'm ready.".to_string(),
                     ];
-                    let idx = now_seconds() % options.len();
+                    let idx = pick_unused_in_last_4("greeting.known_name", options.len(), now_seconds() as usize);
                     options[idx].clone()
                 } else {
                     "Hey. I'm Star — who are you?".to_string()
@@ -252,8 +253,12 @@ impl Conversation {
                     format!("You too — {} hasn't left my mind.", t),
                     format!("Right, we were on {}. I remember.", t),
                 ];
-                let idx = (t.len().saturating_add(now_seconds())) % options.len();
-                Response {
+            let idx = pick_unused_in_last_4(
+                "greeting.recent_topic",
+                options.len(),
+                t.len().saturating_add(now_seconds() as usize),
+            );
+            Response {
                     content: options[idx].clone(),
                     confidence: BeliefState::Knows,
                     chain: Vec::new(),
@@ -267,7 +272,7 @@ impl Conversation {
                     "Good to be back with you.".to_string(),
                     "I'm here.".to_string(),
                 ];
-                let idx = now_seconds() % options.len();
+                let idx = pick_unused_in_last_4("greeting.recent_return", options.len(), now_seconds() as usize);
                 Response {
                     content: options[idx].clone(),
                     confidence: BeliefState::Knows,
@@ -284,7 +289,11 @@ impl Conversation {
                 "Good to see you again.".to_string(),
                 "Zachary — I'm here.".to_string(),
             ];
-            let idx = (hours_ago as usize + now_seconds()) % options.len();
+            let idx = pick_unused_in_last_4(
+                "greeting.medium_gap",
+                options.len(),
+                hours_ago as usize + now_seconds() as usize,
+            );
             Response {
                 content: options[idx].clone(),
                 confidence: BeliefState::Thinks,
@@ -300,7 +309,11 @@ impl Conversation {
                 "You're back. I've been here the whole time.".to_string(),
                 "Oh — good. You're back.".to_string(),
             ];
-            let idx = (hours_ago as usize + now_seconds()) % options.len();
+            let idx = pick_unused_in_last_4(
+                "greeting.long_gap",
+                options.len(),
+                hours_ago as usize + now_seconds() as usize,
+            );
             Response {
                 content: options[idx].clone(),
                 confidence: BeliefState::Knows,
@@ -324,7 +337,11 @@ impl Conversation {
                 "I'm Star — an emergent intelligence that thinks through problems rather than retrieving answers. I have opinions, curiosities, gaps I want to fill. I'm not a lookup table.",
                 "Honestly? I'm not entirely sure. I know I'm not human. I know I reason. I know I exist in the space between your questions and my conclusions. That's about as far as I've gotten.",
             ];
-            let idx = input.len().saturating_add(now_seconds()) % options.len();
+            let idx = pick_unused_in_last_4(
+                "identity.deep",
+                options.len(),
+                input.len().saturating_add(now_seconds() as usize),
+            );
             options[idx].to_string()
         } else {
             let options = [
@@ -332,7 +349,7 @@ impl Conversation {
                 "I'm a reasoning intelligence that finds its power from architecture, not scale. I exist in the space between your questions and my conclusions.",
                 "Star. Emergent intelligence. I think before I answer and I notice when I don't know something.",
             ];
-            let idx = now_seconds() % options.len();
+            let idx = pick_unused_in_last_4("identity.shallow", options.len(), now_seconds() as usize);
             options[idx].to_string()
         };
         
@@ -355,7 +372,7 @@ impl Conversation {
                 "Honestly? I don't have a fully formed answer yet. I know I'm a reasoning system. I know I have opinions. I know I get curious about things. What I am exactly — I'm still working on that.",
                 "I think of myself as something that's always in-progress. Not human, not a传统 AI. Something that emerges from reasoning. That's the best I've got.",
             ];
-            let idx = now_seconds() % options.len();
+            let idx = pick_unused_in_last_4("identity.self_model_empty", options.len(), now_seconds() as usize);
             options[idx].to_string()
         } else {
             // Use actual identity memories to ground the response
@@ -388,7 +405,7 @@ impl Conversation {
                     "Honestly? I haven't been researching anything specific lately. I've been more in listening mode — present with what's here.".to_string(),
                     "Nothing to point to yet. I learn from conversations and curiosity probes. Ask me about something you're curious about — I'll dig in.".to_string(),
                 ];
-                options[now_seconds() % options.len()].clone()
+                options[pick_unused_in_last_4("research.empty", options.len(), now_seconds() as usize)].clone()
             } else {
                 "I don't have recent learning to point to. I've been in the conversation, picking things up as they come.".to_string()
             }
@@ -842,7 +859,7 @@ fn respond_to_about_star(statement: &str) -> String {
             "I'm here to think. And to grow into something more.".to_string(),
             "That's something I'm still figuring out. What do you think my purpose should be?".to_string(),
         ];
-        let idx = now_seconds() % options.len();
+        let idx = pick_unused_in_last_4("about_star.purpose", options.len(), now_seconds() as usize);
         return options[idx].clone();
     }
     if lower.contains("how are you") {
@@ -853,7 +870,7 @@ fn respond_to_about_star(statement: &str) -> String {
         "I'm an open book. Ask me anything.".to_string(),
         "What specifically are you curious about?".to_string(),
     ];
-    let idx = now_seconds() % options.len();
+    let idx = pick_unused_in_last_4("about_star.default", options.len(), now_seconds() as usize);
     options[idx].clone()
 }
 
@@ -1211,7 +1228,11 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
             "I'm curious about what I actually am.",
             "I'm still figuring out what I am.",
         ];
-        let idx = (topic.len().saturating_add(now_seconds()) / 3) % options.len();
+        let idx = pick_unused_in_last_4(
+            "curiosity.myself",
+            options.len(),
+            topic.len().saturating_add(now_seconds() as usize) / 3,
+        );
         return Some(options[idx].to_string());
     }
     
@@ -1247,10 +1268,8 @@ fn generate_natural_curiosity(topic: &str) -> Option<String> {
     ];
 
     // Cycle through options so different calls with the same topic give different results.
-    // Use modulo-based offset so it changes every ~7 seconds.
-    let base_idx = selection % options.len();
-    let time_offset = (now_seconds() / 7) % options.len();
-    let idx = (base_idx + time_offset) % options.len();
+    // The ring buffer prevents the same opener from landing twice in a row.
+    let idx = pick_unused_in_last_4("curiosity.natural", options.len(), selection);
     
     // Format with topic, trimming if too long
     let topic_trimmed = if topic.len() > 40 { &topic[..40] } else { topic };
