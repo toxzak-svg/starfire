@@ -1,0 +1,33 @@
+{
+  "name": "invent_trace_zach_v0",
+  "created_at_utc": "2026-06-21T23:43:36.134787Z",
+  "uploaded_archives": [
+    "/mnt/data/TGChat export.zip",
+    "/mnt/data/fine_tune_dataset.zip"
+  ],
+  "counts": {
+    "successful_invention_trace": 24,
+    "failed_invention_diagnosis": 15,
+    "contradiction_repair": 12,
+    "experiment_design": 6,
+    "productization_deployment_reasoning": 3
+  },
+  "requested_mix": {
+    "successful_invention_trace": "40%",
+    "failed_invention_diagnosis": "25%",
+    "contradiction_repair": "20%",
+    "experiment_design": "10%",
+    "productization_deployment_reasoning": "5%"
+  },
+  "actual_mix": {
+    "successful_invention_trace": 0.4,
+    "failed_invention_diagnosis": 0.25,
+    "contradiction_repair": 0.2,
+    "experiment_design": 0.1,
+    "productization_deployment_reasoning": 0.05
+  },
+  "dedupe": "records use content_hash over canonical assistant record; raw duplicates/backups not copied",
+  "privacy": "private/distilled; no raw messages copied; source_basis is summarized",
+  "hf_repo_target": "toxzak/invention",
+  "hf_upload_layout": "single dataset repo with combined files at root and one subfolder per trace type"
+}
