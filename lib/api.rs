@@ -203,13 +203,30 @@ fn handle_metacog_insight(runtime: &Arc<Mutex<Runtime>>) -> String {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
-    
+
+    // Phase 2 (voice-refine 2026-06-21): generate_insight() now returns a
+    // structured InsightIntent. We expose both the structured fields (for
+    // the voice engine to consume) and the legacy formatted prose (for the
+    // HTTP endpoint to return as before).
     let insight = rt_guard.metacognition_ref().generate_insight();
-    
+
+    let (has_insight, kind_str, topic, formatted) = match insight {
+        Some(i) => (
+            true,
+            Some(format!("{:?}", i.kind)),
+            i.topic.clone(),
+            Some(i.format()),
+        ),
+        None => (false, None, None, None),
+    };
+
     serde_json::json!({
-        "has_insight": insight.is_some(),
-        "insight": insight,
-    }).to_string()
+        "has_insight": has_insight,
+        "kind": kind_str,
+        "topic": topic,
+        "insight": formatted,
+    })
+    .to_string()
 }
 
 fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {

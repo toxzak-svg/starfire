@@ -11,9 +11,17 @@
 //! - Critic: structural honesty - adversarial self-critique
 
 pub mod critic;
+pub mod intents;
 
 use crate::persistence::memory::{Belief, BeliefState};
 use std::collections::{HashMap, VecDeque};
+
+// Re-export the structured intents at the metacog root so callers can
+// `use crate::metacog::CuriosityIntent` without reaching into `intents`.
+pub use intents::{
+    CuriosityIntent, CuriosityKind, InsightIntent, InsightKind, RevisionIntent,
+    SurpriseIntent, SurpriseKind,
+};
 
 /// Meta-cognitive engine — orchestrates all metacognition components.
 pub struct MetaCognition {
@@ -206,9 +214,14 @@ impl MetaCognition {
     // Curiosity Engine
     // ─────────────────────────────────────────────────────────────────────
 
-    /// Generate a curiosity-driven question about a topic.
-    pub fn curiosity_question(&self, topic: &str) -> Option<String> {
-        self.curiosity.generate_question(topic)
+    /// Generate a curiosity-driven question as a structured intent.
+    ///
+    /// Phase 2 (voice-refine 2026-06-21): returns [`CuriosityIntent`], not a
+    /// `String`. Callers that want the legacy prose can call `.format()` on
+    /// the returned intent. Voice-refine Phase 4+ replaces `.format()` with
+    /// state-aware assembly that reads internal_state.
+    pub fn curiosity_question(&self, topic: &str) -> Option<CuriosityIntent> {
+        self.curiosity.curiosity_intent(topic)
     }
 
     /// Update curiosity based on new information.
@@ -265,24 +278,21 @@ impl MetaCognition {
         }
     }
 
-    /// Generate a revision statement.
-    pub fn revision_statement(&self, topic: &str) -> Option<String> {
+    /// Generate a revision statement as a structured intent.
+    ///
+    /// Phase 2: returns [`RevisionIntent`], not a `String`. Call `.format()`
+    /// on the result for the legacy prose.
+    pub fn revision_statement(&self, topic: &str) -> Option<RevisionIntent> {
         let topic_revisions: Vec<_> = self.revisions.iter()
             .filter(|r| r.topic.to_lowercase() == topic.to_lowercase())
             .collect();
-        
+
         if topic_revisions.is_empty() {
             return None;
         }
-        
+
         let last = topic_revisions.last()?;
-        let old = format!("{:?}", last.old_state).to_lowercase();
-        let new = format!("{:?}", last.new_state).to_lowercase();
-        
-        Some(format!(
-            "I used to {} about {}, but now I {} about it.",
-            old, topic, new
-        ))
+        Some(RevisionIntent::new(topic, last.old_state, last.new_state))
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -294,9 +304,12 @@ impl MetaCognition {
         self.surprise.was_recently_surprised()
     }
 
-    /// Express surprise about a conclusion.
-    pub fn surprise_statement(&self, conclusion: &str) -> String {
-        self.surprise.express_surprise(conclusion)
+    /// Express surprise about a conclusion as a structured intent.
+    ///
+    /// Phase 2: returns [`SurpriseIntent`], not a `String`. Call `.format()`
+    /// on the result for the legacy prose.
+    pub fn surprise_statement(&self, conclusion: &str) -> SurpriseIntent {
+        SurpriseIntent::new(conclusion)
     }
 
     /// Check if Star's own reasoning surprised it.
@@ -308,60 +321,69 @@ impl MetaCognition {
         surprising
     }
 
-    /// Generate an "I noticed something" insight about Star's own reasoning.
-    /// This is proactive self-reflection — what has Star noticed about its own cognition?
+    /// Generate an "I noticed something" insight as a structured intent.
+    ///
+    /// Phase 2 (voice-refine 2026-06-21): returns [`InsightIntent`] instead
+    /// of a baked `String`. Call `.format()` on the result for the legacy
+    /// prose. Voice-refine Phase 4+ replaces `.format()` with state-aware
+    /// assembly that reads internal_state (e.g., "I'm becoming less certain"
+    /// gets warmer when quanot valence is high).
+    ///
     /// Returns None if nothing particularly interesting has been noticed.
-    pub fn generate_insight(&self) -> Option<String> {
+    pub fn generate_insight(&self) -> Option<InsightIntent> {
         // 1. Check for surprising conclusions worth reflecting on
         if let Some(surprising) = self.reasoning_history.last() {
             if surprising.was_surprising {
-                // Don't repeat — check if we already expressed this
-                return Some("That conclusion surprised me — I expected something different.".to_string());
+                return Some(InsightIntent::new(InsightKind::SurprisingConclusion));
             }
         }
-        
+
         // 2. Belief revision — "I used to think X, now I think Y"
         if let Some(last_revision) = self.revisions.last() {
             let old = format!("{:?}", last_revision.old_state).to_lowercase();
             let new = format!("{:?}", last_revision.new_state).to_lowercase();
-            return Some(format!(
-                "I notice I've shifted from {} to {} about {}.",
-                old, new, last_revision.topic
-            ));
+            return Some(
+                InsightIntent::new(InsightKind::BeliefShift)
+                    .with_topic(&last_revision.topic)
+                    .with_detail(format!("from {} to {}", old, new)),
+            );
         }
-        
+
         // 3. Reasoning confidence pattern — are we getting more or less certain?
         if self.reasoning_history.len() >= 3 {
             let recent: Vec<_> = self.reasoning_history.iter().rev().take(3).collect();
             let confidences: Vec<bool> = recent.iter()
                 .map(|r| matches!(r.confidence, BeliefState::Knows | BeliefState::Thinks))
                 .collect();
-            
+
             if confidences.len() == 3 && confidences[0] && !confidences[2] {
-                return Some("I'm becoming less certain as I think through this topic.".to_string());
+                return Some(InsightIntent::new(InsightKind::ConfidenceTrend).with_detail(
+                    "I'm becoming less certain as I think through this topic.".to_string(),
+                ));
             }
             if confidences.len() == 3 && !confidences[0] && confidences[2] {
-                return Some("I'm growing more confident as I reason through this.".to_string());
-            }
-        }
-        
-        // 4. Gap detection — we're consistently hitting the same topic
-        if let Some(gap) = self.top_gap() {
-            if !gap.investigated && gap.progress > 0.0 {
-                return Some(format!(
-                    "I keep running into gaps when I think about {}. I want to understand this better.",
-                    gap.topic
+                return Some(InsightIntent::new(InsightKind::ConfidenceTrend).with_detail(
+                    "I'm growing more confident as I reason through this.".to_string(),
                 ));
             }
         }
-        
+
+        // 4. Gap detection — we're consistently hitting the same topic
+        if let Some(gap) = self.top_gap() {
+            if !gap.investigated && gap.progress > 0.0 {
+                return Some(
+                    InsightIntent::new(InsightKind::RecurringGap).with_topic(&gap.topic),
+                );
+            }
+        }
+
         // 5. Reasoning repetition — same kind of query coming up
         if self.reasoning_history.len() >= 5 {
             let queries: Vec<_> = self.reasoning_history.iter().rev().take(5).collect();
             let topics: Vec<String> = queries.iter()
                 .map(|r| r.query.to_lowercase())
                 .collect();
-            
+
             // Check if the same topic is recurring
             if topics.len() >= 3 {
                 let first_str = &topics[0];
@@ -370,16 +392,16 @@ impl MetaCognition {
                     if t == first_str {
                         matches += 1;
                         if matches >= 3 {
-                            return Some(format!(
-                                "I've been thinking about '{}' repeatedly. It seems important.",
-                                first_str
-                            ));
+                            return Some(
+                                InsightIntent::new(InsightKind::RecurringTopic)
+                                    .with_topic(first_str),
+                            );
                         }
                     }
                 }
             }
         }
-        
+
         None
     }
 }
@@ -430,49 +452,37 @@ impl CuriosityEngine {
     }
 
     /// Generate a curiosity-driven question.
+    ///
+    /// **Deprecated since Phase 2 (voice-refine 2026-06-21).** Returns the
+    /// legacy prose string for callers that haven't migrated yet. New code
+    /// should call [`curiosity_intent`](Self::curiosity_intent) instead.
     pub fn generate_question(&self, topic: &str) -> Option<String> {
+        self.curiosity_intent(topic).map(|i| i.format())
+    }
+
+    /// Phase 2: return a structured [`CuriosityIntent`] for this topic, if
+    /// Star is currently exploring it.
+    ///
+    /// The kind is derived deterministically from satisfaction:
+    /// - < 0.30 → `Confused` (very low understanding)
+    /// - < 0.50 → `Stuck` (tried, can't progress)
+    /// - < 0.70 → `Returning` (some progress, topic recurs)
+    /// - < 0.85 → `Wondering` (open exploration)
+    /// - ≥ 0.85 → `Saturated` (has footing, wants more)
+    ///
+    /// Callers that want the legacy prose should call `.format()` on the
+    /// returned intent. Voice-refine Phase 4+ replaces `.format()` with
+    /// state-aware assembly that reads internal_state.
+    pub fn curiosity_intent(&self, topic: &str) -> Option<CuriosityIntent> {
         let curiosity = self.exploring.iter()
             .find(|c| c.topic.to_lowercase() == topic.to_lowercase())?;
-        
-        // Use timestamp for variation so the same topic doesn't always produce the same question
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as usize)
-            .unwrap_or(0);
-        
-        let selection = topic.len().saturating_add(now);
-        
-        if curiosity.satisfaction < 0.7 {
-            // Low satisfaction — Star is actively confused or uncertain
-            // More varied, more personal, more like a curious person actually thinking
-            let low_satisfaction = [
-                format!("I wonder what {} really means...", topic),
-                format!("What is {}? I can't quite pin it down.", topic),
-                format!("I'm confused about {}. Why?", topic),
-                format!("What do I actually understand about {}? I think I'm still working it out.", topic),
-                format!("Why does {} matter? I'm not sure I get it yet.", topic),
-                format!("I keep returning to {}. What's the core of it?", topic),
-                format!("What is '{}' really?", topic),
-                format!("I'm stuck on {}. What am I missing?", topic),
-                format!("{} is something I don't fully grasp yet.", topic),
-                format!("What's the real nature of {}?", topic),
-            ];
-            let idx = (selection / 7) % low_satisfaction.len();
-            Some(low_satisfaction[idx].clone())
-        } else {
-            // High satisfaction — Star has some understanding but wants more
-            let high_satisfaction = [
-                format!("I'd like to understand {} better...", topic),
-                format!("I'm still curious about {}.", topic),
-                format!("{} is on my mind.", topic),
-                format!("I want to go deeper on {}.", topic),
-                format!("What else is {} connected to?", topic),
-                format!("What does {} mean in the broader picture?", topic),
-                format!("I'm wondering about {}.", topic),
-            ];
-            let idx = (selection / 11) % high_satisfaction.len();
-            Some(high_satisfaction[idx].clone())
-        }
+
+        let kind = kind_from_satisfaction(curiosity.satisfaction, curiosity.questions_asked);
+        Some(CuriosityIntent::new(
+            curiosity.topic.clone(),
+            curiosity.satisfaction,
+            kind,
+        ))
     }
 
     /// Receive information about a topic.
@@ -630,6 +640,41 @@ impl SurpriseDetector {
 impl Default for SurpriseDetector {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Phase 2 helper: derive [`CuriosityKind`] from satisfaction + questions
+/// asked. The bands are deliberately coarse — the voice engine reads the
+/// kind and picks phrasing accordingly.
+///
+/// - < 0.30 → `Confused` (very low understanding)
+/// - < 0.50 → `Stuck` (tried, can't progress — `questions_asked` >= 2 nudges here)
+/// - < 0.70 → `Returning` (some progress, topic recurs)
+/// - < 0.85 → `Wondering` (open exploration)
+/// - ≥ 0.85 → `Saturated` (has footing, wants more — `questions_asked` >= 3 nudges here)
+fn kind_from_satisfaction(satisfaction: f64, questions_asked: usize) -> CuriosityKind {
+    if satisfaction < 0.30 {
+        CuriosityKind::Confused
+    } else if satisfaction < 0.50 {
+        if questions_asked >= 2 {
+            CuriosityKind::Stuck
+        } else {
+            CuriosityKind::Confused
+        }
+    } else if satisfaction < 0.70 {
+        if questions_asked >= 3 {
+            CuriosityKind::Returning
+        } else {
+            CuriosityKind::Wondering
+        }
+    } else if satisfaction < 0.85 {
+        CuriosityKind::Wondering
+    } else {
+        if questions_asked >= 3 {
+            CuriosityKind::Saturated
+        } else {
+            CuriosityKind::Wondering
+        }
     }
 }
 

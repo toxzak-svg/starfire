@@ -8,6 +8,7 @@
 pub mod thinker;
 pub mod curious;
 pub mod tempo;
+pub mod response_intent;
 
 use crate::persistence::{Store, Identity, Memory, MemoryDomain, MemorySnapshot, BeliefState};
 use crate::persistence::memory::Belief;
@@ -22,7 +23,7 @@ use crate::capabilities::FileReader;
 use crate::knowledge::search::WebSearcher;
 use crate::cognition::CognitiveState;
 use crate::learning::LearningEngine;
-use crate::voice::VoiceEngine;
+use crate::voice::{InternalState, VoiceEngine};
 use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
@@ -558,6 +559,13 @@ impl Runtime {
         // Handle metacognitive questions BEFORE normal processing
         // Priority: direct questions first, then emotional signals
         let lower = input.to_lowercase().trim().to_string();
+
+        // Phase 1c (voice-refine 2026-06-21): classify the input into a
+        // ResponseIntent so the voice engine can see what kind of response
+        // is being assembled and modulate phrasing accordingly. The existing
+        // if-chain below still fires for everything; classify() just adds
+        // structured context that flows into voice.speak() via internal_state.
+        let current_intent = response_intent::classify(input);
 
         // "how are you" → metacognitive response (anywhere in message) - HIGHEST PRIORITY
         if lower.contains("how are you") || lower.contains("how're you") {
@@ -1325,12 +1333,47 @@ impl Runtime {
         let quanot_result = self.quanot.process(input);
         // Get response modifiers from personality
         let modifiers = self.personality.response_modifiers();
+
+        // Phase 1 (voice-refine 2026-06-21): surface Star's actual internal
+        // state to the voice engine. Previously the engine only saw quanot
+        // scalars and the cognitive state — not the autonomous thought or the
+        // uncertainty from metacog. Now it does, so voice assembly can
+        // modulate on what Star is actually thinking.
+        //
+        // v1: uncertainty is derived from cognition.certainty (the inverse).
+        // metacog uncertainty as a separate signal lands in a follow-up — for
+        // now the existing voice-uncertainty heuristic (cognition.certainty
+        // < 0.4) is preserved AND the new current_uncertainty field is set
+        // from the same source, so voice::from_modifiers can use either.
+        let internal_state = InternalState::default()
+            .with_quanot(Some(&quanot_result))
+            .with_cognition(&self.cognition)
+            .with_last_thought(self.last_autonomous_thought())
+            .with_intent(current_intent.clone());
+
+        // Phase 1c (voice-refine 2026-06-21): log the classified intent at
+        // debug level so we can see, in long Star sessions, which intents
+        // actually fire. This is the observability hook for the dispatch
+        // table — the runtime still runs the if-chain, but classify() now
+        // tells us "what kind of response is this?" before the chain fires.
+        // When voice-refine Phase 4+ replaces the if-chain with intent-driven
+        // assembly, this log line stays — it's how we'll know if a migration
+        // changed observable behavior.
+        if !matches!(current_intent, response_intent::ResponseIntent::Unknown) {
+            tracing::debug!(
+                "chat: classified input as intent={} (input_len={})",
+                current_intent.label(),
+                input.len(),
+            );
+        }
+
         let voiced = self.voice.speak(
             &final_content,
             &self.cognition,
             &modifiers,
             Some(&quanot_result),
             &memories_ref,
+            &internal_state,
         );
 
         Ok(voiced)

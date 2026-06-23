@@ -27,3 +27,10 @@ rand.workspace = true
 rand_distr.workspace = true
 regex.workspace = true
 
+# Voice-refine Phase 3: in-process SLM reranker. Off by default — turning
+# this on pulls in lm.rs (or a fork) and its quantization/tokenizer deps.
+# Plan: enable when we vendor qwen3-rs for the Qwen 3.5 Small 2B backend.
+[features]
+default = []
+lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
+

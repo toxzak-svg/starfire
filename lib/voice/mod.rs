@@ -15,9 +15,114 @@ use templates::TemplateEngine;
 use crate::cognition::CognitiveState;
 use crate::personality::{ResponseStyle, ResponseModifiers};
 use crate::quanot::QuanotResult;
+use crate::runtime::response_intent::ResponseIntent;
 use crate::variation::pick_unused_in_last_4;
 use crate::Memory;
+use crate::runtime::AutonomousThought;
 use std::sync::{Arc, Mutex};
+
+/// Star's internal cognitive state, surfaced to the voice pipeline.
+///
+/// Phase 1 (voice-refine 2026-06-21): the voice engine should see Star's
+/// ACTUAL cognitive state at the moment of utterance — not just post-hoc
+/// patches. This struct is the bundle that flows from `runtime::chat()` into
+/// `voice::VoiceEngine::speak()`.
+///
+/// The fields here are the ones the plan calls out:
+/// - `last_autonomous_thought` — what Star is currently thinking about
+/// - `current_uncertainty` — how uncertain Star is (from metacog)
+/// - `current_intent` — what kind of response is being assembled
+/// - quanot triplet — novelty / creativity / consciousness
+/// - cognitive valence + engagement — how Star feels and how absorbed she is
+///
+/// All fields default to "no state visible" so existing call sites that
+/// don't yet supply internal_state still compile.
+#[derive(Debug, Clone, Default)]
+pub struct InternalState {
+    /// Star's most recent autonomous thought, if any. The voice engine can
+    /// weave this into the response when it makes sense.
+    pub last_autonomous_thought: Option<AutonomousThought>,
+
+    /// Star's current uncertainty (0.0 = fully certain, 1.0 = totally lost).
+    /// Comes from metacog. When high, voice engine should hedge, not assert.
+    pub current_uncertainty: f64,
+
+    /// The response intent for this turn, if classified. Phase 1c: lets the
+    /// voice engine modulate phrasing based on the kind of response — warmth
+    /// for Emotional, brevity for SelfCheck, follow-up question for
+    /// Reflection, etc. `None` if classify() returned Unknown.
+    pub current_intent: Option<ResponseIntent>,
+
+    /// Quanot novelty — the "interesting?" signal. 0.0-1.0.
+    pub quanot_novelty: f64,
+
+    /// Quanot creativity — how much creative risk is warranted. 0.0-1.0.
+    pub quanot_creativity: f64,
+
+    /// Quanot consciousness proxy — how "present" Star is right now. 0.0-1.0.
+    pub quanot_consciousness: f64,
+
+    /// Cognitive emotional valence — positive = warm, negative = withdrawn.
+    pub cognitive_emotional_valence: f64,
+
+    /// Cognitive engagement depth — how absorbed Star is in this topic. 0.0-1.0.
+    pub cognitive_engagement_depth: f64,
+}
+
+impl InternalState {
+    /// Convenience: pull the quanot-derived scalars from a QuanotResult
+    /// into this state bundle. Returns a fresh state with everything else
+    /// defaulted — caller fills in thought/uncertainty/valence/engagement.
+    pub fn with_quanot(mut self, quanot: Option<&QuanotResult>) -> Self {
+        if let Some(q) = quanot {
+            self.quanot_novelty = q.novelty;
+            self.quanot_creativity = q.creativity_scores.creative_state;
+            self.quanot_consciousness = q.consciousness_proxy;
+        } else {
+            self.quanot_novelty = 0.5;
+            self.quanot_creativity = 0.5;
+            self.quanot_consciousness = 0.5;
+        }
+        self
+    }
+
+    /// Convenience: pull emotional_valence + engagement_depth from a
+    /// CognitiveState into this state bundle.
+    pub fn with_cognition(mut self, cognition: &CognitiveState) -> Self {
+        self.cognitive_emotional_valence = cognition.emotional_valence;
+        self.cognitive_engagement_depth = cognition.engagement_depth;
+        self.current_uncertainty = 1.0 - cognition.certainty; // higher = more uncertain
+        self
+    }
+
+    /// Convenience: attach the most recent autonomous thought.
+    pub fn with_last_thought(mut self, thought: Option<AutonomousThought>) -> Self {
+        self.last_autonomous_thought = thought;
+        self
+    }
+
+    /// Convenience: attach the response intent.
+    pub fn with_intent(mut self, intent: ResponseIntent) -> Self {
+        // Only store interesting intents — Unknown is the "no signal" case.
+        if !matches!(intent, ResponseIntent::Unknown | ResponseIntent::Statement) {
+            self.current_intent = Some(intent);
+        }
+        self
+    }
+
+    /// True iff this state bundle carries no signal above the default.
+    /// Used to decide whether to skip the quanot-style pass-through guard.
+    pub fn is_empty(&self) -> bool {
+        self.quanot_novelty == 0.5
+            && self.quanot_creativity == 0.5
+            && self.quanot_consciousness == 0.5
+            && self.current_uncertainty == 0.0
+            && self.cognitive_emotional_valence == 0.0
+            && self.cognitive_engagement_depth == 0.5
+            && self.last_autonomous_thought.is_none()
+            && self.current_intent.is_none()
+    }
+}
 
 /// Voice configuration for this response
 #[derive(Debug, Clone)]
@@ -40,6 +145,9 @@ pub struct VoiceConfig {
     pub is_uncertain: bool,
     /// Whether this is a casual moment
     pub is_casual: bool,
+    /// Star's internal cognitive state at the moment of utterance.
+    /// Phase 1: surfaced from runtime so voice can modulate on it.
+    pub internal_state: InternalState,
 }
 
 impl VoiceConfig {
@@ -48,6 +156,7 @@ impl VoiceConfig {
         cognition: &CognitiveState,
         quanot: Option<&QuanotResult>,
         memory_count: usize,
+        internal_state: &InternalState,
     ) -> Self {
         let quanot = quanot.map(|q| (
             q.novelty,
@@ -55,7 +164,19 @@ impl VoiceConfig {
             q.consciousness_proxy,
         ));
 
-        let (novelty, creativity, consciousness) = quanot.unwrap_or((0.5, 0.5, 0.5));
+        let (novelty, creativity, consciousness) = quanot.unwrap_or((
+            internal_state.quanot_novelty,
+            internal_state.quanot_creativity,
+            internal_state.quanot_consciousness,
+        ));
+
+        // Combine the two uncertainty signals: cognitive certainty < 0.4
+        // (existing heuristic) OR metacog uncertainty > 0.6 (new signal from
+        // internal_state.current_uncertainty). Either flag treats Star as
+        // uncertain for voice-engine purposes.
+        let cognitively_uncertain = cognition.certainty < 0.4;
+        let metacog_uncertain = internal_state.current_uncertainty > 0.6;
+        let is_uncertain = cognitively_uncertain || metacog_uncertain;
 
         Self {
             style: modifiers.dominant_style.clone(),
@@ -65,8 +186,9 @@ impl VoiceConfig {
             creativity,
             consciousness,
             has_memory_backing: memory_count > 0,
-            is_uncertain: cognition.certainty < 0.4,
+            is_uncertain,
             is_casual: modifiers.is_casual,
+            internal_state: internal_state.clone(),
         }
     }
 }
@@ -93,6 +215,11 @@ impl VoiceEngine {
 
     /// Process a raw response through the voice engine.
     /// This is Star's authentic voice — not template polish.
+    ///
+    /// Phase 1: takes `internal_state` so the engine can see Star's actual
+    /// cognitive state (uncertainty, last autonomous thought, quanot bundle)
+    /// when shaping the response. Callers that don't yet construct a state
+    /// can pass `&InternalState::default()`.
     pub fn speak(
         &self,
         raw: &str,
@@ -100,9 +227,10 @@ impl VoiceEngine {
         modifiers: &ResponseModifiers,
         quanot: Option<&QuanotResult>,
         memories: &[Memory],
+        internal_state: &InternalState,
     ) -> String {
         let memory_count = memories.len();
-        let config = VoiceConfig::from_modifiers(modifiers, cognition, quanot, memory_count);
+        let config = VoiceConfig::from_modifiers(modifiers, cognition, quanot, memory_count, internal_state);
 
         // Step 1: Apply memory-backed certainty (Star speaks more directly when she knows)
         let mut result = self.apply_memory_certainty(raw, &config, memories);
@@ -485,6 +613,7 @@ mod tests {
                             &modifiers,
                             Some(&quanot),
                             &memories,
+                            &InternalState::default(),
                         );
                         for phrase in &deleted_phrases {
                             assert!(
@@ -520,6 +649,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let (result, modified) = engine.apply_quanot_expression("Just a plain statement.", &config);
         assert_eq!(result, "Just a plain statement.", "no flourish should be added");
@@ -543,6 +673,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let (result, modified) = engine.apply_quanot_expression("I think this is a real thing.", &config);
         assert!(result.starts_with("I know."), "should substitute 'I think' with 'I know.'; got: {}", result);
@@ -566,6 +697,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let (result, modified) = engine.apply_quanot_expression("I think this is a real thing.", &config);
         assert_eq!(result, "I think this is a real thing.", "low consciousness should leave hedging intact");
@@ -588,6 +720,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let mut outputs = Vec::new();
         for i in 0..6 {
@@ -621,6 +754,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let text = "Short response.";
         let result_with_guard = engine.apply_personality_style(text, &config, true);
@@ -657,6 +791,7 @@ mod tests {
             &modifiers,
             Some(&quanot),
             &no_memories,
+            &InternalState::default(),
         );
 
         // Should start with "I know." (quanot substitution) — but should NOT
@@ -699,6 +834,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let text = "That's a good point";
         let result = engine.apply_personality_style(text, &config, false);
@@ -720,6 +856,7 @@ mod tests {
             has_memory_backing: false,
             is_uncertain: false,
             is_casual: false,
+            internal_state: InternalState::default(),
         };
         let text = "That's a good point";
         let result = engine.apply_personality_style(text, &config, false);
