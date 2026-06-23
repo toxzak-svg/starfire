@@ -207,9 +207,11 @@ impl Runtime {
         let curious = CuriousEngine::new(Arc::clone(&store), Arc::clone(&reasoning_arc));
 
         // Initialize voice engine with a separate database file
-        let voice_db_path = data_dir.join("voice.db");
-        let voice = VoiceEngine::new(&voice_db_path)?;
-        info!("Voice engine initialized.");
+        // Voice engine is now stateless (Phase 4 cleanup, 2026-06-23) — the
+        // SQLite phrase bank and template engine are gone. The intent-driven
+        // reranker (above) owns intent/state-driven phrasing.
+        let voice = VoiceEngine::new()?;
+        info!("Voice engine initialized (stateless).");
 
         // Initialize personality emergence system
         let personality = PersonalityEmergence::new(identity.clone());

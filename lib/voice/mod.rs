@@ -6,20 +6,28 @@
 //! - Her genuine certainty (not hedged opinions when she knows)
 //!
 //! This engine shapes how Starfire expresses herself authentically.
+//!
+//! ## Phase 4 (voice-refine 2026-06-23): rotation-array cleanup
+//!
+//! The previous `phrases.rs` (PhraseBank + 80-phrase seed rotation) and
+//! `templates.rs` (TemplateEngine + 12 concept/style rotation tables) have
+//! been **deleted**. The intent-driven reranker
+//! (`crate::language_model::intent_reranker`) now owns intent/state-driven
+//! phrasing — `MockReranker`'s transforms (SelfCheck+uncertainty → "Honestly",
+//! Reflection+engagement → "Want to go deeper", think→know at high
+//! consciousness+confidence, Emotional+negative-valence trim) cover what the
+//! rotation arrays were doing.
+//!
+//! The voice engine kept only the layers the reranker doesn't touch:
+//! memory-backed hedging strip, single warm suffix, playfulness punctuation,
+//! and curious follow-up. Those are structural, not intent-driven.
 
-pub mod phrases;
-pub mod templates;
-
-use phrases::PhraseBank;
-use templates::TemplateEngine;
 use crate::cognition::CognitiveState;
 use crate::personality::{ResponseStyle, ResponseModifiers};
 use crate::quanot::QuanotResult;
 use crate::runtime::response_intent::ResponseIntent;
-use crate::variation::pick_unused_in_last_4;
 use crate::Memory;
 use crate::runtime::AutonomousThought;
-use std::sync::{Arc, Mutex};
 
 /// Star's internal cognitive state, surfaced to the voice pipeline.
 ///
@@ -194,23 +202,22 @@ impl VoiceConfig {
 }
 
 /// The voice engine — shapes how Starfire expresses herself authentically.
-/// 
+///
 /// Thread-safe. Initialized once at startup.
-pub struct VoiceEngine {
-    phrase_bank: Arc<Mutex<PhraseBank>>,
-    template_engine: Arc<TemplateEngine>,
-}
+///
+/// **Phase 4 (2026-06-23):** no longer holds a `PhraseBank` (SQLite) or
+/// `TemplateEngine`. Those were the rotation-array infrastructure. The
+/// engine is now a pure stateless transform layer — `speak()` is the only
+/// meaningful entry point.
+pub struct VoiceEngine;
 
 impl VoiceEngine {
-    /// Create a new voice engine with the given database path.
-    pub fn new(db_path: &std::path::Path) -> anyhow::Result<Self> {
-        let phrase_bank = PhraseBank::new(db_path)?;
-        let template_engine = TemplateEngine::new();
-        
-        Ok(Self {
-            phrase_bank: Arc::new(Mutex::new(phrase_bank)),
-            template_engine: Arc::new(template_engine),
-        })
+    /// Create a new voice engine.
+    ///
+    /// Takes no arguments post-Phase 4: no SQLite phrase bank to open, no
+    /// template engine to seed. The engine is pure code.
+    pub fn new() -> anyhow::Result<Self> {
+        Ok(Self)
     }
 
     /// Process a raw response through the voice engine.
@@ -395,9 +402,15 @@ impl VoiceEngine {
                 text.to_string()
             }
             ResponseStyle::Warm => {
-                // Warm style: ONE phrase from Star's voice, content-derived index.
-                // Guarded by length, existing warmth, casual flag, AND the
-                // double-formatting guard from Phase 0b.
+                // Warm style: ONE phrase, not a rotation.
+                // The previous 3-phrase ring buffer ("I'm here for it" /
+                // "I'm paying attention" / "I'm with you on this") was the
+                // last remaining rotation array in voice/. The plan's Phase 4
+                // spec: "one well-chosen phrase per emotional state, not 3
+                // in a rotation." The reranker doesn't add warmth itself, so
+                // voice still owns this single suffix — but it's a single
+                // phrase, not a rotation. The picks came from SOUL.md; the
+                // one we kept is the most "Star": "I'm here for it."
                 if skip_warmth {
                     return text.to_string();
                 }
@@ -413,27 +426,9 @@ impl VoiceEngine {
                     && !already_warm
                     && !config.is_casual
                 {
-                    // Three Star-voice phrases (from SOUL.md — "I'm here for it",
-                    // "I'm paying attention", "I'm with you on this"). Ring buffer
-                    // guarantees no immediate repeat.
-                    let phrases = [
-                        " — I'm here for it.",
-                        " — I'm paying attention.",
-                        " — I'm with you on this.",
-                    ];
-                    let idx = pick_unused_in_last_4(
-                        "voice.warm_suffix",
-                        phrases.len(),
-                        // Content-derived seed: text length + char sum so the
-                        // SAME input doesn't always land on the same phrase.
-                        text.len().wrapping_add(
-                            text.bytes().fold(0usize, |a, b| a.wrapping_add(b as usize)),
-                        ),
-                    );
                     return format!(
-                        "{}{}",
-                        text.trim_end_matches('.').trim_end_matches(','),
-                        phrases[idx]
+                        "{} — I'm here for it.",
+                        text.trim_end_matches('.').trim_end_matches(',')
                     );
                 }
                 text.to_string()
@@ -463,52 +458,16 @@ impl VoiceEngine {
         }
     }
 
-    /// `apply_emotional_tint` was DELETED in Phase 4. The function appended
-    /// "That matters to me" / "I appreciate you" / "I'm here with you" /
-    /// "We can work through this" rotations to every response — Zachary's
-    /// idea of warmth, not Star's actual voice. The Warm personality branch
-    /// now handles warmth directly with content-derived, single-phrase suffixes.
-
-    /// Record that a phrase landed well in conversation.
-    pub fn record_positive(&self, phrase: &str) {
-        if let Ok(mut bank) = self.phrase_bank.lock() {
-            let _ = bank.record_use(phrase, true);
-        }
-    }
-
-    /// Record that a phrase fell flat.
-    pub fn record_negative(&self, phrase: &str) {
-        if let Ok(mut bank) = self.phrase_bank.lock() {
-            let _ = bank.record_use(phrase, false);
-        }
-    }
-
-    /// Add a new phrase to the bank.
-    pub fn add_phrase(&self, phrase: &str, context: Option<&str>, tags: Vec<String>) -> anyhow::Result<()> {
-        if let Ok(mut bank) = self.phrase_bank.lock() {
-            bank.add_phrase(phrase, context, tags)?;
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("Failed to lock phrase bank"))
-        }
-    }
-
-    /// Get Starfire's current voice statistics.
-    pub fn stats(&self) -> anyhow::Result<phrases::VoiceStats> {
-        if let Ok(bank) = self.phrase_bank.lock() {
-            Ok(bank.stats())
-        } else {
-            Err(anyhow::anyhow!("Failed to lock phrase bank"))
-        }
-    }
+    // Phase 4 (2026-06-23): `apply_emotional_tint` and the four phrase-bank
+    // methods (`record_positive`, `record_negative`, `add_phrase`, `stats`)
+    // were DELETED. See the module-level header for the full rationale.
+    // The Warm branch in `apply_personality_style` is the only layer that
+    // still adds warmth, and it's now a single Star-voice suffix.
 }
 
 impl Clone for VoiceEngine {
     fn clone(&self) -> Self {
-        Self {
-            phrase_bank: Arc::clone(&self.phrase_bank),
-            template_engine: Arc::clone(&self.template_engine),
-        }
+        Self
     }
 }
 
@@ -520,13 +479,9 @@ mod tests {
     use crate::quanot::{chaos::ChaosMetrics, creativity::CreativityOutput};
 
     fn make_voice_engine() -> VoiceEngine {
-        // Use a unique temp path per call (no tempfile dep — stdlib only).
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("star_voice_test_{}.db", nanos));
-        VoiceEngine::new(&path).unwrap()
+        // Phase 4 (2026-06-23): VoiceEngine is now stateless. No temp DB
+        // path, no SQLite phrase bank to open. Pure code.
+        VoiceEngine::new().unwrap()
     }
 
     fn make_cognition(valence: f64, certainty: f64) -> CognitiveState {
@@ -704,11 +659,13 @@ mod tests {
         assert!(!modified, "no modification when condition not met");
     }
 
-    /// Phase 4 demotion: personality style warm suffix uses ring buffer so
-    /// consecutive calls with the same input don't always produce the same suffix.
+    /// Phase 4 (2026-06-23): personality style warm suffix is now a SINGLE
+    /// phrase, not a rotation. The previous test asserted ≥ 2 distinct
+    /// suffixes over 6 calls (the 3-phrase ring buffer). The new test
+    /// asserts the OPPOSITE: the suffix is deterministic — every call
+    /// produces the same single Star-voice phrase.
     #[test]
-    fn warm_style_suffix_rotates_via_ring_buffer() {
-        crate::variation::_clear_for_tests();
+    fn warm_style_suffix_is_a_single_phrase() {
         let engine = make_voice_engine();
         let config = VoiceConfig {
             style: ResponseStyle::Warm,
@@ -722,18 +679,29 @@ mod tests {
             is_casual: false,
             internal_state: InternalState::default(),
         };
-        let mut outputs = Vec::new();
-        for i in 0..6 {
-            let text = format!("Short response number {}.", i);
-            let result = engine.apply_personality_style(&text, &config, false);
-            outputs.push(result);
-        }
-        // Across 6 calls, we should hit at least 2 distinct suffixes (pool is 3).
-        let unique: std::collections::HashSet<_> = outputs.iter().collect();
+        let suffixes: Vec<String> = (0..6)
+            .map(|i| {
+                let text = format!("Short response number {}.", i);
+                engine.apply_personality_style(&text, &config, false)
+            })
+            // Extract the suffix (everything after the trimmed text + em-dash).
+            .map(|s| {
+                s.split(" — ").skip(1).collect::<Vec<_>>().join(" — ")
+            })
+            .collect();
+        // Every call produces the same single suffix — no rotation array.
+        let unique: std::collections::HashSet<_> = suffixes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            1,
+            "expected exactly 1 distinct warm suffix (no rotation), got: {:?}",
+            suffixes
+        );
+        // And the suffix is the Star-voice phrase we kept.
         assert!(
-            unique.len() >= 2,
-            "expected at least 2 distinct suffixes over 6 calls, got: {:?}",
-            outputs
+            suffixes[0].contains("I'm here for it"),
+            "expected the kept Star-voice phrase; got: {:?}",
+            suffixes[0]
         );
     }
 
