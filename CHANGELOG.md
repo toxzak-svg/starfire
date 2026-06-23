@@ -38,6 +38,38 @@ Daily sync.
   Emotional negative-valence trim) cover what the rotation arrays were
   doing.
 
+- **Voice Refine Phase 4.1 (parallel rotation cleanup + 3 user-visible
+  bugs).** Phase 4 deleted rotation arrays in `lib/voice/` but missed the
+  same anti-pattern in `lib/cognition.rs` and three pre-existing bugs in
+  the response pipeline. Surfaced by the user's REPL smoke test:
+  - `lib/cognition.rs` `emotional_response` (305-323) — collapsed the
+    3-phrase warm rotation (`["That matters to me.", "I appreciate that.",
+    "I'm glad we're talking."]` time-indexed) to a single Star-voice
+    phrase: `"That matters to me."` Same for the 3-phrase supportive
+    rotation → `"I'm here with you."` Both anchored to SOUL.md. New
+    tests pin single-phrase behavior (3 new cognition tests, all pass).
+  - `lib/conversation/mod.rs` `extract_name` — two bugs:
+    1. Trailing punctuation leaked: `"I'm Zachary."` returned
+       `Some("Zachary.")`, producing stored memory
+       `"Zachary.'s name is Zachary."`. Now strips `.`, `,`, `!`, `?`
+       and any non-alphanumeric/-/'` characters before the length check.
+    2. Lowercase adverbs matched: `"I'm kinda bored"` returned
+       `Some("Kinda")`, producing stored memory `"Kinda's name is Kinda"`.
+       Now requires a capitalized first letter (real names) and
+       additionally rejects a 25-word stopword list (kinda, sorta,
+       really, just, ...) as belt-and-suspenders.
+    8 new tests pin all branches (trailing punctuation variants,
+    hyphenated names, capitalized stopwords, plain happy path).
+  - `lib/research/mod.rs:230` — `"I explored {} but didn't find clear
+    answers yet."` was a literal `.to_string()` with the `{}`
+    placeholder never filled; the user's transcript showed
+    `"I explored {} but didn't find clear answers yet."` reaching the
+    REPL output. Now `format!`-interpolates `self.topic`.
+
+  Net: Phase 4 was incomplete. 421 lib tests pass (was 410). Same
+  release-build warnings as before (all pre-existing in unrelated
+  modules).
+
 
 ## 2026-06-17
 

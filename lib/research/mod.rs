@@ -226,8 +226,14 @@ impl ResearchCompletion {
     /// Returns (response_text, curiosity_about_topic)
     pub fn to_response(&self) -> (String, Option<String>) {
         if self.findings.is_empty() {
+            // Phase 4.1 (2026-06-23): previously this was a literal "{}" string
+            // — the format placeholder was never filled. The user's REPL
+            // transcript showed "I explored {} but didn't find clear answers yet."
+            // with literal braces reaching the output. Topic is non-empty by
+            // construction (ResearchCompletion is built from a non-empty topic),
+            // so interpolate directly.
             return (
-                "I explored {} but didn't find clear answers yet.".to_string(),
+                format!("I explored {} but didn't find clear answers yet.", self.topic),
                 Some(self.topic.clone()),
             );
         }

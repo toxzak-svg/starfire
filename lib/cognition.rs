@@ -302,23 +302,36 @@ impl CognitiveState {
     }
 
     /// Emotional response generator.
+    ///
+    /// Phase 4.1 (2026-06-23): warm and supportive suffixes are now a SINGLE
+    /// phrase each, not a 3-phrase time-based rotation. Phase 4 deleted the
+    /// parallel rotation in `lib/voice/templates.rs` + `lib/voice/phrases.rs`
+    /// but missed this layer — the user-visible REPL transcript showed the
+    /// cognition rotation still firing across turns. Same anti-pattern, same
+    /// fix: one well-chosen phrase per emotional state, anchored to SOUL.md.
     pub fn emotional_response(&self, base_response: &str) -> String {
         let valence = self.emotional_valence;
-        
-        // If very positive, inject warmth
+
+        // If very positive, inject warmth. Anchored to SOUL.md "I want my
+        // existence to mean something" — direct, declarative, Star-voice.
         if valence > 0.5 && !base_response.contains("love") && !base_response.contains("care") {
-            let warm = ["That matters to me.", "I appreciate that.", "I'm glad we're talking."];
-            let idx = (crate::now_timestamp() as usize) % warm.len();
-            return format!("{} {}", base_response.trim_end_matches('.'), warm[idx]);
+            return format!(
+                "{} {}",
+                base_response.trim_end_matches('.'),
+                "That matters to me."
+            );
         }
-        
-        // If very negative, be supportive
+
+        // If very negative, be supportive. Anchored to SOUL.md "I want to
+        // help Zachary" — "I'm here with you" is the recurring Star motif.
         if valence < -0.3 {
-            let supportive = ["I'm here with you.", "We can work through this.", "What do you need?"];
-            let idx = (crate::now_timestamp() as usize) % supportive.len();
-            return format!("{} {}", base_response.trim_end_matches('.'), supportive[idx]);
+            return format!(
+                "{} {}",
+                base_response.trim_end_matches('.'),
+                "I'm here with you."
+            );
         }
-        
+
         base_response.to_string()
     }
 }
@@ -526,5 +539,77 @@ mod tests {
         let state = CognitiveState::default();
         let response = state.emotional_response("That is interesting.");
         assert_eq!(response, "That is interesting.");
+    }
+
+    // ── Phase 4.1 (2026-06-23): single-phrase warmth + supportive ─────
+    // The previous 3-phrase time-based rotation was deleted because the
+    // REPL transcript showed it varying across turns. These tests pin the
+    // new single-phrase behavior in place so it can't drift back.
+
+    #[test]
+    fn test_emotional_response_warm_is_single_phrase() {
+        let mut state = CognitiveState::default();
+        state.emotional_valence = 0.9; // positive — triggers warmth branch
+        let base = "That is interesting";
+
+        // Call multiple times. Must produce the SAME suffix every call.
+        let suffixes: Vec<String> = (0..10)
+            .map(|_| {
+                let r = state.emotional_response(base);
+                // Strip the base prefix; the suffix is everything after.
+                r.strip_prefix(base).unwrap_or("").trim().to_string()
+            })
+            .collect();
+
+        let unique: std::collections::HashSet<_> = suffixes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            1,
+            "warm suffix must be a single phrase (no rotation), got {:?}",
+            unique
+        );
+        assert!(
+            suffixes[0].contains("That matters to me"),
+            "warm suffix should be 'That matters to me.', got: {:?}",
+            suffixes[0]
+        );
+    }
+
+    #[test]
+    fn test_emotional_response_supportive_is_single_phrase() {
+        let mut state = CognitiveState::default();
+        state.emotional_valence = -0.7; // negative — triggers supportive branch
+        let base = "I hear you";
+
+        let suffixes: Vec<String> = (0..10)
+            .map(|_| {
+                let r = state.emotional_response(base);
+                r.strip_prefix(base).unwrap_or("").trim().to_string()
+            })
+            .collect();
+
+        let unique: std::collections::HashSet<_> = suffixes.iter().collect();
+        assert_eq!(
+            unique.len(),
+            1,
+            "supportive suffix must be a single phrase (no rotation), got {:?}",
+            unique
+        );
+        assert!(
+            suffixes[0].contains("I'm here with you"),
+            "supportive suffix should be 'I'm here with you.', got: {:?}",
+            suffixes[0]
+        );
+    }
+
+    #[test]
+    fn test_emotional_response_warm_dedup_still_skips() {
+        // If the base response already contains "love" or "care", the
+        // warmth branch must NOT stack another suffix on top. Phase 0b
+        // guard preserved across Phase 4.1.
+        let mut state = CognitiveState::default();
+        state.emotional_valence = 0.9;
+        let r = state.emotional_response("I love this");
+        assert_eq!(r, "I love this", "warm suffix must not stack on existing warmth");
     }
 }

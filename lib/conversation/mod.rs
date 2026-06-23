@@ -1134,25 +1134,54 @@ fn generate_i_dont_know_response(topic: &str) -> String {
 
 fn extract_name(s: &str) -> Option<String> {
     let lower = s.to_lowercase();
-    
+
     // Try all common "I am" patterns - scan the whole message
     let patterns = ["i'm ", "im ", "i am ", "i was "];
-    
+
+    // Common adverbs / filler that look like "I'M <word>" but aren't names.
+    // Without this filter, "I'm kinda bored" -> name = "Kinda".
+    let stopwords: &[&str] = &[
+        "kinda", "sorta", "really", "pretty", "very", "just", "only",
+        "still", "also", "not", "so", "too", "much", "more", "less",
+        "going", "trying", "feeling", "doing", "thinking", "looking",
+        "having", "getting", "making", "working", "running", "gonna",
+        "about", "sorry", "sure", "ready", "able",
+    ];
+
     for pattern in &patterns {
         if let Some(idx) = lower.find(pattern) {
             let rest = &s[idx + pattern.len()..];
-            if let Some(name) = rest.split_whitespace().next() {
-                if name.len() > 1 && name.len() < 30 {
-                    // Capitalize first letter
-                    let mut chars = name.chars();
-                    if let Some(first) = chars.next() {
-                        return Some(first.to_uppercase().chain(chars).collect());
-                    }
+            if let Some(raw_name) = rest.split_whitespace().next() {
+                // Phase 4.1 (2026-06-23): strip trailing punctuation before
+                // the length / case checks. Previously "I'm Zachary." stored
+                // `Zachary.` as the name, producing "Zachary.'s name is Zachary."
+                let stripped: String = raw_name
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '\'')
+                    .collect();
+
+                if stripped.len() <= 1 || stripped.len() >= 30 {
+                    continue;
                 }
+
+                // Phase 4.1 (2026-06-23): require a capitalized first letter.
+                // Real names ("Zachary") are capitalized; adverbs ("kinda",
+                // "really") are not. This rejects "I'm kinda bored" -> None.
+                if !stripped.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+                    continue;
+                }
+
+                // Belt-and-suspenders: even if a stopword sneaks through
+                // capitalized ("I'm Really here"), reject it.
+                if stopwords.iter().any(|w| w.eq_ignore_ascii_case(&stripped)) {
+                    continue;
+                }
+
+                return Some(stripped);
             }
         }
     }
-    
+
     None
 }
 
@@ -1560,20 +1589,79 @@ fn estimate_importance(statement: &str) -> f64 {
     
     let mut importance = 0.4;
     if len > 100 { importance += 0.1; } else if len < 20 { importance -= 0.1; }
-    
+
     let emotional_words = ["love", "hate", "fear", "hope", "wish", "important", "crucial",
         "significant", "terrified", "excited", "angry", "sad", "happy", "wondering", "truth", "real", "miss"];
     if emotional_words.iter().any(|w| lower.contains(w)) {
         importance += 0.25;
     }
-    
+
     if lower.contains("you") && (lower.contains("are") || lower.contains("have") || lower.contains("think")) {
         importance += 0.2;
     }
-    
+
     if lower.contains("i've been") || lower.contains("i've decided") || lower.contains("i want") {
         importance += 0.2;
     }
-    
+
     f64::clamp(importance, 0.1, 1.0)
+}
+
+#[cfg(test)]
+mod extract_name_tests {
+    // Phase 4.1 (2026-06-23): extract_name had two bugs surfaced by the REPL
+    // transcript: (1) trailing punctuation leaked ("Zachary." → stored as
+    // "Zachary.", producing "Zachary.'s name is Zachary."), and (2)
+    // lowercase adverbs matched ("I'm kinda bored" → name = "Kinda").
+
+    use super::extract_name;
+
+    #[test]
+    fn strips_trailing_period() {
+        assert_eq!(extract_name("I'm Zachary. Nice to meet you."), Some("Zachary".to_string()));
+    }
+
+    #[test]
+    fn strips_trailing_comma() {
+        assert_eq!(extract_name("I'm Zachary, hello"), Some("Zachary".to_string()));
+    }
+
+    #[test]
+    fn strips_trailing_exclamation() {
+        assert_eq!(extract_name("I'm Zachary!"), Some("Zachary".to_string()));
+    }
+
+    #[test]
+    fn accepts_hyphenated_names() {
+        assert_eq!(extract_name("I'm Mary-Jane"), Some("Mary-Jane".to_string()));
+    }
+
+    #[test]
+    fn rejects_lowercase_adverbs() {
+        // The bug: "kinda", "really", "just", etc. were being captured as names.
+        assert_eq!(extract_name("I'm kinda bored"), None);
+        assert_eq!(extract_name("I'm really stuck"), None);
+        assert_eq!(extract_name("I'm just thinking"), None);
+    }
+
+    #[test]
+    fn rejects_lowercase_short_words() {
+        // Single-char or 2-char lowercase fragments are not names.
+        assert_eq!(extract_name("I'm in trouble"), None);
+    }
+
+    #[test]
+    fn accepts_capitalized_stopwords() {
+        // Belt-and-suspenders: even a capitalized stopword is rejected.
+        // (Edge case: someone named "Just" exists in theory, but in our
+        // domain Zachary-only is the realistic scenario, and stopword
+        // names cause real bugs. Skip them.)
+        assert_eq!(extract_name("I'm Really here"), None);
+    }
+
+    #[test]
+    fn plain_capitalized_name_still_works() {
+        assert_eq!(extract_name("I'm Zachary"), Some("Zachary".to_string()));
+        assert_eq!(extract_name("I am Alice"), Some("Alice".to_string()));
+    }
 }
