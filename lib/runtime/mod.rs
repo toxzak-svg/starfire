@@ -29,6 +29,7 @@ use crate::world_model::WorldModel;
 use crate::prediction::{PredictionCenter, ConversationContext};
 use crate::personality::PersonalityEmergence;
 use crate::user_model::UserCognitionModel;
+use crate::language_model::IntentReranker;
 use self::curious::{CuriousEngine, CuriosityProbe};
 use anyhow::Result;
 use std::sync::{Arc, Mutex};
@@ -86,6 +87,11 @@ pub struct Runtime {
     prediction_center: PredictionCenter,
     /// User-cognition model — Star's model of Zachary's mind
     user_model: UserCognitionModel,
+    /// Intent-driven reranker (Phase 3 of voice-refine) — sits between
+    /// content assembly and `voice.speak()`. Default backend is the
+    /// deterministic `MockReranker`; swap to `CharRnnBackend`/`LmRsBackend`
+    /// when generative backends land.
+    reranker: IntentReranker,
 }
 
 impl Runtime {
@@ -209,6 +215,13 @@ impl Runtime {
         let personality = PersonalityEmergence::new(identity.clone());
         info!("Personality engine initialized.");
 
+        // Initialize the intent-driven reranker (voice-refine Phase 3).
+        // Default backend is the deterministic MockReranker — proves the
+        // architecture end-to-end with no model load. Swap to a generative
+        // backend (CharRnnBackend / LmRsBackend) here when ready.
+        let reranker = IntentReranker::with_default_backend();
+        info!("Reranker initialized (backend={}).", reranker.backend_name());
+
         let mut runtime = Self {
             store,
             identity,
@@ -235,6 +248,7 @@ impl Runtime {
             world_model: WorldModel::new(),
             prediction_center: PredictionCenter::new(),
             user_model: UserCognitionModel::new(),
+            reranker,
         };
 
         // Bootstrap metacognition with self-model beliefs and foundational curiosity
@@ -1367,8 +1381,27 @@ impl Runtime {
             );
         }
 
+        // Phase 3 (voice-refine 2026-06-23): route the assembled body through
+        // the reranker BEFORE voice. The reranker takes a structured
+        // Response { intent, body, slots } + InternalState and produces a
+        // refined body whose phrasing tracks the moment — replacing the
+        // timestamp-derived rotation arrays that Phase 4 used to live in
+        // the voice engine. The voice engine still runs AFTER this for
+        // style/personality modulation; the reranker adds the intent-aware
+        // phrasing layer on top of template-driven body assembly.
+        //
+        // Default backend (MockReranker) is deterministic and free. If the
+        // backend errors, `rerank()` falls back to the raw body internally
+        // — the voice engine still has its modulations, so a rerank miss
+        // never degrades the response.
+        let rerank_response = response_intent::Response::with_body(
+            current_intent.clone(),
+            final_content,
+        );
+        let reranked = self.reranker.rerank(&rerank_response, &internal_state);
+
         let voiced = self.voice.speak(
-            &final_content,
+            &reranked,
             &self.cognition,
             &modifiers,
             Some(&quanot_result),
