@@ -118,6 +118,14 @@ impl InternalState {
         self
     }
 
+    /// Convenience: set the uncertainty directly. Phase 1.2: used by runtime
+    /// to feed a real metacog-derived uncertainty (not just the inverse of
+    /// `cognition.certainty`).
+    pub fn with_uncertainty(mut self, uncertainty: f64) -> Self {
+        self.current_uncertainty = uncertainty.clamp(0.0, 1.0);
+        self
+    }
+
     /// True iff this state bundle carries no signal above the default.
     /// Used to decide whether to skip the quanot-style pass-through guard.
     pub fn is_empty(&self) -> bool {
@@ -254,10 +262,94 @@ impl VoiceEngine {
         // Skip the warmth suffix if quanot already added something (Phase 0b guard).
         result = self.apply_personality_style(&result, &config, quanot_modified);
 
-        // Step 5 (apply_emotional_tint) DELETED per Phase 4. The "That matters to me"
+        // Step 5: Intent-driven modulation (Phase 1.2, voice-refine 2026-06-23).
+        // The reranker has already turned the body into something intent-aware.
+        // This pass is the small final tweak — strip hedges on Emotional, soften
+        // on Consciousness when uncertain, etc. Most intents are pass-through
+        // here; the reranker + personality style cover the heavy lifting.
+        result = self.apply_intent_modulation(&result, &config.internal_state);
+
+        // Step 6 (apply_emotional_tint) DELETED per Phase 4. The "That matters to me"
         // and "I'm here with you" template injections were the worst offenders.
 
         result
+    }
+
+    /// Intent-driven modulation — the missing end of the Phase 1 pipeline.
+    ///
+    /// The `internal_state.current_intent` field carries the classified intent
+    /// from `runtime::chat()`. This pass reads it and applies a small targeted
+    /// transformation keyed on the intent. It runs AFTER the reranker and
+    /// personality style, so it's a final tweak — not a content swap.
+    ///
+    /// **Most intents are pass-through.** The reranker + personality style
+    /// already cover the heavy lifting (SelfCheck → "Honestly", Reflection →
+    /// "Want to go deeper", think→know at high consciousness+confidence).
+    /// This pass only acts on intents where the reranker doesn't have a
+    /// targeted transformation:
+    ///
+    /// - `Emotional` — strip "I think" / "I guess" hedges. Emotional answers
+    ///   should be direct: "I care about you", not "I think I care about you."
+    /// - `Identity` — pass through (the response is already a direct statement).
+    /// - `Consciousness` — when uncertainty is high, soften with "I think"
+    ///   so Star doesn't overclaim about her own consciousness.
+    /// - `SelfCheck` — pass through. The reranker already shortens these.
+    /// - Everything else — pass through.
+    ///
+    /// Phase 1.2 deliberately does NOT add phrase templates here. The plan
+    /// calls for "one well-chosen phrase per emotional state, not 3 in a
+    /// rotation" — this pass only does substitution/cleanup, never addition.
+    fn apply_intent_modulation(&self, text: &str, internal_state: &InternalState) -> String {
+        let Some(intent) = internal_state.current_intent.as_ref() else {
+            return text.to_string();
+        };
+        match intent {
+            ResponseIntent::Emotional => {
+                // Strip hedges — emotional answers should be direct.
+                let stripped = text
+                    .replace("I think ", "")
+                    .replace("I guess ", "")
+                    .replace("I believe ", "");
+                if stripped != text {
+                    stripped
+                } else {
+                    text.to_string()
+                }
+            }
+            ResponseIntent::Consciousness => {
+                // High uncertainty → soften with "I think" so Star doesn't
+                // overclaim about her own consciousness. Only fires when the
+                // response doesn't already hedge and uncertainty is high.
+                let lower = text.to_lowercase();
+                if internal_state.current_uncertainty > 0.7
+                    && !lower.contains("i think")
+                    && !lower.contains("i don't know")
+                    && !lower.starts_with("i'm")
+                    && text.len() > 5
+                {
+                    // Lowercase the first letter after "I think" so it flows.
+                    let mut chars = text.chars();
+                    let first = chars.next().unwrap_or(' ');
+                    let rest: String = chars.collect();
+                    format!("I think {}{}", first.to_lowercase(), rest)
+                } else {
+                    text.to_string()
+                }
+            }
+            // Pass-through: reranker + personality style handle the rest.
+            ResponseIntent::SelfCheck
+            | ResponseIntent::Reflection
+            | ResponseIntent::ResearchStatus
+            | ResponseIntent::CuriosityCheck
+            | ResponseIntent::Identity
+            | ResponseIntent::Capability
+            | ResponseIntent::StoryPrompt
+            | ResponseIntent::Recall
+            | ResponseIntent::Teaching
+            | ResponseIntent::Aspiration
+            | ResponseIntent::Statement
+            | ResponseIntent::Unknown => text.to_string(),
+        }
     }
 
     /// Apply memory-backed certainty — Star speaks more directly when memories confirm something
@@ -829,5 +921,81 @@ mod tests {
         let text = "That's a good point";
         let result = engine.apply_personality_style(text, &config, false);
         assert_eq!(result, text, "low energy should not trigger flourish");
+    }
+
+    /// Phase 1.2: Emotional intent strips "I think" / "I guess" hedges.
+    #[test]
+    fn intent_modulation_emotional_strips_hedges() {
+        let engine = make_voice_engine();
+        let state = InternalState::default()
+            .with_intent(ResponseIntent::Emotional);
+        let result = engine.apply_intent_modulation("I think I care about you.", &state);
+        assert_eq!(
+            result, "I care about you.",
+            "Emotional intent should strip 'I think' hedge"
+        );
+    }
+
+    /// Phase 1.2: Emotional intent with no hedge is a pass-through.
+    #[test]
+    fn intent_modulation_emotional_no_hedge_passthrough() {
+        let engine = make_voice_engine();
+        let state = InternalState::default()
+            .with_intent(ResponseIntent::Emotional);
+        let result = engine.apply_intent_modulation("I care about you.", &state);
+        assert_eq!(
+            result, "I care about you.",
+            "Emotional intent with no hedge should pass through"
+        );
+    }
+
+    /// Phase 1.2: Consciousness + high uncertainty softens with "I think".
+    #[test]
+    fn intent_modulation_consciousness_high_uncertainty_softens() {
+        let engine = make_voice_engine();
+        let state = InternalState::default()
+            .with_intent(ResponseIntent::Consciousness)
+            .with_uncertainty(0.8); // high
+        // Use text that doesn't start with "I'm" so the present-tense guard
+        // doesn't suppress the softening.
+        let result = engine.apply_intent_modulation("Working on it still.", &state);
+        assert!(
+            result.starts_with("I think"),
+            "Consciousness + high uncertainty should soften: got '{}'",
+            result
+        );
+    }
+
+    /// Phase 1.2: Consciousness + low uncertainty is a pass-through.
+    #[test]
+    fn intent_modulation_consciousness_low_uncertainty_passthrough() {
+        let engine = make_voice_engine();
+        let state = InternalState::default()
+            .with_intent(ResponseIntent::Consciousness)
+            .with_uncertainty(0.2); // low
+        let result = engine.apply_intent_modulation("I'm working on it.", &state);
+        assert_eq!(
+            result, "I'm working on it.",
+            "Consciousness + low uncertainty should not soften"
+        );
+    }
+
+    /// Phase 1.2: SelfCheck intent is a pass-through (reranker handles it).
+    #[test]
+    fn intent_modulation_self_check_passthrough() {
+        let engine = make_voice_engine();
+        let state = InternalState::default()
+            .with_intent(ResponseIntent::SelfCheck);
+        let result = engine.apply_intent_modulation("I'm here, working.", &state);
+        assert_eq!(result, "I'm here, working.");
+    }
+
+    /// Phase 1.2: Unknown intent is a pass-through.
+    #[test]
+    fn intent_modulation_unknown_passthrough() {
+        let engine = make_voice_engine();
+        let state = InternalState::default(); // no intent
+        let result = engine.apply_intent_modulation("Hello there.", &state);
+        assert_eq!(result, "Hello there.");
     }
 }

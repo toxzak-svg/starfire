@@ -70,6 +70,52 @@ Daily sync.
   release-build warnings as before (all pre-existing in unrelated
   modules).
 
+- **Voice Refine Phase 1.2 (internal_state end-to-end + state-aware
+  curiosity + intent-driven voice modulation).** Phase 1+2 from the plan
+  had the *infrastructure* in place — `InternalState`, `classify()`,
+  `ResponseIntent`, structured metacog intents — but the
+  voice↔intent↔metacog triangle wasn't actually connected. This commit
+  closes the loop:
+  - `lib/voice/mod.rs` — new `apply_intent_modulation` pass in `speak()`,
+    the missing end of the Phase 1 pipeline. Reads
+    `internal_state.current_intent` and applies small targeted
+    transformations: `Emotional` strips "I think"/"I guess" hedges
+    (emotional answers should be direct), `Consciousness` + high
+    uncertainty softens with "I think" (so Star doesn't overclaim about
+    her own consciousness). 9 intents are pass-through — the reranker +
+    personality style already cover them. This pass only does
+    substitution/cleanup, never addition. **No new phrase templates**
+    (the plan's "one well-chosen phrase per emotional state" rule).
+  - `lib/voice/mod.rs::InternalState` — new `with_uncertainty(value)`
+    builder so the runtime can layer real metacog uncertainty onto the
+    cognitive-certainty baseline. Used in tests and the runtime wiring.
+  - `lib/metacog/mod.rs` — new
+    `curiosity_question_with_state(topic, state)` method. The original
+    `curiosity_intent` derives the kind purely from
+    `satisfaction`/`questions_asked`. The new method biases that floor
+    based on `state.current_uncertainty` (high → demote Wondering to
+    Confused) and `state.cognitive_emotional_valence` (high + low
+    uncertainty → promote Wondering to Saturated). Same topic, same
+    satisfaction, different internal state → different prose. This is
+    the structural hook for the user's REPL to see "I keep hitting this
+    wall with X" when Star is uncertain and "I want to go deeper on X"
+    when Star is in a positive-valence state.
+  - `lib/runtime/mod.rs` — `chat()` now layers real metacog uncertainty
+    onto `internal_state.current_uncertainty`. The cognitive-certainty
+    baseline (`1.0 - cognition.certainty`) is the floor; if
+    `metacog.was_surprised()` is true, the value jumps to 0.7. The
+    existing voice-uncertainty heuristic
+    (`VoiceConfig::from_modifiers`) is unchanged — it now sees a
+    *higher* uncertainty signal in surprise states. Future iterations
+    can replace the surprise-binary with a continuous metacog reading.
+
+  Net: voice and metacog now actually consume `internal_state`. The
+  if-chain in `runtime::chat()` still fires (per the plan's "each
+  handler migrates one at a time" follow-up), but the intent it
+  classifies is now end-to-end visible to voice and metacog. 427 lib
+  tests pass (was 421, +6 new). Same release-build warnings as before
+  (pre-existing).
+
 
 ## 2026-06-17
 

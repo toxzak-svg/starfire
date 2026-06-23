@@ -1361,11 +1361,24 @@ impl Runtime {
         // now the existing voice-uncertainty heuristic (cognition.certainty
         // < 0.4) is preserved AND the new current_uncertainty field is set
         // from the same source, so voice::from_modifiers can use either.
+        //
+        // Phase 1.2 (voice-refine 2026-06-23): layer a real metacog-derived
+        // signal on top of the cognitive-uncertainty baseline. If Star was
+        // recently surprised (`metacog.was_surprised()`), bump uncertainty
+        // to 0.7 — surprise is metacog saying "I didn't expect this", which
+        // is exactly what high uncertainty means at the voice layer. The
+        // existing cognition-derived uncertainty is the floor; surprise is
+        // the boost. `with_uncertainty` clamps, so we take the max.
+        let cognitive_uncertainty = 1.0 - self.cognition.certainty;
+        let metacog_uncertainty = if self.metacog.was_surprised() { 0.7 } else { 0.0 };
+        let combined_uncertainty = cognitive_uncertainty.max(metacog_uncertainty);
+
         let internal_state = InternalState::default()
             .with_quanot(Some(&quanot_result))
             .with_cognition(&self.cognition)
             .with_last_thought(self.last_autonomous_thought())
-            .with_intent(current_intent.clone());
+            .with_intent(current_intent.clone())
+            .with_uncertainty(combined_uncertainty);
 
         // Phase 1c (voice-refine 2026-06-21): log the classified intent at
         // debug level so we can see, in long Star sessions, which intents

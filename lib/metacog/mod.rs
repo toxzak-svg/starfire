@@ -14,6 +14,7 @@ pub mod critic;
 pub mod intents;
 
 use crate::persistence::memory::{Belief, BeliefState};
+use crate::voice::InternalState;
 use std::collections::{HashMap, VecDeque};
 
 // Re-export the structured intents at the metacog root so callers can
@@ -222,6 +223,56 @@ impl MetaCognition {
     /// state-aware assembly that reads internal_state.
     pub fn curiosity_question(&self, topic: &str) -> Option<CuriosityIntent> {
         self.curiosity.curiosity_intent(topic)
+    }
+
+    /// Generate a curiosity-driven question, biased by internal state.
+    ///
+    /// Phase 1.2 (voice-refine 2026-06-23): reads `internal_state` and uses
+    /// its uncertainty / valence to *promote* or *demote* the [`CuriosityKind`].
+    /// The kind derived from `satisfaction` is the floor; state pushes it
+    /// toward `Confused` / `Stuck` (high uncertainty, low valence) or
+    /// `Saturated` (high valence, low uncertainty).
+    ///
+    /// This is the structural hook the voice engine needs: same topic, same
+    /// satisfaction, but a different *kind* produces different prose in
+    /// `CuriosityIntent::format()`. The user's REPL will see "I keep hitting
+    /// this wall with X" when Star is uncertain and "I want to go deeper on
+    /// X" when Star is in a positive-valence state — instead of a single
+    /// monotonic template.
+    pub fn curiosity_question_with_state(
+        &self,
+        topic: &str,
+        state: &InternalState,
+    ) -> Option<CuriosityIntent> {
+        let mut intent = self.curiosity.curiosity_intent(topic)?;
+
+        // High uncertainty pushes the kind toward Confused/Stuck.
+        // Threshold: uncertainty > 0.7 demotes Wondering→Confused.
+        if state.current_uncertainty > 0.7
+            && matches!(intent.kind, CuriosityKind::Wondering | CuriosityKind::Returning)
+        {
+            intent.kind = CuriosityKind::Confused;
+        } else if state.current_uncertainty > 0.5
+            && intent.kind == CuriosityKind::Wondering
+            && state.cognitive_emotional_valence < -0.2
+        {
+            // High uncertainty + low valence = Stuck (tried, can't progress).
+            intent.kind = CuriosityKind::Stuck;
+        }
+
+        // High valence + low uncertainty promotes Wondering→Saturated
+        // (has footing, wants more). Only fires at higher satisfaction so we
+        // don't pretend Star "has footing" on a topic she's still confused
+        // about.
+        if state.cognitive_emotional_valence > 0.5
+            && state.current_uncertainty < 0.4
+            && matches!(intent.kind, CuriosityKind::Wondering)
+            && intent.satisfaction > 0.3
+        {
+            intent.kind = CuriosityKind::Saturated;
+        }
+
+        Some(intent)
     }
 
     /// Update curiosity based on new information.
@@ -756,5 +807,91 @@ mod tests {
         metacog.record_belief("fire", Belief::new("fire burns".to_string(), BeliefState::Knows));
         
         assert!(metacog.can_express_revision("fire"));
+    }
+
+    /// Phase 1.2 (voice-refine 2026-06-23): curiosity_question_with_state
+    /// promotes Wondering → Confused when uncertainty is high.
+    #[test]
+    fn curiosity_question_with_state_high_uncertainty_promotes_confused() {
+        let mut metacog = MetaCognition::new();
+        metacog.curiosity.start_exploring("consciousness", "important");
+        // Push satisfaction into Wondering range (0.50-0.70) so the baseline
+        // is Wondering. With satisfaction=0.0, baseline is already Confused.
+        metacog.update_curiosity("consciousness", "first info");
+        metacog.update_curiosity("consciousness", "second info");
+
+        let baseline = metacog.curiosity_question("consciousness").unwrap().kind;
+        assert!(
+            matches!(baseline, CuriosityKind::Wondering),
+            "setup: baseline should be Wondering, got {:?}",
+            baseline
+        );
+
+        // High uncertainty → Confused.
+        let state = InternalState::default().with_uncertainty(0.8);
+        let result = metacog
+            .curiosity_question_with_state("consciousness", &state)
+            .unwrap();
+        assert!(
+            matches!(result.kind, CuriosityKind::Confused),
+            "high uncertainty should demote Wondering → Confused, got {:?}",
+            result.kind
+        );
+    }
+
+    /// Phase 1.2: high valence + low uncertainty promotes Wondering → Saturated
+    /// (when satisfaction > 0.3 so Star isn't pretending she has footing on a
+    /// topic she knows nothing about).
+    #[test]
+    fn curiosity_question_with_state_high_valence_promotes_saturated() {
+        let mut metacog = MetaCognition::new();
+        metacog.curiosity.start_exploring("emergence", "important");
+        metacog.update_curiosity("emergence", "first info");
+        metacog.update_curiosity("emergence", "second info");
+        // Now satisfaction > 0.3 (each receive_information adds 0.3).
+        let sat = metacog.curiosity_question("emergence").unwrap().satisfaction;
+        assert!(sat > 0.3, "test setup: satisfaction should be > 0.3, got {}", sat);
+
+        // High valence + low uncertainty → Saturated.
+        let state = InternalState {
+            cognitive_emotional_valence: 0.6,
+            current_uncertainty: 0.2,
+            ..Default::default()
+        };
+        let result = metacog
+            .curiosity_question_with_state("emergence", &state)
+            .unwrap();
+        assert!(
+            matches!(result.kind, CuriosityKind::Saturated),
+            "high valence + low uncertainty + sat > 0.3 should promote Saturated, got {:?}",
+            result.kind
+        );
+    }
+
+    /// Phase 1.2: low-uncertainty / neutral-valence state leaves the kind
+    /// unchanged (pass-through).
+    #[test]
+    fn curiosity_question_with_state_neutral_passthrough() {
+        let mut metacog = MetaCognition::new();
+        metacog.curiosity.start_exploring("x", "y");
+        // Push satisfaction into Wondering range (≥ 0.50, < 0.70).
+        metacog.update_curiosity("x", "first info");
+        metacog.update_curiosity("x", "second info");
+        // 0.3 + 0.3 = 0.6 → Wondering.
+        let sat = metacog.curiosity_question("x").unwrap().satisfaction;
+        assert!(sat > 0.5 && sat < 0.7, "setup: sat should be in Wondering range, got {}", sat);
+        let baseline = metacog.curiosity_question("x").unwrap().kind;
+        assert!(matches!(baseline, CuriosityKind::Wondering), "baseline should be Wondering, got {:?}", baseline);
+
+        let state = InternalState::default(); // all defaults → no signal
+        let result = metacog
+            .curiosity_question_with_state("x", &state)
+            .unwrap();
+        // No state signal → kind stays as satisfaction-derived (Wondering).
+        assert!(
+            matches!(result.kind, CuriosityKind::Wondering),
+            "neutral state should not promote, got {:?}",
+            result.kind
+        );
     }
 }
