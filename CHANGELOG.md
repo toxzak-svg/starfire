@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2026-06-24
+
+Daily sync.
+
+
 ## 2026-06-23
 
 - **Voice Refine Phase 3 (moonshot — wire the language model as the
@@ -129,6 +134,11 @@ All notable changes to this project will be documented in this file.
       `star_model.bin` with the same vocab) is dropped into
       `models/`. Until then, `MockReranker` runs and the
       `init_reranker` log line records the clean rejection.
+
+## 2026-06-24
+
+Daily sync.
+
 
 ## 2026-06-23
 
@@ -327,9 +337,19 @@ Daily sync.
   flaky test in `lib/variation.rs` still fires 1-in-3 (predates).
 
 
+## 2026-06-24
+
+Daily sync.
+
+
 ## 2026-06-17
 
 Daily backup: 6 files changed (2 modified, 4 added, 0 deleted).
+
+
+## 2026-06-24
+
+Daily sync.
 
 
 ## 2026-06-21
