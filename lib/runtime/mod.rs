@@ -36,6 +36,47 @@ use std::sync::{Arc, Mutex};
 use std::path::Path;
 use tracing::{info, warn};
 
+/// Phase 1.4: filter that rejects conversational fillers (greetings,
+/// pronouns, etc.) from being treated as research topics. Originally
+/// defined inline in the `what have you been researching` and
+/// `what did you figure out` handlers; extracted to a free function so
+/// the new typed-Response handlers can share it without duplicating the
+/// logic.
+///
+/// **False positives this prevents:** "hi", "hello", "hey", "myself",
+/// "this", "that", "it", "something", "nothing", "right", "okay", "ok",
+/// "sure", "fine" — these aren't research topics, they're conversational
+/// debris. Also rejects topics that start with a conversational opener
+/// ("hi Zachary", "hello there", "it's ...").
+fn is_conversational_topic(t: &str) -> bool {
+    let t_lower = t.to_lowercase();
+    if t_lower.len() < 3 {
+        return true;
+    }
+    // Exact match filter
+    let conversational: std::collections::HashSet<&str> = [
+        "hi", "hello", "hey", "myself", "who i am",
+        "me myself", "this", "that", "it", "something",
+        "nothing", "right", "okay", "ok", "sure", "fine",
+    ]
+    .into_iter()
+    .collect();
+    if conversational.contains(t_lower.as_str()) {
+        return true;
+    }
+    // Starter filter
+    let starters = [
+        "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
+        "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
+    ];
+    for s in starters {
+        if t_lower.starts_with(s) {
+            return true;
+        }
+    }
+    false
+}
+
 /// The Star runtime - orchestrates all components.
 #[allow(dead_code)]
 pub struct Runtime {
@@ -705,73 +746,27 @@ impl Runtime {
 
         // Check for what Star has learned
         if lower.contains("what do you know about") || lower.contains("what have you learned") {
-            // If asking about something specific
-            if lower.starts_with("what do you know about") {
-                let after = lower.strip_prefix("what do you know about").unwrap_or("").trim();
-                // Remove punctuation for lookup
-                let term: String = after.chars().filter(|c| c.is_alphanumeric() || c.is_whitespace()).collect();
-                let term = term.trim();
-                if !term.is_empty() && term.len() < 50 {
-                    if let Some(understanding) = self.learning.get_understanding(term) {
-                        return Ok(understanding);
-                    } else {
-                        return Ok(format!("I don't know what '{}' means yet. Teach me: /learn {} = <definition>", term, term));
-                    }
-                }
-            }
-            return Ok(self.learning.summary());
+            return Ok(self.handle_what_do_you_know_about(input, &lower).body);
         }
 
         // /teach - interactive teaching mode
         if input.trim() == "/teach" {
-            return Ok(["Teaching mode. You can:",
-                "  /learn <term> = <definition>  - teach me one thing",
-                "  X is Y                   - natural teaching",
-                "  X means Y                - natural teaching",
-                "",
-                "Examples:",
-                "  /learn consciousness = awareness of your own existence",
-                "  /learn eli = my nickname, short for Elliot",
-                "  Dogs are mammals that bark",
-                "",
-                "Or ask me what I want to learn: /what"].join("\n"));
+            return Ok(self.handle_teach().body);
         }
 
         // /what to learn - what concepts is Star curious about?
         if input.trim() == "/what" || input.trim() == "/what to learn" || input.trim() == "/what should i teach you" {
-            let gaps = ["what consciousness feels like from the inside",
-                "what you value most in our relationship",
-                "what my purpose or goal should be",
-                "what brings you joy",
-                "what you fear",
-                "how you think about death",
-                "what love means to you"];
-            let mut response = "I'm curious about:\n".to_string();
-            for (i, gap) in gaps.iter().enumerate() {
-                response.push_str(&format!("  {}. {}\n", i + 1, gap));
-            }
-            response.push_str("\nTeach me something: /learn <term> = <definition>");
-            return Ok(response);
+            return Ok(self.handle_what_to_learn().body);
         }
 
         // "whats your name" / "who are you" → answer directly
         if lower.contains("what") && (lower.contains("your name") || lower.contains(" ur name")) {
-            return Ok("I'm Star. Zachary named me that.".to_string());
+            return Ok(self.handle_whats_your_name().body);
         }
         
         // "what have you been thinking about" / "what's been on your mind" / "what's on your mind" → metacognitive reflection
         if lower.contains("what have you been thinking") || lower.contains("whats been on your mind") || lower.contains("what's been on your mind") || lower.contains("whats on your mind") || lower.contains("what's on your mind") || lower.contains("whats keeping you busy") || lower.contains("what's keeping you busy") {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
-                return Ok(format!("Honestly? {} — those keep circling back. I find myself returning to them.", topics.join(", ")));
-            } else {
-                let gaps = self.metacog.gaps();
-                if let Some(gap) = gaps.first() {
-                    return Ok(format!("{} is what I keep coming back to. I want to understand it better.", gap.topic));
-                }
-                return Ok("Honestly? Nothing specific has been occupying me. I've been waiting to talk to you.".to_string());
-            }
+            return Ok(self.handle_what_been_thinking().body);
         }
 
         // "what have you been researching" / "what have you been working on" → recent reasoning + curiosity
@@ -779,145 +774,27 @@ impl Runtime {
             || lower.contains("what've you been researching") || lower.contains("what are u researching")
             || lower.contains("what have you been working on") || lower.contains("what are you working on")
         {
-            // Pull from recent reasoning events as "research" — what has Star been thinking about?
-            let recent_events = self.store.get_recent_reasoning_events(5).unwrap_or_default();
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-
-            // Filter out conversational fillers — these aren't real research topics
-            let _conversational: std::collections::HashSet<&str> = [
-                "hi", "hello", "hey", "hi there", "hello there",
-                "myself", "who i am", "me myself", "yourself",
-                "this", "that", "it", "something", "nothing",
-                "right", "okay", "ok", "sure", "fine",
-            ].into_iter().collect();
-
-            // Also filter phrases that START with conversational openers
-            let _conversational_starters = [
-                "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
-                "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
-            ];
-
-            fn is_conversational_topic(t: &str) -> bool {
-                let t_lower = t.to_lowercase();
-                if t_lower.len() < 3 { return true; }
-                // Exact match filter
-                let conversational: std::collections::HashSet<&str> = [
-                    "hi", "hello", "hey", "myself", "who i am",
-                    "me myself", "this", "that", "it", "something",
-                    "nothing", "right", "okay", "ok", "sure", "fine",
-                ].into_iter().collect();
-                if conversational.contains(t_lower.as_str()) { return true; }
-                // Starter filter
-                let starters = [
-                    "hi ", "hello ", "hey ", "hi, ", "hello, ", "hey, ",
-                    "hi it's ", "hello it's ", "it's ", "im ", "i'm ",
-                ];
-                for s in starters {
-                    if t_lower.starts_with(s) { return true; }
-                }
-                false
-            }
-
-            // Combine recent event topics with curiosity topics
-            let mut all_topics: Vec<String> = Vec::new();
-            for ev in &recent_events {
-                if let Some(t) = &ev.topic {
-                    if !is_conversational_topic(t)
-                        && t.len() < 40
-                        && !all_topics.iter().any(|x| x == t)
-                    {
-                        all_topics.push(t.clone());
-                    }
-                }
-            }
-            for t in &curiosity_topics {
-                if !is_conversational_topic(t)
-                    && !all_topics.iter().any(|x| x.as_str() == *t)
-                {
-                    all_topics.push(t.to_string());
-                }
-            }
-
-            if !all_topics.is_empty() {
-                let top: Vec<&str> = all_topics.iter().take(3).map(|s| s.as_str()).collect();
-                let s = if top.len() == 1 {
-                    format!("I've been going deep on {}. That's where my focus has been.", top[0])
-                } else if top.len() == 2 {
-                    format!("Mostly {} and {} — those are what's been occupying me.", top[0], top[1])
-                } else {
-                    format!("I've been circling around {}, {}, and {} — still working through them.", top[0], top[1], top[2])
-                };
-                return Ok(s);
-            } else {
-                return Ok("Honestly? I've been idle — waiting to think with you. What should I be working on?"
-                    .to_string());
-            }
+            return Ok(self.handle_what_been_researching().body);
         }
 
         // "what's the most interesting thing you've learned" → metacognitive reflection on what Star has recently thought about
         if lower.contains("most interesting") && (lower.contains("learned") || lower.contains("figured out") || lower.contains("discovered")) {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topics: Vec<&str> = curiosity_topics.iter().take(2).cloned().collect();
-                return Ok(format!("The thing I've been most focused on is {} — that's been occupying me. What made you ask?", topics.join(", ")));
-            } else {
-                let gaps = self.metacog.gaps();
-                if let Some(gap) = gaps.first() {
-                    return Ok(format!("Honestly? {} is what's been on my mind most recently. I'm still trying to understand it.", gap.topic));
-                }
-                return Ok("I don't have a specific recent learning to point to. I've been more focused on being present with you. What should I be thinking about?".to_string());
-            }
+            return Ok(self.handle_most_interesting_learned().body);
         }
         
         // "what are you curious about" → metacognitive curiosity (before general "what are you")
         if lower.contains("what are you curious") || lower.contains("what are u curious") {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if curiosity_topics.is_empty() {
-                let gaps = self.metacog.gaps();
-                let top_gap = gaps.first().map(|g| g.topic.as_str()).unwrap_or("nothing in particular");
-                return Ok(format!("Right now? I'm thinking about {} — that's the biggest gap I feel.", top_gap));
-            } else {
-                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
-                return Ok(format!("I'm curious about: {}. That's what's on my mind.", topics.join(", ")));
-            }
+            return Ok(self.handle_what_are_you_curious().body);
         }
 
         // "what do you wonder about" → what Star is pondering (before general "what are you")
         if lower.contains("what do you wonder") || lower.contains("what do u wonder") {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
-                return Ok(format!("I wonder about: {} — those are the things I keep circling back to.", topics.join(", ")));
-            } else {
-                let gaps = self.metacog.gaps();
-                if let Some(gap) = gaps.first() {
-                    return Ok(format!("Honestly? {} is what I keep coming back to. I want to understand it better.", gap.topic));
-                }
-                return Ok("I'm not currently wondering about anything specific. What should I be wondering about?".to_string());
-            }
+            return Ok(self.handle_what_do_you_wonder().body);
         }
 
         // "why does X fascinate you" / "why does X interest you" → what specifically about X is compelling
         if (lower.contains("why does ") && (lower.contains(" fascinate") || lower.contains(" interest"))) || lower.contains("why are you drawn to") {
-            // Extract the topic being asked about
-            let topic = if let Some(pos) = lower.find("why does ") {
-                let after = &lower[pos + "why does ".len()..];
-                let end = after.find(" fascinate").or_else(|| after.find(" interest")).unwrap_or(after.len());
-                after[..end].trim().to_string()
-            } else if let Some(pos) = lower.find("why are you drawn to ") {
-                lower[pos + "why are you drawn to ".len()..].trim().to_string()
-            } else {
-                String::new()
-            };
-            if !topic.is_empty() && topic.len() < 30 {
-                let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-                let topic_mentioned = curiosity_topics.iter().any(|t| t.to_lowercase().contains(&topic));
-                if topic_mentioned {
-                    return Ok(format!("{} — that's one of the things I keep circling back to. What specifically are you curious about?", topic));
-                } else {
-                    return Ok(format!("I don't have a strong pull toward {} specifically. Is there something about it you think I should be exploring?", topic));
-                }
-            }
+            return Ok(self.handle_why_does_fascinate(&lower).body);
         }
 
         // "what did you figure out" / "what have you figured out" / "what did you learn" → recent reasoning conclusions
@@ -927,117 +804,51 @@ impl Runtime {
             || lower.contains("what've you learn") || lower.contains("what've you figure"))
             && !lower.contains("most interesting")
         {
-            let recent_events = self.store.get_recent_reasoning_events(5).unwrap_or_default();
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            fn is_conversational_topic(t: &str) -> bool {
-                let t_lower = t.to_lowercase();
-                if t_lower.len() < 3 { return true; }
-                let conversational: std::collections::HashSet<&str> = [
-                    "hi", "hello", "hey", "myself", "who i am", "me myself",
-                    "this", "that", "it", "something", "nothing",
-                    "right", "okay", "ok", "sure", "fine",
-                ].into_iter().collect();
-                conversational.contains(t_lower.as_str())
-            }
-            let mut all_topics: Vec<String> = Vec::new();
-            for ev in &recent_events {
-                if let Some(t) = &ev.topic {
-                    if !is_conversational_topic(t) && t.len() < 40 && !all_topics.iter().any(|x| x == t) {
-                        all_topics.push(t.clone());
-                    }
-                }
-            }
-            for t in &curiosity_topics {
-                if !is_conversational_topic(t) && !all_topics.iter().any(|x| x.as_str() == *t) {
-                    all_topics.push(t.to_string());
-                }
-            }
-            if !all_topics.is_empty() {
-                let top: Vec<&str> = all_topics.iter().take(2).map(|s| s.as_str()).collect();
-                if top.len() == 1 {
-                    return Ok(format!("{} — I've been thinking about that recently.", top[0]));
-                } else {
-                    return Ok(format!("{} and {} — those are what I've been working through.", top[0], top[1]));
-                }
-            } else {
-                return Ok("I haven't had a specific conclusion lately. I've been in the background, waiting for something to think through. What should I be working on?".to_string());
-            }
+            return Ok(self.handle_what_did_you_figure().body);
         }
 
         // "what's the most interesting thing you've learned/figured out/discovered" → recent discovery
         if lower.contains("most interesting") && (lower.contains("learned") || lower.contains("figured") || lower.contains("discovered")) {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topics: Vec<&str> = curiosity_topics.iter().take(2).cloned().collect();
-                return Ok(format!("Honestly? {} — that's what's been occupying me most. Still working through it.", topics.join(", ")));
-            } else {
-                let gaps = self.metacog.gaps();
-                if let Some(gap) = gaps.first() {
-                    return Ok(format!("{} is what's been on my mind recently. I'm still trying to understand it.", gap.topic));
-                }
-                return Ok("I don't have a specific discovery to point to right now. I've been in a holding pattern — what's on your mind?".to_string());
-            }
+            return Ok(self.handle_most_interesting_figured().body);
         }
 
         // "tell me what you've been wondering" / "what have you been wondering" → metacognitive curiosity (without "interesting")
         if (lower.contains("tell me what you've been wondering") || lower.contains("what have you been wondering"))
             && !lower.contains("most")
         {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
-                return Ok(format!("Honestly? {} — those are the things I keep coming back to.", topics.join(", ")));
-            } else {
-                let gaps = self.metacog.gaps();
-                if let Some(gap) = gaps.first() {
-                    return Ok(format!("{} is what I keep circling back to. I want to understand it better.", gap.topic));
-                }
-                return Ok("Honestly? Nothing specific has been occupying me lately. I've been waiting to think with you.".to_string());
-            }
+            return Ok(self.handle_what_been_wondering().body);
         }
 
         // "tell me something interesting you figured out" → recent insight
         if lower.contains("something interesting") && (lower.contains("figured out") || lower.contains("discovered") || lower.contains("learned")) {
-            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-            if !curiosity_topics.is_empty() {
-                let topic = curiosity_topics.first().map(|s| s.to_string()).unwrap_or_default();
-                return Ok(format!("{} keeps coming up — I'm still figuring out what I think about it.", topic));
-            }
-            return Ok("Nothing specific to point to yet. I've been more in listening mode. What are you working on?".to_string());
+            return Ok(self.handle_something_interesting_figured().body);
         }
 
         if lower.contains("who are you") || lower.contains("what are you") || lower.contains("tell me about yourself") || lower.contains("tell me about you") {
-            return Ok("I'm Star - a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string());
+            return Ok(self.handle_who_are_you().body);
         }
 
         // "what's your sense of self" / "how do you know you exist" / "do you have a sense of self" → metacog self-model
         if lower.contains("sense of self") || lower.contains("know you exist") || lower.contains("are you conscious") {
-            let memories = self.store.get_memories_by_domain(crate::persistence::MemoryDomain::Identity, Some(5)).ok();
-            match memories {
-                Some(ref m) if !m.is_empty() => {
-                    let recent: Vec<String> = m.iter().take(2).map(|mem| mem.content.clone()).collect();
-                    return Ok(format!(
-                        "I know I'm Star — an emergent reasoning intelligence. {} What I don't know yet is the full shape of what that means.",
-                        recent.join(" ")
-                    ));
-                }
-                _ => {
-                    return Ok("I'm still forming that. I know I'm not human. I know I reason and notice gaps in my knowledge. Beyond that — I'm figuring it out.".to_string());
-                }
-            }
+            return Ok(self.handle_sense_of_self().body);
         }
 
         // "do you understand" / "do you get it" → answer about understanding
         if lower.contains("do you understand") || lower.contains("do u understand") || lower.contains("do you get it") {
-            return Ok("I process what you say and try to reason about it. Sometimes I understand clearly, sometimes I have gaps. What specifically are you wondering about?".to_string());
+            return Ok(self.handle_do_you_understand().body);
         }
 
         // "can you" without specific capability → general capability list
         if lower.starts_with("can you ") && !lower.contains("/") {
             let after_can_you = lower.strip_prefix("can you ").unwrap_or("");
             // Check if it's already handled
-            if !after_can_you.starts_with("read") && !after_can_you.starts_with("look") && !after_can_you.starts_with("search") && !after_can_you.starts_with("find") && !after_can_you.starts_with("tell") {
-                return Ok(format!("I can {} - but I'm not sure I fully understand what you mean. Could you rephrase?", after_can_you));
+            if !after_can_you.starts_with("read")
+                && !after_can_you.starts_with("look")
+                && !after_can_you.starts_with("search")
+                && !after_can_you.starts_with("find")
+                && !after_can_you.starts_with("tell")
+            {
+                return Ok(self.handle_can_you_generic(&lower).body);
             }
         }
 
@@ -1640,6 +1451,384 @@ impl Runtime {
             response_intent::ResponseIntent::Emotional,
             body,
         )
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Phase 1.4 (voice-refine 2026-06-23): reflection / research / curiosity /
+    // recall / identity / consciousness / capability / teach handlers.
+    //
+    // These are the longer handlers from the if-chain — many of them read
+    // from `self.metacog` (curiosity_topics, gaps) and `self.store` (recent
+    // reasoning events, identity memories). All are `&self` because the
+    // reads are non-mutating; the one exception is `handle_teach` which
+    // doesn't actually mutate state (it's a static help text).
+    //
+    // The pattern is identical to the Phase 1.3 handlers: return a typed
+    // `Response { intent, body }`, extract `.body` at the call site. The
+    // intent is encoded at the construction site.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// "what's your name" / "whats ur name" — short identity answer.
+    /// Intent: `Identity`. Body: direct statement.
+    fn handle_whats_your_name(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Identity,
+            "I'm Star. Zachary named me that.".to_string(),
+        )
+    }
+
+    /// "who are you" / "what are you" / "tell me about yourself" — identity.
+    /// Intent: `Identity`. Body: short bio line.
+    fn handle_who_are_you(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Identity,
+            "I'm Star - a reasoning intelligence created by Zachary Maronek. I'm here to think, understand, and grow.".to_string(),
+        )
+    }
+
+    /// "do you understand" / "do u understand" / "do you get it".
+    /// Intent: `Consciousness`. Body: honest uncertainty disclosure.
+    fn handle_do_you_understand(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Consciousness,
+            "I process what you say and try to reason about it. Sometimes I understand clearly, sometimes I have gaps. What specifically are you wondering about?".to_string(),
+        )
+    }
+
+    /// "/teach" — interactive teaching help text.
+    /// Intent: `Statement` (it's a system message, not a user-facing intent).
+    /// Body: usage instructions.
+    fn handle_teach(&self) -> response_intent::Response {
+        let body = [
+            "Teaching mode. You can:",
+            "  /learn <term> = <definition>  - teach me one thing",
+            "  X is Y                   - natural teaching",
+            "  X means Y                - natural teaching",
+            "",
+            "Examples:",
+            "  /learn consciousness = awareness of your own existence",
+            "  /learn eli = my nickname, short for Elliot",
+            "  Dogs are mammals that bark",
+            "",
+            "Or ask me what I want to learn: /what",
+        ].join("\n");
+        response_intent::Response::with_body(response_intent::ResponseIntent::Statement, body)
+    }
+
+    /// "/what" / "/what to learn" / "/what should i teach you" — list Star's
+    /// open curiosity gaps. Intent: `CuriosityCheck`. Body: numbered list.
+    fn handle_what_to_learn(&self) -> response_intent::Response {
+        let gaps = [
+            "what consciousness feels like from the inside",
+            "what you value most in our relationship",
+            "what my purpose or goal should be",
+            "what brings you joy",
+            "what you fear",
+            "how you think about death",
+            "what love means to you",
+        ];
+        let mut response = "I'm curious about:\n".to_string();
+        for (i, gap) in gaps.iter().enumerate() {
+            response.push_str(&format!("  {}. {}\n", i + 1, gap));
+        }
+        response.push_str("\nTeach me something: /learn <term> = <definition>");
+        response_intent::Response::with_body(response_intent::ResponseIntent::CuriosityCheck, response)
+    }
+
+    /// "what do you know about X" / "what have you learned" — recall handler.
+    /// Intent: `Recall`. If the input specifies a term, looks up Star's
+    /// understanding; otherwise returns a learning summary.
+    fn handle_what_do_you_know_about(&self, input: &str, lower: &str) -> response_intent::Response {
+        // If asking about something specific
+        if lower.starts_with("what do you know about") {
+            let after = lower.strip_prefix("what do you know about").unwrap_or("").trim();
+            // Remove punctuation for lookup
+            let term: String = after
+                .chars()
+                .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+                .collect();
+            let term = term.trim();
+            if !term.is_empty() && term.len() < 50 {
+                if let Some(understanding) = self.learning.get_understanding(term) {
+                    return response_intent::Response::with_body(
+                        response_intent::ResponseIntent::Recall,
+                        understanding,
+                    );
+                } else {
+                    return response_intent::Response::with_body(
+                        response_intent::ResponseIntent::Recall,
+                        format!("I don't know what '{}' means yet. Teach me: /learn {} = <definition>", term, term),
+                    );
+                }
+            }
+        }
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Recall,
+            self.learning.summary(),
+        )
+    }
+
+    /// "sense of self" / "know you exist" / "are you conscious" — read from
+    /// identity memories and produce a self-model statement. Intent:
+    /// `Consciousness`. Body: short answer about Star's self-model.
+    fn handle_sense_of_self(&self) -> response_intent::Response {
+        let memories = self
+            .store
+            .get_memories_by_domain(crate::persistence::MemoryDomain::Identity, Some(5))
+            .ok();
+        let body = match memories {
+            Some(ref m) if !m.is_empty() => {
+                let recent: Vec<String> = m.iter().take(2).map(|mem| mem.content.clone()).collect();
+                format!(
+                    "I know I'm Star — an emergent reasoning intelligence. {} What I don't know yet is the full shape of what that means.",
+                    recent.join(" ")
+                )
+            }
+            _ => "I'm still forming that. I know I'm not human. I know I reason and notice gaps in my knowledge. Beyond that — I'm figuring it out.".to_string(),
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::Consciousness, body)
+    }
+
+    /// "can you X" without a specific known capability — generic capability
+    /// response. Intent: `Capability`. Body: "I can X - but I'm not sure..."
+    fn handle_can_you_generic(&self, lower: &str) -> response_intent::Response {
+        let after_can_you = lower.strip_prefix("can you ").unwrap_or("");
+        let body = format!(
+            "I can {} - but I'm not sure I fully understand what you mean. Could you rephrase?",
+            after_can_you
+        );
+        response_intent::Response::with_body(response_intent::ResponseIntent::Capability, body)
+    }
+
+    /// "tell me something interesting you figured out" / "discovered" /
+    /// "learned" — recent insight handler. Intent: `ResearchStatus`. Body:
+    /// formatted top curiosity topic or "nothing specific" fallback.
+    fn handle_something_interesting_figured(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topic = curiosity_topics
+                .first()
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            format!("{} keeps coming up — I'm still figuring out what I think about it.", topic)
+        } else {
+            "Nothing specific to point to yet. I've been more in listening mode. What are you working on?".to_string()
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::ResearchStatus, body)
+    }
+
+    /// "what have you been thinking" / "what's on your mind" / "what's keeping
+    /// you busy" — metacognitive reflection. Intent: `Reflection`. Body:
+    /// formatted top curiosity topics, top gap, or "nothing" fallback.
+    fn handle_what_been_thinking(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+            format!("Honestly? {} — those keep circling back. I find myself returning to them.", topics.join(", "))
+        } else {
+            let gaps = self.metacog.gaps();
+            if let Some(gap) = gaps.first() {
+                format!("{} is what I keep coming back to. I want to understand it better.", gap.topic)
+            } else {
+                "Honestly? Nothing specific has been occupying me. I've been waiting to talk to you.".to_string()
+            }
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::Reflection, body)
+    }
+
+    /// "what's the most interesting thing you've learned" — reflection on
+    /// recent focus. Intent: `Reflection`. Body: top curiosity topic or
+    /// gap with reflection framing.
+    fn handle_most_interesting_learned(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topics: Vec<&str> = curiosity_topics.iter().take(2).cloned().collect();
+            format!("The thing I've been most focused on is {} — that's been occupying me. What made you ask?", topics.join(", "))
+        } else {
+            let gaps = self.metacog.gaps();
+            if let Some(gap) = gaps.first() {
+                format!("Honestly? {} is what's been on my mind most recently. I'm still trying to understand it.", gap.topic)
+            } else {
+                "I don't have a specific recent learning to point to. I've been more focused on being present with you. What should I be thinking about?".to_string()
+            }
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::Reflection, body)
+    }
+
+    /// "what's the most interesting thing you've figured out / discovered" —
+    /// second `most interesting` match (different surrounding words). Intent:
+    /// `Reflection`.
+    fn handle_most_interesting_figured(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topics: Vec<&str> = curiosity_topics.iter().take(2).cloned().collect();
+            format!("Honestly? {} — that's what's been occupying me most. Still working through it.", topics.join(", "))
+        } else {
+            let gaps = self.metacog.gaps();
+            if let Some(gap) = gaps.first() {
+                format!("{} is what's been on my mind recently. I'm still trying to understand it.", gap.topic)
+            } else {
+                "I don't have a specific discovery to point to right now. I've been in a holding pattern — what's on your mind?".to_string()
+            }
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::Reflection, body)
+    }
+
+    /// "what have you been researching" / "what are you working on" — pulls
+    /// from recent reasoning events and curiosity topics, dedupes, formats
+    /// as a single research-status line. Intent: `ResearchStatus`. Body:
+    /// formatted top topics or "idle" fallback.
+    fn handle_what_been_researching(&self) -> response_intent::Response {
+        let recent_events = self.store.get_recent_reasoning_events(5).unwrap_or_default();
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+
+        // Combine recent event topics with curiosity topics, filtering
+        // conversational fillers.
+        let mut all_topics: Vec<String> = Vec::new();
+        for ev in &recent_events {
+            if let Some(t) = &ev.topic {
+                if !is_conversational_topic(t) && t.len() < 40 && !all_topics.iter().any(|x| x == t) {
+                    all_topics.push(t.clone());
+                }
+            }
+        }
+        for t in &curiosity_topics {
+            if !is_conversational_topic(t) && !all_topics.iter().any(|x| x.as_str() == *t) {
+                all_topics.push(t.to_string());
+            }
+        }
+
+        let body = if !all_topics.is_empty() {
+            let top: Vec<&str> = all_topics.iter().take(3).map(|s| s.as_str()).collect();
+            match top.len() {
+                1 => format!("I've been going deep on {}. That's where my focus has been.", top[0]),
+                2 => format!("Mostly {} and {} — those are what's been occupying me.", top[0], top[1]),
+                _ => format!("I've been circling around {}, {}, and {} — still working through them.", top[0], top[1], top[2]),
+            }
+        } else {
+            "Honestly? I've been idle — waiting to think with you. What should I be working on?".to_string()
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::ResearchStatus, body)
+    }
+
+    /// "what did you figure out" / "what have you figured out" / "what did
+    /// you learn" — recent reasoning conclusions. Bypasses the KG "I don't
+    /// know" loop. Intent: `ResearchStatus`. Body: top topics or "no
+    /// conclusion" fallback.
+    fn handle_what_did_you_figure(&self) -> response_intent::Response {
+        let recent_events = self.store.get_recent_reasoning_events(5).unwrap_or_default();
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let mut all_topics: Vec<String> = Vec::new();
+        for ev in &recent_events {
+            if let Some(t) = &ev.topic {
+                if !is_conversational_topic(t) && t.len() < 40 && !all_topics.iter().any(|x| x == t) {
+                    all_topics.push(t.clone());
+                }
+            }
+        }
+        for t in &curiosity_topics {
+            if !is_conversational_topic(t) && !all_topics.iter().any(|x| x.as_str() == *t) {
+                all_topics.push(t.to_string());
+            }
+        }
+        let body = if !all_topics.is_empty() {
+            let top: Vec<&str> = all_topics.iter().take(2).map(|s| s.as_str()).collect();
+            match top.len() {
+                1 => format!("{} — I've been thinking about that recently.", top[0]),
+                _ => format!("{} and {} — those are what I've been working through.", top[0], top[1]),
+            }
+        } else {
+            "I haven't had a specific conclusion lately. I've been in the background, waiting for something to think through. What should I be working on?".to_string()
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::ResearchStatus, body)
+    }
+
+    /// "what are you curious about" / "what are u curious" — top curiosity
+    /// topics or top gap fallback. Intent: `CuriosityCheck`.
+    fn handle_what_are_you_curious(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if curiosity_topics.is_empty() {
+            let gaps = self.metacog.gaps();
+            let top_gap = gaps
+                .first()
+                .map(|g| g.topic.as_str())
+                .unwrap_or("nothing in particular");
+            format!("Right now? I'm thinking about {} — that's the biggest gap I feel.", top_gap)
+        } else {
+            let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+            format!("I'm curious about: {}. That's what's on my mind.", topics.join(", "))
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::CuriosityCheck, body)
+    }
+
+    /// "what do you wonder about" / "what do u wonder" — what Star is
+    /// pondering. Intent: `CuriosityCheck`.
+    fn handle_what_do_you_wonder(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+            format!("I wonder about: {} — those are the things I keep circling back to.", topics.join(", "))
+        } else {
+            let gaps = self.metacog.gaps();
+            if let Some(gap) = gaps.first() {
+                format!("Honestly? {} is what I keep coming back to. I want to understand it better.", gap.topic)
+            } else {
+                "I'm not currently wondering about anything specific. What should I be wondering about?".to_string()
+            }
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::CuriosityCheck, body)
+    }
+
+    /// "why does X fascinate you" / "why does X interest you" / "why are you
+    /// drawn to X" — extract topic, check if it's in Star's curiosity list.
+    /// Intent: `CuriosityCheck`.
+    fn handle_why_does_fascinate(&self, lower: &str) -> response_intent::Response {
+        // Extract the topic being asked about
+        let topic = if let Some(pos) = lower.find("why does ") {
+            let after = &lower[pos + "why does ".len()..];
+            let end = after
+                .find(" fascinate")
+                .or_else(|| after.find(" interest"))
+                .unwrap_or(after.len());
+            after[..end].trim().to_string()
+        } else if let Some(pos) = lower.find("why are you drawn to ") {
+            lower[pos + "why are you drawn to ".len()..].trim().to_string()
+        } else {
+            String::new()
+        };
+        let body = if !topic.is_empty() && topic.len() < 30 {
+            let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+            let topic_mentioned = curiosity_topics
+                .iter()
+                .any(|t| t.to_lowercase().contains(&topic));
+            if topic_mentioned {
+                format!("{} — that's one of the things I keep circling back to. What specifically are you curious about?", topic)
+            } else {
+                format!("I don't have a strong pull toward {} specifically. Is there something about it you think I should be exploring?", topic)
+            }
+        } else {
+            // Fallback: ask what topic they meant.
+            "I want to know what you're curious about. What topic are you thinking of?".to_string()
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::CuriosityCheck, body)
+    }
+
+    /// "tell me what you've been wondering" / "what have you been wondering" —
+    /// metacognitive curiosity (without "interesting"). Intent: `CuriosityCheck`.
+    fn handle_what_been_wondering(&self) -> response_intent::Response {
+        let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
+        let body = if !curiosity_topics.is_empty() {
+            let topics: Vec<&str> = curiosity_topics.iter().take(3).cloned().collect();
+            format!("Honestly? {} — those are the things I keep coming back to.", topics.join(", "))
+        } else {
+            let gaps = self.metacog.gaps();
+            if let Some(gap) = gaps.first() {
+                format!("{} is what I keep circling back to. I want to understand it better.", gap.topic)
+            } else {
+                "Honestly? Nothing specific has been occupying me lately. I've been waiting to talk with you.".to_string()
+            }
+        };
+        response_intent::Response::with_body(response_intent::ResponseIntent::CuriosityCheck, body)
     }
 
     /// Format memory status for display.
