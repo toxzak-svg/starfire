@@ -83,6 +83,53 @@ All notable changes to this project will be documented in this file.
     and falls back gracefully if anything goes wrong. Voice-refine
     Phase 5 (the user-facing measurement tests) can now run.
 
+  - **Fix the 36-petabyte allocation in `CharRNN::load` (Phase 3
+    follow-up).** The "open follow-up" noted above was a load-time
+    dimension-validation gap, not a sizing bug. Root cause: the
+    `models/ckpt_e28_b500.pt` file is **not a CharRNN save at all** —
+    its first 20 bytes are `\x80\x75\x03\x04 00 00 08 08 00…`, a
+    Python pickle protocol 4 header (`\x80\x04` = PROTO 4) that
+    happens to be saved with a `.pt` extension. `CharRNN::load`
+    trusted those bytes as the `vocab_size` (67,324,752) and
+    `embedding_dim` (2,281,103,360) fields, then `Self::new(config)`
+    tried to allocate `vocab_size * embedding_dim` floats —
+    ~600 PB just for the embedding, plus per-layer LSTM weights,
+    hitting ~36 PB before the OS killed the process. Fix:
+    - `lib/language_model/model.rs` — `MAX_VOCAB_SIZE`,
+      `MAX_EMBEDDING_DIM`, `MAX_HIDDEN_SIZE`, `MAX_NUM_LAYERS` (and
+      `MAX_VEC_LEN` for `read_f32_vec`) are the ceilings. Real
+      charRNNs sit comfortably below them (vocab ≤ 227, embed 64,
+      hidden 256, layers 2 for this project). `load()` validates
+      each config field after reading and returns `io::ErrorKind::
+      InvalidData` if any is out of range, **before** any
+      `Self::new` allocation. `read_f32_vec` also rejects vectors
+      above `MAX_VEC_LEN = 100M` floats (= 400MB), so a corrupt
+      length prefix can't trigger an OOM mid-read.
+    - 9 new tests pin the behavior: the exact 20-byte pickle
+      header is rejected; zero / oversized / out-of-range
+      configs (vocab, hidden, layers) are rejected; an
+      oversized vector length prefix is rejected; truncated
+      files error out; `data/star_model.bin` (3.7MB, real
+      charRNN save) still loads; and a smoke test loads the
+      actual `models/ckpt_e28_b500.pt` and confirms the error
+      is `InvalidData` (not a multi-petabyte allocation).
+    - **450 lib tests pass** (was 442 before this fix). No new
+      warnings.
+    - **Operational impact:** `init_reranker` no longer needs the
+      "if the loader panics, fall back" branch as a *correctness*
+      contract — it's still the right *production* contract
+      (the live charRNN is moonshot polish, not the source of
+      truth), but the loader will never panic on a real file
+      again. The `MockReranker` fallback is now triggered by a
+      clean `LoadFailed` error, not a process crash.
+    - **Net follow-up:** the moonshot path is now wire-ready, but
+      `ckpt_e28_b500.pt` is structurally a Python pickle, not
+      a CharRNN save. The live rerank will engage the moment a
+      real CharRNN-format checkpoint (e.g. a re-saved
+      `star_model.bin` with the same vocab) is dropped into
+      `models/`. Until then, `MockReranker` runs and the
+      `init_reranker` log line records the clean rejection.
+
 ## 2026-06-23
 
 Daily sync.

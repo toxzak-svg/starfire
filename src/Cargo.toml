@@ -11,10 +11,6 @@ name = "star"
 path = "main.rs"
 
 [[bin]]
-name = "integration_test"
-path = "bin/integration_test.rs"
-
-[[bin]]
 name = "quanot_bench"
 path = "bin/quanot_bench.rs"
 
@@ -37,6 +33,10 @@ path = "bin/test_save_load.rs"
 [[bin]]
 name = "test_trained"
 path = "bin/test_trained.rs"
+
+[[bin]]
+name = "smoke_ckpt_v2"
+path = "bin/smoke_ckpt_v2.rs"
 
 [dependencies]
 star = { path = "../lib" }

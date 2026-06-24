@@ -1,0 +1,25 @@
+Star Language Model Training
+============================
+Data file: "all_personal_training.txt"
+Epochs: 1
+Sequence length: 128
+Batch size: 32
+Hidden size: 256
+
+Vocabulary size: 227
+Loaded 1 conversations
+Creating model with 227 parameters...
+Model has 926883 parameters
+
+Starting training...
+Training with 56618 sequences
+Learning rate: 0.001, Gradient clip: 5
+Epoch 1 Batch 0/1769 Loss: 666.3807
+Model saved to models/smoke_test_v2.bin
+Model saved to models/smoke_test_v2.bin
+Epoch 1 Batch 10/1769 Loss: 471.3894
+Model saved to models/smoke_test_v2.bin
+Model saved to models/smoke_test_v2.bin
+Model saved to models/smoke_test_v2.bin
+Model saved to models/smoke_test_v2.bin
+Epoch 1 Batch 20/1769 Loss: 456.7741

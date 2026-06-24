@@ -257,8 +257,7 @@ starfire/
 ├── src/
 │   ├── main.rs           # Entry point
 │   ├── lib.rs            # Public API
-│   └── bin/
-│       └── integration_test.rs
+│   └── bin/              # ad-hoc bench / smoke binaries (test_gen, train_model, ...)
 ├── lib/                  ← library crate
 │   ├── quanot/          # Reservoir computing substrate (ESN, chaos, consciousness, creativity)
 │   ├── prediction/      # Prediction center (question gravity, belief revision, basin, meta)

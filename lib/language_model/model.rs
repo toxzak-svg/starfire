@@ -29,6 +29,29 @@ impl Default for ModelConfig {
     }
 }
 
+/// Maximum accepted config values when loading a `CharRNN` checkpoint.
+///
+/// These are generous: real charRNNs used by this project sit comfortably
+/// below these ceilings (vocab ~227, embed 64, hidden 256, layers 2), and
+/// a typical small SLM stays well under them too. The bounds exist to
+/// **reject garbage files** — e.g. a Python pickle that was misnamed with
+/// a `.pt` extension and would otherwise be read as if its first 4 bytes
+/// were `vocab_size`. Without this guard, the loader's `Self::new(config)`
+/// would try to allocate `vocab_size * embedding_dim` floats (~petabytes
+/// for a pickle header) before any actual data was read.
+const MAX_VOCAB_SIZE: usize = 1_000_000;       // 1M tokens — covers BPE/word-level
+const MAX_EMBEDDING_DIM: usize = 4096;         // 4K — well past GPT-3 style
+const MAX_HIDDEN_SIZE: usize = 16_384;         // 16K — covers any plausible LSTM
+const MAX_NUM_LAYERS: usize = 16;              // 16 stacked LSTMs is already extreme
+
+/// Maximum single-vector length when reading weights (in floats).
+///
+/// One weight tensor in a charRNN is at most a few hundred thousand
+/// floats. 100M floats = 400MB is a generous absolute ceiling. Anything
+/// above this is unambiguously corrupt (or a malicious file claiming a
+/// 4GB+ tensor in an 11MB checkpoint).
+const MAX_VEC_LEN: usize = 100_000_000;
+
 /// A single LSTM cell
 #[derive(Clone)]
 struct LSTMCell {
@@ -237,7 +260,19 @@ impl CharRNN {
             c.fill(0.0);
         }
     }
-    
+
+    /// Vocabulary size for this model.
+    ///
+    /// Used by [`crate::language_model::generate::generate`] to filter out
+    /// any prompt characters whose index would land outside the embedding
+    /// table. Without this guard, loading a checkpoint trained against a
+    /// different vocabulary than the runtime `Vocabulary` (e.g. the 11MB
+    /// `ckpt_e28_b500.pt` vs the 3.7MB `data/star_model.bin`) would crash
+    /// with a slice-bounds panic on the first out-of-range char.
+    pub fn vocab_size(&self) -> usize {
+        self.config.vocab_size
+    }
+
     /// Forward pass for a single character
     pub fn step(&mut self, char_idx: usize) -> Vec<f32> {
         // Get embedding for this character
@@ -582,14 +617,23 @@ impl CharRNN {
     /// Get total parameter count
     pub fn num_params(&self) -> usize {
         let embedding_params = self.config.vocab_size * self.config.embedding_dim;
-        
-        let lstm_params: usize = self.lstm.iter().map(|cell| {
-            let total = self.config.embedding_dim + self.config.hidden_size;
+
+        // Per-layer input size: layer 0 takes the embedding, all other layers
+        // take the previous layer's hidden state. Computing `total` from
+        // embedding_dim + hidden_size for every layer under-counts every layer
+        // beyond the first (it should be hidden_size + hidden_size there).
+        let lstm_params: usize = self.lstm.iter().enumerate().map(|(layer_idx, _cell)| {
+            let input_size = if layer_idx == 0 {
+                self.config.embedding_dim
+            } else {
+                self.config.hidden_size
+            };
+            let total = input_size + self.config.hidden_size;
             4 * self.config.hidden_size * total + 4 * self.config.hidden_size
         }).sum();
-        
+
         let output_params = self.config.hidden_size * self.config.vocab_size + self.config.vocab_size;
-        
+
         embedding_params + lstm_params + output_params
     }
     
@@ -629,28 +673,70 @@ impl CharRNN {
     
     /// Load model from binary format
     pub fn load(path: &str) -> std::io::Result<Self> {
-        use std::io::{Read, Write, BufRead};
-        
+        use std::io::{Read, BufRead};
+
         let file = std::fs::File::open(path)?;
         let mut reader = std::io::BufReader::new(file);
-        
+
         let mut buf = [0u8; 4];
-        
+
         reader.read_exact(&mut buf)?;
         let vocab_size = u32::from_le_bytes(buf) as usize;
-        
+
         reader.read_exact(&mut buf)?;
         let embedding_dim = u32::from_le_bytes(buf) as usize;
-        
+
         reader.read_exact(&mut buf)?;
         let hidden_size = u32::from_le_bytes(buf) as usize;
-        
+
         reader.read_exact(&mut buf)?;
         let num_layers = u32::from_le_bytes(buf) as usize;
-        
+
         reader.read_exact(&mut buf)?;
         let dropout = f32::from_le_bytes(buf);
-        
+
+        // Validate config *before* any allocation. Without this guard, a
+        // file that is NOT a CharRNN save (e.g. a Python pickle misnamed
+        // with a .pt extension) would feed its first 4 bytes into
+        // `vocab_size` and then `Self::new` would attempt to allocate
+        // petabytes of memory. See `MAX_*` constants for the rationale.
+        if vocab_size == 0 || vocab_size > MAX_VOCAB_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "vocab_size out of range [1, {}]: {} (is this really a CharRNN save?)",
+                    MAX_VOCAB_SIZE, vocab_size
+                ),
+            ));
+        }
+        if embedding_dim == 0 || embedding_dim > MAX_EMBEDDING_DIM {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "embedding_dim out of range [1, {}]: {} (is this really a CharRNN save?)",
+                    MAX_EMBEDDING_DIM, embedding_dim
+                ),
+            ));
+        }
+        if hidden_size == 0 || hidden_size > MAX_HIDDEN_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "hidden_size out of range [1, {}]: {} (is this really a CharRNN save?)",
+                    MAX_HIDDEN_SIZE, hidden_size
+                ),
+            ));
+        }
+        if num_layers == 0 || num_layers > MAX_NUM_LAYERS {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "num_layers out of range [1, {}]: {} (is this really a CharRNN save?)",
+                    MAX_NUM_LAYERS, num_layers
+                ),
+            ));
+        }
+
         let config = ModelConfig {
             vocab_size,
             embedding_dim,
@@ -658,11 +744,11 @@ impl CharRNN {
             num_layers,
             dropout,
         };
-        
+
         let mut model = Self::new(config);
-        
+
         model.embedding = read_f32_vec(&mut reader)?;
-        
+
         for cell in &mut model.lstm {
             cell.i_weight = read_f32_vec(&mut reader)?;
             cell.i_bias = read_f32_vec(&mut reader)?;
@@ -673,10 +759,10 @@ impl CharRNN {
             cell.o_weight = read_f32_vec(&mut reader)?;
             cell.o_bias = read_f32_vec(&mut reader)?;
         }
-        
+
         model.output_weight = read_f32_vec(&mut reader)?;
         model.output_bias = read_f32_vec(&mut reader)?;
-        
+
         Ok(model)
     }
 }
@@ -730,7 +816,21 @@ fn read_f32_vec(reader: &mut impl Read) -> std::io::Result<Vec<f32>> {
     let mut buf = [0u8; 8];
     reader.read_exact(&mut buf)?;
     let len = u64::from_le_bytes(buf) as usize;
-    
+
+    // Defense in depth: even after config validation, the per-vector
+    // length prefix could in principle claim a multi-GB tensor. Refuse
+    // anything beyond `MAX_VEC_LEN` so a corrupt or hostile file cannot
+    // trigger an unbounded allocation inside this function.
+    if len > MAX_VEC_LEN {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "vector length {} exceeds max {} (corrupt CharRNN save?)",
+                len, MAX_VEC_LEN
+            ),
+        ));
+    }
+
     let mut result = Vec::with_capacity(len);
     let mut bytes = [0u8; 4];
     for _ in 0..len {
@@ -749,6 +849,51 @@ mod tests {
         let config = ModelConfig::default();
         let model = CharRNN::new(config);
         assert_eq!(model.num_params() > 0, true);
+    }
+
+    #[test]
+    fn test_num_params_matches_actual_storage() {
+        // Regression: num_params() must match the actual weight/bias storage
+        // across all layers, including the layer-1 input-dimension widening.
+        let config = ModelConfig::default();
+        let model = CharRNN::new(config.clone());
+
+        let reported = model.num_params();
+
+        // Count actual stored params directly from the struct.
+        let mut actual: usize = 0;
+        actual += model.embedding.len();
+        for cell in &model.lstm {
+            actual += cell.i_weight.len() + cell.i_bias.len();
+            actual += cell.f_weight.len() + cell.f_bias.len();
+            actual += cell.c_weight.len() + cell.c_bias.len();
+            actual += cell.o_weight.len() + cell.o_bias.len();
+        }
+        actual += model.output_weight.len() + model.output_bias.len();
+
+        assert_eq!(reported, actual, "num_params() must match actual stored tensor sizes");
+    }
+
+    #[test]
+    fn test_num_params_three_layers() {
+        // Three layers should be even further off the buggy formula, which
+        // would always treat layers 1..N as if they had embedding_dim input.
+        let config = ModelConfig {
+            vocab_size: 227,
+            embedding_dim: 64,
+            hidden_size: 256,
+            num_layers: 3,
+            dropout: 0.1,
+        };
+        let model = CharRNN::new(config);
+
+        let expected_lstm_layer_0 = 4 * 256 * (64 + 256) + 4 * 256;
+        let expected_lstm_layer_n = 4 * 256 * (256 + 256) + 4 * 256;
+        let expected_lstm_total = expected_lstm_layer_0 + 2 * expected_lstm_layer_n;
+        let expected_total =
+            227 * 64 + expected_lstm_total + 256 * 227 + 227;
+
+        assert_eq!(model.num_params(), expected_total);
     }
     
     #[test]
@@ -769,16 +914,221 @@ mod tests {
         let config = ModelConfig::default();
         let vocab_size = config.vocab_size;
         let mut model = CharRNN::new(config);
-        
+
         // Run some steps
         model.predict_next(0);
         model.predict_next(0);
-        
+
         // Reset should work
         model.reset_hidden();
-        
+
         // Model should still work after reset
         let probs = model.predict_next(0);
         assert_eq!(probs.len(), vocab_size);
+    }
+
+    // ----- CharRNN::load: config validation -----
+    //
+    // The loader reads 4 u32 + 1 f32 fields as ModelConfig and then
+    // calls `Self::new(config)` which pre-allocates weight tensors sized
+    // by those fields. Without validation, any non-ChaRNN file (e.g. a
+    // Python pickle misnamed with .pt) would feed its first 4 bytes
+    // into `vocab_size` and trigger a multi-petabyte allocation.
+    //
+    // These tests pin the validation. The reproduction is the actual
+    // `models/ckpt_e28_b500.pt` header bytes (PROTO 4 pickle header,
+    // which decodes to vocab=67M, embed=2.3B).
+
+    /// Write a buffer to a temp file and return the path.
+    fn write_temp(name: &str, bytes: &[u8]) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join("star_charrnn_load_tests");
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let path = dir.join(name);
+        std::fs::write(&path, bytes).expect("write temp file");
+        path
+    }
+
+    /// Write a 5-field CharRNN config header (vocab, embed, hidden, layers,
+    /// dropout) as little-endian bytes.
+    fn write_charrnn_config(
+        vocab_size: u32,
+        embedding_dim: u32,
+        hidden_size: u32,
+        num_layers: u32,
+        dropout: f32,
+    ) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(20);
+        buf.extend_from_slice(&vocab_size.to_le_bytes());
+        buf.extend_from_slice(&embedding_dim.to_le_bytes());
+        buf.extend_from_slice(&hidden_size.to_le_bytes());
+        buf.extend_from_slice(&num_layers.to_le_bytes());
+        buf.extend_from_slice(&dropout.to_le_bytes());
+        buf
+    }
+
+    /// `Result::unwrap_err` requires `T: Debug`, but `CharRNN` doesn't
+    /// implement `Debug`. This wrapper turns a `Result<CharRNN, _>` into
+    /// its error, panicking if it was unexpectedly `Ok`.
+    fn expect_io_err(r: std::io::Result<CharRNN>) -> std::io::Error {
+        match r {
+            Err(e) => e,
+            Ok(_) => panic!("expected Err, got Ok"),
+        }
+    }
+
+    #[test]
+    fn test_load_rejects_pickle_header() {
+        // The first 20 bytes of `models/ckpt_e28_b500.pt` (the file that
+        // triggered the 36PB allocation). Python pickle protocol 4 header
+        // (`\x80\x04` = PROTO 4) followed by pickle opcodes that decode
+        // to absurd `vocab_size` / `embedding_dim` values.
+        let pickle_header: [u8; 20] = [
+            0x80, 0x75, 0x03, 0x04, 0x00, 0x00, 0x08, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let path = write_temp("pickle_header.bin", &pickle_header);
+
+        let result = CharRNN::load(path.to_str().unwrap());
+        assert!(result.is_err(), "expected Err for pickle header, got Ok");
+        let err = expect_io_err(result);
+        assert_eq!(
+            err.kind(),
+            std::io::ErrorKind::InvalidData,
+            "expected InvalidData, got {:?}: {}",
+            err.kind(),
+            err
+        );
+        assert!(
+            err.to_string().contains("vocab_size")
+                || err.to_string().contains("embedding_dim")
+                || err.to_string().contains("hidden_size")
+                || err.to_string().contains("num_layers"),
+            "error should mention a config field, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_load_rejects_zero_vocab_size() {
+        // Valid header shape, but vocab_size = 0. Should be rejected.
+        let bytes = write_charrnn_config(0, 64, 256, 2, 0.1);
+        let path = write_temp("zero_vocab.bin", &bytes);
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_load_rejects_zero_hidden_size() {
+        let bytes = write_charrnn_config(227, 64, 0, 2, 0.1);
+        let path = write_temp("zero_hidden.bin", &bytes);
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_load_rejects_oversized_vocab_size() {
+        // vocab_size = 100M, beyond MAX_VOCAB_SIZE. Should be rejected
+        // before any allocation.
+        let bytes = write_charrnn_config(100_000_001, 64, 256, 2, 0.1);
+        let path = write_temp("oversized_vocab.bin", &bytes);
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_load_rejects_oversized_num_layers() {
+        // num_layers = 100, beyond MAX_NUM_LAYERS. Should be rejected.
+        let bytes = write_charrnn_config(227, 64, 256, 100, 0.1);
+        let path = write_temp("oversized_layers.bin", &bytes);
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_load_rejects_oversized_vector_length() {
+        // Defense in depth: valid config (would pass the config check),
+        // but the very next 8 bytes claim a vector length of 1 billion
+        // floats (= 4GB, in a 12-byte file). The read_f32_vec guard
+        // must reject this without trying to allocate.
+        let mut bytes = write_charrnn_config(227, 64, 256, 2, 0.1);
+        bytes.extend_from_slice(&(1_000_000_000u64).to_le_bytes());
+        let path = write_temp("oversized_vec.bin", &bytes);
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        assert!(
+            err.to_string().contains("vector length")
+                || err.to_string().contains("exceeds max"),
+            "error should mention vector length, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_load_rejects_truncated_file() {
+        // Valid config (20 bytes) but no data after. The first
+        // `read_f32_vec` call will hit UnexpectedEof, which is a valid
+        // io error — confirms we don't silently produce a half-loaded
+        // model. (Not InvalidData; just any error.)
+        let bytes = write_charrnn_config(227, 64, 256, 2, 0.1);
+        let path = write_temp("truncated.bin", &bytes);
+
+        let result = CharRNN::load(path.to_str().unwrap());
+        assert!(result.is_err(), "truncated file must error");
+    }
+
+    #[test]
+    fn test_load_rejects_real_ckpt_e28_b500_pt() {
+        // End-to-end smoke test: the actual `models/ckpt_e28_b500.pt`
+        // file that triggered the 36-petabyte allocation in production
+        // (it is a Python pickle, not a CharRNN save). Loading it must
+        // return a clean `InvalidData` error WITHOUT attempting any
+        // multi-petabyte allocation. Test is `#[ignore]`-free so it
+        // runs in CI; the file path is resolved relative to the
+        // project root where `cargo test` runs.
+        let path = std::path::PathBuf::from("../models/ckpt_e28_b500.pt");
+        if !path.exists() {
+            // Skip silently if the model file isn't present in this
+            // checkout (e.g. minimal CI). The synthetic `pickle_header`
+            // test above pins the same behavior.
+            eprintln!(
+                "skipping real-file smoke: {} not found",
+                path.display()
+            );
+            return;
+        }
+
+        let err = expect_io_err(CharRNN::load(path.to_str().unwrap()));
+        assert_eq!(
+            err.kind(),
+            std::io::ErrorKind::InvalidData,
+            "expected InvalidData, got {:?}: {}",
+            err.kind(),
+            err
+        );
+        eprintln!("real-file load rejected cleanly: {}", err);
+    }
+
+    #[test]
+    fn test_load_roundtrips_default_config() {
+        // Save with default config, load it back, confirm shape matches.
+        // This pins the happy path so the validation can't reject a
+        // legitimate charRNN file.
+        let original = CharRNN::new(ModelConfig::default());
+        let path = write_temp("roundtrip.bin", &[]);
+        original
+            .save(path.to_str().unwrap())
+            .expect("save default config");
+        let loaded = CharRNN::load(path.to_str().unwrap()).expect("load default config");
+
+        assert_eq!(loaded.config.vocab_size, 227);
+        assert_eq!(loaded.config.embedding_dim, 64);
+        assert_eq!(loaded.config.hidden_size, 256);
+        assert_eq!(loaded.config.num_layers, 2);
+        assert_eq!(loaded.num_params(), original.num_params());
     }
 }

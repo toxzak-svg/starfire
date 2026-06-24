@@ -1,0 +1,538 @@
+   Compiling star v0.1.0 (C:\Users\Zwmar\projects\starfire\lib)
+warning: unused import: `Tempo`
+  --> lib\conversation\mod.rs:10:42
+   |
+10 | use crate::runtime::tempo::{TempoEngine, Tempo, tempo_for_query};
+   |                                          ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `QueryType`
+  --> lib\runtime\tempo.rs:21:58
+   |
+21 | use crate::reasoning::{ReasoningEngine, ReasoningResult, QueryType};
+   |                                                          ^^^^^^^^^
+
+warning: unused import: `ConversationContext`
+  --> lib\runtime\mod.rs:29:43
+   |
+29 | use crate::prediction::{PredictionCenter, ConversationContext};
+   |                                           ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `RelationType`
+ --> lib\world_model\prediction.rs:5:38
+  |
+5 | use super::{EntityId, PropertyValue, RelationType, WorldModel};
+  |                                      ^^^^^^^^^^^^
+
+warning: unused imports: `GapType` and `KnowledgeGap`
+ --> lib\curriculum\scheduler.rs:3:38
+  |
+3 | use super::{CurriculumEngine, GapId, GapType, KnowledgeGap, LearningTask};
+  |                                      ^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> lib\prediction\question_gravity.rs:8:5
+  |
+8 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unnecessary parentheses around block return value
+   --> lib\prediction\belief_revision.rs:263:9
+    |
+263 |         (1.0 - avg_distance.min(1.0))
+    |         ^                           ^
+    |
+    = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+    |
+263 -         (1.0 - avg_distance.min(1.0))
+263 +         1.0 - avg_distance.min(1.0)
+    |
+
+warning: unused import: `std::collections::HashMap`
+ --> lib\pain\event.rs:4:5
+  |
+4 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `DreamEngine` and `DreamEpisode`
+ --> lib\dreaming\synthesizer.rs:3:27
+  |
+3 | use super::dream_engine::{DreamEngine, DreamTheme, DreamEpisode};
+  |                           ^^^^^^^^^^^              ^^^^^^^^^^^^
+
+warning: unused import: `LifecycleEvent`
+ --> lib\concepts\concept.rs:4:40
+  |
+4 | use super::lifecycle::{LifecycleStage, LifecycleEvent};
+  |                                        ^^^^^^^^^^^^^^
+
+warning: unused imports: `ReasoningStance` and `UserCognitionModel`
+ --> lib\user_model\preference.rs:3:35
+  |
+3 | use super::types::{ArgumentStyle, ReasoningStance, UserCognitionModel};
+  |                                   ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> lib\user_model\types.rs:3:5
+  |
+3 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `NeuronConfig`
+ --> lib\neural\network.rs:5:73
+  |
+5 | use crate::neural::neuron::{Activation, Neuron, NeuronId, NeuralSignal, NeuronConfig, ConnectionType};
+  |                                                                         ^^^^^^^^^^^^
+
+warning: unused import: `crate::neural::neuron::NeuronConfig`
+ --> lib\neural\layer.rs:6:5
+  |
+6 | use crate::neural::neuron::NeuronConfig;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `NetworkConfig` and `Topology`
+ --> lib\neural\train.rs:5:49
+  |
+5 | use crate::neural::{Connection, ConnectionType, NetworkConfig, NeuralNet, NeuralSignal, NeuronId, Topology};
+  |                                                 ^^^^^^^^^^^^^                                     ^^^^^^^^
+
+warning: unused imports: `CausalEdge` and `CausalHypothesis`
+ --> lib\neural\neurons\causal_neuron.rs:7:35
+  |
+7 | use crate::causal::{CausalEngine, CausalEdge, CausalEdgeId, CausalHypothesis};
+  |                                   ^^^^^^^^^^                ^^^^^^^^^^^^^^^^
+
+warning: unused import: `Hypothesis`
+ --> lib\neural\neurons\fewshot_neuron.rs:7:48
+  |
+7 | use crate::learning::{FewShotLearner, Example, Hypothesis};
+  |                                                ^^^^^^^^^^
+
+warning: unused imports: `GapId`, `KnowledgeGap`, and `LearningTask`
+ --> lib\neural\neurons\curriculum_neuron.rs:7:43
+  |
+7 | use crate::curriculum::{CurriculumEngine, KnowledgeGap, LearningTask, GapId};
+  |                                           ^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^
+
+warning: unused import: `EntityId`
+ --> lib\neural\neurons\worldmodel_neuron.rs:7:38
+  |
+7 | use crate::world_model::{WorldModel, EntityId};
+  |                                      ^^^^^^^^
+
+warning: unused import: `NeuralSignal`
+  --> lib\neural\mod.rs:29:83
+   |
+29 |     use crate::neural::{NeuralNet, NetworkConfig, Topology, Connection, NeuronId, NeuralSignal};
+   |                                                                                   ^^^^^^^^^^^^
+
+warning: unused import: `BufRead`
+   --> lib\language_model\model.rs:664:29
+    |
+664 |         use std::io::{Read, BufRead};
+    |                             ^^^^^^^
+
+warning: unused import: `ModelConfig`
+ --> lib\language_model\train.rs:3:45
+  |
+3 | use crate::language_model::model::{CharRNN, ModelConfig};
+  |                                             ^^^^^^^^^^^
+
+warning: unused variable: `tempo_tag`
+   --> lib\conversation\mod.rs:493:13
+    |
+493 |         let tempo_tag = tempo_result.source.tag();
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_tempo_tag`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `label`
+   --> lib\metacog\critic.rs:197:23
+    |
+197 |         for (pattern, label) in &over_gen_patterns {
+    |                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_label`
+
+warning: unused variable: `label`
+   --> lib\metacog\critic.rs:242:23
+    |
+242 |         for (keyword, label) in &edge_case_queries {
+    |                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_label`
+
+warning: unused variable: `query`
+   --> lib\metacog\critic.rs:271:32
+    |
+271 |     fn check_confidence(&self, query: &str, result: &ReasoningResult) -> Vec<Concern> {
+    |                                ^^^^^ help: if this is intentional, prefix it with an underscore: `_query`
+
+warning: unused variable: `input`
+    --> lib\runtime\mod.rs:1541:45
+     |
+1541 |     fn handle_what_do_you_know_about(&self, input: &str, lower: &str) -> response_intent::Response {
+     |                                             ^^^^^ help: if this is intentional, prefix it with an underscore: `_input`
+
+warning: unused variable: `node`
+   --> lib\prediction\basin.rs:234:13
+    |
+234 |         let node = self.nodes.get(node_id)?;
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `n`
+  --> lib\prediction\meta_prediction.rs:47:13
+   |
+47 |         let n = self.recent_outcomes.len() as f64;
+   |             ^ help: if this is intentional, prefix it with an underscore: `_n`
+
+warning: unused variable: `prediction_id`
+   --> lib\prediction\meta_prediction.rs:289:38
+    |
+289 |     pub fn record_outcome(&mut self, prediction_id: PredictionId, outcome: PredictionOutcome) {
+    |                                      ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_prediction_id`
+
+warning: unused variable: `basin`
+   --> lib\prediction\counterfactual.rs:138:9
+    |
+138 |         basin: &BasinEngine,
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_basin`
+
+warning: unused variable: `text_lower`
+   --> lib\input_normalizer\mod.rs:407:13
+    |
+407 |         let text_lower = result.to_lowercase();
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_text_lower`
+
+warning: unused variable: `qwerty_proximity`
+   --> lib\input_normalizer\mod.rs:610:13
+    |
+610 |         let qwerty_proximity = [
+    |             ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_qwerty_proximity`
+
+warning: unused variable: `normalized`
+   --> lib\personality\mod.rs:263:13
+    |
+263 |         let normalized = self.normalizer.normalize(zach_input);
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_normalized`
+
+warning: unused variable: `markers`
+   --> lib\personality\mod.rs:299:13
+    |
+299 |         let markers = &self.state.conversational;
+    |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_markers`
+
+warning: unused variable: `topic`
+   --> lib\user_model\types.rs:149:49
+    |
+149 |     pub fn adapt_response(&self, content: &str, topic: &str) -> String {
+    |                                                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_topic`
+
+warning: variable does not need to be mutable
+   --> lib\neural\network.rs:193:21
+    |
+193 |                 let mut conn = Connection::modulated(from, to, weight);
+    |                     ----^^^^
+    |                     |
+    |                     help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `reservoir_dim`
+   --> lib\neural\layer.rs:130:36
+    |
+130 | pub fn reservoir(input_dim: usize, reservoir_dim: usize, output_dim: usize) -> Layer {
+    |                                    ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_reservoir_dim`
+
+warning: unused variable: `i`
+  --> lib\neural\neurons\quanot_neuron.rs:60:13
+   |
+60 |         for i in 0..8 {
+   |             ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `i`
+  --> lib\neural\neurons\quanot_neuron.rs:66:13
+   |
+66 |         for i in 0..8 {
+   |             ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: variable does not need to be mutable
+   --> lib\neural\neurons\quanot_neuron.rs:120:13
+    |
+120 |         let mut output_vec = input.vector.clone();
+    |             ----^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: unused variable: `effects`
+  --> lib\neural\neurons\causal_neuron.rs:93:13
+   |
+93 |         let effects = self.get_effects(query);
+   |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_effects`
+
+warning: variable does not need to be mutable
+   --> lib\language_model\model.rs:412:13
+    |
+412 |         let mut dh_next = vec![vec![0.0f32; hidden_size]; num_layers];
+    |             ----^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+warning: unused variable: `vocab_size`
+   --> lib\language_model\model.rs:535:13
+    |
+535 |         let vocab_size = self.config.vocab_size;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_vocab_size`
+
+warning: unused variable: `total`
+   --> lib\language_model\model.rs:547:17
+    |
+547 |             let total = input_size + hidden_size;
+    |                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_total`
+
+warning: unused variable: `last_char`
+  --> lib\language_model\generate.rs:72:9
+   |
+72 |     let last_char = prompt_chars.last().copied().unwrap_or(0);
+   |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_last_char`
+
+warning: type `BasinNode` is more private than the item `BasinEngine::nodes`
+  --> lib\prediction\basin.rs:14:5
+   |
+14 |     pub nodes: HashMap<NodeId, BasinNode>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `BasinEngine::nodes` is reachable at visibility `pub`
+   |
+note: but type `BasinNode` is only usable at visibility `pub(self)`
+  --> lib\prediction\basin.rs:41:1
+   |
+41 | struct BasinNode {
+   | ^^^^^^^^^^^^^^^^
+   = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `LayerActivations` is more private than the item `SequenceActivations::layers`
+   --> lib\language_model\model.rs:171:5
+    |
+171 |     pub layers: Vec<Vec<LayerActivations>>,  // [timestep][layer]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `SequenceActivations::layers` is reachable at visibility `pub`
+    |
+note: but type `LayerActivations` is only usable at visibility `pub(self)`
+   --> lib\language_model\model.rs:148:1
+    |
+148 | struct LayerActivations {
+    | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `looks_like_math` is never used
+   --> lib\reasoning\mod.rs:584:8
+    |
+ 57 | impl ReasoningEngine {
+    | -------------------- method in this implementation
+...
+584 |     fn looks_like_math(&self, query: &str) -> bool {
+    |        ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `concerns` and `answer` are never read
+   --> lib\metacog\critic.rs:114:5
+    |
+113 | struct CritiqueRecord {
+    |        -------------- fields in this struct
+114 |     concerns: Vec<Concern>,
+    |     ^^^^^^^^
+115 |     answer: String,
+    |     ^^^^^^
+
+warning: fields `exchange` and `at` are never read
+  --> lib\prediction\belief_revision.rs:25:5
+   |
+21 | struct StateSnapshot {
+   |        ------------- fields in this struct
+...
+25 |     exchange: usize,
+   |     ^^^^^^^^
+...
+33 |     at: i64,
+   |     ^^
+   |
+   = note: `StateSnapshot` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `pre_state` and `post_state` are never read
+   --> lib\prediction\belief_revision.rs:281:5
+    |
+279 | struct KnownConclusion {
+    |        --------------- fields in this struct
+280 |     predicate: String,
+281 |     pre_state: Vec<f64>,
+    |     ^^^^^^^^^
+282 |     post_state: Vec<f64>,
+    |     ^^^^^^^^^^
+    |
+    = note: `KnownConclusion` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `max_nodes` is never read
+  --> lib\prediction\basin.rs:20:5
+   |
+12 | pub struct BasinEngine {
+   |            ----------- field in this struct
+...
+20 |     max_nodes: usize,
+   |     ^^^^^^^^^
+
+warning: field `id` is never read
+  --> lib\prediction\basin.rs:42:9
+   |
+41 | struct BasinNode {
+   |        --------- field in this struct
+42 |     pub id: NodeId,
+   |         ^^
+   |
+   = note: `BasinNode` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `id` and `satisfied` are never read
+  --> lib\prediction\basin.rs:61:9
+   |
+60 | struct Constraint {
+   |        ---------- fields in this struct
+61 |     pub id: ConstraintId,
+   |         ^^
+...
+66 |     pub satisfied: bool,
+   |         ^^^^^^^^^
+   |
+   = note: `Constraint` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `energy` is never read
+   --> lib\prediction\basin.rs:102:5
+    |
+ 98 | struct BasinState {
+    |        ---------- field in this struct
+...
+102 |     energy: f64,
+    |     ^^^^^^
+    |
+    = note: `BasinState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `engine` is never read
+  --> lib\prediction\meta_prediction.rs:27:9
+   |
+26 | struct EngineHistory {
+   |        ------------- field in this struct
+27 |     pub engine: PredictionEngine,
+   |         ^^^^^^
+   |
+   = note: `EngineHistory` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `kind` is never read
+  --> lib\prediction\meta_prediction.rs:81:9
+   |
+80 | struct KindHistory {
+   |        ----------- field in this struct
+81 |     pub kind: PredictionKind,
+   |         ^^^^
+   |
+   = note: `KindHistory` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `detect_zach_style` is never used
+   --> lib\personality\mod.rs:370:8
+    |
+218 | impl PersonalityEmergence {
+    | ------------------------- method in this implementation
+...
+370 |     fn detect_zach_style(&self, normalized: &crate::input_normalizer::NormalizedInput) -> ResponseStyle {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: field `decay_rate` is never read
+  --> lib\pain\cost_model.rs:13:5
+   |
+ 7 | pub struct PainCostModel {
+   |            ------------- field in this struct
+...
+13 |     decay_rate: f64,
+   |     ^^^^^^^^^^
+   |
+   = note: `PainCostModel` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `dream_id`, `hypothesis`, and `at` are never read
+  --> lib\dreaming\dream_engine.rs:95:5
+   |
+94 | struct ValidationRecord {
+   |        ---------------- fields in this struct
+95 |     dream_id: DreamId,
+   |     ^^^^^^^^
+96 |     hypothesis: String,
+   |     ^^^^^^^^^^
+97 |     supported: bool,
+98 |     at: i64,
+   |     ^^
+   |
+   = note: `ValidationRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `forgotten_topics` is never read
+  --> lib\user_model\memory_model.rs:26:5
+   |
+20 | pub struct UserMemoryModel {
+   |            --------------- field in this struct
+...
+26 |     forgotten_topics: Vec<String>,
+   |     ^^^^^^^^^^^^^^^^
+   |
+   = note: `UserMemoryModel` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `encode_result` is never used
+  --> lib\neural\neurons\quanot_neuron.rs:55:8
+   |
+24 | impl QuanotNeuron {
+   | ----------------- method in this implementation
+...
+55 |     fn encode_result(&self, result: &QuanotResult) -> Vec<f32> {
+   |        ^^^^^^^^^^^^^
+
+warning: method `decode_vector` is never used
+  --> lib\neural\neurons\causal_neuron.rs:48:8
+   |
+22 | impl CausalNeuron {
+   | ----------------- method in this implementation
+...
+48 |     fn decode_vector(&self, vec: &[f32]) -> String {
+   |        ^^^^^^^^^^^^^
+
+warning: method `encode_goal` is never used
+  --> lib\neural\neurons\goals_neuron.rs:40:8
+   |
+22 | impl GoalsNeuron {
+   | ---------------- method in this implementation
+...
+40 |     fn encode_goal(&self, goal: &Goal) -> Vec<f32> {
+   |        ^^^^^^^^^^^
+
+warning: method `encode_text` is never used
+  --> lib\neural\neurons\fewshot_neuron.rs:38:8
+   |
+21 | impl FewShotNeuron {
+   | ------------------ method in this implementation
+...
+38 |     fn encode_text(&self, text: &str) -> Vec<f32> {
+   |        ^^^^^^^^^^^
+
+warning: fields `embedding`, `i_pre`, `f_pre`, `c_pre`, and `o_pre` are never read
+   --> lib\language_model\model.rs:150:5
+    |
+148 | struct LayerActivations {
+    |        ---------------- fields in this struct
+149 |     /// Input embedding at this timestep
+150 |     embedding: Vec<f32>,
+    |     ^^^^^^^^^
+...
+154 |     i_pre: Vec<f32>,
+    |     ^^^^^
+155 |     f_pre: Vec<f32>,
+    |     ^^^^^
+156 |     c_pre: Vec<f32>,
+    |     ^^^^^
+157 |     o_pre: Vec<f32>,
+    |     ^^^^^
+    |
+    = note: `LayerActivations` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: `star` (lib) generated 67 warnings (run `cargo fix --lib -p star` to apply 46 suggestions)
+   Compiling star_bin v0.1.0 (C:\Users\Zwmar\projects\starfire\src)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 18.04s
+     Running `target\debug\train_model.exe --data all_personal_training.txt --epochs 1 --output models/smoke_test_v2.bin --save-every 100 --batch-size 32 --seq-length 128`

@@ -24,7 +24,6 @@ starfire/                          ← workspace root
 ├── src/                           ← binary crate (star_bin)
 │   ├── main.rs                    # Entry: chat / api / status
 │   └── bin/
-│       ├── integration_test.rs     # Integration tests
 │       ├── quanot_bench.rs        # Quanot reservoir benchmarks
 │       ├── train_model.rs         # Language model trainer
 │       ├── test_gen.rs            # Generation tests

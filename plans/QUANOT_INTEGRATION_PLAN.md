@@ -13,7 +13,7 @@ The quanot system has been fully integrated into the Runtime. Every message can 
 - **World Model**: Has `update_from_perception()` method that accepts `QuanotPerception`
 - **Causal Discovery**: Uses `ChaosMetrics` for inference
 - **Runtime**: ✅ NOW instantiates and processes through quanot
-- **Integration Test**: `src/bin/integration_test.rs` passes quanot unit tests
+- **Integration Test**: quanot coverage lives in the architectural `#[cfg(test)]` modules under `lib/` (e.g. `lib/quanot/**`); the `src/bin/integration_test.rs` runner was dropped on 2026-06-23 to keep the binary crate focused.
 
 ## Implementation Summary
 

@@ -3,6 +3,9 @@
 use crate::language_model::model::CharRNN;
 use crate::language_model::vocabulary::Vocabulary;
 use rand::Rng;
+use rand::RngCore;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 /// Generation configuration
 #[derive(Debug, Clone)]
@@ -31,47 +34,56 @@ pub fn generate(
     prompt: &str,
     config: GenerateConfig,
 ) -> String {
-    let mut rng = rand::thread_rng();
-    
-    // Set seed if provided
-    if let Some(seed) = config.seed {
-        let seed_bytes = seed.to_le_bytes();
-        let mut state = [0u64; 4];
-        for (i, chunk) in seed_bytes.chunks(8).enumerate() {
-            if i < 4 {
-                state[i] = u64::from_le_bytes([
-                    chunk.get(0).copied().unwrap_or(0),
-                    chunk.get(1).copied().unwrap_or(0),
-                    chunk.get(2).copied().unwrap_or(0),
-                    chunk.get(3).copied().unwrap_or(0),
-                    chunk.get(4).copied().unwrap_or(0),
-                    chunk.get(5).copied().unwrap_or(0),
-                    chunk.get(6).copied().unwrap_or(0),
-                    chunk.get(7).copied().unwrap_or(0),
-                ]);
-            }
-        }
-    }
-    
+    // Resolve RNG: seeded when `config.seed` is set so the run is
+    // reproducible, otherwise thread-local entropy. The previous version
+    // *built* a seed state but never applied it, so `seed=Some(42)` was a
+    // silent no-op — every call diverged from the previous output.
+    let mut rng: Box<dyn RngCore> = match config.seed {
+        Some(seed) => Box::new(StdRng::seed_from_u64(seed)),
+        None => Box::new(rand::thread_rng()),
+    };
+
     // Reset hidden state for generation
     model.reset_hidden();
-    
+
     // Encode the prompt
     let prompt_chars: Vec<usize> = vocab.encode(prompt);
-    
+
+    // Pre-existing crash (2026-06-23): when the loaded checkpoint was
+    // trained against a vocabulary whose `vocab_size` is smaller than
+    // this runtime's `Vocabulary` (e.g. the 11MB `ckpt_e28_b500.pt`
+    // saved with a different training config than the 3.7MB
+    // `data/star_model.bin`), the prompt encoded by the 227-char
+    // vocabulary can return indices >= the model's `vocab_size`.
+    // `model.step()` would then index past the embedding table and
+    // panic with a slice-bounds error on the very first mismatched
+    // character. Filter the prompt to what the model can actually
+    // embed before feeding it through.
+    let model_vocab = model.vocab_size();
+    let safe_prompt: Vec<usize> = prompt_chars
+        .iter()
+        .copied()
+        .filter(|&idx| idx < model_vocab)
+        .collect();
+
     // Feed prompt through model to set up hidden state
-    for &char_idx in &prompt_chars {
+    for &char_idx in &safe_prompt {
         model.step(char_idx);
     }
-    
+
     // Generate new characters
     let mut generated = Vec::new();
     let mut char_count = 0;
-    
-    // Start with the last character of the prompt
-    let last_char = prompt_chars.last().copied().unwrap_or(0);
-    
-    let mut last_char = prompt_chars.last().copied().unwrap_or(0);
+
+    // Start with the last character of the prompt. If the prompt was
+    // empty (or every character was filtered out by the bounds check
+    // above), the previous code fell back to `0` — the EOS token —
+    // which produces nonsense. Bail out cleanly instead of inventing
+    // a phantom context.
+    let mut last_char = match safe_prompt.last() {
+        Some(&c) => c,
+        None => return String::new(),
+    };
 
     loop {
         // Get probabilities for next character
@@ -84,26 +96,33 @@ pub fn generate(
         }
 
         // Sample from distribution
-        let next_char = sample_from_distribution(&probs, &mut rng);
+        let next_char = sample_from_distribution(&probs, &mut *rng);
 
         // Check for end of sequence
         if next_char == vocab.eos {
             break;
         }
 
+        // The sampled token also has to be inside the model's vocab, or
+        // the next `model.step(last_char = next_char)` will panic the
+        // same way the prompt bug did. Clamp to UNK on out-of-range —
+        // better to continue sampling than to crash the chat call.
+        last_char = if next_char < model_vocab {
+            next_char
+        } else {
+            vocab.unk
+        };
+
         // Add to generated output
-        generated.push(next_char);
+        generated.push(last_char);
         char_count += 1;
 
         // Check length limit
         if char_count >= config.max_length {
             break;
         }
-
-        // Feed this character back as input for next step
-        last_char = next_char;
     }
-    
+
     // Decode to string
     vocab.decode(&generated)
 }
@@ -156,9 +175,15 @@ fn apply_top_k(probs: &mut Vec<f32>, k: usize) {
     }
 }
 
-/// Sample from a probability distribution
-fn sample_from_distribution(probs: &[f32], rng: &mut impl Rng) -> usize {
-    let r = rng.gen::<f32>();
+/// Sample from a probability distribution.
+///
+/// Takes `&mut dyn RngCore` (not `impl Rng`) so the caller can pass a
+/// boxed trait object that may hold either a seeded `StdRng` or a
+/// `ThreadRng`. `next_u32() / u32::MAX` is the same uniform [0,1) draw
+/// `rng.gen::<f32>()` would have produced, but without the implicit
+/// `Sized` bound `gen()` carries.
+fn sample_from_distribution(probs: &[f32], rng: &mut dyn RngCore) -> usize {
+    let r = (rng.next_u32() as f64 / u32::MAX as f64) as f32;
     let mut cumsum = 0.0f32;
     
     for (i, &p) in probs.iter().enumerate() {
