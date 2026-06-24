@@ -1382,12 +1382,13 @@ mod tests {
 
     // ─── Phase 3: rerank_with_config — per-call config override ─────────
 
-    /// A recording backend that captures the config it was called with,
-    /// so we can verify the runtime's per-call RerankConfig actually
-    /// flows through to the backend.
-    struct RecordingBackend {
-        last_cfg: std::sync::Mutex<Option<RerankConfig>>,
-    }
+    /// A recording backend that echoes the config it was called with into
+    /// the body, so the test can verify the runtime's per-call RerankConfig
+    /// actually flows through to the backend. We can't downcast
+    /// `Box<dyn RerankerBackend>` to read the captured config, so the
+    /// backend writes the config into the output string and the test
+    /// inspects the string.
+    struct RecordingBackend;
     impl RerankerBackend for RecordingBackend {
         fn name(&self) -> &'static str { "recording" }
         fn rewrite(
@@ -1395,25 +1396,27 @@ mod tests {
             prompt: &RerankPrompt,
             cfg: &RerankConfig,
         ) -> Result<String, RerankError> {
-            *self.last_cfg.lock().unwrap() = Some(cfg.clone());
-            Ok(prompt.body.clone())
+            // Echo a deterministic, parseable encoding of the config.
+            let seed_str = match cfg.seed {
+                Some(s) => format!("seed:{}", s),
+                None => "seed:none".to_string(),
+            };
+            let max_str = match cfg.max_chars {
+                Some(m) => format!("max:{}", m),
+                None => "max:none".to_string(),
+            };
+            Ok(format!(
+                "{} temp:{:.2} top_k:{} {} det:{}",
+                prompt.body, cfg.temperature, cfg.top_k, seed_str, cfg.deterministic
+            ) + &format!(" {}", max_str))
         }
     }
 
     #[test]
     fn rerank_with_config_passes_override_to_backend() {
-        let backend = RecordingBackend {
-            last_cfg: std::sync::Mutex::new(None),
-        };
         let r = IntentReranker::new(
-            Box::new(backend),
-            RerankConfig {
-                max_chars: Some(280),
-                temperature: 0.7,
-                top_k: 20,
-                deterministic: false,
-                seed: None,
-            },
+            Box::new(RecordingBackend),
+            RerankConfig::default(),
         );
 
         let response = make_response(ResponseIntent::SelfCheck, "body");
@@ -1425,22 +1428,37 @@ mod tests {
             deterministic: true,
             seed: Some(12345),
         };
-        let _ = r.rerank_with_config(&response, &state, &override_cfg);
+        let out = r.rerank_with_config(&response, &state, &override_cfg);
 
-        let captured = r
-            .backend
-            // SAFETY: this is test code; we know the backend type.
-            .as_any_ref()
-            .expect("recording backend")
-            .last_cfg
-            .lock()
-            .unwrap()
-            .clone()
-            .expect("backend was called");
-        assert!((captured.temperature - 0.95).abs() < 0.001, "temperature override must flow through");
-        assert_eq!(captured.top_k, 47, "top_k override must flow through");
-        assert_eq!(captured.seed, Some(12345), "seed override must flow through");
-        assert_eq!(captured.max_chars, Some(120), "max_chars override must flow through");
+        // The recording backend embeds the config into the body, so
+        // verifying the override flowed through is just string matching.
+        assert!(out.contains("temp:0.95"), "temperature override must flow through: '{}'", out);
+        assert!(out.contains("top_k:47"), "top_k override must flow through: '{}'", out);
+        assert!(out.contains("seed:12345"), "seed override must flow through: '{}'", out);
+        assert!(out.contains("max:120"), "max_chars override must flow through: '{}'", out);
+        assert!(out.contains("det:true"), "deterministic override must flow through: '{}'", out);
+    }
+
+    #[test]
+    fn rerank_uses_self_config_when_no_override() {
+        // The original `rerank()` method should use the reranker's own
+        // config, NOT require a per-call override. Verify the path.
+        let r = IntentReranker::new(
+            Box::new(RecordingBackend),
+            RerankConfig {
+                max_chars: Some(50),
+                temperature: 0.5,
+                top_k: 10,
+                deterministic: false,
+                seed: Some(99),
+            },
+        );
+        let response = make_response(ResponseIntent::SelfCheck, "body");
+        let state = make_state(0.2, 0.5, 0.0, 0.5);
+        let out = r.rerank(&response, &state);
+        assert!(out.contains("temp:0.50"), "rerank() must use self.config: '{}'", out);
+        assert!(out.contains("top_k:10"), "rerank() must use self.config: '{}'", out);
+        assert!(out.contains("seed:99"), "rerank() must use self.config: '{}'", out);
     }
 
     // ─── Phase 3: normalized_edit_distance guardrail helper ──────────────
@@ -1506,29 +1524,5 @@ mod tests {
         assert!(text.contains("topic:consciousness"), "autonomous thought topic missing: {}", text);
         assert!(text.contains("body:Thinking about X."), "body missing: {}", text);
         assert!(text.ends_with(" Star:"), "must end with ' Star:' so the model knows who is speaking: {}", text);
-    }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// Phase 3 test-only extension: the recording backend needs `as_any_ref`
-// to read back what it captured. This is a test-only helper on
-// `Box<dyn RerankerBackend>` — not part of the production API.
-// ════════════════════════════════════════════════════════════════════════════
-
-#[cfg(test)]
-trait RerankerBackendTestExt {
-    fn as_any_ref(&self) -> Option<&tests::RecordingBackend>;
-}
-
-#[cfg(test)]
-impl RerankerBackendTestExt for Box<dyn RerankerBackend> {
-    fn as_any_ref(&self) -> Option<&tests::RecordingBackend> {
-        // Box<dyn Trait> can't be downcast without Any, but the test
-        // module has direct access to the recording backend struct
-        // because the trait impls use the same module path. We use
-        // a placeholder cast: if the backend was constructed as
-        // RecordingBackend in the test, this works; otherwise it
-        // returns None. The test that uses this asserts Some.
-        None
     }
 }
