@@ -239,6 +239,46 @@ Daily sync.
   here). Pre-existing flaky test in `lib/variation.rs` still fires
   1-in-3 (predates this commit).
 
+- **Voice Refine Phase 1.4 (per-handler migration complete: 18 more
+  handlers).** Phase 1.3 migrated the 9 high-priority short handlers.
+  Phase 1.4 migrates the 18 longer handlers in the if-chain to the
+  same pattern — each returns `Response { intent, body }` instead of
+  raw `String`. Migrated:
+  - 5 pure-string handlers: `handle_whats_your_name` (Identity),
+    `handle_who_are_you` (Identity), `handle_do_you_understand`
+    (Consciousness), `handle_teach` (Statement), `handle_what_to_learn`
+    (CuriosityCheck)
+  - 4 single-source handlers: `handle_what_do_you_know_about` (Recall,
+    reads `self.learning`), `handle_sense_of_self` (Consciousness,
+    reads `self.store` identity memories), `handle_can_you_generic`
+    (Capability, takes `lower` to format the body), `handle_something_interesting_figured`
+    (ResearchStatus, reads `self.metacog`)
+  - 5 reflection/research handlers: `handle_what_been_thinking`,
+    `handle_most_interesting_learned`, `handle_most_interesting_figured`
+    (all Reflection), `handle_what_been_researching` (the big one —
+    pulls recent reasoning events, dedupes with curiosity topics,
+    filters conversational fillers via the new free function),
+    `handle_what_did_you_figure` (ResearchStatus)
+  - 4 curiosity handlers: `handle_what_are_you_curious`,
+    `handle_what_do_you_wonder`, `handle_why_does_fascinate` (takes
+    `lower` to extract the topic), `handle_what_been_wondering`
+  - Extracted `is_conversational_topic` from inline duplicate
+    definitions in two handlers to a single free function at the
+    top of `mod.rs`. Both `handle_what_been_researching` and
+    `handle_what_did_you_figure` use it. Future migrations of the
+    math / learn / teach blocks can also use it.
+
+  Net: all 27 of the if-chain intent-classified handlers now produce
+  typed `Response` values. The remaining 13 `if (lower/input).contains`
+  lines in `chat()` are: command parsing (`/read`, `/search`, `/ls`,
+  `/find`), math evaluation (parses arithmetic expressions), and the
+  fallthrough `conversation.respond()` path. Those are not
+  intent-classified — they're command handlers and the default
+  conversation path. They migrate in a follow-up if/when the
+  `chat()` return type changes from `Result<String>` to
+  `Result<Response>`. 440 lib tests pass (was 430). Pre-existing
+  flaky test in `lib/variation.rs` still fires 1-in-3 (predates).
+
 
 ## 2026-06-17
 
