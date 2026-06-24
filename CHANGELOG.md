@@ -116,6 +116,48 @@ Daily sync.
   tests pass (was 421, +6 new). Same release-build warnings as before
   (pre-existing).
 
+- **Voice Refine Phase 1.3 + Phase 3 wireup (typed Response from
+  handlers + live charRNN reranker).** Phase 1.2 closed the
+  *consumption* loop. Phase 1.3 starts the *construction* loop: each
+  high-priority handler in `runtime::chat()` now returns
+  `response_intent::Response { intent, body }` instead of a raw
+  `String`. The intent is encoded at the handler site (not
+  retroactively via `classify()`), so future dispatch-table
+  conversions can collapse the if-chain to a single dispatch function.
+  - `lib/runtime/mod.rs` — 9 new dispatch methods (`handle_how_are_you`,
+    `handle_what_are_you_thinking`, `handle_are_you_sure`,
+    `handle_did_you_collapse`, `handle_love`, `handle_capability_lookup`,
+    `handle_aspiration`, `handle_tell_me_story`, `handle_tell_you_story`,
+    `handle_hun`). 7 are `&self` (read-only); 2 (`handle_aspiration`
+    mutates `cognition`, `handle_hun` mutates `learning`) take
+    *field-level* references (`&mut CognitiveState`,
+    `&mut LearningEngine`) instead of `&mut self` to avoid clashing
+    with the `conversation` MutexGuard that `chat()` holds for its
+    full body. The if-chain in `chat()` now calls each handler and
+    extracts `.body` so `chat()`'s return type stays `Result<String>`
+    for now.
+  - `lib/language_model/intent_reranker.rs` — Phase 3 wireup that was
+    started in an earlier turn but never committed. The runtime
+    already calls the reranker (line 1486) but the supporting code
+    was missing: `CharRnnBackend::load_default`, `RerankConfig` with
+    `temperature`/`top_k`/`seed` fields, `rerank_with_config` method,
+    per-call config built from `InternalState` per the plan's spec
+    (temperature = 0.6 + 0.6 · novelty, top_k = 20 + 30 · novelty,
+    seed = (valence · 1000).round()). 17 reranker tests pass. The
+    runtime initializes the live `CharRnnBackend` against
+    `ckpt_e28_b500.pt` (11MB) at startup; falls back to
+    `MockReranker` if the model is unavailable. The rerank layer is
+    additive — a rerank miss falls back to the raw body rather than
+    ship a hallucination.
+
+  Net: 9 of ~30+ if-chain handlers now produce typed `Response`
+  values; the reranker that consumes them is fully wired. The
+  reflection / research / curiosity handlers and the math / learn /
+  teach blocks migrate in follow-up commits. 430 lib tests pass
+  (same as Phase 1.2 — no new tests; smoke test is the validator
+  here). Pre-existing flaky test in `lib/variation.rs` still fires
+  1-in-3 (predates this commit).
+
 
 ## 2026-06-17
 

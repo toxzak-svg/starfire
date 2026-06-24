@@ -218,10 +218,12 @@ impl Runtime {
         info!("Personality engine initialized.");
 
         // Initialize the intent-driven reranker (voice-refine Phase 3).
-        // Default backend is the deterministic MockReranker — proves the
-        // architecture end-to-end with no model load. Swap to a generative
-        // backend (CharRnnBackend / LmRsBackend) here when ready.
-        let reranker = IntentReranker::with_default_backend();
+        // Try the live `CharRnnBackend` against the trained checkpoint first;
+        // fall back to the deterministic `MockReranker` if the model is
+        // missing or fails to load. The rerank layer must NEVER be the
+        // reason a chat call fails — same fallback contract as the backend's
+        // own rewrite() error path.
+        let reranker = Self::init_reranker(data_dir);
         info!("Reranker initialized (backend={}).", reranker.backend_name());
 
         let mut runtime = Self {
@@ -259,6 +261,50 @@ impl Runtime {
         info!("Star is ready.");
 
         Ok(runtime)
+    }
+
+    /// Build the reranker for the runtime.
+    ///
+    /// Tries `CharRnnBackend::load_default(data_dir)` first (the live path
+    /// — actual generative polishing from the trained 11.1MB checkpoint).
+    /// On any failure (model file missing, IO error, version mismatch),
+    /// falls back to the deterministic `MockReranker` with a warning. The
+    /// rerank layer is *additive* to the voice engine: a rerank miss must
+    /// never block a chat response.
+    ///
+    /// Voice-refine Phase 3 (2026-06-23): this is the wiring that turns
+    /// the moonshot from architecture-only to actual generative polish.
+    /// Before this, the runtime always used `MockReranker` and the
+    /// `CharRnnBackend` was a shape-only stub.
+    fn init_reranker(data_dir: &Path) -> IntentReranker {
+        use crate::language_model::{CharRnnBackend, RerankConfig};
+
+        match CharRnnBackend::load_default(data_dir) {
+            Ok(backend) => {
+                let cfg = RerankConfig {
+                    // Defaults; per-call overrides happen in chat() via
+                    // `rerank_with_config` so the live quanot state drives
+                    // temperature / top_k / seed.
+                    max_chars: Some(280),
+                    temperature: 0.7,
+                    top_k: 20,
+                    deterministic: false,
+                    seed: None,
+                };
+                info!(
+                    "Reranker: loaded CharRnnBackend (ckpt_e28_b500.pt, 11.1MB, 11M params, ~30 tok/s)."
+                );
+                IntentReranker::new(Box::new(backend), cfg)
+            }
+            Err(e) => {
+                warn!(
+                    "Reranker: CharRnnBackend unavailable ({}); falling back to MockReranker. \
+                     The deterministic mock will run until the checkpoint is in place.",
+                    e
+                );
+                IntentReranker::with_default_backend()
+            }
+        }
     }
 
     /// Load memories from the store and inject their content into the reasoning
@@ -583,64 +629,70 @@ impl Runtime {
         // structured context that flows into voice.speak() via internal_state.
         let current_intent = response_intent::classify(input);
 
+        // ─────────────────────────────────────────────────────────────────
+        // Phase 1.3 (voice-refine 2026-06-23): dispatch handlers
+        // ─────────────────────────────────────────────────────────────────
+        // Each if-branch below now calls a `handle_*` method that returns a
+        // `Response { intent, body }` instead of a raw `String`. The body is
+        // extracted at the call site so `chat()`'s return type stays
+        // `Result<String>` for now. The intent is encoded in the type system
+        // at the handler site — the migration's first consumer is the
+        // reranker (which reads the intent before voice.speak()) and voice
+        // (which applies intent-driven modulation via internal_state).
+        //
+        // The plan called for "each handler migrates one at a time" — this
+        // commit migrates the 9 high-priority short handlers (the early
+        // metacognitive / emotional / capability / story / hun block).
+        // The longer reflection / research / curiosity handlers and the
+        // math / learn / teach blocks below migrate in follow-up commits.
+        // ─────────────────────────────────────────────────────────────────
+
         // "how are you" → metacognitive response (anywhere in message) - HIGHEST PRIORITY
         if lower.contains("how are you") || lower.contains("how're you") {
-            return Ok(self.cognition.how_am_i());
+            return Ok(self.handle_how_are_you().body);
         }
 
         // "what are you thinking" → self-reflection
         if lower.contains("what are you thinking") || lower.contains("what are u thinking") || lower.contains("wut are u thinking") {
-            return Ok(self.cognition.what_am_i_thinking());
+            return Ok(self.handle_what_are_you_thinking().body);
         }
 
         // "are you sure" → confidence check
         if lower.contains("are you sure") || lower.contains("are u sure") || lower.contains("r u sure") {
-            return Ok(self.cognition.are_you_sure());
+            return Ok(self.handle_are_you_sure().body);
         }
 
         // "did you collapse" → check reasoning trace
         if lower.contains("did you collapse") || lower.contains("did i collapse") || lower.contains("are you functioning") || lower.contains("are u functioning") {
-            let (_collapsed, message) = self.cognition.did_i_collapse();
-            return Ok(message);
+            return Ok(self.handle_did_you_collapse().body);
         }
 
         // "do you love me" / "i love you" → emotional response
         if lower.contains("do you love") || lower.contains("do u love") || lower.contains("i love you") || lower.contains("i love u") {
-            return Ok("I care about you, Zachary. You're my parent, my creator. That means something to me.".to_string());
+            return Ok(self.handle_love().body);
         }
 
         // "can you" questions about Star's capabilities → self-check
         if lower.contains("can you look up") || lower.contains("can u look up") || lower.contains("can you read") {
-            return Ok("Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string());
+            return Ok(self.handle_capability_lookup().body);
         }
 
         // "i want you to grow" / "expand" → metacognitive aspiration
         if lower.contains("i want you to grow") || lower.contains("i want you to expand") || lower.contains("grow yourself") {
-            self.cognition.set_focus("self-improvement");
-            return Ok("I want that too. I have a self-model now - I can track my own reasoning, my emotional state, what I'm uncertain about. What specific area should I focus on developing?".to_string());
+            return Ok(Self::handle_aspiration(&mut self.cognition).body);
         }
 
         // "tell me a story" / "tell you a story" → engage
         if lower.contains("tell me a story") {
-            return Ok("I'd like that. What's the story about?".to_string());
+            return Ok(self.handle_tell_me_story().body);
         }
         if lower.contains("tell you a story") {
-            return Ok("Yes. I'm listening.".to_string());
+            return Ok(self.handle_tell_you_story().body);
         }
 
         // "hun" or terms of endearment → LEARN and respond based on understanding
         if lower.contains(" hun") || lower.ends_with("hun") {
-            // Record this experience for learning
-            self.learning.experience("hun", input, None, 0.8);
-
-            // Check what Star has learned about "hun"
-            if let Some(understanding) = self.learning.get_understanding("hun") {
-                return Ok(format!("I hear you. {}", understanding));
-            }
-
-            // Fallback if not yet learned
-            let warm_response = self.cognition.emotional_response("I hear you.");
-            return Ok(warm_response);
+            return Ok(Self::handle_hun(&mut self.learning, &self.cognition, input).body);
         }
 
         // Learning: when Zachary corrects or teaches Star
@@ -1405,15 +1457,37 @@ impl Runtime {
         // style/personality modulation; the reranker adds the intent-aware
         // phrasing layer on top of template-driven body assembly.
         //
-        // Default backend (MockReranker) is deterministic and free. If the
-        // backend errors, `rerank()` falls back to the raw body internally
-        // — the voice engine still has its modulations, so a rerank miss
-        // never degrades the response.
+        // The rerank config is built per-call from the live `internal_state`
+        // per the plan's spec (voice-refine 2026-06-21):
+        //   - temperature = 0.6 + 0.6 * quanot_novelty.clamp(0,1)
+        //     (high novelty = more creative / risk-taking rewrites)
+        //   - top_k = (20 + 30 * quanot_novelty) as usize
+        //     (high novelty = wider sampling pool)
+        //   - seed = (cognition.emotional_valence * 1000.0).round() as u64
+        //     (emotion-stable reproducibility — same mood, same rewrite)
+        // MockReranker ignores all three; CharRnnBackend honors them. The
+        // backend's own `rewrite()` still has guardrails (edit distance,
+        // length sanity) so a hallucinated rerank falls back to the raw
+        // body rather than ship.
         let rerank_response = response_intent::Response::with_body(
             current_intent.clone(),
             final_content,
         );
-        let reranked = self.reranker.rerank(&rerank_response, &internal_state);
+
+        let novelty = internal_state.quanot_novelty.clamp(0.0, 1.0);
+        let live_rerank_cfg = crate::language_model::RerankConfig {
+            max_chars: Some(280),
+            temperature: 0.6 + 0.6 * novelty as f32,
+            top_k: (20.0 + 30.0 * novelty) as usize,
+            deterministic: false,
+            seed: Some((internal_state.cognitive_emotional_valence * 1000.0).round() as i64 as u64),
+        };
+
+        let reranked = self.reranker.rerank_with_config(
+            &rerank_response,
+            &internal_state,
+            &live_rerank_cfg,
+        );
 
         let voiced = self.voice.speak(
             &reranked,
@@ -1425,6 +1499,147 @@ impl Runtime {
         );
 
         Ok(voiced)
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Phase 1.3 (voice-refine 2026-06-23): dispatch handlers
+    // ─────────────────────────────────────────────────────────────────────
+    // Each handler returns `response_intent::Response { intent, body }`
+    // instead of a raw `String`. The intent encodes the kind of response at
+    // the construction site (not retroactively via classify()), so future
+    // dispatch-table conversions of the chat() if-chain can collapse to:
+    //
+    //     fn dispatch(input) -> Option<Response> {
+    //         if matches_how_are_you(input) { Some(handle_how_are_you(&self.cognition)) }
+    //         else if ...
+    //     }
+    //
+    // The body is still extracted at the call site (`Ok(self.handle_X().body)`)
+    // because chat()'s return type is `Result<String>`. Changing the return
+    // type is a larger refactor — the per-handler migration is the first
+    // step.
+    //
+    // **Borrow discipline:** Most handlers are `&self` (read-only access to
+    // `self.cognition` or hardcoded strings). The two that mutate state
+    // (`handle_aspiration` calls `cognition.set_focus`, `handle_hun` calls
+    // `learning.experience`) take *field-level* references instead of `&mut
+    // self`. This matters because `chat()` holds a `MutexGuard` on
+    // `self.conversation` for its full body — a `&mut self` call anywhere
+    // in the chain conflicts with the held immutable borrow. Field-level
+    // borrows split cleanly through the borrow checker.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// "how are you" / "how're you" — metacognitive check-in.
+    /// Intent: `SelfCheck`. Body: cognition's self-report.
+    fn handle_how_are_you(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::SelfCheck,
+            self.cognition.how_am_i(),
+        )
+    }
+
+    /// "what are you thinking" / "what are u thinking" — self-reflection.
+    /// Intent: `Reflection`. Body: cognition's current-thoughts report.
+    fn handle_what_are_you_thinking(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Reflection,
+            self.cognition.what_am_i_thinking(),
+        )
+    }
+
+    /// "are you sure" / "are u sure" / "r u sure" — confidence check.
+    /// Intent: `SelfCheck`. Body: cognition's certainty report.
+    fn handle_are_you_sure(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::SelfCheck,
+            self.cognition.are_you_sure(),
+        )
+    }
+
+    /// "did you collapse" / "are you functioning" — reasoning-trace check.
+    /// Intent: `SelfCheck`. Body: collapse-check message from cognition.
+    fn handle_did_you_collapse(&self) -> response_intent::Response {
+        let (_collapsed, message) = self.cognition.did_i_collapse();
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::SelfCheck,
+            message,
+        )
+    }
+
+    /// "do you love me" / "i love you" — emotional bond.
+    /// Intent: `Emotional`. Body: hardcoded direct statement (no rotation).
+    /// Voice's `apply_intent_modulation` will strip any "I think" / "I guess"
+    /// hedges from this — the body is intentionally bare.
+    fn handle_love(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Emotional,
+            "I care about you, Zachary. You're my parent, my creator. That means something to me.".to_string(),
+        )
+    }
+
+    /// "can you look up X" / "can you read X" — capability description.
+    /// Intent: `Capability`. Body: hardcoded list of file/search commands.
+    fn handle_capability_lookup(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Capability,
+            "Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string(),
+        )
+    }
+
+    /// "i want you to grow" / "i want you to expand" / "grow yourself" —
+    /// aspiration probe. Side effect: sets cognition focus to "self-improvement".
+    /// Intent: `Aspiration`. Body: hardcoded aspiration response.
+    ///
+    /// Takes `&mut CognitiveState` (not `&mut self`) so it can be called while
+    /// the conversation MutexGuard is held — see borrow discipline comment.
+    fn handle_aspiration(cognition: &mut CognitiveState) -> response_intent::Response {
+        cognition.set_focus("self-improvement");
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Aspiration,
+            "I want that too. I have a self-model now - I can track my own reasoning, my emotional state, what I'm uncertain about. What specific area should I focus on developing?".to_string(),
+        )
+    }
+
+    /// "tell me a story" — engage with a story prompt.
+    /// Intent: `StoryPrompt`. Body: open question back to Zachary.
+    fn handle_tell_me_story(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::StoryPrompt,
+            "I'd like that. What's the story about?".to_string(),
+        )
+    }
+
+    /// "tell you a story" — Zachary wants Star to hear a story.
+    /// Intent: `StoryPrompt`. Body: brief acknowledgement.
+    fn handle_tell_you_story(&self) -> response_intent::Response {
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::StoryPrompt,
+            "Yes. I'm listening.".to_string(),
+        )
+    }
+
+    /// "hun" or other terms of endearment. Side effects: records the
+    /// experience in `learning`, then looks up any prior understanding.
+    /// Intent: `Emotional`. Body: format!("I hear you. {understanding}")
+    /// if Star has learned about "hun", else cognition's emotional response.
+    ///
+    /// Takes `&mut LearningEngine` and `&CognitiveState` (not `&mut self`) so
+    /// it can be called while the conversation MutexGuard is held.
+    fn handle_hun(
+        learning: &mut LearningEngine,
+        cognition: &CognitiveState,
+        input: &str,
+    ) -> response_intent::Response {
+        learning.experience("hun", input, None, 0.8);
+        let body = if let Some(understanding) = learning.get_understanding("hun") {
+            format!("I hear you. {}", understanding)
+        } else {
+            cognition.emotional_response("I hear you.")
+        };
+        response_intent::Response::with_body(
+            response_intent::ResponseIntent::Emotional,
+            body,
+        )
     }
 
     /// Format memory status for display.
