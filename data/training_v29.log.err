@@ -532,6 +532,5 @@ warning: fields `embedding`, `i_pre`, `f_pre`, `c_pre`, and `o_pre` are never re
     = note: `LayerActivations` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
 
 warning: `star` (lib) generated 67 warnings (run `cargo fix --lib -p star` to apply 46 suggestions)
-   Compiling star_bin v0.1.0 (C:\Users\Zwmar\projects\starfire\src)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.92s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.39s
      Running `target\debug\train_model.exe --data data/star_corpus_v1.txt --epochs 10 --output data/star_model_v29.bin`

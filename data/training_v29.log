@@ -14,13 +14,7 @@ Model has 926883 parameters
 Starting training...
 Training with 58267 sequences
 Learning rate: 0.001, Gradient clip: 5
-Epoch 1 Batch 0/1820 Loss: 662.9908
-Epoch 1 Batch 10/1820 Loss: 479.1148
+Epoch 1 Batch 0/1820 Loss: 669.3206
+Epoch 1 Batch 10/1820 Loss: 481.1505
 Model saved to data/star_model_v29.bin
-Epoch 1 Batch 20/1820 Loss: 469.2632
-Epoch 1 Batch 30/1820 Loss: 465.3581
-Model saved to data/star_model_v29.bin
-Epoch 1 Batch 40/1820 Loss: 463.2716
-Model saved to data/star_model_v29.bin
-Epoch 1 Batch 50/1820 Loss: 462.2956
-Epoch 1 Batch 60/1820 Loss: 462.1767
+Epoch 1 Batch 20/1820 Loss: 470.5932
