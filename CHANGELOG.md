@@ -1,4 +1,11 @@
-﻿## 2026-06-25
+﻿## 2026-06-25 (2026-06-25 07:06)
+
+Daily sync (mid-morning follow-up — v29 training still running).
+
+- `data/training_v29b.log` extended.
+- `data/star_model_v29.bin` re-checkpointed.
+
+## 2026-06-25
 
 Daily sync.
 
