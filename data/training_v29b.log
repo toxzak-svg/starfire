@@ -1,0 +1,204 @@
+Star Language Model Training
+============================
+Data file: "data\\star_corpus_v1.txt"
+Epochs: 10
+Sequence length: 128
+Batch size: 32
+Hidden size: 256
+
+Vocabulary size: 227
+Loaded 12481 conversations
+Creating model with 227 parameters...
+Resuming from existing checkpoint: "data\\star_model_v29.bin"
+Loaded checkpoint with 926883 parameters
+
+Starting training...
+Training with 58267 sequences
+Learning rate: 0.001, Gradient clip: 5
+Epoch 1 Batch 0/1820 Loss: 460.6309
+Epoch 1 Batch 10/1820 Loss: 453.9879
+Queued save at batch 16 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 20/1820 Loss: 458.4456
+Epoch 1 Batch 30/1820 Loss: 461.6829
+Queued save at batch 32 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 40/1820 Loss: 460.6357
+Queued save at batch 47 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 50/1820 Loss: 459.5009
+Epoch 1 Batch 60/1820 Loss: 456.9691
+Queued save at batch 63 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 70/1820 Loss: 451.4592
+Queued save at batch 79 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 80/1820 Loss: 445.9681
+Epoch 1 Batch 90/1820 Loss: 441.8217
+Queued save at batch 94 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 100/1820 Loss: 438.7420
+Epoch 1 Batch 110/1820 Loss: 437.6676
+Queued save at batch 110 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 120/1820 Loss: 440.2186
+Queued save at batch 125 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 130/1820 Loss: 449.2179
+Epoch 1 Batch 140/1820 Loss: 463.1593
+Queued save at batch 141 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 150/1820 Loss: 482.3833
+Queued save at batch 157 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 160/1820 Loss: 504.1898
+Epoch 1 Batch 170/1820 Loss: 531.7100
+Queued save at batch 172 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 180/1820 Loss: 560.7478
+Queued save at batch 188 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 190/1820 Loss: 587.1288
+Epoch 1 Batch 200/1820 Loss: 619.9681
+Queued save at batch 204 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 210/1820 Loss: 653.9537
+Queued save at batch 219 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 220/1820 Loss: 688.6459
+Epoch 1 Batch 230/1820 Loss: 720.8544
+Queued save at batch 235 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 240/1820 Loss: 757.2236
+Epoch 1 Batch 250/1820 Loss: 790.8790
+Queued save at batch 250 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 260/1820 Loss: 826.7040
+Queued save at batch 266 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 270/1820 Loss: 861.3416
+Epoch 1 Batch 280/1820 Loss: 895.5742
+Queued save at batch 282 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 290/1820 Loss: 929.8895
+Queued save at batch 297 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 300/1820 Loss: 964.8907
+Epoch 1 Batch 310/1820 Loss: 1000.0273
+Queued save at batch 313 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 320/1820 Loss: 1030.5956
+Queued save at batch 329 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 330/1820 Loss: 1063.9175
+Epoch 1 Batch 340/1820 Loss: 1093.5160
+Queued save at batch 344 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 350/1820 Loss: 1124.4376
+Epoch 1 Batch 360/1820 Loss: 1154.4843
+Queued save at batch 360 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 370/1820 Loss: 1186.2251
+Queued save at batch 375 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 380/1820 Loss: 1217.2646
+Epoch 1 Batch 390/1820 Loss: 1245.9006
+Queued save at batch 391 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 400/1820 Loss: 1273.6302
+Queued save at batch 407 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 410/1820 Loss: 1299.6740
+Epoch 1 Batch 420/1820 Loss: 1327.4343
+Queued save at batch 422 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 430/1820 Loss: 1352.8690
+Queued save at batch 438 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 440/1820 Loss: 1378.7932
+Epoch 1 Batch 450/1820 Loss: 1403.2234
+Queued save at batch 454 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 460/1820 Loss: 1427.9988
+Queued save at batch 469 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 470/1820 Loss: 1450.5336
+Epoch 1 Batch 480/1820 Loss: 1473.3142
+Queued save at batch 485 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 490/1820 Loss: 1494.6327
+Epoch 1 Batch 500/1820 Loss: 1516.9663
+Queued save at batch 500 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 510/1820 Loss: 1537.9081
+Queued save at batch 516 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 520/1820 Loss: 1560.3021
+Epoch 1 Batch 530/1820 Loss: 1581.3610
+Queued save at batch 532 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 540/1820 Loss: 1602.6982
+Queued save at batch 547 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 550/1820 Loss: 1622.9100
+Epoch 1 Batch 560/1820 Loss: 1641.5283
+Queued save at batch 563 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 570/1820 Loss: 1660.4540
+Queued save at batch 579 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 580/1820 Loss: 1679.1633
+Epoch 1 Batch 590/1820 Loss: 1696.9044
+Queued save at batch 594 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 600/1820 Loss: 1715.0013
+Epoch 1 Batch 610/1820 Loss: 1732.2572
+Queued save at batch 610 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 620/1820 Loss: 1748.7875
+Queued save at batch 625 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 630/1820 Loss: 1765.5146
+Epoch 1 Batch 640/1820 Loss: 1781.0273
+Queued save at batch 641 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 650/1820 Loss: 1797.1296
+Queued save at batch 657 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 660/1820 Loss: 1813.0850
+Epoch 1 Batch 670/1820 Loss: 1828.6639
+Queued save at batch 672 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 680/1820 Loss: 1842.6643
+Queued save at batch 688 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 690/1820 Loss: 1858.2860
+Epoch 1 Batch 700/1820 Loss: 1873.2006
+Queued save at batch 704 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 710/1820 Loss: 1887.7690
+Queued save at batch 719 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 720/1820 Loss: 1903.0272
+Epoch 1 Batch 730/1820 Loss: 1916.1797
+Queued save at batch 735 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 740/1820 Loss: 1930.2084
+Epoch 1 Batch 750/1820 Loss: 1944.1067
+Queued save at batch 750 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 760/1820 Loss: 1959.2152
+Queued save at batch 766 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 770/1820 Loss: 1972.6097
+Epoch 1 Batch 780/1820 Loss: 1984.7944
+Queued save at batch 782 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 790/1820 Loss: 1998.0934
+Queued save at batch 797 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 800/1820 Loss: 2010.6478
+Epoch 1 Batch 810/1820 Loss: 2023.0627
+Queued save at batch 813 to data\star_model_v29.bin
+Model saved (background) to data\star_model_v29.bin
+Epoch 1 Batch 820/1820 Loss: 2035.1218

@@ -5,6 +5,8 @@ use crate::language_model::vocabulary::Vocabulary;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::sync::mpsc::{self, TrySendError};
+use std::thread;
 
 /// Training hyperparameters
 #[derive(Debug, Clone)]
@@ -137,6 +139,22 @@ pub fn train(
     println!("Training with {} sequences", training_data.len());
     println!("Learning rate: {}, Gradient clip: {}", config.learning_rate, config.grad_clip);
 
+    // Background save thread — decouples disk I/O from the compute path.
+    // Bounded channel (capacity=1) so we always keep only the LATEST snapshot
+    // pending; older unsent snapshots are dropped silently rather than queueing
+    // stale writes. The final save (below, after the loop) is synchronous to
+    // guarantee it lands before exit.
+    let (save_tx, save_rx) = mpsc::sync_channel::<(CharRNN, String)>(1);
+    let save_handle = thread::spawn(move || {
+        while let Ok((model, path)) = save_rx.recv() {
+            if let Err(e) = model.save(&path) {
+                eprintln!("Background save failed: {}", e);
+            } else {
+                println!("Model saved (background) to {}", path);
+            }
+        }
+    });
+
     for epoch in 0..config.epochs {
         let mut total_loss = 0.0f32;
         let mut num_sequences = 0;
@@ -163,7 +181,7 @@ pub fn train(
                 // Compute loss
                 let mut seq_loss = 0.0f32;
                 for t in 0..seq.len().saturating_sub(1) {
-                    let probs = softmax(&activations.output_logits[t]);
+                    let probs = softmax(activations.output_logits_at(t));
                     let target = seq[t + 1];
                     seq_loss += -probs[target].ln();
                 }
@@ -191,12 +209,23 @@ pub fn train(
                 );
             }
 
-            // Save periodically
+            // Save periodically (non-blocking on the compute path)
             if batch_start > 0 && batch_start % config.save_every < batch_size_actual {
-                if let Err(e) = model.save(&config.model_path) {
-                    eprintln!("Failed to save model: {}", e);
-                } else {
-                    println!("Model saved to {}", config.model_path);
+                match save_tx.try_send((model.clone(), config.model_path.clone())) {
+                    Ok(()) => {
+                        println!("Queued save at batch {} to {}", batch_num, config.model_path);
+                    }
+                    Err(TrySendError::Full(_)) => {
+                        // Previous snapshot still being written by the save thread;
+                        // skip — the next qualifying batch will queue a fresher one.
+                        eprintln!(
+                            "Save thread busy, skipping snapshot at batch {}",
+                            batch_num
+                        );
+                    }
+                    Err(TrySendError::Disconnected(_)) => {
+                        eprintln!("Save thread disconnected at batch {}", batch_num);
+                    }
                 }
             }
         }
@@ -205,7 +234,16 @@ pub fn train(
         println!("Epoch {} complete. Avg loss: {:.4}", epoch + 1, avg_epoch_loss);
     }
 
-    // Final save
+    // Close the channel and wait for the save thread to drain before doing
+    // the synchronous final save. This guarantees no in-flight save races
+    // the final one (the bounded channel can hold at most one snapshot,
+    // so the drain is bounded by one save's worth of wall time).
+    drop(save_tx);
+    if let Err(e) = save_handle.join() {
+        eprintln!("Save thread panicked: {:?}", e);
+    }
+
+    // Final save (synchronous to ensure it lands before exit)
     if let Err(e) = model.save(&config.model_path) {
         eprintln!("Failed to save final model: {}", e);
     } else {

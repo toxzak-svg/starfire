@@ -50,6 +50,10 @@ struct Args {
     /// Save model every N batches
     #[arg(long, default_value = "500")]
     save_every: usize,
+
+    /// Resume training from an existing checkpoint at --output
+    #[arg(long, default_value = "false")]
+    resume: bool,
 }
 
 fn main() {
@@ -87,8 +91,20 @@ fn main() {
     };
     
     println!("Creating model with {} parameters...", config.vocab_size);
-    let mut model = CharRNN::new(config);
-    println!("Model has {} parameters", model.num_params());
+    let mut model = if args.resume && args.output.exists() {
+        println!("Resuming from existing checkpoint: {:?}", args.output);
+        let loaded = CharRNN::load(args.output.to_string_lossy().as_ref())
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to load checkpoint {:?}: {}", args.output, e);
+                std::process::exit(1);
+            });
+        println!("Loaded checkpoint with {} parameters", loaded.num_params());
+        loaded
+    } else {
+        let m = CharRNN::new(config);
+        println!("Model has {} parameters", m.num_params());
+        m
+    };
     println!();
     
     // Create training configuration

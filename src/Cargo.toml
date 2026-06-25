@@ -42,6 +42,10 @@ path = "bin/smoke_ckpt_v2.rs"
 name = "parser_test"
 path = "bin/parser_test.rs"
 
+[[bin]]
+name = "bench_train"
+path = "bin/bench_train.rs"
+
 [dependencies]
 star = { path = "../lib" }
 rusqlite.workspace = true
