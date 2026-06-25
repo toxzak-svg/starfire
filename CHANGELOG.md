@@ -1,3 +1,10 @@
+﻿## 2026-06-25
+
+Daily sync.
+
+- `data/training_v29b.log` (+331 lines): training run log extension.
+- `data/star_model_v29.bin` (size unchanged, content updated): model checkpoint refresh from the latest v29 training pass.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
