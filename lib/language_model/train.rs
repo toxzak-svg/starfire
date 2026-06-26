@@ -155,6 +155,12 @@ pub fn train(
         }
     });
 
+    // Track consecutive non-finite seq_losses across batches so we can
+    // abort the run on a clear divergence signal (one full batch of bad
+    // sequences in a row) instead of silently corrupting weights for
+    // thousands more batches. Resets on the next finite seq_loss.
+    let mut consecutive_bad: u32 = 0;
+
     for epoch in 0..config.epochs {
         let mut total_loss = 0.0f32;
         let mut num_sequences = 0;
@@ -167,6 +173,7 @@ pub fn train(
         for batch_start in (0..training_data.len()).step_by(config.batch_size) {
             let batch_end = (batch_start + config.batch_size).min(training_data.len());
             let batch_size_actual = batch_end - batch_start;
+            let batch_num = batch_start / config.batch_size;
 
             // Reset hidden state for each new batch
             model.reset_hidden();
@@ -185,6 +192,31 @@ pub fn train(
                     let target = seq[t + 1];
                     seq_loss += -probs[target].ln();
                 }
+
+                // NaN/Inf guard — if seq_loss is non-finite, skip backward/apply
+                // so we don't push inf/nan into the weights via gradient descent.
+                // A full batch's worth of consecutive bad sequences is treated as
+                // divergence and aborts the run with a clear error.
+                if !seq_loss.is_finite() {
+                    consecutive_bad += 1;
+                    if consecutive_bad as usize >= config.batch_size {
+                        return Err(format!(
+                            "Aborting training at epoch {} batch {}: {} consecutive non-finite seq_losses (likely loss divergence)",
+                            epoch + 1,
+                            batch_num,
+                            consecutive_bad
+                        ));
+                    }
+                    eprintln!(
+                        "[WARN] Non-finite seq_loss at epoch {} batch {} seq {}; skipping apply ({} consecutive)",
+                        epoch + 1,
+                        batch_num,
+                        seq_idx,
+                        consecutive_bad
+                    );
+                    continue;
+                }
+                consecutive_bad = 0;
                 total_loss += seq_loss;
                 num_sequences += 1;
 
@@ -196,7 +228,6 @@ pub fn train(
             }
 
             let avg_loss = total_loss / num_sequences as f32;
-            let batch_num = batch_start / config.batch_size;
             let total_batches = training_data.len() / config.batch_size;
 
             if batch_num % 10 == 0 || batch_start + batch_size_actual >= training_data.len() {
