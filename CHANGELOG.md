@@ -1,3 +1,8 @@
+
+## 2026-06-26
+
+Daily sync.
+
 ﻿## 2026-06-25 (2026-06-25 07:06)
 
 - `data/training_v29b.log` (+331 lines): training run log extension.
@@ -361,9 +366,4 @@ Daily sync.
 ## 2026-06-21
 
 - Daily auto-sync: added plans/VOICE_REFINE_2026_06_21.md (voice refinement session notes).
-
-
-## 2026-06-26
-
-Daily sync.
 
