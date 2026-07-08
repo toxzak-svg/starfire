@@ -42,8 +42,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Compile star crate
+      - name: Compile star crate and CHARGE probe
         run: cargo check -p star --all-targets --locked
 
       - name: Run CHARGE tests deterministically
         run: "cargo test -p star charge:: --locked -- --test-threads=1"
+
+      - name: Run Rust CHARGE routing falsification probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example charge_routing_probe --locked \
+            | tee charge-routing-report-rust.json
+
+      - name: Preserve Rust CHARGE routing report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: charge-routing-report-rust
+          path: charge-routing-report-rust.json
+          if-no-files-found: ignore
+          retention-days: 7
