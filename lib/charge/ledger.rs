@@ -24,7 +24,9 @@ impl fmt::Display for ChargeLedgerError {
         match self {
             Self::UnknownCharge(id) => write!(f, "unknown charge id {id}"),
             Self::DuplicateCharge(id) => write!(f, "duplicate charge id {id}"),
-            Self::NonFiniteAccounting => write!(f, "charge accounting values must be finite"),
+            Self::NonFiniteAccounting => {
+                write!(f, "charge accounting values must be finite and non-negative")
+            }
             Self::OverAccounted {
                 incoming,
                 accounted,
@@ -42,7 +44,7 @@ impl Error for ChargeLedgerError {}
 #[derive(Debug, Clone)]
 struct LedgerEntry {
     charge: Charge,
-    resolved: bool,
+    remaining: f32,
 }
 
 /// Receipt for one accepted accounting operation.
@@ -53,7 +55,7 @@ pub struct ResolutionReceipt {
     pub discharged: f32,
     pub emitted: f32,
     pub permitted_decay: f32,
-    /// Magnitude left unaccounted and therefore still unresolved on the parent.
+    /// Magnitude left unresolved on the parent after this attempt.
     pub remaining: f32,
     pub compute_cost: u64,
 }
@@ -66,7 +68,7 @@ pub struct LedgerSummary {
     pub total_discharged: f64,
     pub total_emitted: f64,
     pub total_decay: f64,
-    pub total_remaining: f64,
+    pub total_remaining_after_attempts: f64,
     pub total_compute: u64,
 }
 
@@ -87,9 +89,15 @@ impl Default for ChargeLedger {
 
 impl ChargeLedger {
     pub fn new(tolerance: f32) -> Self {
+        let tolerance = if tolerance.is_finite() {
+            tolerance.max(0.0)
+        } else {
+            DEFAULT_TOLERANCE
+        };
+
         Self {
             next_id: 1,
-            tolerance: tolerance.max(0.0),
+            tolerance,
             entries: HashMap::new(),
             summary: LedgerSummary::default(),
         }
@@ -97,7 +105,7 @@ impl ChargeLedger {
 
     /// Assign an identity and register a newly generated charge.
     pub fn issue(&mut self, mut charge: Charge) -> Result<Charge, ChargeLedgerError> {
-        if !charge.magnitude.is_finite() {
+        if !charge.magnitude.is_finite() || charge.magnitude < 0.0 {
             return Err(ChargeLedgerError::NonFiniteAccounting);
         }
 
@@ -114,7 +122,7 @@ impl ChargeLedger {
             charge.id,
             LedgerEntry {
                 charge: charge.clone(),
-                resolved: false,
+                remaining: charge.magnitude,
             },
         );
         Ok(charge)
@@ -124,7 +132,7 @@ impl ChargeLedger {
     ///
     /// CHARGE uses approximate conservation: a resolver may discharge, transform, or
     /// explicitly decay incoming magnitude, but may not create more accounted output
-    /// than arrived within the configured tolerance.
+    /// than remains on the parent within the configured tolerance.
     pub fn record_resolution(
         &mut self,
         charge_id: u64,
@@ -134,8 +142,7 @@ impl ChargeLedger {
             .entries
             .get(&charge_id)
             .ok_or(ChargeLedgerError::UnknownCharge(charge_id))?
-            .charge
-            .magnitude;
+            .remaining;
 
         let emitted_total: f32 = resolution
             .emitted
@@ -150,7 +157,10 @@ impl ChargeLedger {
             || !emitted_total.is_finite()
             || resolution.discharged < 0.0
             || resolution.permitted_decay < 0.0
-            || resolution.emitted.iter().any(|charge| !charge.magnitude.is_finite())
+            || resolution
+                .emitted
+                .iter()
+                .any(|charge| !charge.magnitude.is_finite() || charge.magnitude < 0.0)
         {
             return Err(ChargeLedgerError::NonFiniteAccounting);
         }
@@ -170,14 +180,14 @@ impl ChargeLedger {
         }
 
         if let Some(entry) = self.entries.get_mut(&charge_id) {
-            entry.resolved = remaining <= self.tolerance;
+            entry.remaining = remaining;
         }
 
         self.summary.resolutions_recorded = self.summary.resolutions_recorded.saturating_add(1);
         self.summary.total_discharged += resolution.discharged as f64;
         self.summary.total_emitted += emitted_total as f64;
         self.summary.total_decay += resolution.permitted_decay as f64;
-        self.summary.total_remaining += remaining as f64;
+        self.summary.total_remaining_after_attempts += remaining as f64;
         self.summary.total_compute = self.summary.total_compute.saturating_add(resolution.compute_cost);
 
         let receipt = ResolutionReceipt {
@@ -197,8 +207,13 @@ impl ChargeLedger {
         self.entries.get(&charge_id).map(|entry| &entry.charge)
     }
 
+    pub fn remaining(&self, charge_id: u64) -> Option<f32> {
+        self.entries.get(&charge_id).map(|entry| entry.remaining)
+    }
+
     pub fn is_resolved(&self, charge_id: u64) -> Option<bool> {
-        self.entries.get(&charge_id).map(|entry| entry.resolved)
+        self.remaining(charge_id)
+            .map(|remaining| remaining <= self.tolerance)
     }
 
     pub fn summary(&self) -> &LedgerSummary {
@@ -268,5 +283,40 @@ mod tests {
         let (receipt, _) = ledger.record_resolution(parent.id, resolution).unwrap();
         assert!((receipt.remaining - 0.75).abs() < 1e-6);
         assert_eq!(ledger.is_resolved(parent.id), Some(false));
+    }
+
+    #[test]
+    fn repeated_attempts_only_consume_remaining_parent_charge() {
+        let mut ledger = ChargeLedger::default();
+        let parent = ledger.issue(charge(1.0)).unwrap();
+
+        let (first, _) = ledger
+            .record_resolution(
+                parent.id,
+                Resolution {
+                    discharged: 0.25,
+                    emitted: vec![],
+                    permitted_decay: 0.0,
+                    compute_cost: 1,
+                },
+            )
+            .unwrap();
+        let (second, _) = ledger
+            .record_resolution(
+                parent.id,
+                Resolution {
+                    discharged: 0.5,
+                    emitted: vec![],
+                    permitted_decay: 0.0,
+                    compute_cost: 1,
+                },
+            )
+            .unwrap();
+
+        assert!((first.incoming - 1.0).abs() < 1e-6);
+        assert!((first.remaining - 0.75).abs() < 1e-6);
+        assert!((second.incoming - 0.75).abs() < 1e-6);
+        assert!((second.remaining - 0.25).abs() < 1e-6);
+        assert_eq!(ledger.remaining(parent.id), Some(0.25));
     }
 }
