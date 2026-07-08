@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [feat/routable-computational-tension]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
