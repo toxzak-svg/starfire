@@ -133,6 +133,12 @@ impl Resolution {
         }
     }
 
+    /// Returns the total accounted output of this resolution.
+    ///
+    /// This method is intentionally **more lenient** than the `ChargeLedger`
+    /// validation logic: it clamps negative values to zero instead of
+    /// rejecting them. It is intended for diagnostic/metrics use and should
+    /// **not** be used as a validity check against `ChargeLedger`.
     pub fn accounted_output(&self) -> f32 {
         self.discharged.max(0.0)
             + self.permitted_decay.max(0.0)
