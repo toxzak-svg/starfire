@@ -1,0 +1,49 @@
+name: CHARGE CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/routable-computational-tension]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: charge-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  charge-contract:
+    name: charge-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Compile star crate
+        run: cargo check -p star --all-targets --locked
+
+      - name: Run CHARGE tests deterministically
+        run: "cargo test -p star charge:: --locked -- --test-threads=1"
