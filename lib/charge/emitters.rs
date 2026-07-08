@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn prediction_emitter_only_charges contradictory_outcomes() {
+    fn prediction_emitter_only_charges_refuted_or_surprising_outcomes() {
         let prediction = Prediction::new(
             PredictionEngine::BeliefRevision,
             PredictionKind::Conclusion,
