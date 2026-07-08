@@ -17,5 +17,7 @@ pub use emitters::{
     knowledge_gap_charge, prediction_contradiction_charge, QuanotTrajectoryEmitter,
 };
 pub use ledger::{ChargeLedger, ChargeLedgerError, LedgerSummary, ResolutionReceipt};
-pub use resolver::{Resolver, ResolverStats};
+pub use resolver::{
+    ChargeRoutingSignature, ChargeScopeClass, Resolver, ResolverStats,
+};
 pub use types::{Charge, ChargeKind, ChargeScope, ChargeSignature, ChargeTrace, Resolution};
