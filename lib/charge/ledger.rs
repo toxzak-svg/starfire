@@ -68,6 +68,8 @@ pub struct LedgerSummary {
     pub total_discharged: f64,
     pub total_emitted: f64,
     pub total_decay: f64,
+    /// Sum of the parent's remaining magnitude after each recorded resolution attempt
+    /// (i.e. repeated attempts on the same charge contribute multiple times).
     pub total_remaining_after_attempts: f64,
     pub total_compute: u64,
 }
