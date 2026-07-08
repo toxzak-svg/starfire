@@ -110,7 +110,10 @@ impl ChargeLedger {
         }
 
         charge.id = self.next_id;
-        self.next_id = self.next_id.saturating_add(1);
+        self.next_id = self
+            .next_id
+            .checked_add(1)
+            .ok_or(ChargeLedgerError::DuplicateCharge(charge.id))?;
 
         if self.entries.contains_key(&charge.id) {
             return Err(ChargeLedgerError::DuplicateCharge(charge.id));
