@@ -42,8 +42,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Compile star crate
+      - name: Compile star crate and CHARGE probes
         run: cargo check -p star --all-targets --locked
 
       - name: Run CHARGE tests deterministically
         run: "cargo test -p star charge:: --locked -- --test-threads=1"
+
+      - name: Run real-component CHARGE specialization probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example charge_real_component_probe --locked \
+            | tee charge-real-component-report.json
+
+      - name: Preserve real-component CHARGE report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: charge-real-component-report
+          path: charge-real-component-report.json
+          if-no-files-found: ignore
+          retention-days: 7
