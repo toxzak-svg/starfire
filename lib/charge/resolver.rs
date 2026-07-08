@@ -31,14 +31,18 @@ struct SignatureStats {
 impl ResolverStats {
     pub fn observe(&mut self, charge: &Charge, resolution: &Resolution) {
         self.attempts = self.attempts.saturating_add(1);
-        self.total_input += charge.magnitude.max(0.0) as f64;
-        self.total_discharged += resolution.discharged.max(0.0) as f64;
+
+        let input = charge.magnitude.max(0.0);
+        let discharged = resolution.discharged.clamp(0.0, input);
+
+        self.total_input += input as f64;
+        self.total_discharged += discharged as f64;
         self.total_compute = self.total_compute.saturating_add(resolution.compute_cost);
 
         let stats = self.by_signature.entry(charge.signature()).or_default();
         stats.attempts = stats.attempts.saturating_add(1);
-        stats.total_input += charge.magnitude.max(0.0) as f64;
-        stats.total_discharged += resolution.discharged.max(0.0) as f64;
+        stats.total_input += input as f64;
+        stats.total_discharged += discharged as f64;
         stats.total_compute = stats.total_compute.saturating_add(resolution.compute_cost);
     }
 
