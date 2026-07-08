@@ -35,7 +35,7 @@ pub struct ChargeSignature {
 }
 
 /// Provenance for the path already attempted by a charge.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ChargeTrace {
     pub resolvers: Vec<String>,
 }
@@ -102,6 +102,20 @@ impl Charge {
 
 impl PartialEq for Charge {
     fn eq(&self, other: &Self) -> bool {
+        if self.id == 0 && other.id == 0 {
+            return self.kind == other.kind
+                && self.scope == other.scope
+                && self.persistence == other.persistence
+                && self.trace == other.trace
+                && self.magnitude.to_bits() == other.magnitude.to_bits()
+                && self.residual.len() == other.residual.len()
+                && self
+                    .residual
+                    .iter()
+                    .zip(other.residual.iter())
+                    .all(|(left, right)| left.to_bits() == right.to_bits());
+        }
+
         self.id == other.id
     }
 }
@@ -110,6 +124,20 @@ impl Eq for Charge {}
 
 impl Hash for Charge {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        if self.id == 0 {
+            0u8.hash(state);
+            self.kind.hash(state);
+            self.scope.hash(state);
+            self.persistence.hash(state);
+            self.trace.hash(state);
+            self.magnitude.to_bits().hash(state);
+            self.residual.len().hash(state);
+            for value in &self.residual {
+                value.to_bits().hash(state);
+            }
+            return;
+        }
+
         self.id.hash(state);
     }
 }
@@ -147,5 +175,60 @@ impl Resolution {
                 .iter()
                 .map(|charge| charge.magnitude.max(0.0))
                 .sum::<f32>()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::{Charge, ChargeKind, ChargeScope};
+
+    #[test]
+    fn unissued_charges_with_different_payloads_do_not_collide() {
+        let first = Charge::new(
+            ChargeKind::EpistemicGap,
+            vec![1.0],
+            1.0,
+            ChargeScope::Topic("a".into()),
+        );
+        let second = Charge::new(
+            ChargeKind::Contradiction,
+            vec![2.0],
+            2.0,
+            ChargeScope::Topic("b".into()),
+        );
+
+        assert_ne!(first, second);
+
+        let mut set = HashSet::new();
+        set.insert(first);
+        set.insert(second);
+        assert_eq!(set.len(), 2);
+    }
+
+    #[test]
+    fn issued_charges_remain_id_comparable() {
+        let mut first = Charge::new(
+            ChargeKind::EpistemicGap,
+            vec![1.0],
+            1.0,
+            ChargeScope::Global,
+        );
+        first.id = 42;
+        let mut second = Charge::new(
+            ChargeKind::Contradiction,
+            vec![2.0],
+            2.0,
+            ChargeScope::Topic("topic".into()),
+        );
+        second.id = 42;
+
+        assert_eq!(first, second);
+
+        let mut set = HashSet::new();
+        set.insert(first);
+        set.insert(second);
+        assert_eq!(set.len(), 1);
     }
 }
