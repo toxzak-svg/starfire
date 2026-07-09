@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: charge-ci-${{ github.workflow }}-${{ github.ref }}
@@ -25,55 +25,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Persist variable-length residual control fix
-        if: github.event_name == 'pull_request' && github.head_ref == 'h4-real-cycle-shadow-v2'
-        env:
-          PR_HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
-          git fetch origin "$PR_HEAD_REF"
-          git checkout -B "$PR_HEAD_REF" "origin/$PR_HEAD_REF"
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("lib/examples/h4_real_cycle_shadow_probe.rs")
-          text = path.read_text()
-          function_start = text.index("fn permute_visible_features")
-          start = text.index("    for dimension in 0..dimensions {", function_start)
-          end = text.index("    let mut persistence", start)
-          replacement = '''    for dimension in 0..dimensions {
-              let indices: Vec<usize> = observations
-                  .iter()
-                  .enumerate()
-                  .filter(|(_, observation)| observation.charge.residual.len() > dimension)
-                  .map(|(index, _)| index)
-                  .collect();
-              let mut values: Vec<f32> = indices
-                  .iter()
-                  .map(|index| observations[*index].charge.residual[dimension])
-                  .collect();
-              values.shuffle(rng);
-              for (index, value) in indices.into_iter().zip(values) {
-                  observations[index].charge.residual[dimension] = value;
-              }
-          }
-          '''
-          existing = text[start:end]
-          if "let indices: Vec<usize>" in existing:
-              raise SystemExit(0)
-          path.write_text(text[:start] + replacement + text[end:])
-          PY
-          if git diff --quiet -- lib/examples/h4_real_cycle_shadow_probe.rs; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/examples/h4_real_cycle_shadow_probe.rs
-          git commit -m "fix(experiment): permute only present residual dimensions"
-          git push origin HEAD:"$PR_HEAD_REF"
-          echo "Control implementation fix persisted; stop this superseded run before acceptance."
-          exit 1
 
       - name: Show Rust toolchain
         run: |
