@@ -62,29 +62,38 @@ impl CognitiveCycleState {
         pending_index: usize,
         judged: &JudgedDischarge,
     ) -> Option<ChargeDisposition> {
-        let charge = self.pending.get_mut(pending_index)?;
         self.attempts = self.attempts.saturating_add(1);
 
-        let accepted = if judged.accepted.is_finite() {
-            judged.accepted.max(0.0).min(charge.magnitude.max(0.0))
-        } else {
-            0.0
+        let (resolved, remaining_magnitude, persistence, accepted) = {
+            let charge = self.pending.get_mut(pending_index)?;
+
+            let accepted = if judged.accepted.is_finite() {
+                judged.accepted.max(0.0).min(charge.magnitude.max(0.0))
+            } else {
+                0.0
+            };
+
+            charge.magnitude = (charge.magnitude - accepted).max(0.0);
+
+            if charge.magnitude <= RESOLVED_EPSILON {
+                (true, charge.magnitude, charge.persistence, accepted)
+            } else {
+                charge.persistence = charge.persistence.saturating_add(1);
+                (false, charge.magnitude, charge.persistence, accepted)
+            }
         };
 
-        charge.magnitude = (charge.magnitude - accepted).max(0.0);
         self.total_accepted_discharge += accepted as f64;
 
-        if charge.magnitude <= RESOLVED_EPSILON {
+        if resolved {
             self.pending.remove(pending_index);
             return Some(ChargeDisposition::Resolved);
         }
 
-        charge.persistence = charge.persistence.saturating_add(1);
         Some(ChargeDisposition::Persisted {
-            remaining_magnitude: charge.magnitude,
-            persistence: charge.persistence,
+            remaining_magnitude,
+            persistence,
         })
-    }
 }
 
 #[cfg(test)]
