@@ -10,6 +10,7 @@
 //! remain empirical and can be falsified independently.
 
 pub mod emitters;
+pub mod judge;
 pub mod ledger;
 pub mod ontology;
 pub mod resolver;
@@ -17,6 +18,10 @@ pub mod types;
 
 pub use emitters::{
     knowledge_gap_charge, prediction_contradiction_charge, QuanotTrajectoryEmitter,
+};
+pub use judge::{
+    DischargeJudge, ImprovementDirection, JudgedDischarge, OutcomeWitness,
+    RelativeImprovementJudge,
 };
 pub use ledger::{ChargeLedger, ChargeLedgerError, LedgerSummary, ResolutionReceipt};
 pub use ontology::{
