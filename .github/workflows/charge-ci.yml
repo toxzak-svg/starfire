@@ -68,5 +68,6 @@ jobs:
             charge-cargo-check.log
             charge-test.log
             charge-real-component-report.json
+            lib/charge/induction.rs
           if-no-files-found: ignore
           retention-days: 7
