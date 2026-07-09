@@ -47,8 +47,11 @@ jobs:
           set -o pipefail
           cargo check -p star --all-targets --locked 2>&1 | tee charge-cargo-check.log
 
-      - name: Run CHARGE tests deterministically
-        run: "cargo test -p star charge:: --locked -- --test-threads=1"
+      - name: Run CHARGE and closed-cycle contract tests deterministically
+        run: |
+          cargo test -p star charge:: --locked -- --test-threads=1
+          cargo test -p star cognitive_cycle:: --locked -- --test-threads=1
+          cargo test -p star environment:: --locked -- --test-threads=1
 
       - name: Run real-component CHARGE specialization probe
         run: |
