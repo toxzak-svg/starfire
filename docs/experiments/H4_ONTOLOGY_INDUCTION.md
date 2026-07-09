@@ -133,7 +133,7 @@ The seed and gate values are fixed in the probe source. A failure must not be re
 
 ## Report
 
-`h4_ontology_induction_probe` emits `h4-ontology-induction-report.json` with:
+`h4_ontology_induction_probe` prints a JSON report to stdout; CI captures it as `h4-ontology-induction-report.json` with:
 
 - fixed seed
 - visible charge kind
