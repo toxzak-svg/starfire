@@ -214,7 +214,9 @@ impl OntologyInducer {
     }
 
     pub fn concepts(&self) -> impl Iterator<Item = &InducedConcept> {
-        self.concepts.values()
+        let mut concepts: Vec<_> = self.concepts.values().collect();
+        concepts.sort_by_key(|concept| concept.id);
+        concepts.into_iter()
     }
 
     pub fn advance_generation(&mut self) {
