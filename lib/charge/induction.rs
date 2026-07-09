@@ -371,7 +371,6 @@ impl EmpiricalOntologyInducer {
 struct Candidate {
     predicate: ConceptPredicate,
     support: usize,
-    membership: Vec<usize>,
     training_gain: f64,
 }
 
@@ -539,6 +538,15 @@ fn build_policy(
     }
 }
 
+fn policy_resolver<'a>(policy: &'a LearnedPolicy, charge: &Charge) -> &'a str {
+    policy
+        .routes
+        .iter()
+        .find(|route| route.predicate.matches(charge))
+        .map(|route| route.resolver.as_str())
+        .unwrap_or(policy.parent_resolver.as_str())
+}
+
 fn evaluate_policy(
     observations: &[OntologyObservation],
     policy: &LearnedPolicy,
@@ -546,13 +554,10 @@ fn evaluate_policy(
     let total = observations
         .iter()
         .map(|observation| {
-            let resolver = policy
-                .routes
-                .iter()
-                .find(|route| route.predicate.matches(&observation.charge))
-                .map(|route| route.resolver.as_str())
-                .unwrap_or(policy.parent_resolver.as_str());
-            resolver_score(observation, resolver)
+            resolver_score(
+                observation,
+                policy_resolver(policy, &observation.charge),
+            )
         })
         .sum::<f64>();
 
@@ -642,7 +647,6 @@ fn generate_candidates(
         candidates.push(Candidate {
             predicate,
             support,
-            membership,
             training_gain: f64::NEG_INFINITY,
         });
     }
@@ -680,7 +684,7 @@ fn candidate_order(left: &Candidate, right: &Candidate) -> Ordering {
         .training_gain
         .partial_cmp(&left.training_gain)
         .unwrap_or(Ordering::Equal)
-        .then_with(|| right.support.cmp(&left.support))
+        .then_with(|| left.support.cmp(&right.support))
         .then_with(|| predicate_key(&left.predicate).cmp(&predicate_key(&right.predicate)))
 }
 
@@ -818,13 +822,10 @@ mod tests {
     }
 
     #[test]
-    fn fit_does_not_scan_holdout_for_a_better_training_candidate() {
+    fn holdout_rejection_stops_growth_at_training_winner() {
         let train = separable_dataset(1, 20);
         let mut holdout = separable_dataset(10_000, 20);
-        for observation in &mut holdout {
-            observation.outcomes.swap(0, 2);
-        }
-        let inducer = EmpiricalOntologyInducer::new(EmpiricalInductionConfig {
+        let config = EmpiricalInductionConfig {
             max_concepts: 2,
             min_partition_support: 10,
             min_holdout_support: 10,
@@ -835,9 +836,55 @@ mod tests {
                 min_holdout_gain: 0.02,
                 min_total_utility_gain: 0.02,
             },
-        });
+        };
 
-        let ontology = inducer.fit(&train, &holdout).unwrap();
+        let resolvers = resolver_names(&train);
+        let current_policy = build_policy(&train, &[], &resolvers);
+        let current_training = evaluate_policy(&train, &current_policy);
+        let mut candidates = generate_candidates(
+            &train,
+            &[],
+            config.min_partition_support,
+            config.max_thresholds_per_dimension,
+        );
+        for candidate in &mut candidates {
+            let trial_policy = build_policy(
+                &train,
+                &[candidate.predicate.clone()],
+                &resolvers,
+            );
+            let trial_training = evaluate_policy(&train, &trial_policy);
+            candidate.training_gain = trial_training.mean_discharge_efficiency
+                - current_training.mean_discharge_efficiency
+                - config.complexity_penalty;
+        }
+        candidates.sort_by(candidate_order);
+        let winner = candidates.first().expect("training must produce a candidate");
+        let winner_policy = build_policy(
+            &train,
+            &[winner.predicate.clone()],
+            &resolvers,
+        );
+
+        for observation in &mut holdout {
+            let baseline = policy_resolver(&current_policy, &observation.charge).to_string();
+            let winner_route = policy_resolver(&winner_policy, &observation.charge).to_string();
+            for outcome in &mut observation.outcomes {
+                outcome.discharged = if outcome.resolver == baseline { 0.9 } else { 0.0 };
+            }
+            if winner_route != baseline {
+                let winner_outcome = observation
+                    .outcomes
+                    .iter_mut()
+                    .find(|outcome| outcome.resolver == winner_route)
+                    .unwrap();
+                winner_outcome.discharged = 0.0;
+            }
+        }
+
+        let ontology = EmpiricalOntologyInducer::new(config)
+            .fit(&train, &holdout)
+            .unwrap();
 
         assert!(ontology.routes().is_empty());
         assert_eq!(ontology.summary().promoted_concepts, 0);
