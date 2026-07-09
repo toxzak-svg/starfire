@@ -801,13 +801,17 @@ fn permute_visible_features(observations: &mut [OntologyObservation], rng: &mut 
         .max()
         .unwrap_or(0);
     for dimension in 0..dimensions {
-        let mut values: Vec<f32> = observations
-            .iter()
-            .map(|observation| observation.charge.residual[dimension])
-            .collect();
+        let mut positions = Vec::new();
+        let mut values = Vec::new();
+        for (index, observation) in observations.iter().enumerate() {
+            if let Some(value) = observation.charge.residual.get(dimension).copied() {
+                positions.push(index);
+                values.push(value);
+            }
+        }
         values.shuffle(rng);
-        for (observation, value) in observations.iter_mut().zip(values) {
-            observation.charge.residual[dimension] = value;
+        for (index, value) in positions.into_iter().zip(values) {
+            observations[index].charge.residual[dimension] = value;
         }
     }
     let mut persistence: Vec<u32> = observations
