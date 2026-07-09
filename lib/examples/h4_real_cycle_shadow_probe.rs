@@ -655,6 +655,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     gate_thresholds.insert("min_transfer_win_fraction", MIN_TRANSFER_WIN_FRACTION);
     gate_thresholds.insert("min_worst_window_ratio", MIN_WORST_WINDOW_RATIO);
 
+    let pass = assessment.status == ShadowPromotionStatus::Eligible && gates.all_pass();
+
     let report = Report {
         experiment: "H4 real closed-cycle shadow latent-concept transfer",
         seed: SEED,
@@ -680,7 +682,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         gate_thresholds,
         gates,
         status: format!("{:?}", assessment.status),
-        pass: assessment.status == ShadowPromotionStatus::Eligible && gates.all_pass(),
+        pass,
     };
 
     println!("{}", serde_json::to_string_pretty(&report)?);
