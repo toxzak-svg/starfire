@@ -5,12 +5,13 @@
 //! discharged, transformed into new charges, or explicitly decayed.
 //!
 //! The primitive, accounting layer, independent discharge judging, subsystem-
-//! backed emitters, empirical ontology induction, and shadow-only promotion
-//! evaluation live here. Emitters translate unresolved state into charge but
-//! never choose a resolver; routing and induced distinctions remain empirical
-//! and can be falsified independently.
+//! backed emitters, CHARGE-native feature adapters, empirical ontology induction,
+//! and shadow-only promotion evaluation live here. Emitters translate unresolved
+//! state into charge but never choose a resolver; routing and induced distinctions
+//! remain empirical and can be falsified independently.
 
 pub mod emitters;
+pub mod features;
 pub mod induction;
 pub mod judge;
 pub mod ledger;
@@ -22,6 +23,7 @@ pub mod types;
 pub use emitters::{
     knowledge_gap_charge, prediction_contradiction_charge, QuanotTrajectoryEmitter,
 };
+pub use features::{ontology_feature_charge, residual_geometry, ResidualGeometry};
 pub use induction::{
     ConceptRoute, EmpiricalInductionConfig, EmpiricalOntologyInducer, LearnedOntology,
     OntologyInductionError, OntologyInductionSummary, OntologyObservation, OntologyPolicyMetrics,
