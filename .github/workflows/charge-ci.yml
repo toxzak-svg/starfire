@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: charge-ci-${{ github.workflow }}-${{ github.ref }}
@@ -25,44 +25,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Persist mechanical real-cycle probe compile fix
-        if: github.event_name == 'pull_request' && github.head_ref == 'h4-real-cycle-shadow-v2'
-        env:
-          PR_HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
-          git fetch origin "$PR_HEAD_REF"
-          git checkout -B "$PR_HEAD_REF" "origin/$PR_HEAD_REF"
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("lib/examples/h4_real_cycle_shadow_probe.rs")
-          text = path.read_text()
-          old_report = "    let report = Report {\n"
-          old_pass = "        pass: assessment.status == ShadowPromotionStatus::Eligible && gates.all_pass(),"
-          new_report = (
-              "    let pass = assessment.status == ShadowPromotionStatus::Eligible && gates.all_pass();\n\n"
-              "    let report = Report {\n"
-          )
-          if old_pass not in text:
-              raise SystemExit(0)
-          if old_report not in text:
-              raise SystemExit("report construction marker missing")
-          text = text.replace(old_report, new_report, 1)
-          text = text.replace(old_pass, "        pass,", 1)
-          path.write_text(text)
-          PY
-          if git diff --quiet -- lib/examples/h4_real_cycle_shadow_probe.rs; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/examples/h4_real_cycle_shadow_probe.rs
-          git commit -m "fix(experiment): compute frozen gate verdict before report move"
-          git push origin HEAD:"$PR_HEAD_REF"
-          echo "Mechanical compile fix persisted to PR head; stop this superseded run before acceptance."
-          exit 1
 
       - name: Show Rust toolchain
         run: |
