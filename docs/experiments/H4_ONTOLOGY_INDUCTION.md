@@ -32,7 +32,7 @@ The deterministic CPU probe generates three hidden response regimes modeled afte
 2. contradiction-like observations favor reasoning
 3. residual-like observations favor causal resolution
 
-Every observation is presented to induction as the same `Unresolved` kind. Hidden labels are retained only for the oracle upper-bound and post-hoc diagnostics.
+Every observation is presented to induction as the same `Custom("unresolved")` kind. Hidden labels are retained only for the oracle upper-bound and post-hoc diagnostics.
 
 ## Candidate vocabulary
 
