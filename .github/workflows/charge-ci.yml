@@ -39,18 +39,10 @@ jobs:
 
           path = Path("lib/examples/h4_real_cycle_shadow_probe.rs")
           text = path.read_text()
-          old = '''    for dimension in 0..dimensions {
-              let mut values: Vec<f32> = observations
-                  .iter()
-                  .map(|observation| observation.charge.residual[dimension])
-                  .collect();
-              values.shuffle(rng);
-              for (observation, value) in observations.iter_mut().zip(values) {
-                  observation.charge.residual[dimension] = value;
-              }
-          }
-          '''
-          new = '''    for dimension in 0..dimensions {
+          function_start = text.index("fn permute_visible_features")
+          start = text.index("    for dimension in 0..dimensions {", function_start)
+          end = text.index("    let mut persistence", start)
+          replacement = '''    for dimension in 0..dimensions {
               let indices: Vec<usize> = observations
                   .iter()
                   .enumerate()
@@ -67,9 +59,10 @@ jobs:
               }
           }
           '''
-          if old not in text:
+          existing = text[start:end]
+          if "let indices: Vec<usize>" in existing:
               raise SystemExit(0)
-          path.write_text(text.replace(old, new, 1))
+          path.write_text(text[:start] + replacement + text[end:])
           PY
           if git diff --quiet -- lib/examples/h4_real_cycle_shadow_probe.rs; then
             exit 0
