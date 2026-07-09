@@ -94,6 +94,7 @@ impl CognitiveCycleState {
             remaining_magnitude,
             persistence,
         })
+    }
 }
 
 #[cfg(test)]
