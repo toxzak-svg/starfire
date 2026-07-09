@@ -5,16 +5,15 @@ use rand::prelude::*;
 use serde::Serialize;
 use star::charge::{
     Charge, ChargeKind, ChargeScope, ConceptEvidence, ConceptPredicate, ConceptUtility, Direction,
-    OntologyInducer, PromotionCriteria,
+    InducedConcept, OntologyInducer, PromotionCriteria,
 };
 
 const TRAIN_PER_CLASS: usize = 48;
 const HOLDOUT_PER_CLASS: usize = 48;
-const RESOLVERS: [&str; 3] = ["memory", "reasoning", "causal"];
 const MIN_SUPPORT: usize = 16;
-const TOP_K: usize = 12;
-const COMPUTE_BUDGET: u64 = 1;
-const STOP_MAGNITUDE: f64 = 1e-9;
+const MAX_CONCEPTS: usize = 2;
+const RESOLVERS: [&str; 3] = ["memory", "reasoning", "causal"];
+const SEED: u64 = 0x4844_5f4f_4e54_4f4c;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 enum HiddenClass {
@@ -41,7 +40,6 @@ struct Observation {
 struct Candidate {
     predicate: ConceptPredicate,
     training_gain: f64,
-    complexity: f64,
     support: usize,
 }
 
@@ -52,29 +50,24 @@ struct Metrics {
     solve_rate: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct ConceptReport {
-    id: u64,
+#[derive(Debug, Serialize)]
+struct CandidateReport {
     predicate: String,
+    training_gain: f64,
     support: usize,
-    holdout_gain: f64,
-    utility_gain: f64,
-    dominant_hidden_class: HiddenClass,
-    dominant_fraction: f64,
-    resolver_leader: String,
 }
 
 #[derive(Debug, Serialize)]
-struct Report {
-    experiment: &'static str,
-    seed: u64,
-    train_observations: usize,
-    holdout_observations: usize,
-    promoted_concepts: Vec<ConceptReport>,
-    policy_metrics: BTreeMap<&'static str, Metrics>,
-    diagnostics: Diagnostics,
-    criteria: Criteria,
-    pass: bool,
+struct ConceptReport {
+    id: u64,
+    predicate: String,
+    training_support: usize,
+    holdout_support: usize,
+    holdout_gain: f64,
+    utility_gain: f64,
+    resolver_leader: String,
+    dominant_hidden_class: HiddenClass,
+    dominant_fraction: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,64 +92,73 @@ struct Criteria {
     promoted_have_positive_holdout_gain: bool,
 }
 
-fn main() {
-    let seed = 0x48445f4f4e544f4c;
-    let train = generate_observations(seed, TRAIN_PER_CLASS, 0);
-    let holdout = generate_observations(seed ^ 0x9e3779b97f4a7c15, HOLDOUT_PER_CLASS, 10_000);
+#[derive(Debug, Serialize)]
+struct Report {
+    experiment: &'static str,
+    seed: u64,
+    visible_charge_kind: &'static str,
+    train_observations: usize,
+    holdout_observations: usize,
+    top_training_candidates: Vec<CandidateReport>,
+    promoted_concepts: Vec<ConceptReport>,
+    policy_metrics: BTreeMap<&'static str, Metrics>,
+    diagnostics: Diagnostics,
+    criteria: Criteria,
+    pass: bool,
+}
 
-    let proposals = propose_thresholds(&train);
+fn main() {
+    let train = generate_observations(SEED, TRAIN_PER_CLASS, 0);
+    let holdout = generate_observations(SEED ^ 0x9e37_79b9_7f4a_7c15, HOLDOUT_PER_CLASS, 10_000);
+
+    let candidates = propose_thresholds(&train);
+    let top_training_candidates = candidates
+        .iter()
+        .take(12)
+        .map(|candidate| CandidateReport {
+            predicate: format!("{:?}", candidate.predicate),
+            training_gain: candidate.training_gain,
+            support: candidate.support,
+        })
+        .collect();
+
     let mut inducer = OntologyInducer::new(PromotionCriteria {
         min_observations: MIN_SUPPORT as u64,
         min_holdout_gain: 0.02,
-        min_total_utility_gain: 0.02,
+        min_total_utility_gain: 0.04,
     });
-
-    let mut promoted = Vec::new();
-    for candidate in proposals.iter().take(TOP_K) {
-        let holdout_gain = split_gain(&holdout, &candidate.predicate);
-        let utility = ConceptUtility {
-            routing_gain: holdout_gain,
-            discharge_gain: holdout_gain,
-            ..ConceptUtility::default()
-        };
-        let evidence = ConceptEvidence {
-            observations: candidate.support as u64,
-            positive_instances: membership_ids(&holdout, &candidate.predicate, true),
-            negative_instances: membership_ids(&holdout, &candidate.predicate, false),
-            holdout_gain,
-        };
-        let concept = inducer.propose(None, candidate.predicate.clone(), evidence, utility);
-        if inducer.promote(concept.clone()) {
-            promoted.push(concept);
-        }
-    }
-
-    promoted.sort_by(|left, right| {
-        right
-            .evidence
-            .holdout_gain
-            .partial_cmp(&left.evidence.holdout_gain)
-            .unwrap_or(Ordering::Equal)
-    });
-    promoted.truncate(2);
-
-    let induced_predicates: Vec<ConceptPredicate> = promoted
+    let promoted = induce_greedily(&train, &holdout, &candidates, &mut inducer);
+    let predicates: Vec<ConceptPredicate> = promoted
         .iter()
         .map(|concept| concept.predicate.clone())
         .collect();
 
-    let undifferentiated = evaluate_parent_policy(&train, &holdout);
-    let induced = evaluate_induced_policy(&train, &holdout, &induced_predicates);
+    let undifferentiated = evaluate_parent(&train, &holdout);
+    let induced = evaluate_predicates(&train, &holdout, &predicates);
     let oracle = evaluate_hidden_oracle(&train, &holdout);
-    let random = evaluate_random_partition(&train, &holdout, induced_predicates.len(), seed ^ 0xa11ce);
-    let permuted = evaluate_permuted_search(&train, &holdout, seed ^ 0x55aa55aa);
+    let random = evaluate_random_partition(
+        &train,
+        &holdout,
+        predicates.len() + 1,
+        SEED ^ 0xa11c_e55a,
+    );
+    let permuted = evaluate_permuted_control(&train, &holdout, SEED ^ 0x55aa_55aa);
 
-    let efficiency_ratio = ratio(induced.mean_discharge_efficiency, undifferentiated.mean_discharge_efficiency);
+    let efficiency_ratio = ratio(
+        induced.mean_discharge_efficiency,
+        undifferentiated.mean_discharge_efficiency,
+    );
     let remaining_ratio = ratio(induced.mean_remaining, undifferentiated.mean_remaining);
     let solve_margin = induced.solve_rate - undifferentiated.solve_rate;
-    let oracle_retention = ratio(induced.mean_discharge_efficiency, oracle.mean_discharge_efficiency);
+    let oracle_retention = ratio(
+        induced.mean_discharge_efficiency,
+        oracle.mean_discharge_efficiency,
+    );
     let random_ratio = ratio(induced.mean_discharge_efficiency, random.mean_discharge_efficiency);
-    let permuted_ratio = ratio(induced.mean_discharge_efficiency, permuted.mean_discharge_efficiency);
+    let permuted_ratio = ratio(
+        induced.mean_discharge_efficiency,
+        permuted.mean_discharge_efficiency,
+    );
 
     let criteria = Criteria {
         at_least_two_promoted: promoted.len() >= 2,
@@ -171,7 +173,6 @@ fn main() {
                 && concept.evidence.observations >= MIN_SUPPORT as u64
         }),
     };
-
     let pass = criteria.at_least_two_promoted
         && criteria.efficiency_vs_undifferentiated
         && criteria.remaining_vs_undifferentiated
@@ -183,24 +184,7 @@ fn main() {
 
     let promoted_concepts = promoted
         .iter()
-        .map(|concept| {
-            let members: Vec<&Observation> = holdout
-                .iter()
-                .filter(|observation| concept.predicate.matches(&observation.charge))
-                .collect();
-            let (dominant_hidden_class, dominant_fraction) = dominant_hidden(&members);
-            let resolver_leader = leader_for_subset(&train, &concept.predicate);
-            ConceptReport {
-                id: concept.id.0,
-                predicate: format!("{:?}", concept.predicate),
-                support: members.len(),
-                holdout_gain: concept.evidence.holdout_gain,
-                utility_gain: concept.utility.total_gain(),
-                dominant_hidden_class,
-                dominant_fraction,
-                resolver_leader: RESOLVERS[resolver_leader].to_string(),
-            }
-        })
+        .map(|concept| concept_report(concept, &train, &holdout))
         .collect();
 
     let mut policy_metrics = BTreeMap::new();
@@ -212,9 +196,11 @@ fn main() {
 
     let report = Report {
         experiment: "H4 latent distinction induction",
-        seed,
+        seed: SEED,
+        visible_charge_kind: "Custom(unresolved)",
         train_observations: train.len(),
         holdout_observations: holdout.len(),
+        top_training_candidates,
         promoted_concepts,
         policy_metrics,
         diagnostics: Diagnostics {
@@ -235,32 +221,104 @@ fn main() {
     }
 }
 
+fn induce_greedily(
+    train: &[Observation],
+    holdout: &[Observation],
+    candidates: &[Candidate],
+    inducer: &mut OntologyInducer,
+) -> Vec<InducedConcept> {
+    let mut promoted = Vec::new();
+    let mut active = Vec::<ConceptPredicate>::new();
+
+    while active.len() < MAX_CONCEPTS {
+        let train_before = evaluate_predicates(train, train, &active).mean_discharge_efficiency;
+        let holdout_before = evaluate_predicates(train, holdout, &active).mean_discharge_efficiency;
+        let mut ranked = Vec::new();
+
+        for candidate in candidates {
+            if active.iter().any(|predicate| predicate == &candidate.predicate) {
+                continue;
+            }
+            let mut trial = active.clone();
+            trial.push(candidate.predicate.clone());
+            let train_after = evaluate_predicates(train, train, &trial).mean_discharge_efficiency;
+            ranked.push((train_after - train_before, candidate));
+        }
+
+        ranked.sort_by(|left, right| {
+            right
+                .0
+                .partial_cmp(&left.0)
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| {
+                    right
+                        .1
+                        .training_gain
+                        .partial_cmp(&left.1.training_gain)
+                        .unwrap_or(Ordering::Equal)
+                })
+        });
+
+        let mut accepted = None;
+        for (_, candidate) in ranked.into_iter().take(24) {
+            let mut trial = active.clone();
+            trial.push(candidate.predicate.clone());
+            let holdout_after = evaluate_predicates(train, holdout, &trial).mean_discharge_efficiency;
+            let holdout_gain = holdout_after - holdout_before;
+            let training_support = matching_count(train, &candidate.predicate);
+            let concept = inducer.propose(
+                None,
+                candidate.predicate.clone(),
+                ConceptEvidence {
+                    observations: training_support as u64,
+                    positive_instances: membership_ids(holdout, &candidate.predicate, true),
+                    negative_instances: membership_ids(holdout, &candidate.predicate, false),
+                    holdout_gain,
+                },
+                ConceptUtility {
+                    routing_gain: holdout_gain,
+                    discharge_gain: holdout_gain,
+                    ..ConceptUtility::default()
+                },
+            );
+            if inducer.promote(concept.clone()) {
+                accepted = Some(concept);
+                break;
+            }
+        }
+
+        let Some(concept) = accepted else {
+            break;
+        };
+        active.push(concept.predicate.clone());
+        promoted.push(concept);
+        inducer.advance_generation();
+    }
+
+    promoted
+}
+
 fn generate_observations(seed: u64, per_class: usize, id_offset: u64) -> Vec<Observation> {
     let mut rng = StdRng::seed_from_u64(seed);
-    let mut observations = Vec::with_capacity(per_class * 3);
+    let mut observations = Vec::with_capacity(per_class * HiddenClass::all().len());
     let mut next_id = id_offset;
 
     for hidden in HiddenClass::all() {
         for _ in 0..per_class {
-            let jitter = || rng.gen_range(-0.045f32..0.045f32);
-            let (residual, outcomes, persistence) = match hidden {
-                HiddenClass::Gap => (
-                    vec![0.88 + jitter(), 0.14 + jitter(), 0.18 + jitter()],
-                    noisy_outcomes(&mut rng, [0.88, 0.24, 0.18]),
-                    rng.gen_range(4..8),
-                ),
-                HiddenClass::Contradiction => (
-                    vec![0.16 + jitter(), 0.87 + jitter(), 0.20 + jitter()],
-                    noisy_outcomes(&mut rng, [0.22, 0.90, 0.20]),
-                    rng.gen_range(1..5),
-                ),
-                HiddenClass::Residual => (
-                    vec![0.18 + jitter(), 0.18 + jitter(), 0.89 + jitter()],
-                    noisy_outcomes(&mut rng, [0.18, 0.23, 0.91]),
-                    rng.gen_range(2..6),
-                ),
+            let (centers, base_outcomes, persistence) = match hidden {
+                HiddenClass::Gap => ([0.88, 0.14, 0.18], [0.92, 0.10, 0.08], rng.gen_range(4..8)),
+                HiddenClass::Contradiction => {
+                    ([0.16, 0.87, 0.20], [0.09, 0.93, 0.09], rng.gen_range(1..5))
+                }
+                HiddenClass::Residual => {
+                    ([0.18, 0.18, 0.89], [0.08, 0.10, 0.94], rng.gen_range(2..6))
+                }
             };
-
+            let residual = centers
+                .into_iter()
+                .map(|center| (center + rng.gen_range(-0.045f32..0.045f32)).clamp(0.0, 1.0))
+                .collect();
+            let outcomes = noisy_outcomes(&mut rng, base_outcomes);
             let mut charge = Charge::new(
                 ChargeKind::Custom("unresolved".into()),
                 residual,
@@ -286,7 +344,7 @@ fn generate_observations(seed: u64, per_class: usize, id_offset: u64) -> Vec<Obs
 fn noisy_outcomes(rng: &mut StdRng, base: [f64; 3]) -> [f64; 3] {
     let mut output = base;
     for value in &mut output {
-        *value = (*value + rng.gen_range(-0.035..0.035)).clamp(0.0, 1.0);
+        *value = (*value + rng.gen_range(-0.025f64..0.025f64)).clamp(0.0, 1.0);
     }
     output
 }
@@ -296,6 +354,7 @@ fn propose_thresholds(observations: &[Observation]) -> Vec<Candidate> {
         .first()
         .map(|observation| observation.charge.residual.len())
         .unwrap_or(0);
+    let parent = evaluate_parent(observations, observations).mean_discharge_efficiency;
     let mut candidates = Vec::new();
 
     for dimension in 0..dimensions {
@@ -303,8 +362,8 @@ fn propose_thresholds(observations: &[Observation]) -> Vec<Candidate> {
             .iter()
             .filter_map(|observation| observation.charge.residual.get(dimension).copied())
             .collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-        values.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+        values.sort_by(|left, right| left.partial_cmp(right).unwrap_or(Ordering::Equal));
+        values.dedup_by(|left, right| (*left - *right).abs() < 1e-6);
 
         for pair in values.windows(2) {
             let threshold = (pair[0] + pair[1]) * 0.5;
@@ -314,19 +373,17 @@ fn propose_thresholds(observations: &[Observation]) -> Vec<Candidate> {
                     threshold,
                     direction,
                 };
-                let support = observations
-                    .iter()
-                    .filter(|observation| predicate.matches(&observation.charge))
-                    .count();
+                let support = matching_count(observations, &predicate);
                 if support < MIN_SUPPORT || observations.len() - support < MIN_SUPPORT {
                     continue;
                 }
-                let complexity = 0.002;
-                let gain = split_gain(observations, &predicate) - complexity;
+                let gain = evaluate_predicates(observations, observations, &[predicate.clone()])
+                    .mean_discharge_efficiency
+                    - parent
+                    - 0.002;
                 candidates.push(Candidate {
                     predicate,
                     training_gain: gain,
-                    complexity,
                     support,
                 });
             }
@@ -338,101 +395,48 @@ fn propose_thresholds(observations: &[Observation]) -> Vec<Candidate> {
             .training_gain
             .partial_cmp(&left.training_gain)
             .unwrap_or(Ordering::Equal)
-            .then_with(|| left.complexity.partial_cmp(&right.complexity).unwrap_or(Ordering::Equal))
     });
 
     let mut unique = Vec::new();
-    let mut seen_memberships: Vec<Vec<u64>> = Vec::new();
+    let mut memberships = Vec::<Vec<u64>>::new();
     for candidate in candidates {
         let ids = membership_ids(observations, &candidate.predicate, true);
-        if seen_memberships.iter().any(|seen| *seen == ids) {
+        if memberships.iter().any(|seen| seen == &ids) {
             continue;
         }
-        seen_memberships.push(ids);
+        memberships.push(ids);
         unique.push(candidate);
     }
     unique
 }
 
-fn split_gain(observations: &[Observation], predicate: &ConceptPredicate) -> f64 {
-    let parent = best_mean_outcome(observations.iter());
-    let left: Vec<&Observation> = observations
-        .iter()
-        .filter(|observation| predicate.matches(&observation.charge))
-        .collect();
-    let right: Vec<&Observation> = observations
-        .iter()
-        .filter(|observation| !predicate.matches(&observation.charge))
-        .collect();
-    if left.len() < MIN_SUPPORT || right.len() < MIN_SUPPORT {
-        return f64::NEG_INFINITY;
-    }
-
-    let weighted = (left.len() as f64 * best_mean_outcome(left.iter().copied())
-        + right.len() as f64 * best_mean_outcome(right.iter().copied()))
-        / observations.len() as f64;
-    weighted - parent
-}
-
-fn best_mean_outcome<'a>(observations: impl Iterator<Item = &'a Observation>) -> f64 {
-    let collected: Vec<&Observation> = observations.collect();
-    if collected.is_empty() {
-        return 0.0;
-    }
-    (0..RESOLVERS.len())
-        .map(|resolver| {
-            collected
-                .iter()
-                .map(|observation| observation.outcomes[resolver])
-                .sum::<f64>()
-                / collected.len() as f64
-        })
-        .fold(f64::NEG_INFINITY, f64::max)
-}
-
-fn leader_for_subset(observations: &[Observation], predicate: &ConceptPredicate) -> usize {
-    let members: Vec<&Observation> = observations
-        .iter()
-        .filter(|observation| predicate.matches(&observation.charge))
-        .collect();
-    best_resolver(members.iter().copied())
-}
-
-fn best_resolver<'a>(observations: impl Iterator<Item = &'a Observation>) -> usize {
-    let collected: Vec<&Observation> = observations.collect();
-    (0..RESOLVERS.len())
-        .max_by(|left, right| {
-            let left_mean = collected
-                .iter()
-                .map(|observation| observation.outcomes[*left])
-                .sum::<f64>()
-                / collected.len().max(1) as f64;
-            let right_mean = collected
-                .iter()
-                .map(|observation| observation.outcomes[*right])
-                .sum::<f64>()
-                / collected.len().max(1) as f64;
-            left_mean.partial_cmp(&right_mean).unwrap_or(Ordering::Equal)
-        })
-        .unwrap_or(0)
-}
-
-fn evaluate_parent_policy(train: &[Observation], holdout: &[Observation]) -> Metrics {
+fn evaluate_parent(train: &[Observation], observations: &[Observation]) -> Metrics {
     let resolver = best_resolver(train.iter());
-    evaluate_with_selector(holdout, |_| resolver)
+    evaluate_with_selector(observations, |_| resolver)
 }
 
-fn evaluate_induced_policy(
+fn evaluate_predicates(
     train: &[Observation],
-    holdout: &[Observation],
+    observations: &[Observation],
     predicates: &[ConceptPredicate],
 ) -> Metrics {
     let parent = best_resolver(train.iter());
     let leaders: Vec<usize> = predicates
         .iter()
-        .map(|predicate| leader_for_subset(train, predicate))
+        .map(|predicate| {
+            let members: Vec<&Observation> = train
+                .iter()
+                .filter(|observation| predicate.matches(&observation.charge))
+                .collect();
+            if members.is_empty() {
+                parent
+            } else {
+                best_resolver(members.into_iter())
+            }
+        })
         .collect();
-    evaluate_with_selector(holdout, |observation| {
+
+    evaluate_with_selector(observations, |observation| {
         predicates
             .iter()
             .position(|predicate| predicate.matches(&observation.charge))
@@ -444,8 +448,11 @@ fn evaluate_induced_policy(
 fn evaluate_hidden_oracle(train: &[Observation], holdout: &[Observation]) -> Metrics {
     let mut leaders = HashMap::new();
     for hidden in HiddenClass::all() {
-        let subset: Vec<&Observation> = train.iter().filter(|observation| observation.hidden == hidden).collect();
-        leaders.insert(hidden, best_resolver(subset.iter().copied()));
+        let members: Vec<&Observation> = train
+            .iter()
+            .filter(|observation| observation.hidden == hidden)
+            .collect();
+        leaders.insert(hidden, best_resolver(members.into_iter()));
     }
     evaluate_with_selector(holdout, |observation| leaders[&observation.hidden])
 }
@@ -453,52 +460,67 @@ fn evaluate_hidden_oracle(train: &[Observation], holdout: &[Observation]) -> Met
 fn evaluate_random_partition(
     train: &[Observation],
     holdout: &[Observation],
-    concept_count: usize,
+    groups: usize,
     seed: u64,
 ) -> Metrics {
-    if concept_count == 0 {
-        return evaluate_parent_policy(train, holdout);
-    }
+    let groups = groups.max(1);
     let mut rng = StdRng::seed_from_u64(seed);
-    let train_assignment: HashMap<u64, usize> = train
+    let train_groups: HashMap<u64, usize> = train
         .iter()
-        .map(|observation| (observation.id, rng.gen_range(0..=concept_count)))
+        .map(|observation| (observation.id, rng.gen_range(0..groups)))
         .collect();
-    let holdout_assignment: HashMap<u64, usize> = holdout
+    let holdout_groups: HashMap<u64, usize> = holdout
         .iter()
-        .map(|observation| (observation.id, rng.gen_range(0..=concept_count)))
+        .map(|observation| (observation.id, rng.gen_range(0..groups)))
         .collect();
-    let leaders: Vec<usize> = (0..=concept_count)
+    let parent = best_resolver(train.iter());
+    let leaders: Vec<usize> = (0..groups)
         .map(|group| {
-            let subset: Vec<&Observation> = train
+            let members: Vec<&Observation> = train
                 .iter()
-                .filter(|observation| train_assignment[&observation.id] == group)
+                .filter(|observation| train_groups[&observation.id] == group)
                 .collect();
-            best_resolver(subset.iter().copied())
+            if members.is_empty() {
+                parent
+            } else {
+                best_resolver(members.into_iter())
+            }
         })
         .collect();
-    evaluate_with_selector(holdout, |observation| leaders[holdout_assignment[&observation.id]])
+
+    evaluate_with_selector(holdout, |observation| leaders[holdout_groups[&observation.id]])
 }
 
-fn evaluate_permuted_search(train: &[Observation], holdout: &[Observation], seed: u64) -> Metrics {
+fn evaluate_permuted_control(train: &[Observation], holdout: &[Observation], seed: u64) -> Metrics {
     let mut rng = StdRng::seed_from_u64(seed);
-    let mut train_permuted = train.to_vec();
-    let mut holdout_permuted = holdout.to_vec();
-    permute_visible_features(&mut train_permuted, &mut rng);
-    permute_visible_features(&mut holdout_permuted, &mut rng);
-    let predicates: Vec<ConceptPredicate> = propose_thresholds(&train_permuted)
-        .into_iter()
-        .take(2)
-        .map(|candidate| candidate.predicate)
+    let mut permuted_train = train.to_vec();
+    let mut permuted_holdout = holdout.to_vec();
+    permute_visible_features(&mut permuted_train, &mut rng);
+    permute_visible_features(&mut permuted_holdout, &mut rng);
+    let candidates = propose_thresholds(&permuted_train);
+    let mut inducer = OntologyInducer::new(PromotionCriteria {
+        min_observations: MIN_SUPPORT as u64,
+        min_holdout_gain: 0.02,
+        min_total_utility_gain: 0.04,
+    });
+    let promoted = induce_greedily(
+        &permuted_train,
+        &permuted_holdout,
+        &candidates,
+        &mut inducer,
+    );
+    let predicates: Vec<ConceptPredicate> = promoted
+        .iter()
+        .map(|concept| concept.predicate.clone())
         .collect();
-    evaluate_induced_policy(&train_permuted, &holdout_permuted, &predicates)
+    evaluate_predicates(&permuted_train, &permuted_holdout, &predicates)
 }
 
 fn permute_visible_features(observations: &mut [Observation], rng: &mut StdRng) {
-    if observations.is_empty() {
+    let Some(first) = observations.first() else {
         return;
-    }
-    let dimensions = observations[0].charge.residual.len();
+    };
+    let dimensions = first.charge.residual.len();
     for dimension in 0..dimensions {
         let mut values: Vec<f32> = observations
             .iter()
@@ -509,11 +531,36 @@ fn permute_visible_features(observations: &mut [Observation], rng: &mut StdRng) 
             observation.charge.residual[dimension] = value;
         }
     }
-    let mut persistence: Vec<u32> = observations.iter().map(|observation| observation.charge.persistence).collect();
+    let mut persistence: Vec<u32> = observations
+        .iter()
+        .map(|observation| observation.charge.persistence)
+        .collect();
     persistence.shuffle(rng);
     for (observation, value) in observations.iter_mut().zip(persistence) {
         observation.charge.persistence = value;
     }
+}
+
+fn best_resolver<'a>(observations: impl Iterator<Item = &'a Observation>) -> usize {
+    let observations: Vec<&Observation> = observations.collect();
+    (0..RESOLVERS.len())
+        .max_by(|left, right| {
+            mean_outcome(&observations, *left)
+                .partial_cmp(&mean_outcome(&observations, *right))
+                .unwrap_or(Ordering::Equal)
+        })
+        .unwrap_or(0)
+}
+
+fn mean_outcome(observations: &[&Observation], resolver: usize) -> f64 {
+    if observations.is_empty() {
+        return 0.0;
+    }
+    observations
+        .iter()
+        .map(|observation| observation.outcomes[resolver])
+        .sum::<f64>()
+        / observations.len() as f64
 }
 
 fn evaluate_with_selector(
@@ -523,22 +570,30 @@ fn evaluate_with_selector(
     let mut total_discharge = 0.0;
     let mut total_remaining = 0.0;
     let mut solved = 0usize;
+
     for observation in observations {
-        let resolver = selector(observation);
-        let discharge = observation.outcomes[resolver].clamp(0.0, 1.0);
+        let discharge = observation.outcomes[selector(observation)].clamp(0.0, 1.0);
         let remaining = (1.0 - discharge).max(0.0);
         total_discharge += discharge;
         total_remaining += remaining;
-        if remaining <= 0.25 + STOP_MAGNITUDE {
+        if remaining <= 0.25 {
             solved += 1;
         }
     }
+
     let count = observations.len().max(1) as f64;
     Metrics {
-        mean_discharge_efficiency: total_discharge / (count * COMPUTE_BUDGET as f64),
+        mean_discharge_efficiency: total_discharge / count,
         mean_remaining: total_remaining / count,
         solve_rate: solved as f64 / count,
     }
+}
+
+fn matching_count(observations: &[Observation], predicate: &ConceptPredicate) -> usize {
+    observations
+        .iter()
+        .filter(|observation| predicate.matches(&observation.charge))
+        .count()
 }
 
 fn membership_ids(
@@ -555,10 +610,44 @@ fn membership_ids(
     ids
 }
 
+fn concept_report(
+    concept: &InducedConcept,
+    train: &[Observation],
+    holdout: &[Observation],
+) -> ConceptReport {
+    let training_support = matching_count(train, &concept.predicate);
+    let members: Vec<&Observation> = holdout
+        .iter()
+        .filter(|observation| concept.predicate.matches(&observation.charge))
+        .collect();
+    let leader = if training_support == 0 {
+        best_resolver(train.iter())
+    } else {
+        let training_members: Vec<&Observation> = train
+            .iter()
+            .filter(|observation| concept.predicate.matches(&observation.charge))
+            .collect();
+        best_resolver(training_members.into_iter())
+    };
+    let (dominant_hidden_class, dominant_fraction) = dominant_hidden(&members);
+
+    ConceptReport {
+        id: concept.id.0,
+        predicate: format!("{:?}", concept.predicate),
+        training_support,
+        holdout_support: members.len(),
+        holdout_gain: concept.evidence.holdout_gain,
+        utility_gain: concept.utility.total_gain(),
+        resolver_leader: RESOLVERS[leader].to_string(),
+        dominant_hidden_class,
+        dominant_fraction,
+    }
+}
+
 fn dominant_hidden(observations: &[&Observation]) -> (HiddenClass, f64) {
-    let mut counts = HashMap::new();
+    let mut counts = HashMap::<HiddenClass, usize>::new();
     for observation in observations {
-        *counts.entry(observation.hidden).or_insert(0usize) += 1;
+        *counts.entry(observation.hidden).or_default() += 1;
     }
     let (hidden, count) = HiddenClass::all()
         .into_iter()
@@ -570,7 +659,11 @@ fn dominant_hidden(observations: &[&Observation]) -> (HiddenClass, f64) {
 
 fn ratio(numerator: f64, denominator: f64) -> f64 {
     if denominator.abs() <= f64::EPSILON {
-        if numerator.abs() <= f64::EPSILON { 1.0 } else { f64::INFINITY }
+        if numerator.abs() <= f64::EPSILON {
+            1.0
+        } else {
+            f64::INFINITY
+        }
     } else {
         numerator / denominator
     }
