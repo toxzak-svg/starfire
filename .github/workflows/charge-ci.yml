@@ -69,7 +69,7 @@ jobs:
       - name: Run H4 real closed-cycle shadow transfer probe
         run: |
           set -o pipefail
-          cargo run -p star --example h4_real_cycle_shadow_probe --locked \
+          cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
             | tee h4-real-cycle-shadow-report.json
 
       - name: Preserve CHARGE diagnostics and reports
