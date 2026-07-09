@@ -86,6 +86,11 @@ For every generation:
 9. stop growth if the candidate fails promotion
 10. otherwise retain its opaque `ConceptId`, executable predicate, and empirically strongest resolver
 
+When complementary or otherwise equivalent-gain training candidates tie, the inducer prefers the
+smaller effective child cohort. The root engine is a specialization mechanism: keeping the broader
+remainder as the parent preserves pressure and support for later distinctions instead of prematurely
+absorbing multiple unresolved regimes into one promoted concept.
+
 The implementation deliberately does not test candidate two, candidate three, and so on against
 holdout after a rejection. This avoids using holdout as a search oracle.
 
