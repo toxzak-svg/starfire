@@ -632,7 +632,7 @@ fn concept_report(
     let (dominant_hidden_class, dominant_fraction) = dominant_hidden(&members);
 
     ConceptReport {
-        id: concept.id.0,
+        id: concept.id.as_u64(),
         predicate: format!("{:?}", concept.predicate),
         training_support,
         holdout_support: members.len(),
