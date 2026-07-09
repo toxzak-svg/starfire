@@ -123,7 +123,7 @@ The executable exits nonzero unless all gates pass:
 1. at least two concepts are promoted
 2. induced mean discharge efficiency is at least `1.25x` undifferentiated
 3. induced mean remaining charge is at most `0.75x` undifferentiated
-4. induced solve rate improves by at least `0.20`
+4. induced solve rate improves by at least `20` percentage points (i.e., `0.20` absolute)
 5. induced retains at least `0.80x` hidden-class oracle efficiency
 6. induced efficiency is at least `1.25x` random partition
 7. induced efficiency is at least `1.25x` permuted-feature search
