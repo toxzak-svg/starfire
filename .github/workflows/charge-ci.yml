@@ -66,6 +66,12 @@ jobs:
           cargo run -p star --example h4_shadow_promotion_probe --locked \
             | tee h4-shadow-promotion-report.json
 
+      - name: Run H4 real closed-cycle shadow transfer probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h4_real_cycle_shadow_probe --locked \
+            | tee h4-real-cycle-shadow-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -76,5 +82,6 @@ jobs:
             charge-test.log
             charge-real-component-report.json
             h4-shadow-promotion-report.json
+            h4-real-cycle-shadow-report.json
           if-no-files-found: ignore
           retention-days: 7
