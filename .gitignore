@@ -43,3 +43,10 @@ Thumbs.db
 # === OpenCLAW ===
 .openclaw/
 .clawhub/
+target/debug/star.exe
+target/debug/train_model.exe
+target/debug/deps/star-47fd2ea82c6b0559.exe
+target/debug/deps/star-bd7ef09c6c09c0b9.exe
+target/debug/deps/train_model-a1df90f9af7409fe.exe
+target/debug/deps/train_model-bfb34b7a9e626158.exe
+ui/node_modules/@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node
