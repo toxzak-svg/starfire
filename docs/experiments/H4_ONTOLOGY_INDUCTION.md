@@ -14,81 +14,62 @@ H4 removes that answer key.
 
 The core hypothesis is that persistent routing inefficiency contains enough evidence to justify a new computational distinction. The system does not need to name the distinction in English. It needs to earn an opaque concept ID whose executable predicate transfers to unseen observations and improves a predeclared objective.
 
-## Null hypothesis
-
-A proposal mechanism operating over CHARGE residuals, persistence, and resolver traces will overfit training history, produce unstable partitions, or fail to improve held-out discharge efficiency relative to the undifferentiated routing baseline.
-
 ## Starting ontology
 
-The experiment exposes one coarse charge kind to ontology search:
+The H4 probe exposes one charge kind to induction:
 
 ```text
-Unresolved
+Custom("unresolved")
 ```
 
-The implemented probe encodes this as `ChargeKind::Custom("unresolved")` so production CHARGE kinds remain unchanged until a distinction earns promotion.
+The search observes residual values and empirical resolver outcomes. It does not receive hidden source identity, human charge-kind labels, component semantic roles, fixture topic semantics, or oracle-best resolver labels.
 
-The proposal mechanism observes only:
+## Hidden response regimes
 
-- residual vector values
-- magnitude
-- persistence
-- coarse scope class
-- resolver trace
-- measured resolver outcomes and declared compute cost
+The deterministic CPU probe generates three hidden response regimes modeled after the specialization seen in the real-component CHARGE experiment:
 
-It does not observe hidden source/emitter identity, human charge-kind label, component semantic role, fixture topic name, or oracle-best resolver.
+1. gap-like observations favor memory
+2. contradiction-like observations favor reasoning
+3. residual-like observations favor causal resolution
 
-## Hidden answer key
+Every observation is presented to induction as the same `Unresolved` kind. Hidden labels are retained only for the oracle upper-bound and post-hoc diagnostics.
 
-The H4 probe generates three hidden response regimes modeled after the real-component CHARGE specialization result:
+## Candidate vocabulary
 
-1. gap-like observations whose strongest resolver is memory
-2. contradiction-like observations whose strongest resolver is reasoning
-3. residual-like observations whose strongest resolver is causal
+H4 deliberately starts with the smallest replayable predicate search:
 
-All three are presented to ontology induction as `Unresolved`.
+```text
+residual[dimension] >= threshold
+residual[dimension] <= threshold
+```
 
-The hidden labels exist only for post-hoc diagnostics and hidden-class oracle evaluation. They do not participate in proposal generation, induced routing, proposal scoring, or promotion.
+For each residual dimension, proposal search sorts training values and generates midpoint thresholds between adjacent unique values. Both directions are evaluated. Partitions below minimum support are rejected. Equivalent positive-membership partitions are deduplicated.
 
-## Ontology mutation vocabulary
+No LLM proposes predicates. No source code is generated at runtime. Every candidate can be replayed deterministically against historical `Charge` objects through `ConceptPredicate::matches`.
 
-The foundation exposes six structural mutation descriptions:
+## Greedy induction
 
-- `Split`: replace one concept with two candidate partitions
-- `Merge`: remove a distinction that no longer earns utility
-- `Abstract`: introduce a parent over repeated common structure
-- `Specialize`: add a narrower executable predicate beneath a concept
-- `Relate`: record a predictive relation between induced concepts
-- `Reify`: turn a repeated relation pattern into a candidate object
+The active ontology begins empty, meaning all observations fall through to one parent resolver profile.
 
-H4 currently exercises split-like threshold induction. The remaining operators are represented so later experiments do not have to redesign concept identity or promotion.
+For each induction generation:
 
-## Implemented candidate search
+1. evaluate current training discharge efficiency
+2. append each remaining candidate predicate to the active concept list
+3. measure marginal training gain under ordered concept routing plus parent fallback
+4. rank candidates by marginal gain, then one-split training gain
+5. evaluate the strongest candidates on the independent holdout cohort
+6. submit the candidate to `OntologyInducer`
+7. promote only if support, holdout gain, and aggregate utility pass the fixed promotion contract
+8. add the promoted predicate to active routing and advance the ontology generation
 
-The first proposal search is deterministic and replayable.
-
-For every residual dimension, the probe:
-
-1. sorts observed training values
-2. generates midpoint thresholds between adjacent unique values
-3. evaluates both `>=` and `<=` directions
-4. rejects either partition below minimum support
-5. scores the split by weighted best-resolver outcome gain over the undifferentiated parent
-6. subtracts a fixed complexity penalty
-7. removes duplicate membership partitions
-8. ranks remaining proposals by training gain
-9. sends only the top-K proposals to holdout promotion
-
-No LLM-generated labels or free-form code predicates are used.
+The probe allows at most two promoted concepts. This is sufficient to partition three regimes because unmatched observations continue through the undifferentiated parent fallback.
 
 ## Machine-induced concept representation
 
-A promoted concept is an opaque ID plus evidence:
+A promoted concept is an opaque machine ID plus executable evidence:
 
 ```text
 ConceptId(1)
-    parent: None
     predicate: ResidualThreshold { ... }
     observations: N
     holdout_gain: measured independently
@@ -97,90 +78,96 @@ ConceptId(1)
     generation: G
 ```
 
-The concept has no required natural-language name.
+The concept receives no English semantic name during induction.
 
-Its operational meaning is the cohort selected by its predicate and the measured utility of possessing that distinction.
+Its operational meaning is the cohort selected by its predicate and the measured resolution utility earned by keeping the distinction.
 
 ## Promotion contract
 
-A candidate distinction does not become active merely because proposal search found it.
+H4 uses the merged `OntologyInducer` foundation. Promotion requires all of:
 
-`OntologyInducer` requires:
+- at least 16 training observations selected by the predicate
+- at least `0.02` absolute holdout discharge-efficiency gain over the currently active ontology
+- at least `0.04` aggregate utility gain
 
-1. minimum observation support
-2. minimum positive held-out gain
-3. minimum positive aggregate utility gain
+For H4, routing gain and discharge gain both record the independently measured holdout improvement. Candidate search also rejects undersupported complements before promotion.
 
-The H4 probe additionally rejects undersupported partitions during proposal search and deduplicates equivalent memberships before holdout evaluation.
+## Policy comparison
 
-## Implemented policy comparison
-
-All policies use the same one-unit resolver compute budget per observation.
+Every policy gets one resolver attempt per observation, so mean discharged magnitude is also discharge per unit compute in this first probe.
 
 ### Undifferentiated
 
-All observations route under the single `Unresolved` parent using the strongest global empirical resolver profile learned on training observations.
+One global empirical resolver leader is learned from training history and used for every holdout observation.
 
 ### Induced
 
-The two strongest promoted predicates specialize resolver leaders. Matching is deterministic and ordered by held-out promotion gain. Unmatched observations fall back to the parent resolver.
+Promoted opaque predicates are checked in induction order. A matching concept uses the strongest empirical resolver for that concept's training cohort. Unmatched observations use the parent leader.
 
-### Oracle hidden classes
+### Hidden-class oracle
 
-The three hidden source classes use their empirically strongest training resolver. This is an upper-bound diagnostic, not a deployable policy.
+The hidden three-class answer key learns one empirical resolver leader per hidden class. It is an upper-bound diagnostic and is never available to induction.
 
-### Random partition control
+### Random partition
 
-Training and holdout observations are assigned to the same number of routing groups randomly. Each training group learns its strongest empirical resolver.
+Training and holdout observations are independently assigned to the same number of groups as induced routing. Training groups learn empirical resolver leaders; holdout groups route by random membership.
 
-### Permuted-feature control
+### Permuted-feature search
 
-Residual dimensions and persistence are independently permuted across observations before proposal search and induced-policy evaluation.
+Every residual dimension and persistence value is independently permuted across observations. The exact same proposal, promotion, and induced-routing algorithm is rerun. Resolver outcomes remain attached to observations, breaking the relation between visible features and response regime.
 
-## Frozen primary gates in the probe
+## Frozen H4 gates
 
-The process exits nonzero unless all gates pass:
+The executable exits nonzero unless all gates pass:
 
 1. at least two concepts are promoted
-2. induced mean discharge efficiency beats undifferentiated by at least 1.25x
-3. induced mean remaining charge is at most 75% of undifferentiated
-4. induced solve rate improves by at least 20 percentage points
-5. induced retains at least 80% of hidden-class oracle efficiency
-6. induced beats random-partition efficiency by at least 1.25x
-7. induced beats permuted-feature efficiency by at least 1.25x
+2. induced mean discharge efficiency is at least `1.25x` undifferentiated
+3. induced mean remaining charge is at most `0.75x` undifferentiated
+4. induced solve rate improves by at least `0.20`
+5. induced retains at least `0.80x` hidden-class oracle efficiency
+6. induced efficiency is at least `1.25x` random partition
+7. induced efficiency is at least `1.25x` permuted-feature search
 8. every promoted concept has positive holdout gain and minimum support
 
-The current experiment uses a fixed deterministic seed and fixed thresholds in source. A failing final run must not be repaired by post-hoc threshold tuning against the same result.
+The seed and gate values are fixed in the probe source. A failure must not be repaired by tuning gates against the same seeded final result.
 
-## Current diagnostic output
+## Report
 
-`h4_ontology_induction_probe` emits a JSON report containing:
+`h4_ontology_induction_probe` emits `h4-ontology-induction-report.json` with:
 
+- fixed seed
+- visible charge kind
 - train and holdout observation counts
-- promoted opaque concept IDs and executable predicates
-- holdout support and gain
-- aggregate utility gain
-- dominant hidden class for post-hoc interpretation
-- dominant-class fraction
-- resolver leader per promoted concept
-- policy metrics for induced, oracle, random, permuted, and undifferentiated routing
-- every primary ratio and margin
-- gate booleans
+- top one-split training candidates
+- promoted opaque concept IDs and predicates
+- training and holdout support
+- holdout and aggregate utility gain
+- learned resolver leader for each promoted concept
+- post-hoc dominant hidden class and purity fraction
+- metrics for induced, oracle, random, permuted, and undifferentiated policies
+- every gate ratio and margin
+- individual criterion booleans
 - overall pass/fail
 
-The hidden diagnostic labels are serialized only after induced proposal, promotion, and policy evaluation have been fixed.
+Hidden labels are used for the oracle and post-hoc concept interpretation only. They do not enter candidate generation, promotion, or induced routing.
 
 ## CPU verification
 
-`charge-contract` now compiles all Star targets, runs deterministic CHARGE tests, runs the existing real-component specialization probe, and executes H4. The H4 JSON report is archived with CHARGE diagnostics for seven days.
+The existing `charge-contract` workflow now:
+
+1. compiles all Star targets
+2. runs deterministic CHARGE tests
+3. runs the real-component CHARGE specialization probe
+4. runs H4 ontology induction
+5. preserves the compiler log, real-component report, and H4 JSON report
 
 ## Claim boundary if H4 passes
 
-A passing result supports this limited claim:
+A passing H4 result supports this limited claim:
 
 > Starting from an intentionally undifferentiated CHARGE class, Starfire can use empirical resolution history to induce and retain opaque, executable distinctions that transfer to held-out observations and improve CHARGE resolution under a fixed compute budget.
 
-It does not show:
+It does not establish:
 
 - human-like concept semantics
 - language grounding
@@ -189,14 +176,15 @@ It does not show:
 - AGI
 - consciousness
 
-## Next experiments
+## Next falsification pressure
 
-H4 deliberately starts with a small threshold vocabulary. Follow-up experiments should challenge the mechanism rather than simply making the synthetic regimes easier:
+H4 uses deliberately separable regimes as a proof of mechanism. Passing it should immediately lead to harder tests:
 
-1. use overlapping and drifting response regimes
-2. add trace/persistence predicate composition
-3. require recursive specialization of an already promoted concept
-4. add bootstrap or multi-seed membership stability gates
-5. run induction over real subsystem-backed CHARGE histories instead of generated response regimes
-6. test `Merge` by making a previously useful distinction become redundant
-7. test `Relate` and `Reify` on repeated temporal concept-transition structure
+1. overlapping response regimes
+2. drifting regime boundaries
+3. trace and persistence predicate composition
+4. recursive specialization beneath a promoted concept
+5. multi-seed or bootstrap membership-stability gates
+6. induction over real subsystem-backed CHARGE histories
+7. `Merge` after a formerly useful distinction becomes redundant
+8. `Relate` and `Reify` over repeated temporal concept-transition structure
