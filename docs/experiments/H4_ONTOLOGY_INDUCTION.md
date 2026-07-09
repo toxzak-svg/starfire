@@ -191,7 +191,7 @@ However, substantial agreement with the hidden regimes would be strong evidence 
 
 ## Required artifacts
 
-The CPU workflow should preserve:
+The CI workflow should preserve:
 
 - `h4-ontology-induction-report.json`
 - candidate proposal table
