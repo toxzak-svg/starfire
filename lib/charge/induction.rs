@@ -311,19 +311,21 @@ impl EmpiricalOntologyInducer {
             let holdout_gain = trial_holdout.mean_discharge_efficiency
                 - current_holdout.mean_discharge_efficiency;
 
+            let holdout_membership_set: BTreeSet<usize> =
+                holdout_membership.iter().copied().collect();
+            let holdout_negative: Vec<usize> = holdout_parent
+                .iter()
+                .copied()
+                .filter(|index| !holdout_membership_set.contains(index))
+                .collect();
+
             let concept = registry.propose(
                 None,
                 candidate.predicate.clone(),
                 ConceptEvidence {
-                    observations: candidate.support as u64,
+                    observations: holdout_parent.len() as u64,
                     positive_instances: observation_ids(holdout, &holdout_membership),
-                    negative_instances: observation_ids(
-                        holdout,
-                        &holdout_parent
-                            .into_iter()
-                            .filter(|index| !holdout_membership.contains(index))
-                            .collect::<Vec<_>>(),
-                    ),
+                    negative_instances: observation_ids(holdout, &holdout_negative),
                     holdout_gain,
                 },
                 ConceptUtility {
