@@ -1357,15 +1357,21 @@ fn permute_visible_features(observations: &mut [OntologyObservation], rng: &mut 
         .max()
         .unwrap_or(0);
     for dimension in 0..dimensions {
-        let mut values: Vec<f32> = observations
-            .iter()
-            .map(|observation| observation.charge.residual[dimension])
-            .collect();
-        values.shuffle(rng);
-        for (observation, value) in observations.iter_mut().zip(values) {
-            observation.charge.residual[dimension] = value;
-        }
+    let indices: Vec<usize> = observations
+        .iter()
+        .enumerate()
+        .filter(|(_, observation)| observation.charge.residual.len() > dimension)
+        .map(|(index, _)| index)
+        .collect();
+    let mut values: Vec<f32> = indices
+        .iter()
+        .map(|index| observations[*index].charge.residual[dimension])
+        .collect();
+    values.shuffle(rng);
+    for (index, value) in indices.into_iter().zip(values) {
+        observations[index].charge.residual[dimension] = value;
     }
+}
     let mut persistence: Vec<u32> = observations
         .iter()
         .map(|observation| observation.charge.persistence)
