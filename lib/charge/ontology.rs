@@ -190,7 +190,7 @@ impl OntologyInducer {
             utility,
             generation: self.generation,
         };
-        self.next_id = self.next_id.saturating_add(1);
+        self.next_id = self.next_id.checked_add(1).expect("ConceptId overflow");
         concept
     }
 
