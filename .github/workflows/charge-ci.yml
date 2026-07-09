@@ -48,7 +48,10 @@ jobs:
           cargo check -p star --all-targets --locked 2>&1 | tee charge-cargo-check.log
 
       - name: Run CHARGE tests deterministically
-        run: "cargo test -p star charge:: --locked -- --test-threads=1"
+        run: |
+          set -o pipefail
+          cargo test -p star charge:: --locked -- --test-threads=1 2>&1 \
+            | tee charge-test.log
 
       - name: Run real-component CHARGE specialization probe
         run: |
@@ -63,6 +66,7 @@ jobs:
           name: charge-real-component-diagnostics
           path: |
             charge-cargo-check.log
+            charge-test.log
             charge-real-component-report.json
           if-no-files-found: ignore
           retention-days: 7
