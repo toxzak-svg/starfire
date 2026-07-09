@@ -56,6 +56,12 @@ jobs:
           cargo run -p star --example charge_real_component_probe --locked \
             | tee charge-real-component-report.json
 
+      - name: Run H4 ontology induction falsification probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h4_ontology_induction_probe --locked \
+            | tee h4-ontology-induction-report.json
+
       - name: Preserve CHARGE diagnostics and report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -64,5 +70,6 @@ jobs:
           path: |
             charge-cargo-check.log
             charge-real-component-report.json
+            h4-ontology-induction-report.json
           if-no-files-found: ignore
           retention-days: 7
