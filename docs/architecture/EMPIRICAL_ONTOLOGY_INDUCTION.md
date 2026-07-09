@@ -123,7 +123,7 @@ The result also exposes:
 
 Fitting rejects:
 
-- empty train or holdout cohorts
+- empty training or holdout cohorts
 - non-finite or non-positive CHARGE magnitudes
 - observations with no measured resolver outcomes
 - empty resolver names
