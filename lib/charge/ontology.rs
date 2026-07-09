@@ -8,7 +8,13 @@ use super::types::Charge;
 /// in the predicate that selects observations and the measured utility earned by
 /// retaining the distinction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ConceptId(pub u64);
+pub struct ConceptId(u64);
+
+impl ConceptId {
+    pub fn as_u64(self) -> u64 {
+        self.0
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
