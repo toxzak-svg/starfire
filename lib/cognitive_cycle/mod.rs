@@ -1,10 +1,15 @@
 //! Minimal state foundation for Starfire's closed cognitive cycle.
 //!
-//! This module deliberately does not select operators, mutate the world model, or
-//! wire into `Runtime::chat()`. It establishes the persistence semantics required
-//! for repeated independently judged resolution attempts.
+//! This module establishes persistence semantics for repeated independently judged
+//! resolution attempts and a counterfactual observation recorder for shadow-only
+//! ontology experiments. It still does not mutate the live runtime router.
 
-use crate::charge::{Charge, JudgedDischarge};
+use thiserror::Error;
+
+use crate::charge::{
+    Charge, DischargeJudge, JudgedDischarge, OntologyObservation, OutcomeWitness, Resolution,
+    ResolverOutcome,
+};
 
 const RESOLVED_EPSILON: f32 = 1e-6;
 
@@ -97,10 +102,111 @@ impl CognitiveCycleState {
     }
 }
 
+/// One resolver request plus independently measured outcome evidence.
+#[derive(Debug, Clone)]
+pub struct JudgedResolverAttempt {
+    pub resolver: String,
+    pub resolution: Resolution,
+    pub witness: OutcomeWitness,
+}
+
+impl JudgedResolverAttempt {
+    pub fn new(
+        resolver: impl Into<String>,
+        resolution: Resolution,
+        witness: OutcomeWitness,
+    ) -> Self {
+        Self {
+            resolver: resolver.into(),
+            resolution,
+            witness,
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum CycleObservationError {
+    #[error("at least one resolver attempt is required")]
+    EmptyAttempts,
+    #[error("resolver attempt {index} has an empty resolver name")]
+    EmptyResolverName { index: usize },
+    #[error("resolver attempt {index} declares zero compute cost")]
+    ZeroComputeCost { index: usize },
+    #[error("CHARGE could not be admitted to a counterfactual cycle")]
+    ChargeRejected,
+    #[error("counterfactual cycle failed to apply judgment for resolver attempt {index}")]
+    JudgmentApplicationFailed { index: usize },
+}
+
+/// Convert independently judged closed-cycle attempts into empirical ontology data.
+///
+/// Each resolver attempt is replayed from the exact same initial CHARGE snapshot in
+/// a fresh `CognitiveCycleState`. This produces a counterfactual outcome matrix for
+/// shadow evaluation without allowing an earlier resolver to change the state seen
+/// by a later resolver. Only discharge accepted by `DischargeJudge` and actually
+/// applied by `CognitiveCycleState` is recorded.
+#[derive(Debug, Clone)]
+pub struct CycleObservationRecorder<J> {
+    judge: J,
+}
+
+impl<J> CycleObservationRecorder<J> {
+    pub fn new(judge: J) -> Self {
+        Self { judge }
+    }
+
+    pub fn judge(&self) -> &J {
+        &self.judge
+    }
+}
+
+impl<J: DischargeJudge> CycleObservationRecorder<J> {
+    pub fn record(
+        &self,
+        charge: Charge,
+        attempts: &[JudgedResolverAttempt],
+    ) -> Result<OntologyObservation, CycleObservationError> {
+        if attempts.is_empty() {
+            return Err(CycleObservationError::EmptyAttempts);
+        }
+
+        let mut observation = OntologyObservation::new(charge.clone());
+        for (index, attempt) in attempts.iter().enumerate() {
+            if attempt.resolver.trim().is_empty() {
+                return Err(CycleObservationError::EmptyResolverName { index });
+            }
+            if attempt.resolution.compute_cost == 0 {
+                return Err(CycleObservationError::ZeroComputeCost { index });
+            }
+
+            let judged = self
+                .judge
+                .evaluate(&charge, &attempt.resolution, &attempt.witness);
+            let mut cycle = CognitiveCycleState::new();
+            if !cycle.admit_charge(charge.clone()) {
+                return Err(CycleObservationError::ChargeRejected);
+            }
+            cycle
+                .apply_judgment(0, &judged)
+                .ok_or(CycleObservationError::JudgmentApplicationFailed { index })?;
+
+            observation.record_outcome(ResolverOutcome::new(
+                attempt.resolver.clone(),
+                cycle.total_accepted_discharge() as f32,
+                attempt.resolution.compute_cost,
+            ));
+        }
+
+        Ok(observation)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::charge::{ChargeKind, ChargeScope};
+    use crate::charge::{
+        ChargeKind, ChargeScope, ImprovementDirection, RelativeImprovementJudge,
+    };
 
     fn charge(magnitude: f32) -> Charge {
         Charge::new(
@@ -119,6 +225,25 @@ mod tests {
             metric: "test".into(),
             evidence: vec![],
         }
+    }
+
+    fn attempt(resolver: &str, before: f64, after: f64) -> JudgedResolverAttempt {
+        JudgedResolverAttempt::new(
+            resolver,
+            Resolution {
+                discharged: 1.0,
+                emitted: vec![],
+                permitted_decay: 0.0,
+                compute_cost: 1,
+            },
+            OutcomeWitness::new(
+                "objective_progress",
+                before,
+                after,
+                ImprovementDirection::HigherIsBetter,
+                vec![format!("{resolver} verifier evidence")],
+            ),
+        )
     }
 
     #[test]
@@ -175,5 +300,46 @@ mod tests {
         assert!(!cycle.admit_charge(charge(0.0)));
         assert!(!cycle.admit_charge(charge(f32::NAN)));
         assert!(cycle.pending().is_empty());
+    }
+
+    #[test]
+    fn recorder_uses_independently_accepted_not_requested_discharge() {
+        let recorder = CycleObservationRecorder::new(RelativeImprovementJudge);
+        let observation = recorder
+            .record(
+                charge(1.0),
+                &[attempt("unchanged", 0.0, 0.0), attempt("useful", 0.0, 0.6)],
+            )
+            .unwrap();
+
+        assert_eq!(observation.outcomes.len(), 2);
+        assert_eq!(observation.outcomes[0].discharged, 0.0);
+        assert!((observation.outcomes[1].discharged - 0.6).abs() < 1e-6);
+        assert_eq!(observation.charge.magnitude, 1.0);
+        assert_eq!(observation.charge.persistence, 0);
+    }
+
+    #[test]
+    fn recorder_replays_each_resolver_from_the_same_charge_snapshot() {
+        let recorder = CycleObservationRecorder::new(RelativeImprovementJudge);
+        let observation = recorder
+            .record(
+                charge(1.0),
+                &[attempt("first", 0.0, 0.5), attempt("second", 0.0, 0.5)],
+            )
+            .unwrap();
+
+        assert!((observation.outcomes[0].discharged - 0.5).abs() < 1e-6);
+        assert!((observation.outcomes[1].discharged - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn recorder_rejects_zero_cost_attempts_before_induction() {
+        let recorder = CycleObservationRecorder::new(RelativeImprovementJudge);
+        let mut invalid = attempt("memory", 0.0, 1.0);
+        invalid.resolution.compute_cost = 0;
+
+        let error = recorder.record(charge(1.0), &[invalid]).unwrap_err();
+        assert!(matches!(error, CycleObservationError::ZeroComputeCost { .. }));
     }
 }
