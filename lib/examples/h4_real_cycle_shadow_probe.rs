@@ -545,13 +545,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let training = flatten_plain(&windows[..TRAIN_WINDOWS]);
     let holdout = flatten_plain(&windows[TRAIN_WINDOWS..TRAIN_WINDOWS + HOLDOUT_WINDOWS]);
     let future = plain_windows(&windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..]);
-    let concept_count = monitor
+let concept_count = monitor
         .learned_ontology()
         .ok_or("shadow monitor did not fit an ontology")?
         .routes()
-        .len()
-        .max(1);
-
+        .len();
     let random = matched_random_partition_control(
         &training,
         &holdout,
