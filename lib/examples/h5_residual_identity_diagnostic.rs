@@ -272,7 +272,14 @@ const CANDIDATES: [Candidate; 5] = [
 struct LabeledObservation {
     observation: OntologyObservation,
     fixed_observation: OntologyObservation,
+    profiled_fixed_observation: OntologyObservation,
     hidden: EventClass,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VerifierProfile {
+    SurfaceCoverage,
+    TaskProfiled,
 }
 
 struct ProbeState {
@@ -325,16 +332,20 @@ impl Drop for ProbeState {
 struct TargetVerifierEnvironment {
     prompt: String,
     target: String,
+    class: EventClass,
+    profile: VerifierProfile,
     progress: f64,
     solved: bool,
     evidence: Vec<String>,
 }
 
 impl TargetVerifierEnvironment {
-    fn new(prompt: &str, target: &str) -> Self {
+    fn new(task: &ProbeTask, profile: VerifierProfile) -> Self {
         Self {
-            prompt: prompt.to_string(),
-            target: target.to_string(),
+            prompt: task.prompt.clone(),
+            target: task.target.clone(),
+            class: task.class,
+            profile,
             progress: 0.0,
             solved: false,
             evidence: vec!["episode reset before resolver action".into()],
@@ -358,11 +369,16 @@ impl Environment for TargetVerifierEnvironment {
     }
 
     fn act(&mut self, action: &Self::Action) -> Step<Self::Observation> {
-        self.progress = resolution_score(action, &self.target);
+        self.progress = match self.profile {
+            VerifierProfile::SurfaceCoverage => resolution_score(action, &self.target),
+            VerifierProfile::TaskProfiled => {
+                profiled_resolution_score(action, &self.target, self.class)
+            }
+        };
         self.solved = self.progress >= SOLVE_SCORE;
         self.evidence = vec![format!(
-            "target verifier measured coverage={:.6} solved={}",
-            self.progress, self.solved
+            "target verifier profile={:?} measured coverage={:.6} solved={}",
+            self.profile, self.progress, self.solved
         )];
         Step::new(action.clone(), 1, true)
     }
@@ -538,6 +554,7 @@ struct Report {
     emitter_counts: BTreeMap<String, usize>,
     h5a: H5AReport,
     h5b: H5BReport,
+    h5b_task_profiled: H5BReport,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -561,13 +578,27 @@ fn main() -> Result<(), Box<dyn Error>> {
                 next_id += 1;
                 let variable_charge = ontology_feature_charge(&charge);
                 let fixed_charge = fixed_residual_feature_charge(&charge, fixed_config);
-                let attempts = judged_component_attempts(&variable_charge, &task, &state)?;
-                total_judged_cycle_attempts += attempts.len();
+                let attempts = judged_component_attempts(
+                    &variable_charge,
+                    &task,
+                    &state,
+                    VerifierProfile::SurfaceCoverage,
+                )?;
+                let profiled_attempts = judged_component_attempts(
+                    &fixed_charge,
+                    &task,
+                    &state,
+                    VerifierProfile::TaskProfiled,
+                )?;
+                total_judged_cycle_attempts += attempts.len() + profiled_attempts.len();
                 let observation = recorder.record(variable_charge, &attempts)?;
-                let fixed_observation = recorder.record(fixed_charge, &attempts)?;
+                let fixed_observation = recorder.record(fixed_charge.clone(), &attempts)?;
+                let profiled_fixed_observation =
+                    recorder.record(fixed_charge, &profiled_attempts)?;
                 window.push(LabeledObservation {
                     observation,
                     fixed_observation,
+                    profiled_fixed_observation,
                     hidden: class,
                 });
             }
@@ -622,6 +653,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (non_memory_future, h5b_report_base) = non_memory_future_windows(&windows);
     let h5b_assessment =
         assess_resolver_identifiability(&non_memory_future, IdentifiabilityCriteria::h5_default());
+    let (profiled_non_memory_future, h5b_profiled_report_base) =
+        profiled_non_memory_future_windows(&windows);
+    let h5b_task_profiled_assessment = assess_resolver_identifiability(
+        &profiled_non_memory_future,
+        IdentifiabilityCriteria::h5_default(),
+    );
 
     let total_real_emitter_observations = windows.iter().map(Vec::len).sum::<usize>();
     let report = Report {
@@ -651,6 +688,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             excluded_hidden_distribution: h5b_report_base.2,
             retained_hidden_distribution: h5b_report_base.3,
             assessment: h5b_assessment,
+        },
+        h5b_task_profiled: H5BReport {
+            excluded_by_h4_memory_predicate: h5b_profiled_report_base.0,
+            retained_non_memory: h5b_profiled_report_base.1,
+            excluded_hidden_distribution: h5b_profiled_report_base.2,
+            retained_hidden_distribution: h5b_profiled_report_base.3,
+            assessment: h5b_task_profiled_assessment,
         },
     };
 
@@ -801,6 +845,56 @@ fn non_memory_future_windows(
     )
 }
 
+fn profiled_non_memory_future_windows(
+    windows: &[Vec<LabeledObservation>],
+) -> (
+    Vec<Vec<OntologyObservation>>,
+    (
+        usize,
+        usize,
+        BTreeMap<EventClass, usize>,
+        BTreeMap<EventClass, usize>,
+    ),
+) {
+    let memory_predicate = h4_memory_predicate();
+    let mut excluded = 0usize;
+    let mut retained = 0usize;
+    let mut excluded_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let mut retained_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let future = windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..]
+        .iter()
+        .map(|window| {
+            window
+                .iter()
+                .filter_map(|observation| {
+                    if memory_predicate.matches(&observation.observation.charge) {
+                        excluded += 1;
+                        *excluded_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        None
+                    } else {
+                        retained += 1;
+                        *retained_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        Some(observation.profiled_fixed_observation.clone())
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    (
+        future,
+        (
+            excluded,
+            retained,
+            excluded_hidden_distribution,
+            retained_hidden_distribution,
+        ),
+    )
+}
+
 fn surface_task(family: TaskFamily, class: EventClass, repeat: usize) -> ProbeTask {
     let prefix = SURFACE_PREFIXES[repeat];
     let suffix = SURFACE_SUFFIXES[repeat];
@@ -884,11 +978,12 @@ fn judged_component_attempts(
     charge: &Charge,
     task: &ProbeTask,
     state: &ProbeState,
+    profile: VerifierProfile,
 ) -> Result<Vec<JudgedResolverAttempt>, Box<dyn Error>> {
     let mut attempts = Vec::with_capacity(CANDIDATES.len());
     for (candidate_index, candidate) in CANDIDATES.iter().enumerate() {
         let output = resolve_component(*candidate, task, state)?;
-        let mut environment = TargetVerifierEnvironment::new(&task.prompt, &task.target);
+        let mut environment = TargetVerifierEnvironment::new(task, profile);
         let _ = environment.reset(charge.id ^ candidate_index as u64);
         let before = environment.objective_feedback();
         let step = environment.act(&output);
@@ -1031,6 +1126,56 @@ fn resolution_score(output: &str, target: &str) -> f64 {
     }
 
     score.clamp(0.0, 1.0)
+}
+
+fn profiled_resolution_score(output: &str, target: &str, class: EventClass) -> f64 {
+    let surface = resolution_score(output, target);
+    let output_tokens = token_set(output);
+    let target_tokens = token_set(target);
+    if output_tokens.is_empty() || target_tokens.is_empty() {
+        return surface;
+    }
+
+    match class {
+        EventClass::KnowledgeGap => surface,
+        EventClass::PredictionContradiction => {
+            let negation_match =
+                contains_negation(&output_tokens) == contains_negation(&target_tokens);
+            let correction_overlap = output_tokens.intersection(&target_tokens).count() as f64
+                / target_tokens.len() as f64;
+            let contradiction_score = if negation_match {
+                correction_overlap
+            } else {
+                correction_overlap * 0.2
+            };
+            surface.max(contradiction_score).clamp(0.0, 1.0)
+        }
+        EventClass::QuanotTrajectory => {
+            let mechanism_tokens = [
+                "cause",
+                "causes",
+                "caused",
+                "causing",
+                "increase",
+                "increased",
+                "reduce",
+                "reduced",
+                "higher",
+                "slower",
+                "heat",
+            ];
+            let mechanism_signal = mechanism_tokens
+                .iter()
+                .filter(|token| output_tokens.contains(**token))
+                .count() as f64
+                / 2.0;
+            let effect_overlap = output_tokens.intersection(&target_tokens).count() as f64
+                / target_tokens.len() as f64;
+            let causal_score =
+                (0.70 * effect_overlap + 0.30 * mechanism_signal.min(1.0)).clamp(0.0, 1.0);
+            surface.max(causal_score).clamp(0.0, 1.0)
+        }
+    }
 }
 
 fn token_set(text: &str) -> HashSet<String> {

@@ -17,6 +17,11 @@ real closed-cycle result and asks two narrower questions:
    causal-favored resolver regimes strongly enough to justify H5-C ontology
    induction
 
+The executable also emits a `h5b_task_profiled` comparison. That path keeps the
+same emitted charges and the same frozen H4 memory exclusion, but judges
+non-memory resolver attempts with a task-profiled verifier instead of the
+original surface-coverage verifier.
+
 ## Local result
 
 Last local verification: local workspace run of the command above.
@@ -24,7 +29,8 @@ Last local verification: local workspace run of the command above.
 Observation path:
 
 - 252 real subsystem-backed CHARGE observations
-- 1,260 independently judged cycle attempts
+- 1,260 original surface-verifier judged cycle attempts
+- 1,260 task-profiled verifier judged cycle attempts
 - visible kind always `Custom("unresolved")`
 - same H4 task-family split and closed-cycle judging path
 
@@ -83,9 +89,29 @@ Supported conclusion:
 > outcome matrix does not expose stable positive reasoning-over-causal margins
 > strongly enough across future windows to justify H5-C ontology fitting.
 
+## Task-profiled verifier comparison
+
+`h5b_task_profiled` passed the same identifiability gates in the latest local
+run:
+
+- retained non-memory observations: `96`
+- reasoning leader fraction: at least the `0.2` floor
+- causal leader fraction: `0.5`
+- positive margin fraction: about `0.30`
+- negative margin fraction: `0.5`
+- directional windows: `3`
+- passed: `true`
+
+Supported conclusion:
+
+> The H5-B failure is at least partly verifier/task-ecology limited. With a
+> verifier that scores contradiction correction and causal mechanism tasks
+> differently, the same non-memory fixture exposes stable enough opposing
+> resolver regimes.
+
 ## Next direction
 
-Stop ontology induction on this fixture matrix for now. The next useful work is
-to improve the verifier/task ecology so the non-memory remainder contains
-cleaner opposing reasoning-favored and causal-favored regimes, then rerun H5-B
-as a new frozen diagnostic.
+Do not run H5-C from the original surface-verifier matrix. The next useful work
+is to promote the task-profiled verifier contract from example-local diagnostic
+logic into a reusable, tested verifier layer, then rerun H5-B as a new frozen
+diagnostic before attempting ontology induction.
