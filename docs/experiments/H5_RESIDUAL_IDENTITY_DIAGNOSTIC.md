@@ -25,7 +25,8 @@ original surface-coverage verifier. The verifier scoring contract now lives in
 
 ## Local result
 
-Last local verification: local workspace run of the command above.
+Last local verification: local workspace run of the command above at commit
+`754ba148` (`Improve H5 verifier task profiling`).
 
 Observation path:
 
@@ -96,7 +97,7 @@ Supported conclusion:
 run:
 
 - retained non-memory observations: `96`
-- reasoning leader fraction: at least the `0.2` floor
+- reasoning leader fraction: `0.5`
 - causal leader fraction: `0.5`
 - positive margin fraction: about `0.30`
 - negative margin fraction: `0.5`
@@ -112,6 +113,15 @@ Supported conclusion:
 
 ## Next direction
 
-Do not run H5-C from the original surface-verifier matrix. The next useful work
-is to freeze a task-profiled H5-B variant as the canonical non-memory diagnostic
-and only then attempt ontology induction against that verifier contract.
+Do not run H5-C from the original surface-verifier matrix. The task-profiled
+verifier contract is now the canonical H5-B non-memory diagnostic surface.
+
+Next work:
+
+1. implement `h5_non_memory_ontology_probe` against the fixed-width projection
+   and `star::charge::verifier` task-profiled scoring contract
+2. freeze H5-C acceptance constants before the first complete H5-C verdict
+3. include the original surface H5-B failure as a negative verifier-ecology
+   control, not as the gating matrix for H5-C
+4. keep H5-C shadow-only; no live ontology promotion follows from a one-seed
+   pass
