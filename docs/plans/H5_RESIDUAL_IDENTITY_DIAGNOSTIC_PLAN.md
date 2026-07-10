@@ -791,7 +791,8 @@ Current path through the tree:
 H5-A: YES
 surface-verifier H5-B: NO, retained as negative control
 task-profiled H5-B: YES
-next node: H5-C primary acceptance implementation
+H5-C primary acceptance seed: PASS
+next node: eight-seed H5-C replication
 ```
 
 ---
@@ -836,6 +837,23 @@ Still not supported:
 - AGI
 - consciousness
 
+## If primary H5-C passes before replication
+
+Supported:
+
+> The frozen primary shadow diagnostic recovered one executable non-memory
+> distinction from fixed-width H4-retained CHARGE features that transferred on
+> the primary seed and beat the exact matched-budget controls in the local
+> verdict.
+
+Not supported:
+
+- replicated H5-C support
+- live ontology promotion
+- autonomous scientific discovery
+- AGI
+- consciousness
+
 ---
 
 # Recommended execution order
@@ -846,11 +864,11 @@ Still not supported:
 4. done: inspect the predeclared H5-A diagnostic verdict
 5. done: implement H5-B direct outcome-matrix identifiability report
 6. done: add task-profiled verifier scoring and make it the canonical H5-B gate
-7. next: implement `h5_non_memory_ontology_probe`
-8. next: freeze H5-C source constants and candidate vocabulary before the first complete verdict
-9. next: run the primary H5-C acceptance seed once
-10. next: preserve the complete verdict without tuning
-11. if primary H5-C passes, run the eight predeclared replication seeds
+7. done: implement `h5_non_memory_ontology_probe`
+8. done: freeze H5-C source constants and candidate vocabulary before the first complete verdict
+9. done: run the primary H5-C acceptance seed once
+10. done: preserve the complete verdict without tuning
+11. next: run the eight predeclared replication seeds
 12. only after replicated success discuss shadow automatic promotion
 
 ## Bottom line
@@ -859,7 +877,5 @@ Do not make the ontology inducer broadly more complicated yet.
 
 The immediate engineering target is now narrower:
 
-> Build a shadow-only H5-C ontology probe over the fixed-width projection and
-> task-profiled verifier outcome matrix, then test whether simple threshold,
-> negated-threshold, and two-threshold conjunction predicates recover useful
-> transferable non-memory resolver structure.
+> Run the predeclared eight-seed H5-C replication without tuning the primary
+> verdict, then preserve both passes and failures as scientific evidence.

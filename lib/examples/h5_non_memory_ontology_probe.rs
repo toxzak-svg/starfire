@@ -47,6 +47,13 @@ const MIN_CONTROL_EFFICIENCY_RATIO: f64 = 1.20;
 const SOLVE_SCORE: f64 = 0.70;
 const MATERIAL_DEGRADATION_RATIO: f64 = 0.80;
 const REPRODUCIBILITY_REPEATS: usize = 3;
+const H5C_MIN_TRANSFER_EFFICIENCY_RATIO: f64 = 1.15;
+const H5C_MIN_PARENT_PLUS_MEMORY_RATIO: f64 = 1.10;
+const H5C_MIN_CONTROL_EFFICIENCY_RATIO: f64 = 1.15;
+const H5C_MIN_WORST_WINDOW_RATIO: f64 = 1.02;
+const H5C_MIN_WINDOW_WIN_FRACTION: f64 = 0.75;
+const NOT_THRESHOLD_COMPLEXITY: f64 = 0.004;
+const AND_TWO_THRESHOLDS_COMPLEXITY: f64 = 0.008;
 const RESOLVERS: [&str; 5] = [
     "reasoning",
     "memory",
@@ -631,7 +638,7 @@ impl CanonicalPassCriteria {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 struct ReproducibilityReport {
     repeats: usize,
     passing_repeats: usize,
@@ -640,20 +647,111 @@ struct ReproducibilityReport {
     interpretation: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 struct ReproducibilitySample {
     index: usize,
     final_verdict: &'static str,
-    canonical_directional_windows: usize,
-    task_profiled_identifiability_gates_pass: bool,
-    surface_control_degraded: bool,
-    permuted_control_degraded: bool,
-    profile_blind_control_degraded: bool,
+    promoted_concepts: usize,
+    transfer_efficiency_ratio: f64,
+    matched_budget_controls_pass: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct CandidateOperator {
+    name: &'static str,
+    complexity_penalty: f64,
+}
+
+#[derive(Debug, Serialize)]
+struct H5CConceptReport {
+    id: u64,
+    predicate: String,
+    resolver: String,
+    future_support: usize,
+    dominant_future_margin_direction: &'static str,
+    margin_direction_purity: f64,
+}
+
+#[derive(Debug, Serialize)]
+struct H5CGates {
+    h5b_task_profiled_prerequisite_passed: bool,
+    visible_kind_unresolved: bool,
+    fixed_width_features: bool,
+    original_residual_length_unavailable: bool,
+    promoted_non_memory_concept: bool,
+    training_support_floor: bool,
+    holdout_support_floor: bool,
+    positive_holdout_gain: bool,
+    beats_non_memory_parent: bool,
+    beats_parent_plus_frozen_memory_baseline: bool,
+    future_window_wins: bool,
+    worst_window_retention: bool,
+    beats_random_control: bool,
+    beats_permuted_fixed_feature_control: bool,
+    exact_proposal_budget_controls: bool,
+    exact_route_budget_controls: bool,
+    future_margin_direction_purity: bool,
+}
+
+impl H5CGates {
+    fn passed_count(&self) -> usize {
+        [
+            self.h5b_task_profiled_prerequisite_passed,
+            self.visible_kind_unresolved,
+            self.fixed_width_features,
+            self.original_residual_length_unavailable,
+            self.promoted_non_memory_concept,
+            self.training_support_floor,
+            self.holdout_support_floor,
+            self.positive_holdout_gain,
+            self.beats_non_memory_parent,
+            self.beats_parent_plus_frozen_memory_baseline,
+            self.future_window_wins,
+            self.worst_window_retention,
+            self.beats_random_control,
+            self.beats_permuted_fixed_feature_control,
+            self.exact_proposal_budget_controls,
+            self.exact_route_budget_controls,
+            self.future_margin_direction_purity,
+        ]
+        .into_iter()
+        .filter(|passed| *passed)
+        .count()
+    }
+
+    fn all_pass(&self) -> bool {
+        self.passed_count() == 17
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct H5CReport {
+    status: &'static str,
+    candidate_operators: Vec<CandidateOperator>,
+    retained_non_memory_observations: usize,
+    retained_window_observations: Vec<usize>,
+    feature_width: usize,
+    promoted_concepts: Vec<H5CConceptReport>,
+    proposal_evaluations: usize,
+    future_route_evaluations: usize,
+    non_memory_parent_future_efficiency: f64,
+    induced_future_efficiency: f64,
+    induced_vs_non_memory_parent: f64,
+    parent_plus_frozen_memory_future_efficiency: f64,
+    induced_vs_parent_plus_frozen_memory: f64,
+    window_win_fraction: f64,
+    worst_window_ratio: f64,
+    controls: Vec<ControlReport>,
+    gates: H5CGates,
+    gates_passed: usize,
+    gates_total: usize,
+    final_verdict: &'static str,
 }
 
 #[derive(Debug, Serialize)]
 struct Report {
     experiment: &'static str,
+    status: &'static str,
     seed: u64,
     observation_source: &'static str,
     visible_charge_kind: &'static str,
@@ -674,6 +772,7 @@ struct Report {
     task_profile_permutation_control: H5BReport,
     profile_blind_control: H5BReport,
     pass_criteria: CanonicalPassCriteria,
+    h5c: H5CReport,
     reproducibility: Option<ReproducibilityReport>,
     final_verdict: &'static str,
     supported_conclusion: &'static str,
@@ -693,10 +792,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     report.reproducibility = Some(reproducibility);
 
     println!("{}", serde_json::to_string_pretty(&report)?);
-    println!(
-        "H5 task-profiled non-memory diagnostic: {}",
-        report.final_verdict
-    );
+    println!("H5-C non-memory ontology probe: {}", report.final_verdict);
     Ok(())
 }
 
@@ -816,15 +912,13 @@ fn build_report() -> Result<Report, Box<dyn Error>> {
         no_hidden_label_leakage_detected: leakage.no_hidden_label_leakage_detected,
         verifier_contract_tests_required: true,
     };
-    let final_verdict = if pass_criteria.passed() {
-        "PASS"
-    } else {
-        "FAIL"
-    };
+    let h5c = build_h5c_report(&windows, pass_criteria.passed())?;
+    let final_verdict = h5c.final_verdict;
 
     let total_real_emitter_observations = windows.iter().map(Vec::len).sum::<usize>();
     Ok(Report {
-        experiment: "H5 task-profiled non-memory diagnostic",
+        experiment: "H5-C non-memory ontology probe",
+        status: "COMPLETE_VERDICT",
         seed: SEED,
         observation_source: "real Starfire subsystem outputs -> Environment objective feedback -> OutcomeWitness -> RelativeImprovementJudge -> CognitiveCycleState",
         visible_charge_kind: "Custom(unresolved)",
@@ -845,32 +939,321 @@ fn build_report() -> Result<Report, Box<dyn Error>> {
         task_profile_permutation_control: permuted_control,
         profile_blind_control,
         pass_criteria,
+        h5c,
         reproducibility: None,
         final_verdict,
-        supported_conclusion: "A PASS supports only that a frozen task-profiled verifier exposes stable opposing non-memory resolver regimes under matched-budget controls strongly enough to justify a diagnostic H5-C ontology-induction experiment. It is not proof of a discovered ontology.",
+        supported_conclusion: "A PASS would support only that a frozen shadow ontology over fixed-width H4-retained non-memory CHARGE features recovered a transferable resolver distinction under exact matched-budget controls. It would not be AGI evidence or live-promotion authority.",
     })
+}
+
+fn build_h5c_report(
+    windows: &[Vec<LabeledObservation>],
+    h5b_prerequisite_passed: bool,
+) -> Result<H5CReport, Box<dyn Error>> {
+    let retained_windows = retained_task_profiled_windows(windows);
+    let retained_window_observations = retained_windows.iter().map(Vec::len).collect::<Vec<_>>();
+    let feature_width = retained_windows
+        .iter()
+        .flat_map(|window| window.iter())
+        .map(|observation| observation.charge.residual.len())
+        .next()
+        .unwrap_or(0);
+    let retained_non_memory_observations = retained_window_observations.iter().sum::<usize>();
+    let visible_kind_unresolved = retained_windows.iter().flatten().all(|observation| {
+        matches!(&observation.charge.kind, ChargeKind::Custom(kind) if kind == "unresolved")
+    });
+    let fixed_width_features = feature_width > 0
+        && retained_windows
+            .iter()
+            .flatten()
+            .all(|observation| observation.charge.residual.len() == feature_width);
+
+    let train = retained_windows[..TRAIN_WINDOWS]
+        .iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    let holdout = retained_windows[TRAIN_WINDOWS..TRAIN_WINDOWS + HOLDOUT_WINDOWS]
+        .iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    let future = retained_windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..].to_vec();
+
+    let mut monitor = ShadowPromotionMonitor::new(h5c_config())?;
+    for window in retained_windows.clone() {
+        monitor.observe_window(window)?;
+    }
+    if monitor.status() != ShadowPromotionStatus::AwaitingMatchedBudgetControls {
+        return Err("H5-C monitor did not complete transfer windows".into());
+    }
+    let budget = monitor
+        .required_control_budget()
+        .ok_or("H5-C monitor did not expose control budget")?;
+    let learned = monitor
+        .learned_ontology()
+        .ok_or("H5-C monitor did not expose learned ontology")?;
+    let learned = learned.clone();
+    let transfer = monitor
+        .transfer_summary()
+        .ok_or("H5-C monitor did not expose transfer summary")?;
+
+    let random_control = matched_random_partition_control(
+        &train,
+        &holdout,
+        &future,
+        budget.proposal_evaluations,
+        learned.routes().len() + 1,
+        SEED ^ 0x5241_4e44_4354_524c,
+    );
+    let permuted_control = matched_permuted_feature_control(
+        &train,
+        &holdout,
+        &future,
+        budget.proposal_evaluations,
+        learned.routes().len(),
+        SEED ^ 0x5045_524d_4354_524c,
+    );
+    let assessment =
+        monitor.assess_controls(&[random_control.score.clone(), permuted_control.score.clone()])?;
+
+    let non_memory_parent_future_efficiency =
+        mean_future_efficiency(&future, |_| learned.parent_resolver().to_string());
+    let parent_plus_memory_future_efficiency =
+        parent_plus_frozen_memory_future_efficiency(windows, learned.parent_resolver());
+    let induced_vs_non_memory_parent = safe_ratio(
+        transfer.shadow_efficiency,
+        non_memory_parent_future_efficiency,
+    );
+    let induced_vs_parent_plus_frozen_memory = safe_ratio(
+        transfer.shadow_efficiency,
+        parent_plus_memory_future_efficiency,
+    );
+    let promoted_concepts = h5c_concept_reports(learned.routes(), &future);
+    let training_support_floor = learned
+        .routes()
+        .iter()
+        .all(|route| route.concept.evidence.observations as usize >= MIN_PARTITION_SUPPORT);
+    let holdout_support_floor = learned.routes().iter().all(|route| {
+        holdout
+            .iter()
+            .filter(|observation| route.concept.predicate.matches(&observation.charge))
+            .count()
+            >= MIN_HOLDOUT_SUPPORT
+    });
+    let positive_holdout_gain = learned
+        .routes()
+        .iter()
+        .all(|route| route.concept.evidence.holdout_gain > 0.0);
+    let exact_proposal_budget_controls =
+        [random_control.score.clone(), permuted_control.score.clone()]
+            .iter()
+            .all(|control| control.proposal_evaluations == budget.proposal_evaluations);
+    let exact_route_budget_controls =
+        [random_control.score.clone(), permuted_control.score.clone()]
+            .iter()
+            .all(|control| control.routing_evaluations == budget.routing_evaluations);
+    let future_margin_direction_purity = promoted_concepts
+        .iter()
+        .any(|concept| concept.margin_direction_purity >= 0.70);
+    let beats_random_control = assessment
+        .controls
+        .iter()
+        .find(|control| control.name == "matched_random_partition_search")
+        .is_some_and(|control| control.passed);
+    let beats_permuted_fixed_feature_control = assessment
+        .controls
+        .iter()
+        .find(|control| control.name == "matched_permuted_feature_search")
+        .is_some_and(|control| control.passed);
+
+    let gates = H5CGates {
+        h5b_task_profiled_prerequisite_passed: h5b_prerequisite_passed,
+        visible_kind_unresolved,
+        fixed_width_features,
+        original_residual_length_unavailable: fixed_width_features,
+        promoted_non_memory_concept: !learned.routes().is_empty(),
+        training_support_floor,
+        holdout_support_floor,
+        positive_holdout_gain,
+        beats_non_memory_parent: induced_vs_non_memory_parent >= H5C_MIN_TRANSFER_EFFICIENCY_RATIO,
+        beats_parent_plus_frozen_memory_baseline: induced_vs_parent_plus_frozen_memory
+            >= H5C_MIN_PARENT_PLUS_MEMORY_RATIO,
+        future_window_wins: transfer.window_win_fraction >= H5C_MIN_WINDOW_WIN_FRACTION,
+        worst_window_retention: transfer.worst_window_ratio >= H5C_MIN_WORST_WINDOW_RATIO,
+        beats_random_control,
+        beats_permuted_fixed_feature_control,
+        exact_proposal_budget_controls,
+        exact_route_budget_controls,
+        future_margin_direction_purity,
+    };
+    let gates_passed = gates.passed_count();
+    let final_verdict = if gates.all_pass() { "PASS" } else { "FAIL" };
+
+    Ok(H5CReport {
+        status: "COMPLETE_VERDICT",
+        candidate_operators: candidate_operators(),
+        retained_non_memory_observations,
+        retained_window_observations,
+        feature_width,
+        promoted_concepts,
+        proposal_evaluations: budget.proposal_evaluations,
+        future_route_evaluations: budget.routing_evaluations,
+        non_memory_parent_future_efficiency,
+        induced_future_efficiency: transfer.shadow_efficiency,
+        induced_vs_non_memory_parent,
+        parent_plus_frozen_memory_future_efficiency: parent_plus_memory_future_efficiency,
+        induced_vs_parent_plus_frozen_memory,
+        window_win_fraction: transfer.window_win_fraction,
+        worst_window_ratio: transfer.worst_window_ratio,
+        controls: vec![random_control.report, permuted_control.report],
+        gates,
+        gates_passed,
+        gates_total: 17,
+        final_verdict,
+    })
+}
+
+fn candidate_operators() -> Vec<CandidateOperator> {
+    vec![
+        CandidateOperator {
+            name: "ResidualThreshold",
+            complexity_penalty: COMPLEXITY_PENALTY,
+        },
+        CandidateOperator {
+            name: "Not(ResidualThreshold)",
+            complexity_penalty: NOT_THRESHOLD_COMPLEXITY,
+        },
+        CandidateOperator {
+            name: "And(ResidualThreshold, ResidualThreshold)",
+            complexity_penalty: AND_TWO_THRESHOLDS_COMPLEXITY,
+        },
+    ]
+}
+
+fn h5c_config() -> ShadowPromotionConfig {
+    ShadowPromotionConfig {
+        training_windows: TRAIN_WINDOWS,
+        holdout_windows: HOLDOUT_WINDOWS,
+        transfer_windows: TRANSFER_WINDOWS,
+        min_promoted_concepts: 1,
+        min_transfer_efficiency_ratio: H5C_MIN_TRANSFER_EFFICIENCY_RATIO,
+        min_transfer_win_fraction: H5C_MIN_WINDOW_WIN_FRACTION,
+        min_worst_window_ratio: H5C_MIN_WORST_WINDOW_RATIO,
+        min_control_efficiency_ratio: H5C_MIN_CONTROL_EFFICIENCY_RATIO,
+        induction: EmpiricalInductionConfig {
+            max_concepts: MAX_CONCEPTS,
+            min_partition_support: MIN_PARTITION_SUPPORT,
+            min_holdout_support: MIN_HOLDOUT_SUPPORT,
+            max_thresholds_per_dimension: MAX_THRESHOLDS_PER_DIMENSION,
+            complexity_penalty: COMPLEXITY_PENALTY,
+            promotion: PromotionCriteria {
+                min_observations: MIN_PROMOTION_OBSERVATIONS,
+                min_holdout_gain: MIN_PROMOTION_HOLDOUT_GAIN,
+                min_total_utility_gain: MIN_PROMOTION_UTILITY_GAIN,
+            },
+        },
+    }
+}
+
+fn retained_task_profiled_windows(
+    windows: &[Vec<LabeledObservation>],
+) -> Vec<Vec<OntologyObservation>> {
+    let memory_predicate = h4_memory_predicate();
+    windows
+        .iter()
+        .map(|window| {
+            window
+                .iter()
+                .filter(|observation| !memory_predicate.matches(&observation.observation.charge))
+                .map(|observation| observation.task_profiled_fixed_observation.clone())
+                .collect()
+        })
+        .collect()
+}
+
+fn parent_plus_frozen_memory_future_efficiency(
+    windows: &[Vec<LabeledObservation>],
+    non_memory_parent_resolver: &str,
+) -> f64 {
+    let memory_predicate = h4_memory_predicate();
+    let mut score = 0.0;
+    let mut count = 0usize;
+    for window in &windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..] {
+        for observation in window {
+            let resolver = if memory_predicate.matches(&observation.observation.charge) {
+                "memory"
+            } else {
+                non_memory_parent_resolver
+            };
+            score += resolver_score(&observation.task_profiled_fixed_observation, resolver);
+            count += 1;
+        }
+    }
+    score / count.max(1) as f64
+}
+
+fn h5c_concept_reports(
+    routes: &[star::charge::ConceptRoute],
+    future: &[Vec<OntologyObservation>],
+) -> Vec<H5CConceptReport> {
+    routes
+        .iter()
+        .map(|route| {
+            let matched = future
+                .iter()
+                .flat_map(|window| window.iter())
+                .filter(|observation| route.concept.predicate.matches(&observation.charge))
+                .collect::<Vec<_>>();
+            let mut positive = 0usize;
+            let mut negative = 0usize;
+            for observation in &matched {
+                let margin = resolver_margin(observation);
+                if margin >= 0.10 {
+                    positive += 1;
+                } else if margin <= -0.10 {
+                    negative += 1;
+                }
+            }
+            let dominant_future_margin_direction = if positive >= negative {
+                "reasoning_positive"
+            } else {
+                "causal_negative"
+            };
+            let margin_direction_purity =
+                positive.max(negative) as f64 / matched.len().max(1) as f64;
+            H5CConceptReport {
+                id: route.concept.id.as_u64(),
+                predicate: format!("{:?}", route.concept.predicate),
+                resolver: route.resolver.clone(),
+                future_support: matched.len(),
+                dominant_future_margin_direction,
+                margin_direction_purity,
+            }
+        })
+        .collect()
+}
+
+fn safe_ratio(numerator: f64, denominator: f64) -> f64 {
+    if denominator.abs() <= f64::EPSILON {
+        if numerator.abs() <= f64::EPSILON {
+            1.0
+        } else {
+            f64::INFINITY
+        }
+    } else {
+        numerator / denominator
+    }
 }
 
 fn reproducibility_sample(index: usize, report: &Report) -> ReproducibilitySample {
     ReproducibilitySample {
         index,
         final_verdict: report.final_verdict,
-        canonical_directional_windows: report
-            .canonical_task_profiled
-            .assessment
-            .directional_windows,
-        task_profiled_identifiability_gates_pass: report
-            .pass_criteria
-            .task_profiled_identifiability_gates_pass,
-        surface_control_degraded: report
-            .pass_criteria
-            .surface_verifier_control_materially_weaker,
-        permuted_control_degraded: report
-            .pass_criteria
-            .permuted_task_profile_control_materially_degrades,
-        profile_blind_control_degraded: report
-            .pass_criteria
-            .profile_blind_control_materially_degrades,
+        promoted_concepts: report.h5c.promoted_concepts.len(),
+        transfer_efficiency_ratio: report.h5c.induced_vs_non_memory_parent,
+        matched_budget_controls_pass: report.h5c.gates.beats_random_control
+            && report.h5c.gates.beats_permuted_fixed_feature_control,
     }
 }
 
@@ -2090,4 +2473,21 @@ fn remove_sqlite_files(path: &Path) {
     let _ = std::fs::remove_file(path);
     let _ = std::fs::remove_file(format!("{}-wal", path.display()));
     let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn h5c_report_is_complete_after_source_preparation() {
+        let report = build_report().expect("H5-C report should build");
+
+        assert_eq!(report.experiment, "H5-C non-memory ontology probe");
+        assert_eq!(report.status, "COMPLETE_VERDICT");
+        assert_eq!(report.h5c.status, "COMPLETE_VERDICT");
+        assert_ne!(report.final_verdict, "NOT_RUN");
+        assert!(report.h5c.retained_non_memory_observations > 0);
+        assert_eq!(report.h5c.gates_total, 17);
+    }
 }
