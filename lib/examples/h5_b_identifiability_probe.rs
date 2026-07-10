@@ -395,7 +395,6 @@ fn resolver_efficiency(observation: &OntologyObservation, resolver: &str) -> f64
         .iter()
         .map(|outcome| {
             (outcome.discharged as f64 / observation.charge.magnitude as f64)
-                .clamp(0.0, 1.0)
                 / outcome.compute_cost as f64
         })
         .sum::<f64>()
