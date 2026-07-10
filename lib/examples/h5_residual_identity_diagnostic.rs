@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use rand::prelude::*;
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -7,19 +9,18 @@ use std::path::{Path, PathBuf};
 
 use star::causal::CausalEngine;
 use star::charge::{
-    knowledge_gap_charge, ontology_feature_charge, prediction_contradiction_charge, Charge,
-    ChargeKind, ConceptPredicate, Direction, EmpiricalInductionConfig, ImprovementDirection,
-    OntologyObservation, OutcomeWitness, PromotionCriteria, QuanotTrajectoryEmitter,
-    RelativeImprovementJudge, Resolution, ShadowControlScore, ShadowPromotionConfig,
-    ShadowPromotionMonitor, ShadowPromotionStatus,
+    assess_resolver_identifiability, fixed_residual_feature_charge, knowledge_gap_charge,
+    ontology_feature_charge, prediction_contradiction_charge, Charge, ChargeKind, ConceptPredicate,
+    Direction, EmpiricalInductionConfig, FixedResidualProjectionConfig, IdentifiabilityAssessment,
+    IdentifiabilityCriteria, ImprovementDirection, OntologyObservation, OutcomeWitness,
+    PromotionCriteria, QuanotTrajectoryEmitter, RelativeImprovementJudge, Resolution,
+    ShadowControlScore, ShadowPromotionConfig, ShadowPromotionMonitor, ShadowPromotionStatus,
 };
 use star::cognitive_cycle::{CycleObservationRecorder, JudgedResolverAttempt};
 use star::environment::{Environment, ObjectiveFeedback, Step};
 use star::metacog::{KnowledgeGap, MetaCognition};
 use star::persistence::{Memory, MemoryDomain, Store};
-use star::prediction::{
-    ConversationContext, Evidence, PredictionCenter, PredictionOutcome,
-};
+use star::prediction::{ConversationContext, Evidence, PredictionCenter, PredictionOutcome};
 use star::quanot::Quanot;
 use star::reasoning::ReasoningEngine;
 
@@ -157,7 +158,8 @@ const FAMILIES: [TaskFamily; TRAIN_WINDOWS + HOLDOUT_WINDOWS + TRANSFER_WINDOWS]
         gap_target: "Plants absorb carbon dioxide during photosynthesis.",
         contradiction_topic: "moonlight",
         contradiction_prompt: "Does the Moon produce its own visible light?",
-        contradiction_target: "The Moon reflects sunlight and does not produce its own visible light.",
+        contradiction_target:
+            "The Moon reflects sunlight and does not produce its own visible light.",
         trajectory_topic: "insufficient coolant",
         trajectory_prompt: "Why does insufficient coolant cause thermal throttling?",
         trajectory_target: "Insufficient coolant causes higher temperature and thermal throttling.",
@@ -171,7 +173,8 @@ const FAMILIES: [TaskFamily; TRAIN_WINDOWS + HOLDOUT_WINDOWS + TRANSFER_WINDOWS]
         gap_target: "A compiler translates source code into machine code.",
         contradiction_topic: "borrow checker",
         contradiction_prompt: "Does Rust's borrow checker enforce ownership only at runtime?",
-        contradiction_target: "Rust's borrow checker enforces many ownership rules at compile time, not only runtime.",
+        contradiction_target:
+            "Rust's borrow checker enforces many ownership rules at compile time, not only runtime.",
         trajectory_topic: "packet loss",
         trajectory_prompt: "Why does packet loss increase network latency?",
         trajectory_target: "Packet loss causes retransmission and increased latency.",
@@ -185,7 +188,8 @@ const FAMILIES: [TaskFamily; TRAIN_WINDOWS + HOLDOUT_WINDOWS + TRANSFER_WINDOWS]
         gap_target: "Mitochondria produce most cellular ATP.",
         contradiction_topic: "glass",
         contradiction_prompt: "Is ordinary glass a slowly flowing liquid at room temperature?",
-        contradiction_target: "Ordinary glass is an amorphous solid, not a slowly flowing liquid at room temperature.",
+        contradiction_target:
+            "Ordinary glass is an amorphous solid, not a slowly flowing liquid at room temperature.",
         trajectory_topic: "low pipe pressure",
         trajectory_prompt: "Why does low pipe pressure reduce flow?",
         trajectory_target: "Low pipe pressure causes reduced flow.",
@@ -198,8 +202,10 @@ const FAMILIES: [TaskFamily; TRAIN_WINDOWS + HOLDOUT_WINDOWS + TRANSFER_WINDOWS]
         gap_prompt: "What does HTTP status 404 indicate?",
         gap_target: "HTTP status 404 indicates that a resource was not found.",
         contradiction_topic: "seasons",
-        contradiction_prompt: "Are Earth's seasons caused mainly by changing distance from the Sun?",
-        contradiction_target: "Earth's seasons are caused mainly by axial tilt, not changing distance from the Sun.",
+        contradiction_prompt:
+            "Are Earth's seasons caused mainly by changing distance from the Sun?",
+        contradiction_target:
+            "Earth's seasons are caused mainly by axial tilt, not changing distance from the Sun.",
         trajectory_topic: "combustion",
         trajectory_prompt: "Why does combustion produce heat?",
         trajectory_target: "Combustion causes heat release.",
@@ -265,7 +271,15 @@ const CANDIDATES: [Candidate; 5] = [
 #[derive(Debug, Clone)]
 struct LabeledObservation {
     observation: OntologyObservation,
+    fixed_observation: OntologyObservation,
+    profiled_fixed_observation: OntologyObservation,
     hidden: EventClass,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VerifierProfile {
+    SurfaceCoverage,
+    TaskProfiled,
 }
 
 struct ProbeState {
@@ -318,16 +332,20 @@ impl Drop for ProbeState {
 struct TargetVerifierEnvironment {
     prompt: String,
     target: String,
+    class: EventClass,
+    profile: VerifierProfile,
     progress: f64,
     solved: bool,
     evidence: Vec<String>,
 }
 
 impl TargetVerifierEnvironment {
-    fn new(prompt: &str, target: &str) -> Self {
+    fn new(task: &ProbeTask, profile: VerifierProfile) -> Self {
         Self {
-            prompt: prompt.to_string(),
-            target: target.to_string(),
+            prompt: task.prompt.clone(),
+            target: task.target.clone(),
+            class: task.class,
+            profile,
             progress: 0.0,
             solved: false,
             evidence: vec!["episode reset before resolver action".into()],
@@ -351,11 +369,16 @@ impl Environment for TargetVerifierEnvironment {
     }
 
     fn act(&mut self, action: &Self::Action) -> Step<Self::Observation> {
-        self.progress = resolution_score(action, &self.target);
+        self.progress = match self.profile {
+            VerifierProfile::SurfaceCoverage => resolution_score(action, &self.target),
+            VerifierProfile::TaskProfiled => {
+                profiled_resolution_score(action, &self.target, self.class)
+            }
+        };
         self.solved = self.progress >= SOLVE_SCORE;
         self.evidence = vec![format!(
-            "target verifier measured coverage={:.6} solved={}",
-            self.progress, self.solved
+            "target verifier profile={:?} measured coverage={:.6} solved={}",
+            self.profile, self.progress, self.solved
         )];
         Step::new(action.clone(), 1, true)
     }
@@ -465,12 +488,62 @@ impl GateReport {
 }
 
 #[derive(Debug, Serialize)]
+struct ShadowViewReport {
+    name: &'static str,
+    residual_adapter: &'static str,
+    promoted_concepts: usize,
+    proposal_budget: usize,
+    future_routing_budget: usize,
+    future_efficiency: f64,
+    baseline_efficiency: f64,
+    future_baseline_ratio: f64,
+    window_win_fraction: f64,
+    worst_window_ratio: f64,
+    status_before_controls: String,
+}
+
+#[derive(Debug, Serialize)]
+struct H5AGates {
+    fixed_retains_h4_utility: bool,
+    fixed_beats_fixed_permuted: bool,
+    fixed_permuted_below_h4_permuted: bool,
+    fixed_beats_baseline: bool,
+}
+
+impl H5AGates {
+    fn all_pass(&self) -> bool {
+        self.fixed_retains_h4_utility
+            && self.fixed_beats_fixed_permuted
+            && self.fixed_permuted_below_h4_permuted
+            && self.fixed_beats_baseline
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct H5AReport {
+    h4_variable: ShadowViewReport,
+    h4_variable_permuted: ShadowViewReport,
+    h5_fixed: ShadowViewReport,
+    h5_fixed_permuted: ShadowViewReport,
+    gates: H5AGates,
+    interpretation: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct H5BReport {
+    excluded_by_h4_memory_predicate: usize,
+    retained_non_memory: usize,
+    excluded_hidden_distribution: BTreeMap<EventClass, usize>,
+    retained_hidden_distribution: BTreeMap<EventClass, usize>,
+    assessment: IdentifiabilityAssessment,
+}
+
+#[derive(Debug, Serialize)]
 struct Report {
     experiment: &'static str,
     seed: u64,
     observation_source: &'static str,
     visible_charge_kind: &'static str,
-    residual_adapter: &'static str,
     train_windows: usize,
     holdout_windows: usize,
     future_transfer_windows: usize,
@@ -479,18 +552,9 @@ struct Report {
     total_real_emitter_observations: usize,
     total_judged_cycle_attempts: usize,
     emitter_counts: BTreeMap<String, usize>,
-    proposal_budget: usize,
-    future_routing_budget: usize,
-    concepts: Vec<ConceptReport>,
-    transfer_windows: Vec<TransferWindowReport>,
-    transfer_efficiency_ratio: f64,
-    transfer_window_win_fraction: f64,
-    worst_window_ratio: f64,
-    controls: Vec<ControlReport>,
-    gate_thresholds: BTreeMap<&'static str, f64>,
-    gates: GateReport,
-    status: String,
-    pass: bool,
+    h5a: H5AReport,
+    h5b: H5BReport,
+    h5b_task_profiled: H5BReport,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -499,6 +563,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut next_id = 1u64;
     let mut emitter_counts = BTreeMap::<String, usize>::new();
     let mut total_judged_cycle_attempts = 0usize;
+    let fixed_config = FixedResidualProjectionConfig::default();
 
     let mut windows = Vec::<Vec<LabeledObservation>>::new();
     for family_index in 0..FAMILIES.len() {
@@ -511,12 +576,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                 charge.kind = ChargeKind::Custom("unresolved".into());
                 charge.id = next_id;
                 next_id += 1;
-                let charge = ontology_feature_charge(&charge);
-                let attempts = judged_component_attempts(&charge, &task, &state)?;
-                total_judged_cycle_attempts += attempts.len();
-                let observation = recorder.record(charge, &attempts)?;
+                let variable_charge = ontology_feature_charge(&charge);
+                let fixed_charge = fixed_residual_feature_charge(&charge, fixed_config);
+                let attempts = judged_component_attempts(
+                    &variable_charge,
+                    &task,
+                    &state,
+                    VerifierProfile::SurfaceCoverage,
+                )?;
+                let profiled_attempts = judged_component_attempts(
+                    &fixed_charge,
+                    &task,
+                    &state,
+                    VerifierProfile::TaskProfiled,
+                )?;
+                total_judged_cycle_attempts += attempts.len() + profiled_attempts.len();
+                let observation = recorder.record(variable_charge, &attempts)?;
+                let fixed_observation = recorder.record(fixed_charge.clone(), &attempts)?;
+                let profiled_fixed_observation =
+                    recorder.record(fixed_charge, &profiled_attempts)?;
                 window.push(LabeledObservation {
                     observation,
+                    fixed_observation,
+                    profiled_fixed_observation,
                     hidden: class,
                 });
             }
@@ -524,143 +606,66 @@ fn main() -> Result<(), Box<dyn Error>> {
         windows.push(window);
     }
 
-    let config = frozen_config();
-    let mut monitor = ShadowPromotionMonitor::new(config)?;
-    for window in &windows {
-        monitor.observe_window(
-            window
-                .iter()
-                .map(|observation| observation.observation.clone())
-                .collect(),
-        )?;
-    }
+    let variable_windows = plain_windows(&windows);
+    let fixed_windows = fixed_plain_windows(&windows);
+    let h4_variable = run_shadow_view(
+        "h4_variable",
+        "[rms, mean_abs, non_zero_fraction, positive_fraction, max_abs, ...raw residual]",
+        &variable_windows,
+    )?;
+    let h4_variable_permuted = run_shadow_view(
+        "h4_variable_permuted",
+        "H4 variable representation with independently permuted visible features",
+        &permuted_windows(&variable_windows, SEED ^ 0x4835_a),
+    )?;
+    let h5_fixed = run_shadow_view(
+        "h5_fixed",
+        "fixed-width residual projection; no raw residual length or masks",
+        &fixed_windows,
+    )?;
+    let h5_fixed_permuted = run_shadow_view(
+        "h5_fixed_permuted",
+        "fixed-width residual projection with independently permuted visible features",
+        &permuted_windows(&fixed_windows, SEED ^ 0x4835_b),
+    )?;
 
-    if monitor.status() != ShadowPromotionStatus::AwaitingMatchedBudgetControls {
-        return Err("shadow monitor did not reach matched-budget control gate".into());
-    }
-
-    let budget = monitor
-        .required_control_budget()
-        .ok_or("shadow monitor did not expose a control budget")?;
-    let training = flatten_plain(&windows[..TRAIN_WINDOWS]);
-    let holdout = flatten_plain(&windows[TRAIN_WINDOWS..TRAIN_WINDOWS + HOLDOUT_WINDOWS]);
-    let future = plain_windows(&windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..]);
-let concept_count = monitor
-        .learned_ontology()
-        .ok_or("shadow monitor did not fit an ontology")?
-        .routes()
-        .len();
-    let random = matched_random_partition_control(
-        &training,
-        &holdout,
-        &future,
-        budget.proposal_evaluations,
-        concept_count + 1,
-        SEED ^ 0xa11c_e,
-    );
-    let permuted = matched_permuted_feature_control(
-        &training,
-        &holdout,
-        &future,
-        budget.proposal_evaluations,
-        concept_count,
-        SEED ^ 0x55aa_55aa,
-    );
-    let controls = vec![random, permuted];
-    let control_scores: Vec<ShadowControlScore> =
-        controls.iter().map(|control| control.score.clone()).collect();
-    let assessment = monitor.assess_controls(&control_scores)?.clone();
-
-    let future_labeled = &windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..];
-    let ontology = monitor.learned_ontology().unwrap();
-    let mut earlier_predicates = Vec::<ConceptPredicate>::new();
-    let mut concepts = Vec::new();
-    for route in ontology.routes() {
-        let members: Vec<&LabeledObservation> = future_labeled
-            .iter()
-            .flat_map(|window| window.iter())
-            .filter(|observation| {
-                !earlier_predicates
-                    .iter()
-                    .any(|predicate| predicate.matches(&observation.observation.charge))
-                    && route
-                        .concept
-                        .predicate
-                        .matches(&observation.observation.charge)
-            })
-            .collect();
-        let (dominant_future_hidden_class, effective_future_purity) = dominant_hidden(&members);
-        concepts.push(ConceptReport {
-            id: route.concept.id.as_u64(),
-            predicate: format!("{:?}", route.concept.predicate),
-            resolver: route.resolver.clone(),
-            effective_future_support: members.len(),
-            dominant_future_hidden_class,
-            effective_future_purity,
-        });
-        earlier_predicates.push(route.concept.predicate.clone());
-    }
-
-    let transfer_families = &FAMILIES[TRAIN_WINDOWS + HOLDOUT_WINDOWS..];
-    let transfer_windows = monitor
-        .transfer_windows()
-        .iter()
-        .zip(transfer_families.iter())
-        .enumerate()
-        .map(|(index, (metrics, family))| TransferWindowReport {
-            index,
-            family: format!(
-                "{} | {} | {}",
-                family.gap_topic, family.contradiction_topic, family.trajectory_topic
-            ),
-            shadow_efficiency: metrics.shadow_efficiency,
-            baseline_efficiency: metrics.baseline_efficiency,
-            efficiency_ratio: metrics.efficiency_ratio,
-        })
-        .collect();
-
-    let total_real_emitter_observations = windows.iter().map(Vec::len).sum::<usize>();
-    let all_visible_unresolved = windows.iter().flatten().all(|observation| {
-        observation.observation.charge.kind == ChargeKind::Custom("unresolved".into())
-    });
-    let complete_judged_outcome_matrix = windows.iter().flatten().all(|observation| {
-        observation.observation.outcomes.len() == CANDIDATES.len()
-            && observation
-                .observation
-                .outcomes
-                .iter()
-                .all(|outcome| outcome.compute_cost > 0 && outcome.discharged >= 0.0)
-    }) && total_judged_cycle_attempts == total_real_emitter_observations * CANDIDATES.len();
-    let real_emitters_only = emitter_counts.len() == CLASS_COUNT
-        && emitter_counts
-            .values()
-            .all(|count| *count == FAMILIES.len() * REPEATS_PER_CLASS);
-
-    let gates = GateReport {
-        real_emitters_only,
-        all_visible_unresolved,
-        complete_judged_outcome_matrix,
-        promoted_concepts: assessment.criteria.promoted_concepts,
-        transfer_efficiency: assessment.criteria.transfer_efficiency,
-        transfer_window_wins: assessment.criteria.transfer_window_wins,
-        worst_window: assessment.criteria.worst_window,
-        matched_budget_controls: assessment.criteria.matched_budget_controls,
+    let h5a_gates = H5AGates {
+        fixed_retains_h4_utility: h5_fixed.future_efficiency
+            >= 0.90 * h4_variable.future_efficiency,
+        fixed_beats_fixed_permuted: h5_fixed.future_efficiency
+            >= 1.15 * h5_fixed_permuted.future_efficiency,
+        fixed_permuted_below_h4_permuted: h5_fixed_permuted.future_efficiency
+            <= 0.90 * h4_variable_permuted.future_efficiency,
+        fixed_beats_baseline: h5_fixed.future_efficiency >= 1.25 * h5_fixed.baseline_efficiency,
+    };
+    let interpretation = if h5a_gates.all_pass() {
+        "H5-A supports residual-shape leakage as a material H4 confound"
+    } else if h5_fixed.future_efficiency < 0.90 * h4_variable.future_efficiency
+        && h5_fixed_permuted.future_efficiency < 0.90 * h4_variable_permuted.future_efficiency
+    {
+        "fixed-width normalization removed utility from both real and permuted views"
+    } else if h5_fixed_permuted.future_efficiency > 0.90 * h4_variable_permuted.future_efficiency {
+        "fixed-width permuted control retained utility; residual length is not the main explanation"
+    } else {
+        "mixed H5-A result; inspect fixed representation and outcome matrix before ontology work"
     };
 
-    let mut gate_thresholds = BTreeMap::new();
-    gate_thresholds.insert("min_control_efficiency_ratio", MIN_CONTROL_EFFICIENCY_RATIO);
-    gate_thresholds.insert("min_transfer_efficiency_ratio", MIN_TRANSFER_EFFICIENCY_RATIO);
-    gate_thresholds.insert("min_transfer_win_fraction", MIN_TRANSFER_WIN_FRACTION);
-    gate_thresholds.insert("min_worst_window_ratio", MIN_WORST_WINDOW_RATIO);
+    let (non_memory_future, h5b_report_base) = non_memory_future_windows(&windows);
+    let h5b_assessment =
+        assess_resolver_identifiability(&non_memory_future, IdentifiabilityCriteria::h5_default());
+    let (profiled_non_memory_future, h5b_profiled_report_base) =
+        profiled_non_memory_future_windows(&windows);
+    let h5b_task_profiled_assessment = assess_resolver_identifiability(
+        &profiled_non_memory_future,
+        IdentifiabilityCriteria::h5_default(),
+    );
 
-    let pass = assessment.status == ShadowPromotionStatus::Eligible && gates.all_pass();
-
+    let total_real_emitter_observations = windows.iter().map(Vec::len).sum::<usize>();
     let report = Report {
-        experiment: "H4 real closed-cycle shadow latent-concept transfer",
+        experiment: "H5 residual identity and non-memory resolver identifiability diagnostic",
         seed: SEED,
         observation_source: "real Starfire subsystem outputs -> Environment objective feedback -> OutcomeWitness -> RelativeImprovementJudge -> CognitiveCycleState",
         visible_charge_kind: "Custom(unresolved)",
-        residual_adapter: "[rms, mean_abs, non_zero_fraction, positive_fraction, max_abs, ...raw residual]; no kind/scope/emitter labels",
         train_windows: TRAIN_WINDOWS,
         holdout_windows: HOLDOUT_WINDOWS,
         future_transfer_windows: TRANSFER_WINDOWS,
@@ -669,24 +674,31 @@ let concept_count = monitor
         total_real_emitter_observations,
         total_judged_cycle_attempts,
         emitter_counts,
-        proposal_budget: assessment.budget.proposal_evaluations,
-        future_routing_budget: assessment.budget.routing_evaluations,
-        concepts,
-        transfer_windows,
-        transfer_efficiency_ratio: assessment.transfer.efficiency_ratio,
-        transfer_window_win_fraction: assessment.transfer.window_win_fraction,
-        worst_window_ratio: assessment.transfer.worst_window_ratio,
-        controls: controls.into_iter().map(|control| control.report).collect(),
-        gate_thresholds,
-        gates,
-        status: format!("{:?}", assessment.status),
-        pass,
+        h5a: H5AReport {
+            h4_variable,
+            h4_variable_permuted,
+            h5_fixed,
+            h5_fixed_permuted,
+            gates: h5a_gates,
+            interpretation,
+        },
+        h5b: H5BReport {
+            excluded_by_h4_memory_predicate: h5b_report_base.0,
+            retained_non_memory: h5b_report_base.1,
+            excluded_hidden_distribution: h5b_report_base.2,
+            retained_hidden_distribution: h5b_report_base.3,
+            assessment: h5b_assessment,
+        },
+        h5b_task_profiled: H5BReport {
+            excluded_by_h4_memory_predicate: h5b_profiled_report_base.0,
+            retained_non_memory: h5b_profiled_report_base.1,
+            excluded_hidden_distribution: h5b_profiled_report_base.2,
+            retained_hidden_distribution: h5b_profiled_report_base.3,
+            assessment: h5b_task_profiled_assessment,
+        },
     };
 
     println!("{}", serde_json::to_string_pretty(&report)?);
-    if !report.pass {
-        std::process::exit(1);
-    }
     Ok(())
 }
 
@@ -713,6 +725,174 @@ fn frozen_config() -> ShadowPromotionConfig {
             },
         },
     }
+}
+
+fn run_shadow_view(
+    name: &'static str,
+    residual_adapter: &'static str,
+    windows: &[Vec<OntologyObservation>],
+) -> Result<ShadowViewReport, Box<dyn Error>> {
+    let mut monitor = ShadowPromotionMonitor::new(frozen_config())?;
+    for window in windows {
+        monitor.observe_window(window.clone())?;
+    }
+    if monitor.status() != ShadowPromotionStatus::AwaitingMatchedBudgetControls {
+        return Err(format!("{name} did not reach matched-budget control gate").into());
+    }
+    let summary = monitor
+        .transfer_summary()
+        .ok_or_else(|| format!("{name} did not expose transfer summary"))?;
+    let budget = monitor
+        .required_control_budget()
+        .ok_or_else(|| format!("{name} did not expose control budget"))?;
+    let ontology = monitor
+        .learned_ontology()
+        .ok_or_else(|| format!("{name} did not fit ontology"))?;
+    Ok(ShadowViewReport {
+        name,
+        residual_adapter,
+        promoted_concepts: ontology.summary().promoted_concepts,
+        proposal_budget: budget.proposal_evaluations,
+        future_routing_budget: budget.routing_evaluations,
+        future_efficiency: summary.shadow_efficiency,
+        baseline_efficiency: summary.baseline_efficiency,
+        future_baseline_ratio: summary.efficiency_ratio,
+        window_win_fraction: summary.window_win_fraction,
+        worst_window_ratio: summary.worst_window_ratio,
+        status_before_controls: format!("{:?}", monitor.status()),
+    })
+}
+
+fn fixed_plain_windows(windows: &[Vec<LabeledObservation>]) -> Vec<Vec<OntologyObservation>> {
+    windows
+        .iter()
+        .map(|window| {
+            window
+                .iter()
+                .map(|observation| observation.fixed_observation.clone())
+                .collect()
+        })
+        .collect()
+}
+
+fn permuted_windows(
+    windows: &[Vec<OntologyObservation>],
+    seed: u64,
+) -> Vec<Vec<OntologyObservation>> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let mut permuted = windows.to_vec();
+    for window in &mut permuted {
+        permute_visible_features(window, &mut rng);
+    }
+    permuted
+}
+
+fn h4_memory_predicate() -> ConceptPredicate {
+    ConceptPredicate::ResidualThreshold {
+        dimension: 2,
+        threshold: 0.171875,
+        direction: Direction::AtMost,
+    }
+}
+
+fn non_memory_future_windows(
+    windows: &[Vec<LabeledObservation>],
+) -> (
+    Vec<Vec<OntologyObservation>>,
+    (
+        usize,
+        usize,
+        BTreeMap<EventClass, usize>,
+        BTreeMap<EventClass, usize>,
+    ),
+) {
+    let memory_predicate = h4_memory_predicate();
+    let mut excluded = 0usize;
+    let mut retained = 0usize;
+    let mut excluded_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let mut retained_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let future = windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..]
+        .iter()
+        .map(|window| {
+            window
+                .iter()
+                .filter_map(|observation| {
+                    if memory_predicate.matches(&observation.observation.charge) {
+                        excluded += 1;
+                        *excluded_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        None
+                    } else {
+                        retained += 1;
+                        *retained_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        Some(observation.fixed_observation.clone())
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    (
+        future,
+        (
+            excluded,
+            retained,
+            excluded_hidden_distribution,
+            retained_hidden_distribution,
+        ),
+    )
+}
+
+fn profiled_non_memory_future_windows(
+    windows: &[Vec<LabeledObservation>],
+) -> (
+    Vec<Vec<OntologyObservation>>,
+    (
+        usize,
+        usize,
+        BTreeMap<EventClass, usize>,
+        BTreeMap<EventClass, usize>,
+    ),
+) {
+    let memory_predicate = h4_memory_predicate();
+    let mut excluded = 0usize;
+    let mut retained = 0usize;
+    let mut excluded_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let mut retained_hidden_distribution = BTreeMap::<EventClass, usize>::new();
+    let future = windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..]
+        .iter()
+        .map(|window| {
+            window
+                .iter()
+                .filter_map(|observation| {
+                    if memory_predicate.matches(&observation.observation.charge) {
+                        excluded += 1;
+                        *excluded_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        None
+                    } else {
+                        retained += 1;
+                        *retained_hidden_distribution
+                            .entry(observation.hidden)
+                            .or_default() += 1;
+                        Some(observation.profiled_fixed_observation.clone())
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    (
+        future,
+        (
+            excluded,
+            retained,
+            excluded_hidden_distribution,
+            retained_hidden_distribution,
+        ),
+    )
 }
 
 fn surface_task(family: TaskFamily, class: EventClass, repeat: usize) -> ProbeTask {
@@ -753,7 +933,9 @@ fn emit_real_charge(task: &ProbeTask) -> Result<Charge, Box<dyn Error>> {
         EventClass::KnowledgeGap => {
             let mut metacog = MetaCognition::new();
             metacog.note_gap(KnowledgeGap::new(&task.topic, 0.85));
-            let gap = metacog.top_gap().ok_or("metacognition did not retain gap")?;
+            let gap = metacog
+                .top_gap()
+                .ok_or("metacognition did not retain gap")?;
             knowledge_gap_charge(gap).ok_or_else(|| "gap emitter returned no charge".into())
         }
         EventClass::PredictionContradiction => {
@@ -796,11 +978,12 @@ fn judged_component_attempts(
     charge: &Charge,
     task: &ProbeTask,
     state: &ProbeState,
+    profile: VerifierProfile,
 ) -> Result<Vec<JudgedResolverAttempt>, Box<dyn Error>> {
     let mut attempts = Vec::with_capacity(CANDIDATES.len());
     for (candidate_index, candidate) in CANDIDATES.iter().enumerate() {
         let output = resolve_component(*candidate, task, state)?;
-        let mut environment = TargetVerifierEnvironment::new(&task.prompt, &task.target);
+        let mut environment = TargetVerifierEnvironment::new(task, profile);
         let _ = environment.reset(charge.id ^ candidate_index as u64);
         let before = environment.objective_feedback();
         let step = environment.act(&output);
@@ -945,11 +1128,60 @@ fn resolution_score(output: &str, target: &str) -> f64 {
     score.clamp(0.0, 1.0)
 }
 
+fn profiled_resolution_score(output: &str, target: &str, class: EventClass) -> f64 {
+    let surface = resolution_score(output, target);
+    let output_tokens = token_set(output);
+    let target_tokens = token_set(target);
+    if output_tokens.is_empty() || target_tokens.is_empty() {
+        return surface;
+    }
+
+    match class {
+        EventClass::KnowledgeGap => surface,
+        EventClass::PredictionContradiction => {
+            let negation_match =
+                contains_negation(&output_tokens) == contains_negation(&target_tokens);
+            let correction_overlap = output_tokens.intersection(&target_tokens).count() as f64
+                / target_tokens.len() as f64;
+            let contradiction_score = if negation_match {
+                correction_overlap
+            } else {
+                correction_overlap * 0.2
+            };
+            surface.max(contradiction_score).clamp(0.0, 1.0)
+        }
+        EventClass::QuanotTrajectory => {
+            let mechanism_tokens = [
+                "cause",
+                "causes",
+                "caused",
+                "causing",
+                "increase",
+                "increased",
+                "reduce",
+                "reduced",
+                "higher",
+                "slower",
+                "heat",
+            ];
+            let mechanism_signal = mechanism_tokens
+                .iter()
+                .filter(|token| output_tokens.contains(**token))
+                .count() as f64
+                / 2.0;
+            let effect_overlap = output_tokens.intersection(&target_tokens).count() as f64
+                / target_tokens.len() as f64;
+            let causal_score =
+                (0.70 * effect_overlap + 0.30 * mechanism_signal.min(1.0)).clamp(0.0, 1.0);
+            surface.max(causal_score).clamp(0.0, 1.0)
+        }
+    }
+}
+
 fn token_set(text: &str) -> HashSet<String> {
     const STOPWORDS: [&str; 25] = [
-        "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from",
-        "in", "is", "it", "of", "on", "only", "the", "to", "used", "what", "which", "why",
-        "with",
+        "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "in", "is",
+        "it", "of", "on", "only", "the", "to", "used", "what", "which", "why", "with",
     ];
 
     text.split(|character: char| !character.is_ascii_alphanumeric() && character != '\'')
@@ -1212,7 +1444,9 @@ fn valid_feature_policy_support(
     min_support: usize,
 ) -> bool {
     for (position, predicate) in predicates.iter().enumerate() {
-        if effective_membership(observations, &predicates[..position], predicate).len() < min_support {
+        if effective_membership(observations, &predicates[..position], predicate).len()
+            < min_support
+        {
             return false;
         }
     }
@@ -1253,11 +1487,10 @@ fn parent_indices(
         .collect()
 }
 
-fn feature_policy_efficiency(
-    observations: &[OntologyObservation],
-    policy: &FeaturePolicy,
-) -> f64 {
-    mean_named_efficiency(observations, |observation| policy.route(&observation.charge))
+fn feature_policy_efficiency(observations: &[OntologyObservation], policy: &FeaturePolicy) -> f64 {
+    mean_named_efficiency(observations, |observation| {
+        policy.route(&observation.charge)
+    })
 }
 
 fn resolver_names(observations: &[OntologyObservation]) -> Vec<String> {
@@ -1336,8 +1569,7 @@ fn resolver_score(observation: &OntologyObservation, resolver: &str) -> f64 {
         .iter()
         .filter(|outcome| outcome.resolver == resolver)
     {
-        total += (outcome.discharged as f64 / observation.charge.magnitude as f64)
-            .clamp(0.0, 1.0)
+        total += (outcome.discharged as f64 / observation.charge.magnitude as f64).clamp(0.0, 1.0)
             / outcome.compute_cost as f64;
         attempts += 1;
     }
@@ -1355,21 +1587,21 @@ fn permute_visible_features(observations: &mut [OntologyObservation], rng: &mut 
         .max()
         .unwrap_or(0);
     for dimension in 0..dimensions {
-    let indices: Vec<usize> = observations
-        .iter()
-        .enumerate()
-        .filter(|(_, observation)| observation.charge.residual.len() > dimension)
-        .map(|(index, _)| index)
-        .collect();
-    let mut values: Vec<f32> = indices
-        .iter()
-        .map(|index| observations[*index].charge.residual[dimension])
-        .collect();
-    values.shuffle(rng);
-    for (index, value) in indices.into_iter().zip(values) {
-        observations[index].charge.residual[dimension] = value;
+        let indices: Vec<usize> = observations
+            .iter()
+            .enumerate()
+            .filter(|(_, observation)| observation.charge.residual.len() > dimension)
+            .map(|(index, _)| index)
+            .collect();
+        let mut values: Vec<f32> = indices
+            .iter()
+            .map(|index| observations[*index].charge.residual[dimension])
+            .collect();
+        values.shuffle(rng);
+        for (index, value) in indices.into_iter().zip(values) {
+            observations[index].charge.residual[dimension] = value;
+        }
     }
-}
     let mut persistence: Vec<u32> = observations
         .iter()
         .map(|observation| observation.charge.persistence)
