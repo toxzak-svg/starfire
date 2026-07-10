@@ -66,7 +66,8 @@ jobs:
           cargo run -p star --example h4_shadow_promotion_probe --locked \
             | tee h4-shadow-promotion-report.json
 
-      - name: Run H4 real closed-cycle shadow transfer probe
+      - name: Reproduce frozen H4 real-cycle rejection diagnostically
+        continue-on-error: true
         run: |
           set +e
           cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
@@ -87,6 +88,12 @@ jobs:
           set -o pipefail
           cargo run -p star --example h5_residual_identity_diagnostic --locked 2>&1 \
             | tee h5-residual-identity-diagnostic-report.json
+
+      - name: Run frozen H5-B non-memory identifiability diagnostic
+        run: |
+          set -o pipefail
+          cargo run -p star --example h5_b_identifiability_probe --locked \
+            | tee h5-b-identifiability-report.json
 
       - name: Preserve CHARGE diagnostics and reports
         if: always()
