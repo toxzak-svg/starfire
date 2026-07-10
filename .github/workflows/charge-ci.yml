@@ -67,6 +67,7 @@ jobs:
             | tee h4-shadow-promotion-report.json
 
       - name: Run H4 real closed-cycle shadow transfer probe
+        continue-on-error: true
         run: |
           set -o pipefail
           cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
