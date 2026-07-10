@@ -68,9 +68,25 @@ jobs:
 
       - name: Run H4 real closed-cycle shadow transfer probe
         run: |
-          set -o pipefail
+          set +e
           cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
             | tee h4-real-cycle-shadow-report.json
+          h4_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$h4_status" -ne 0 ]; then
+            if grep -q '"status": "Rejected"' h4-real-cycle-shadow-report.json \
+              && grep -q '"pass": false' h4-real-cycle-shadow-report.json; then
+              echo "H4 real-cycle probe emitted the frozen scientific rejection; continuing."
+            else
+              exit "$h4_status"
+            fi
+          fi
+
+      - name: Run H5 residual identity diagnostic
+        run: |
+          set -o pipefail
+          cargo run -p star --example h5_residual_identity_diagnostic --locked 2>&1 \
+            | tee h5-residual-identity-diagnostic-report.json
 
       - name: Preserve CHARGE diagnostics and reports
         if: always()
@@ -83,5 +99,6 @@ jobs:
             charge-real-component-report.json
             h4-shadow-promotion-report.json
             h4-real-cycle-shadow-report.json
+            h5-residual-identity-diagnostic-report.json
           if-no-files-found: ignore
           retention-days: 7
