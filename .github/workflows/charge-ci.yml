@@ -70,7 +70,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
+          cargo run -p star --example h4_real_cycle_shadow_probe --locked \
             | tee h4-real-cycle-shadow-report.json
 
       - name: Run frozen H5-B non-memory identifiability diagnostic
