@@ -10,11 +10,12 @@ use std::path::{Path, PathBuf};
 use star::causal::CausalEngine;
 use star::charge::{
     assess_resolver_identifiability, fixed_residual_feature_charge, knowledge_gap_charge,
-    ontology_feature_charge, prediction_contradiction_charge, Charge, ChargeKind, ConceptPredicate,
-    Direction, EmpiricalInductionConfig, FixedResidualProjectionConfig, IdentifiabilityAssessment,
-    IdentifiabilityCriteria, ImprovementDirection, OntologyObservation, OutcomeWitness,
-    PromotionCriteria, QuanotTrajectoryEmitter, RelativeImprovementJudge, Resolution,
-    ShadowControlScore, ShadowPromotionConfig, ShadowPromotionMonitor, ShadowPromotionStatus,
+    ontology_feature_charge, prediction_contradiction_charge, score_resolution, Charge, ChargeKind,
+    ConceptPredicate, Direction, EmpiricalInductionConfig, FixedResidualProjectionConfig,
+    IdentifiabilityAssessment, IdentifiabilityCriteria, ImprovementDirection, OntologyObservation,
+    OutcomeWitness, PromotionCriteria, QuanotTrajectoryEmitter, RelativeImprovementJudge,
+    Resolution, ShadowControlScore, ShadowPromotionConfig, ShadowPromotionMonitor,
+    ShadowPromotionStatus, VerifierProfile, VerifierTaskClass,
 };
 use star::cognitive_cycle::{CycleObservationRecorder, JudgedResolverAttempt};
 use star::environment::{Environment, ObjectiveFeedback, Step};
@@ -104,6 +105,14 @@ impl EventClass {
             Self::PredictionContradiction => "prediction_contradiction",
             Self::QuanotTrajectory => "quanot_trajectory",
         }
+    }
+}
+
+fn verifier_task_class(class: EventClass) -> VerifierTaskClass {
+    match class {
+        EventClass::KnowledgeGap => VerifierTaskClass::KnowledgeGap,
+        EventClass::PredictionContradiction => VerifierTaskClass::PredictionContradiction,
+        EventClass::QuanotTrajectory => VerifierTaskClass::CausalMechanism,
     }
 }
 
@@ -276,12 +285,6 @@ struct LabeledObservation {
     hidden: EventClass,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VerifierProfile {
-    SurfaceCoverage,
-    TaskProfiled,
-}
-
 struct ProbeState {
     store: Store,
     reasoning_memories: Vec<Memory>,
@@ -369,12 +372,12 @@ impl Environment for TargetVerifierEnvironment {
     }
 
     fn act(&mut self, action: &Self::Action) -> Step<Self::Observation> {
-        self.progress = match self.profile {
-            VerifierProfile::SurfaceCoverage => resolution_score(action, &self.target),
-            VerifierProfile::TaskProfiled => {
-                profiled_resolution_score(action, &self.target, self.class)
-            }
-        };
+        self.progress = score_resolution(
+            action,
+            &self.target,
+            verifier_task_class(self.class),
+            self.profile,
+        );
         self.solved = self.progress >= SOLVE_SCORE;
         self.evidence = vec![format!(
             "target verifier profile={:?} measured coverage={:.6} solved={}",
@@ -1097,87 +1100,6 @@ fn conversation_context(task: &ProbeTask, quanot_state: Option<Vec<f64>>) -> Con
     context
 }
 
-fn resolution_score(output: &str, target: &str) -> f64 {
-    let output_lower = output.to_ascii_lowercase();
-    let target_lower = target.to_ascii_lowercase();
-    if output_lower.contains(target_lower.trim_end_matches('.')) {
-        return 1.0;
-    }
-
-    let output_tokens = token_set(output);
-    let target_tokens = token_set(target);
-    if output_tokens.is_empty() || target_tokens.is_empty() {
-        return 0.0;
-    }
-
-    let overlap = output_tokens.intersection(&target_tokens).count() as f64;
-    let precision = overlap / output_tokens.len() as f64;
-    let recall = overlap / target_tokens.len() as f64;
-    let mut score = if precision + recall <= f64::EPSILON {
-        0.0
-    } else {
-        2.0 * precision * recall / (precision + recall)
-    };
-
-    let target_negative = contains_negation(&target_tokens);
-    let output_negative = contains_negation(&output_tokens);
-    if target_negative != output_negative {
-        score *= 0.2;
-    }
-
-    score.clamp(0.0, 1.0)
-}
-
-fn profiled_resolution_score(output: &str, target: &str, class: EventClass) -> f64 {
-    let surface = resolution_score(output, target);
-    let output_tokens = token_set(output);
-    let target_tokens = token_set(target);
-    if output_tokens.is_empty() || target_tokens.is_empty() {
-        return surface;
-    }
-
-    match class {
-        EventClass::KnowledgeGap => surface,
-        EventClass::PredictionContradiction => {
-            let negation_match =
-                contains_negation(&output_tokens) == contains_negation(&target_tokens);
-            let correction_overlap = output_tokens.intersection(&target_tokens).count() as f64
-                / target_tokens.len() as f64;
-            let contradiction_score = if negation_match {
-                correction_overlap
-            } else {
-                correction_overlap * 0.2
-            };
-            surface.max(contradiction_score).clamp(0.0, 1.0)
-        }
-        EventClass::QuanotTrajectory => {
-            let mechanism_tokens = [
-                "cause",
-                "causes",
-                "caused",
-                "causing",
-                "increase",
-                "increased",
-                "reduce",
-                "reduced",
-                "higher",
-                "slower",
-                "heat",
-            ];
-            let mechanism_signal = mechanism_tokens
-                .iter()
-                .filter(|token| output_tokens.contains(**token))
-                .count() as f64
-                / 2.0;
-            let effect_overlap = output_tokens.intersection(&target_tokens).count() as f64
-                / target_tokens.len() as f64;
-            let causal_score =
-                (0.70 * effect_overlap + 0.30 * mechanism_signal.min(1.0)).clamp(0.0, 1.0);
-            surface.max(causal_score).clamp(0.0, 1.0)
-        }
-    }
-}
-
 fn token_set(text: &str) -> HashSet<String> {
     const STOPWORDS: [&str; 25] = [
         "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "in", "is",
@@ -1188,12 +1110,6 @@ fn token_set(text: &str) -> HashSet<String> {
         .map(|token| token.trim_matches('\'').to_ascii_lowercase())
         .filter(|token| token.len() > 1 && !STOPWORDS.contains(&token.as_str()))
         .collect()
-}
-
-fn contains_negation(tokens: &HashSet<String>) -> bool {
-    ["not", "never", "no", "without", "false"]
-        .iter()
-        .any(|negation| tokens.contains(*negation))
 }
 
 fn matched_random_partition_control(

@@ -20,6 +20,7 @@ pub mod ontology;
 pub mod resolver;
 pub mod shadow;
 pub mod types;
+pub mod verifier;
 
 pub use diagnostics::{
     assess_resolver_identifiability, IdentifiabilityAssessment, IdentifiabilityCriteria,
@@ -52,3 +53,6 @@ pub use shadow::{
     ShadowPromotionStatus, ShadowTransferSummary, ShadowUpdate, ShadowWindowMetrics,
 };
 pub use types::{Charge, ChargeKind, ChargeScope, ChargeSignature, ChargeTrace, Resolution};
+pub use verifier::{
+    score_resolution, surface_resolution_score, VerifierProfile, VerifierTaskClass,
+};

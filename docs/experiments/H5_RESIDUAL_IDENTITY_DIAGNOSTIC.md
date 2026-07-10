@@ -20,7 +20,8 @@ real closed-cycle result and asks two narrower questions:
 The executable also emits a `h5b_task_profiled` comparison. That path keeps the
 same emitted charges and the same frozen H4 memory exclusion, but judges
 non-memory resolver attempts with a task-profiled verifier instead of the
-original surface-coverage verifier.
+original surface-coverage verifier. The verifier scoring contract now lives in
+`star::charge::verifier` and is tested independently of this example.
 
 ## Local result
 
@@ -112,6 +113,5 @@ Supported conclusion:
 ## Next direction
 
 Do not run H5-C from the original surface-verifier matrix. The next useful work
-is to promote the task-profiled verifier contract from example-local diagnostic
-logic into a reusable, tested verifier layer, then rerun H5-B as a new frozen
-diagnostic before attempting ontology induction.
+is to freeze a task-profiled H5-B variant as the canonical non-memory diagnostic
+and only then attempt ontology induction against that verifier contract.
