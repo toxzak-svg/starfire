@@ -219,7 +219,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut retained = Vec::<&H5BObservation>::new();
         let mut excluded = 0usize;
         for item in window {
-            if item.observation.charge.kind != ChargeKind::Custom("unresolved".into()) {
+            if !matches!(
+                &item.observation.charge.kind,
+                ChargeKind::Custom(kind) if kind == "unresolved"
+            ) {
                 return Err("H5-B received a visible non-unresolved ChargeKind".into());
             }
             if memory_predicate.matches(&item.observation.charge) {
