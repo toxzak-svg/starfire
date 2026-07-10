@@ -76,7 +76,7 @@ jobs:
       - name: Run frozen H5-B non-memory identifiability diagnostic
         run: |
           set -o pipefail
-          cargo run -p star --example h5_b_identifiability_probe --locked 2>&1 \
+          cargo run -p star --example h5_b_identifiability_probe --locked \
             | tee h5-b-identifiability-report.json
 
       - name: Preserve CHARGE diagnostics and reports
