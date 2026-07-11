@@ -1,0 +1,40 @@
+name: Infant Numeric Fixture CI
+
+on:
+  pull_request:
+    branches: [experiment/infant-numeric-transition-evidence]
+    paths:
+      - "lib/tests/developmental_numeric_transition_fixture.rs"
+      - "lib/tests/fixtures/infant_numeric_transition_prediction_v1.json"
+      - "lib/tests/fixtures/infant_numeric_state_observation_v1.json"
+      - ".github/workflows/infant-numeric-fixture-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-numeric-fixture-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  numeric-fixture-pair:
+    name: numeric-fixture-pair
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Compile fixture contract
+        run: |
+          cargo check -p star --features developmental-evidence --lib --tests --locked
+
+      - name: Validate exact cross-language fixture pair and residual
+        run: |
+          cargo test -p star --features developmental-evidence \
+            --test developmental_numeric_transition_fixture \
+            --locked -- --test-threads=1
