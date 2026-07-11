@@ -13,3 +13,6 @@ pub use adapter::{AdapterError, DevelopmentalEvidenceSource, NoopDevelopmentalSo
 pub use evidence::{ConceptProposal, EvidenceValidationError, EvidenceValidationPolicy, LearnedEvidence, LearnedModality, LearnedObject, LearnedPayload, PredictedTransition, Provenance, DEVELOPMENTAL_EVIDENCE_SCHEMA_VERSION};
 pub use manifest::{BaselineManifest, CheckpointRecord, ManifestValidationError, RepositoryRevision, RuntimeRecord, BASELINE_MANIFEST_SCHEMA_VERSION};
 pub use replay::{EvidenceReplayLog, ReplayError, DEVELOPMENTAL_REPLAY_SCHEMA_VERSION};
+
+#[cfg(test)]
+mod tests;
