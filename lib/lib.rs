@@ -49,6 +49,7 @@ pub mod variation;
 pub mod charge;
 pub mod environment;
 pub mod cognitive_cycle;
+pub mod autonomy;
 pub mod commitment_state;
 pub mod rule_induction;
 pub mod graph_discovery;
