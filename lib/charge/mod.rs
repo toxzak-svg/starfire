@@ -10,6 +10,7 @@
 //! state into charge but never choose a resolver; routing and induced distinctions
 //! remain empirical and can be falsified independently.
 
+pub mod congruence;
 pub mod contrast;
 pub mod diagnostics;
 pub mod emitters;
@@ -23,6 +24,12 @@ pub mod shadow;
 pub mod types;
 pub mod verifier;
 
+pub use congruence::{
+    congruence_defect, directed_normalized_motion, fit_witnessed_congruence_split,
+    quantize_terminal_witness, CongruenceSplitConfig, CongruenceSplitError,
+    CongruenceSplitFit, ContinuationObservation, ObserverSignature, ResolverWord,
+    TerminalDisposition, TerminalWitness, WitnessBin, WitnessedCongruenceObserver,
+};
 pub use contrast::{
     disagreement_pair_schedule, fit_contrast_from_pairs, fit_disagreement_contrast,
     valid_contrast_pairs, ContrastProbeConfig, ContrastProbeError, ContrastProbeFit,
