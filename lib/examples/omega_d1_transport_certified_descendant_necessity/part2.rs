@@ -238,5 +238,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     println!("{}", serde_json::to_string_pretty(&report)?);
+    if terminal_classification != "PASS" {
+        std::process::exit(1);
+    }
     Ok(())
-}
