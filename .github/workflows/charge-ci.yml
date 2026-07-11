@@ -134,6 +134,12 @@ jobs:
           cargo run -p star --example h11_graph_discovered_relation_induction --locked \
             | tee h11-graph-discovered-relation-induction-report.json
 
+      - name: Run H12 proof-carrying latent structural role probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h12_proof_carrying_latent_structural_roles --locked \
+            | tee h12-proof-carrying-latent-structural-roles-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -151,5 +157,6 @@ jobs:
             h9-executable-commitment-state-report.json
             h10-evidence-bound-rule-induction-report.json
             h11-graph-discovered-relation-induction-report.json
+            h12-proof-carrying-latent-structural-roles-report.json
           if-no-files-found: ignore
           retention-days: 7
