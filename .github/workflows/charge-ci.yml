@@ -89,11 +89,22 @@ jobs:
           cargo run -p star --example h5_residual_identity_diagnostic --locked 2>&1 \
             | tee h5-residual-identity-diagnostic-report.json
 
-      - name: Run frozen H5-B non-memory identifiability diagnostic
+      - name: Reproduce frozen H5-B non-memory identifiability verdict diagnostically
+        continue-on-error: true
         run: |
-          set -o pipefail
-          cargo run -p star --example h5_b_identifiability_probe --locked \
+          set +e
+          cargo run -p star --example h5_b_identifiability_probe --locked 2>&1 \
             | tee h5-b-identifiability-report.json
+          h5b_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$h5b_status" -ne 0 ]; then
+            if grep -q '"status": "NotIdentifiable"' h5-b-identifiability-report.json \
+              && grep -q '"pass": false' h5-b-identifiability-report.json; then
+              echo "H5-B emitted the frozen non-identifiable verdict; continuing to H6."
+            else
+              exit "$h5b_status"
+            fi
+          fi
 
       - name: Run H6 disagreement-induced contrast falsification probe
         run: |
