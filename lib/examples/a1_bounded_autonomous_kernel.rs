@@ -130,7 +130,9 @@ fn main() {
         let mut environment = HiddenRuleEnvironment::new();
         let report = kernel.run_episode(&mut environment, seed);
 
-        solved += u64::from(report.solved);
+        if report.solved {
+            solved += 1;
+        }
         total_steps += report.usage.steps;
         denied_actions += report.denied_actions;
         accepted_discharge += report
