@@ -155,7 +155,8 @@ mod tests {
         let clue = environment.objective_feedback();
         assert!(clue.progress > 0.0 && !clue.solved);
 
-        environment.act(&HiddenRuleAction::Set(environment.hidden_value_for_test()));
+        let hidden_value = environment.hidden_value_for_test();
+        environment.act(&HiddenRuleAction::Set(hidden_value));
         environment.act(&HiddenRuleAction::Submit);
         let final_feedback = environment.objective_feedback();
         assert!(final_feedback.solved);
