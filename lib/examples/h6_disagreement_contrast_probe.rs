@@ -3,7 +3,7 @@
 use rand::prelude::*;
 use serde::Serialize;
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -12,9 +12,10 @@ use star::charge::{
     disagreement_pair_schedule, fit_contrast_from_pairs, fixed_residual_feature_charge,
     knowledge_gap_charge, ontology_feature_charge, prediction_contradiction_charge,
     score_resolution, valid_contrast_pairs, Charge, ChargeKind, ConceptPredicate,
-    ContrastProbeConfig, Direction, EmpiricalInductionConfig, EmpiricalOntologyInducer,
-    FixedResidualProjectionConfig, OntologyObservation, PromotionCriteria, QuanotTrajectoryEmitter,
-    RelativeImprovementJudge, Resolution, VerifierProfile, VerifierTaskClass,
+    ContrastProbeConfig, ContrastProbeFit, Direction, EmpiricalInductionConfig,
+    EmpiricalOntologyInducer, FixedResidualProjectionConfig, OntologyObservation,
+    PromotionCriteria, QuanotTrajectoryEmitter, RelativeImprovementJudge, Resolution,
+    VerifierProfile, VerifierTaskClass,
 };
 use star::cognitive_cycle::{CycleObservationRecorder, JudgedResolverAttempt};
 use star::environment::{Environment, ObjectiveFeedback, Step};
@@ -446,9 +447,9 @@ struct PathMetrics {
 
 #[derive(Debug, Serialize)]
 struct ProbeReport {
-    left_training_index: usize,
-    right_training_index: usize,
-    source_preference_disagreement: f64,
+    source_pair_count: usize,
+    mean_source_preference_disagreement: f64,
+    dominant_eigenvalue_fraction: f64,
     axis_width: usize,
     threshold: f32,
     lower_resolver: String,
@@ -461,6 +462,14 @@ struct ProbeReport {
     holdout_efficiency: f64,
     holdout_gain: f64,
     future_side_hidden_distribution: BTreeMap<String, BTreeMap<EventClass, usize>>,
+}
+
+#[derive(Debug, Serialize)]
+struct FitDiagnostics {
+    baseline_training_efficiency: f64,
+    baseline_holdout_efficiency: f64,
+    best_training_efficiency: f64,
+    best_training_gain_after_penalty: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -506,10 +515,14 @@ struct Report {
     frozen_contract: FrozenContract,
     cohort: CohortReport,
     parent_baseline_resolver: String,
+    real_fit_diagnostics: FitDiagnostics,
     real_primitive: PathMetrics,
     real_probe: Option<ProbeReport>,
+    matched_random_pair_fit_diagnostics: FitDiagnostics,
     matched_random_pair_control: PathMetrics,
+    shuffled_outcome_pair_fit_diagnostics: FitDiagnostics,
     shuffled_outcome_pair_control: PathMetrics,
+    independently_permuted_residual_fit_diagnostics: FitDiagnostics,
     independently_permuted_residual_control: PathMetrics,
     best_existing_static_h5_path: StaticOntologyReport,
     gates: GateReport,
@@ -564,8 +577,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let holdout = flatten_windows(
         &non_memory_windows[TRAIN_WINDOWS..TRAIN_WINDOWS + HOLDOUT_WINDOWS],
     );
-    let future_labeled =
-        &non_memory_windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..];
+    let future_labeled = &non_memory_windows[TRAIN_WINDOWS + HOLDOUT_WINDOWS..];
     let future = plain_windows(future_labeled);
 
     let mut real_pairs =
@@ -689,9 +701,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let real_probe = real_fit.probe.as_ref().map(|probe| ProbeReport {
-        left_training_index: probe.contrast.left_index,
-        right_training_index: probe.contrast.right_index,
-        source_preference_disagreement: probe.contrast.source_preference_disagreement,
+        source_pair_count: probe.contrast.source_pair_count,
+        mean_source_preference_disagreement: probe
+            .contrast
+            .mean_source_preference_disagreement,
+        dominant_eigenvalue_fraction: probe.contrast.dominant_eigenvalue_fraction,
         axis_width: probe.contrast.axis.len(),
         threshold: probe.contrast.threshold,
         lower_resolver: probe.lower_resolver.clone(),
@@ -710,11 +724,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let report = Report {
-        experiment: "H6 disagreement-induced tension contrast probe",
+        experiment: "H6 disagreement-induced tension mode probe",
         observation_source: "real Starfire subsystem outputs -> task-profiled Environment feedback -> OutcomeWitness -> RelativeImprovementJudge -> CognitiveCycleState",
         visible_charge_kind: "Custom(unresolved)",
         representation_boundary: "H5 fixed-width mask-blind residual projection after frozen H4 memory-cohort exclusion",
-        primitive_operation: "two unresolved states with conflicting normalized resolver-utility preferences manufacture axis=normalize(x_j-x_i) and a projected midpoint discrimination test; side resolvers are relearned on the full training cohort and independently holdout-gated",
+        primitive_operation: "resolver-disagreement-selected residual pairs accumulate normalized displacement outer products into one second-moment state M; the dominant mode of M becomes a new projection axis and the mean projected pair midpoint becomes its threshold; side resolvers are relearned on the full training cohort and independently holdout-gated",
         frozen_contract: FrozenContract {
             seed: SEED,
             pair_interactions: config.max_pair_interactions,
@@ -741,10 +755,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             retained_hidden_distribution,
         },
         parent_baseline_resolver,
+        real_fit_diagnostics: fit_diagnostics(&real_fit),
         real_primitive: real_metrics,
         real_probe,
+        matched_random_pair_fit_diagnostics: fit_diagnostics(&random_fit),
         matched_random_pair_control: random_metrics,
+        shuffled_outcome_pair_fit_diagnostics: fit_diagnostics(&shuffled_fit),
         shuffled_outcome_pair_control: shuffled_metrics,
+        independently_permuted_residual_fit_diagnostics: fit_diagnostics(&permuted_fit),
         independently_permuted_residual_control: permuted_metrics,
         best_existing_static_h5_path: static_report,
         gates,
@@ -753,6 +771,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("{}", serde_json::to_string_pretty(&report)?);
     Ok(())
+}
+
+fn fit_diagnostics(fit: &ContrastProbeFit) -> FitDiagnostics {
+    FitDiagnostics {
+        baseline_training_efficiency: fit.baseline_training_efficiency,
+        baseline_holdout_efficiency: fit.baseline_holdout_efficiency,
+        best_training_efficiency: fit.best_training_efficiency,
+        best_training_gain_after_penalty: fit.best_training_gain_after_penalty,
+    }
 }
 
 fn frozen_contrast_config() -> ContrastProbeConfig {
@@ -1032,7 +1059,7 @@ fn conversation_context(task: &ProbeTask, quanot_state: Option<Vec<f64>>) -> Con
     context
 }
 
-fn token_set(text: &str) -> BTreeSet<String> {
+fn token_set(text: &str) -> HashSet<String> {
     const STOPWORDS: [&str; 25] = [
         "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "in", "is",
         "it", "of", "on", "only", "the", "to", "used", "what", "which", "why", "with",
@@ -1137,14 +1164,10 @@ where
         let efficiency = mean_named_efficiency(window, |observation| route(observation));
         let baseline_efficiency =
             mean_named_efficiency(window, |_| baseline_resolver.to_string());
-        let correct_in_window = window
-            .iter()
-            .filter(|observation| route(observation) == best_observation_resolver(observation))
-            .count();
-        let leader_accuracy = correct_in_window as f64 / window.len().max(1) as f64;
+        let leader_accuracy = leader_accuracy(window, &route);
         routed_total += efficiency * window.len() as f64;
         baseline_total += baseline_efficiency * window.len() as f64;
-        correct += correct_in_window;
+        correct += (leader_accuracy * window.len() as f64).round() as usize;
         observations += window.len();
         windows.push(WindowReport {
             index,
