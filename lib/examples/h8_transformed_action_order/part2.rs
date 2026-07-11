@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let train_eval = evaluate_split(&train, 0x11, &state, &judge)?;
     let train_rc = word_metrics(&train_eval, Word::ReasoningThenCausal);
     let train_cr = word_metrics(&train_eval, Word::CausalThenReasoning);
-    let candidate = if train_rc.mean_stateful_score + 1e-12 >= train_cr.mean_stateful_score {
+    let candidate = if train_rc.mean_stateful_score >= train_cr.mean_stateful_score {
         Word::ReasoningThenCausal
     } else {
         Word::CausalThenReasoning
@@ -130,24 +130,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let holdout_support = holdout_eval.eligible >= MIN_HOLDOUT_ELIGIBLE;
     let future_support = future_eval.eligible >= MIN_FUTURE_ELIGIBLE;
     let train_gain_after_penalty = training_candidate.composition_gain - COMPLEXITY_PENALTY
-        + 1e-12
         >= MIN_TRAIN_GAIN_AFTER_PENALTY;
-    let train_order_gate = train_order_advantage + 1e-12 >= MIN_TRAIN_ORDER_ADVANTAGE;
-    let holdout_gain = holdout_candidate.composition_gain + 1e-12 >= MIN_HOLDOUT_GAIN;
-    let holdout_order_gate =
-        holdout_order_advantage + 1e-12 >= MIN_HOLDOUT_ORDER_ADVANTAGE;
+    let train_order_gate = train_order_advantage >= MIN_TRAIN_ORDER_ADVANTAGE;
+    let holdout_gain = holdout_candidate.composition_gain >= MIN_HOLDOUT_GAIN;
+    let holdout_order_gate = holdout_order_advantage >= MIN_HOLDOUT_ORDER_ADVANTAGE;
     let holdout_positive_fraction =
-        holdout_candidate.positive_fraction + 1e-12 >= MIN_HOLDOUT_POSITIVE_FRACTION;
+        holdout_candidate.positive_fraction >= MIN_HOLDOUT_POSITIVE_FRACTION;
     let holdout_right_absorption =
-        holdout_candidate.right_absorption_rate <= MAX_HOLDOUT_RIGHT_ABSORPTION + 1e-12;
-    let future_gain = future_candidate.composition_gain + 1e-12 >= MIN_FUTURE_GAIN;
-    let future_order_gate = future_order_advantage + 1e-12 >= MIN_FUTURE_ORDER_ADVANTAGE;
+        holdout_candidate.right_absorption_rate <= MAX_HOLDOUT_RIGHT_ABSORPTION;
+    let future_gain = future_candidate.composition_gain >= MIN_FUTURE_GAIN;
+    let future_order_gate = future_order_advantage >= MIN_FUTURE_ORDER_ADVANTAGE;
     let all_future_windows_win = future_window_wins >= MIN_FUTURE_WINDOW_WINS;
-    let worst_family_gate = worst_family_gain + 1e-12 >= MIN_WORST_FAMILY_GAIN;
+    let worst_family_gate = worst_family_gain >= MIN_WORST_FAMILY_GAIN;
     let future_right_absorption =
-        future_candidate.right_absorption_rate <= MAX_FUTURE_RIGHT_ABSORPTION + 1e-12;
-    let rewired_margin = future_candidate.rewired_margin + 1e-12 >= MIN_REWIRED_MARGIN;
-    let scalar_margin = future_candidate.scalar_margin + 1e-12 >= MIN_SCALAR_MARGIN;
+        future_candidate.right_absorption_rate <= MAX_FUTURE_RIGHT_ABSORPTION;
+    let rewired_margin = future_candidate.rewired_margin >= MIN_REWIRED_MARGIN;
+    let scalar_margin = future_candidate.scalar_margin >= MIN_SCALAR_MARGIN;
 
     let budget = aggregate_budget(&train_eval, &holdout_eval, &future_eval);
     let gates = GateReport {
