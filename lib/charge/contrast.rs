@@ -82,10 +82,15 @@ pub enum ProbeSide {
 /// `dot(axis, future_residual) <= threshold ? lower : upper`
 #[derive(Debug, Clone, PartialEq)]
 pub struct TensionContrast {
+    /// First contributing pair, retained only for backward-compatible diagnostics.
+    pub left_index: usize,
+    pub right_index: usize,
     pub axis: Vec<f32>,
     pub threshold: f32,
     pub source_pair_count: usize,
     pub mean_source_preference_disagreement: f64,
+    /// Backward-compatible diagnostic alias for the mean source disagreement.
+    pub source_preference_disagreement: f64,
     /// Share of total displacement second moment captured by the learned mode.
     pub dominant_eigenvalue_fraction: f64,
 }
@@ -542,11 +547,15 @@ fn disagreement_mode_from_pairs(
             / preference_disagreements.len() as f64
     };
 
+    let (left_index, right_index) = source_pairs[0];
     Some(TensionContrast {
+        left_index,
+        right_index,
         axis: axis_f32,
         threshold: threshold as f32,
         source_pair_count: source_pairs.len(),
         mean_source_preference_disagreement,
+        source_preference_disagreement: mean_source_preference_disagreement,
         dominant_eigenvalue_fraction,
     })
 }
