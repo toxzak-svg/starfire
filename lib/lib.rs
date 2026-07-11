@@ -52,6 +52,7 @@ pub mod cognitive_cycle;
 pub mod commitment_state;
 pub mod rule_induction;
 pub mod graph_discovery;
+pub mod representation_genesis;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
