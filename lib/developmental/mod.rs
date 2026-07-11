@@ -5,6 +5,7 @@
 //! autonomous action selection.
 
 pub mod adapter;
+pub mod calibration;
 pub mod evidence;
 pub mod manifest;
 pub mod replay;
@@ -13,6 +14,11 @@ pub mod residual;
 pub use adapter::{
     AdapterError, DevelopmentalEvidenceSource, NoopDevelopmentalSource,
     OfflineReplaySource,
+};
+pub use calibration::{
+    CalibrationError, QuantileMethod, ResidualAssessment,
+    ResidualCalibrationProfile, ResidualCalibrationScope, ResidualMetric,
+    RESIDUAL_CALIBRATION_SCHEMA_VERSION,
 };
 pub use evidence::{
     ConceptProposal, EvidenceValidationError, EvidenceValidationPolicy,
