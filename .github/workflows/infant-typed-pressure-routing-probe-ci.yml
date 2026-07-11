@@ -1,0 +1,46 @@
+name: Infant Typed Pressure Routing Probe CI
+
+on:
+  pull_request:
+    branches: [experiment/infant-residual-revision-probe]
+    paths:
+      - "lib/examples/h_infant_typed_pressure_routing_probe.rs"
+      - "docs/experiments/H_INFANT_TYPED_PRESSURE_ROUTING_PROBE.md"
+      - ".github/workflows/infant-typed-pressure-routing-probe-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-typed-pressure-routing-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typed-pressure-routing-probe:
+    name: typed-pressure-routing-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run frozen-gate typed pressure routing probe
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          cargo run -p star --example h_infant_typed_pressure_routing_probe \
+            --features developmental-evidence --locked 2>&1 \
+            | tee artifacts/h_infant_typed_pressure_routing_probe.json
+
+      - name: Upload probe artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h-infant-typed-pressure-routing-probe
+          path: artifacts/h_infant_typed_pressure_routing_probe.json
+          if-no-files-found: warn
+          retention-days: 14
