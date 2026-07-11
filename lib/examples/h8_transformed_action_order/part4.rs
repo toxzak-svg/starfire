@@ -6,7 +6,7 @@ fn word_metrics(evaluation: &SplitEvaluation, word: Word) -> WordMetrics {
     let mean_rewired_score = mean(rows.iter().map(|row| row.rewired_score));
     let positive_fraction = rows
         .iter()
-        .filter(|row| row.stateful_score > row.blind_score + 1e-12)
+        .filter(|row| row.stateful_score > row.blind_score)
         .count() as f64
         / rows.len().max(1) as f64;
     let right_absorption_rate = rows
