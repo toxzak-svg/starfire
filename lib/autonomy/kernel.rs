@@ -60,7 +60,7 @@ pub struct AutonomousKernel<E: Environment> {
     next_charge_id: u64,
 }
 
-impl<E: Environment> AutonomousKernel<E> {
+impl<E: Environment + 'static> AutonomousKernel<E> {
     pub fn new(
         goal: Goal,
         registry: OperatorRegistry<E>,
