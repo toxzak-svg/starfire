@@ -1032,7 +1032,7 @@ fn conversation_context(task: &ProbeTask, quanot_state: Option<Vec<f64>>) -> Con
     context
 }
 
-fn token_set(text: &str) -> HashSet<String> {
+fn token_set(text: &str) -> BTreeSet<String> {
     const STOPWORDS: [&str; 25] = [
         "a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "in", "is",
         "it", "of", "on", "only", "the", "to", "used", "what", "which", "why", "with",
