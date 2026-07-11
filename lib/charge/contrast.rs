@@ -138,7 +138,11 @@ pub struct ContrastProbeFit {
 impl ContrastProbeFit {
     pub fn route(&self, charge: &Charge) -> &str {
         match &self.probe {
-            Some(probe) => probe.route(charge),
+            Some(probe) => match probe.contrast.side(charge) {
+                Some(ProbeSide::Lower) => probe.lower_resolver.as_str(),
+                Some(ProbeSide::Upper) => probe.upper_resolver.as_str(),
+                None => self.baseline_resolver.as_str(),
+            },
             None => self.baseline_resolver.as_str(),
         }
     }
