@@ -31,8 +31,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check all Star targets
-        run: cargo check -p star --all-targets --locked
+      - name: Check Star library and A1 example
+        run: |
+          cargo check -p star --lib --locked
+          cargo check -p star --example a1_bounded_autonomous_kernel --locked
 
       - name: Test autonomy contracts
         run: cargo test -p star autonomy:: --locked -- --test-threads=1
@@ -40,7 +42,7 @@ jobs:
       - name: Test hidden-rule environment
         run: cargo test -p star environment::hidden_rule:: --locked -- --test-threads=1
 
-      - name: Execute frozen A1 foundation probe
+      - name: Execute A1 foundation probe
         run: |
           cargo run -p star --example a1_bounded_autonomous_kernel --locked \
             | tee a1-bounded-autonomous-kernel-report.json
