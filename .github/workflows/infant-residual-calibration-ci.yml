@@ -1,0 +1,46 @@
+name: Infant Residual Calibration CI
+
+on:
+  pull_request:
+    branches: [experiment/infant-numeric-transition-fixtures]
+    paths:
+      - "lib/developmental/calibration.rs"
+      - "lib/developmental/mod.rs"
+      - "lib/tests/developmental_residual_calibration_corpus.rs"
+      - "lib/tests/fixtures/infant_residual_calibration_subset_v1.json"
+      - ".github/workflows/infant-residual-calibration-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-residual-calibration-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  residual-calibration-replay:
+    name: residual-calibration-replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Compile calibration contract
+        run: |
+          cargo check -p star --features developmental-evidence --lib --tests --locked
+
+      - name: Run calibration unit tests
+        run: |
+          cargo test -p star --features developmental-evidence --lib --locked \
+            developmental::calibration:: -- --test-threads=1
+
+      - name: Recompute corpus residuals and calibration in Rust
+        run: |
+          cargo test -p star --features developmental-evidence \
+            --test developmental_residual_calibration_corpus \
+            --locked -- --test-threads=1
