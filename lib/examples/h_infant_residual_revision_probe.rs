@@ -407,12 +407,16 @@ fn main() {
         );
     }
 
-    let persistent = &aggregate_by_strategy["persistent_calibrated"];
-    let single = &aggregate_by_strategy["single_exceedance"];
-    let scheduled = &aggregate_by_strategy["scheduled"];
-    let random = &aggregate_by_strategy["random"];
-    let no_revision = &aggregate_by_strategy["no_revision"];
-    let oracle = &aggregate_by_strategy["oracle_after_first_shifted_observation"];
+    // Clone the small aggregate records so the result map can later move into
+    // ProbeOutput without retaining borrows across that move. This is an
+    // ownership-only fix; the experiment, controls, data, and frozen gates are
+    // unchanged.
+    let persistent = aggregate_by_strategy["persistent_calibrated"].clone();
+    let single = aggregate_by_strategy["single_exceedance"].clone();
+    let scheduled = aggregate_by_strategy["scheduled"].clone();
+    let random = aggregate_by_strategy["random"].clone();
+    let no_revision = aggregate_by_strategy["no_revision"].clone();
+    let oracle = aggregate_by_strategy["oracle_after_first_shifted_observation"].clone();
 
     let persistent_median_delay = persistent
         .median_detection_delay
@@ -423,7 +427,7 @@ fn main() {
         single.false_revision_rate - persistent.false_revision_rate;
     let excess_over_oracle =
         persistent.mean_cumulative_mse - oracle.mean_cumulative_mse;
-    let beats_all_non_oracle_controls = [single, scheduled, random, no_revision]
+    let beats_all_non_oracle_controls = [&single, &scheduled, &random, &no_revision]
         .iter()
         .all(|control| {
             persistent.mean_cumulative_mse < control.mean_cumulative_mse
