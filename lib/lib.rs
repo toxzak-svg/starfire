@@ -50,6 +50,7 @@ pub mod charge;
 pub mod environment;
 pub mod cognitive_cycle;
 pub mod commitment_state;
+pub mod rule_induction;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
