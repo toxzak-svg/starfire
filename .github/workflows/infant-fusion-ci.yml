@@ -52,13 +52,15 @@ jobs:
       - name: Compile developmental evidence feature
         run: |
           set -o pipefail
-          cargo check -p star --features developmental-evidence --all-targets --locked 2>&1 \
+          # Scope this workflow to the fusion contract it owns. Existing repository
+          # workflows remain responsible for unrelated examples and research probes.
+          cargo check -p star --features developmental-evidence --lib --tests --locked 2>&1 \
             | tee infant-fusion-cargo-check.log
 
       - name: Run developmental evidence unit tests
         run: |
           set -o pipefail
-          cargo test -p star --features developmental-evidence developmental:: --locked -- --test-threads=1 2>&1 \
+          cargo test -p star --features developmental-evidence developmental:: --lib --locked -- --test-threads=1 2>&1 \
             | tee infant-fusion-test.log
 
       - name: Validate exact Infant JSON fixture
