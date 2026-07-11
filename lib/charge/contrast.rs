@@ -26,6 +26,9 @@ pub struct ContrastProbeConfig {
     /// Minimum total-variation distance between normalized resolver-utility vectors
     /// before two unresolved states may manufacture a contrast axis.
     pub min_preference_disagreement: f64,
+    /// Maximum pair interactions evaluated. This is a real compute budget, not
+    /// a post-hoc report limit.
+    pub max_pair_interactions: usize,
     /// Minimum observations required on each side of a training projection.
     pub min_partition_support: usize,
     /// Minimum observations required on each side of the independent holdout.
@@ -40,6 +43,7 @@ impl Default for ContrastProbeConfig {
     fn default() -> Self {
         Self {
             min_preference_disagreement: 0.25,
+            max_pair_interactions: 64,
             min_partition_support: 12,
             min_holdout_support: 6,
             complexity_penalty: 0.003,
@@ -157,7 +161,7 @@ pub fn disagreement_pair_schedule(
     min_preference_disagreement: f64,
 ) -> Vec<(usize, usize)> {
     let resolvers = resolver_names(observations);
-    let mut pairs = Vec::new();
+    let mut pairs = Vec::<(f64, usize, usize)>::new();
 
     for left in 0..observations.len() {
         for right in (left + 1)..observations.len() {
@@ -172,12 +176,23 @@ pub fn disagreement_pair_schedule(
             if left_leader != right_leader
                 && disagreement + SCORE_EPSILON >= min_preference_disagreement
             {
-                pairs.push((left, right));
+                pairs.push((disagreement, left, right));
             }
         }
     }
 
+    pairs.sort_by(|left, right| {
+        right
+            .0
+            .partial_cmp(&left.0)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| left.1.cmp(&right.1))
+            .then_with(|| left.2.cmp(&right.2))
+    });
     pairs
+        .into_iter()
+        .map(|(_, left, right)| (left, right))
+        .collect()
 }
 
 /// Return every pair that can manufacture a finite, non-degenerate residual axis.
@@ -203,7 +218,8 @@ pub fn fit_disagreement_contrast(
     config: ContrastProbeConfig,
 ) -> Result<ContrastProbeFit, ContrastProbeError> {
     validate(train, holdout, config)?;
-    let pairs = disagreement_pair_schedule(train, config.min_preference_disagreement);
+    let mut pairs = disagreement_pair_schedule(train, config.min_preference_disagreement);
+    pairs.truncate(config.max_pair_interactions);
     fit_contrast_from_pairs(train, holdout, &pairs, config)
 }
 
@@ -361,6 +377,7 @@ fn validate(
     if !config.min_preference_disagreement.is_finite()
         || config.min_preference_disagreement < 0.0
         || config.min_preference_disagreement > 1.0
+        || config.max_pair_interactions == 0
         || !config.complexity_penalty.is_finite()
         || config.complexity_penalty < 0.0
         || !config.min_holdout_gain.is_finite()
@@ -682,6 +699,7 @@ mod tests {
         ];
         let config = ContrastProbeConfig {
             min_preference_disagreement: 0.25,
+            max_pair_interactions: 16,
             min_partition_support: 2,
             min_holdout_support: 1,
             complexity_penalty: 0.0,
