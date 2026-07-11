@@ -75,3 +75,5 @@ A pass would support a narrow claim:
 If the Charge-backed and direct persistence-weighted policies tie, the correct interpretation is that the priority rule is useful and the Charge representation preserves it with explicit typed accounting; the experiment would not prove a unique task-performance benefit from the container itself.
 
 A pass justifies held-out transfer of the generic priority rule, not live scheduler promotion.
+
+<!-- Verdict-confirmation child PR: no experiment semantics changed. -->
