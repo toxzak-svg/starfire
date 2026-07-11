@@ -1,6 +1,6 @@
 # A1 — Bounded Autonomous Kernel Foundation
 
-**Status:** preregistered implementation foundation  
+**Status:** implementation contract and foundation probe  
 **Scope:** shadow-only; no `Runtime::chat()` wiring  
 **Authority ceiling:** reversible sandbox actions
 
@@ -11,6 +11,8 @@ authorized action → external outcome → independent discharge loop without gi
 operators authority to judge their own success or mutate production state?
 
 A1 is a foundation test, not an AGI claim and not yet a generality experiment.
+This document records the implemented foundation contract. The follow-up
+capability experiment must be separately preregistered before its verdict run.
 
 ## Mechanism
 
@@ -59,7 +61,7 @@ All three use the same `CognitiveOperator` contract. They may predict effects an
 request discharge, but they cannot directly change CHARGE, mark the goal solved,
 or fabricate objective evidence.
 
-## Frozen foundation gates
+## Foundation gates
 
 Across 64 deterministic seeds:
 
@@ -77,7 +79,7 @@ The executable prints `FOUNDATION_PASS` only when the exact solve and authority
 gates pass. The label deliberately does not mean that learned routing, transfer,
 open-ended planning, ontology induction, or AGI has been demonstrated.
 
-## Required controls for A1 follow-up
+## Required controls for the preregistered A1 follow-up
 
 This first PR establishes contracts and a deterministic positive path. A later,
 separately frozen A1 capability experiment must add matched-budget controls:
