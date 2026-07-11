@@ -100,11 +100,17 @@ executive handlers.
 ## Commands
 
 ```text
-cargo check -p star --all-targets --locked
+cargo check -p star --lib --locked
+cargo check -p star --example a1_bounded_autonomous_kernel --locked
 cargo test -p star autonomy:: --locked -- --test-threads=1
 cargo test -p star environment::hidden_rule:: --locked -- --test-threads=1
 cargo run -p star --example a1_bounded_autonomous_kernel --locked
 ```
+
+`cargo check --all-targets` is not used as an A1 gate because current `main`
+contains an unrelated incomplete ΩD1 split example. A1 CI compiles the default
+library and the exact new example, while the existing workflows continue to own
+their respective research probes.
 
 ## Claim boundary
 
