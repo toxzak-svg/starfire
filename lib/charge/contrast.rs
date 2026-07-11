@@ -378,6 +378,8 @@ fn validate(
         || config.min_preference_disagreement < 0.0
         || config.min_preference_disagreement > 1.0
         || config.max_pair_interactions == 0
+        || config.min_partition_support == 0
+        || config.min_holdout_support == 0
         || !config.complexity_penalty.is_finite()
         || config.complexity_penalty < 0.0
         || !config.min_holdout_gain.is_finite()
