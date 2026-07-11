@@ -53,6 +53,7 @@ jobs:
           cargo test -p star charge:: --locked -- --test-threads=1 2>&1 | tee charge-test.log
           cargo test -p star cognitive_cycle:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star environment:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star autonomy:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
@@ -147,6 +148,12 @@ jobs:
           cargo run -p star --example omega_r1_representative_transportability --locked \
             | tee omega-r1-representative-transportability-report.json
 
+      - name: Run A1 bounded autonomous kernel foundation probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example a1_bounded_autonomous_kernel --locked \
+            | tee a1-bounded-autonomous-kernel-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -166,5 +173,6 @@ jobs:
             h11-graph-discovered-relation-induction-report.json
             omega1-endogenous-state-space-genesis-report.json
             omega-r1-representative-transportability-report.json
+            a1-bounded-autonomous-kernel-report.json
           if-no-files-found: ignore
           retention-days: 7
