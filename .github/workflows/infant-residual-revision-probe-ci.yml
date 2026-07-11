@@ -1,0 +1,46 @@
+name: Infant Residual Revision Probe CI
+
+on:
+  pull_request:
+    branches: [experiment/infant-residual-calibration-replay]
+    paths:
+      - "lib/examples/h_infant_residual_revision_probe.rs"
+      - "docs/experiments/H_INFANT_RESIDUAL_REVISION_PROBE.md"
+      - ".github/workflows/infant-residual-revision-probe-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-residual-revision-probe-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  residual-revision-probe:
+    name: residual-revision-probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run frozen-gate model revision probe
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          cargo run -p star --example h_infant_residual_revision_probe \
+            --features developmental-evidence --locked 2>&1 \
+            | tee artifacts/h_infant_residual_revision_probe.json
+
+      - name: Upload probe artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h-infant-residual-revision-probe
+          path: artifacts/h_infant_residual_revision_probe.json
+          if-no-files-found: warn
+          retention-days: 14
