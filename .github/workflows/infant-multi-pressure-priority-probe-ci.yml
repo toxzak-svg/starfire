@@ -2,9 +2,7 @@ name: Infant Multi-Pressure Priority Probe CI
 
 on:
   pull_request:
-    branches:
-      - experiment/infant-typed-pressure-routing-probe
-      - experiment/infant-multi-pressure-priority-probe
+    branches: [experiment/infant-typed-pressure-routing-probe]
     paths:
       - "lib/examples/h_infant_multi_pressure_priority_probe.rs"
       - "docs/experiments/H_INFANT_MULTI_PRESSURE_PRIORITY_PROBE.md"
