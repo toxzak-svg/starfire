@@ -1,0 +1,47 @@
+name: Disagreement Basis CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: disagreement-basis-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  disagreement-basis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Check all Star targets
+        run: cargo check -p star --all-targets --locked
+
+      - name: Run disagreement basis unit tests
+        run: cargo test -p star charge::disagreement::tests --locked -- --test-threads=1
+
+      - name: Run frozen real-component diagnostic
+        run: |
+          set -o pipefail
+          cargo run -p star --example disagreement_induced_basis_diagnostic --locked \
+            | tee disagreement-induced-basis-report.json
+
+      - name: Preserve diagnostic
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: disagreement-induced-basis-diagnostic
+          path: disagreement-induced-basis-report.json
+          if-no-files-found: error
+          retention-days: 7
