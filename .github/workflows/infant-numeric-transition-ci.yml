@@ -1,0 +1,38 @@
+name: Infant Numeric Transition CI
+
+on:
+  pull_request:
+    branches: [experiment/infant-starfire-fusion]
+    paths:
+      - "lib/developmental/evidence.rs"
+      - "lib/developmental/residual.rs"
+      - "lib/developmental/mod.rs"
+      - ".github/workflows/infant-numeric-transition-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-numeric-transition-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  numeric-transition-contract:
+    name: numeric-transition-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Compile contract surface
+        run: |
+          cargo check -p star --features developmental-evidence --lib --tests --locked
+
+      - name: Run developmental evidence and residual tests
+        run: |
+          cargo test -p star --features developmental-evidence --lib --locked developmental:: -- --test-threads=1
