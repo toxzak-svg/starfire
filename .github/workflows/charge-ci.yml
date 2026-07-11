@@ -134,11 +134,11 @@ jobs:
           cargo run -p star --example h11_graph_discovered_relation_induction --locked \
             | tee h11-graph-discovered-relation-induction-report.json
 
-      - name: Run H12 proof-carrying latent structural role probe
+      - name: Run corrected H12 proof-carrying latent structural role acceptance probe
         run: |
           set -o pipefail
-          cargo run -p star --example h12_proof_carrying_latent_structural_roles --locked \
-            | tee h12-proof-carrying-latent-structural-roles-report.json
+          cargo run -p star --example h12_proof_carrying_latent_structural_roles_acceptance --locked \
+            | tee h12-proof-carrying-latent-structural-roles-acceptance-report.json
 
       - name: Preserve CHARGE diagnostics and reports
         if: always()
@@ -157,6 +157,6 @@ jobs:
             h9-executable-commitment-state-report.json
             h10-evidence-bound-rule-induction-report.json
             h11-graph-discovered-relation-induction-report.json
-            h12-proof-carrying-latent-structural-roles-report.json
+            h12-proof-carrying-latent-structural-roles-acceptance-report.json
           if-no-files-found: ignore
           retention-days: 7
