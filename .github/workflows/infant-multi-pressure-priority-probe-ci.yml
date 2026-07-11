@@ -2,7 +2,9 @@ name: Infant Multi-Pressure Priority Probe CI
 
 on:
   pull_request:
-    branches: [experiment/infant-typed-pressure-routing-probe]
+    branches:
+      - experiment/infant-typed-pressure-routing-probe
+      - experiment/infant-multi-pressure-priority-probe
     paths:
       - "lib/examples/h_infant_multi_pressure_priority_probe.rs"
       - "docs/experiments/H_INFANT_MULTI_PRESSURE_PRIORITY_PROBE.md"
@@ -44,5 +46,3 @@ jobs:
           path: artifacts/h_infant_multi_pressure_priority_probe.json
           if-no-files-found: warn
           retention-days: 14
-
-# Verdict confirmation retrigger: 2026-07-11
