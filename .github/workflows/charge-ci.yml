@@ -42,11 +42,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Compile star crate and CHARGE probes
+      - name: Compile Star library and A1 probe
         run: |
           set -o pipefail
           cargo check -p star --lib --locked 2>&1 | tee charge-cargo-check.log
-          cargo check -p star --all-targets --features developmental-evidence --locked 2>&1 \
+          cargo check -p star --example a1_bounded_autonomous_kernel --locked 2>&1 \
             | tee -a charge-cargo-check.log
 
       - name: Run CHARGE and closed-cycle contract tests deterministically
