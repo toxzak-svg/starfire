@@ -309,6 +309,15 @@ impl ExecutableCommitmentState {
     /// Stable, human-auditable state serialization used for replay equality.
     pub fn canonical_signature(&self) -> String {
         let mut lines = Vec::new();
+        lines.push(format!("next_id:{}", self.next_id));
+        for (witness_id, witness) in &self.observations {
+            lines.push(format!(
+                "obs:{}:{}->{}",
+                witness_id,
+                witness.rule.antecedent.as_str(),
+                witness.rule.consequent.as_str()
+            ));
+        }
         for (id, commitment) in &self.commitments {
             match commitment {
                 Commitment::Fact { atom, provenance } => lines.push(format!(

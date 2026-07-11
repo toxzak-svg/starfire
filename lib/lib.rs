@@ -55,6 +55,7 @@ pub mod graph_discovery;
 pub mod representation_genesis;
 pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
+pub mod representation_transport_descendants;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

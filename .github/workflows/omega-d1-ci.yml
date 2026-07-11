@@ -1,0 +1,85 @@
+name: ΩD1 CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omega-d1-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omega-d1-contract:
+    name: omega-d1-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Compile all star targets
+        run: |
+          set -o pipefail
+          cargo check -p star --all-targets --locked 2>&1 | tee omega-d1-cargo-check.log
+
+      - name: Run transport and descendant contract tests deterministically
+        run: |
+          set -o pipefail
+          cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee omega-d1-test.log
+          cargo test -p star representation_transport_orbit:: --locked -- --test-threads=1 2>&1 | tee -a omega-d1-test.log
+          cargo test -p star representation_transport_descendants:: --locked -- --test-threads=1 2>&1 | tee -a omega-d1-test.log
+
+      - name: Reproduce Ω1 prerequisite
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
+            | tee omega1-endogenous-state-space-genesis-report.json
+
+      - name: Reproduce ΩR1 prerequisite
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_r1_representative_transportability --locked \
+            | tee omega-r1-representative-transportability-report.json
+
+      - name: Run ΩD1 transport-certified descendant necessity probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_d1_transport_certified_descendant_necessity --locked \
+            | tee omega-d1-transport-certified-descendant-necessity-report.json
+
+      - name: Preserve ΩD1 diagnostics and reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omega-d1-diagnostics
+          path: |
+            omega-d1-cargo-check.log
+            omega-d1-test.log
+            omega1-endogenous-state-space-genesis-report.json
+            omega-r1-representative-transportability-report.json
+            omega-d1-transport-certified-descendant-necessity-report.json
+          if-no-files-found: ignore
+          retention-days: 7
