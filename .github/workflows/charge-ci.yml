@@ -56,6 +56,7 @@ jobs:
           cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star latent_roles:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
 
       - name: Run real-component CHARGE specialization probe
         run: |
