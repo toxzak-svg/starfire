@@ -1137,10 +1137,14 @@ where
         let efficiency = mean_named_efficiency(window, |observation| route(observation));
         let baseline_efficiency =
             mean_named_efficiency(window, |_| baseline_resolver.to_string());
-        let leader_accuracy = leader_accuracy(window, &route);
+        let correct_in_window = window
+            .iter()
+            .filter(|observation| route(observation) == best_observation_resolver(observation))
+            .count();
+        let leader_accuracy = correct_in_window as f64 / window.len().max(1) as f64;
         routed_total += efficiency * window.len() as f64;
         baseline_total += baseline_efficiency * window.len() as f64;
-        correct += (leader_accuracy * window.len() as f64).round() as usize;
+        correct += correct_in_window;
         observations += window.len();
         windows.push(WindowReport {
             index,
