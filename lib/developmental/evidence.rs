@@ -34,6 +34,36 @@ pub struct PredictedTransition {
     pub probability: f64,
 }
 
+/// A vector together with an explicit semantic coordinate-space identifier.
+///
+/// Raw numeric vectors are not comparable merely because their lengths match.
+/// `space` names the representation contract, for example
+/// `synthetic.proprio.v1` or `synthetic.action.v1`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NamedVector {
+    pub space: String,
+    pub values: Vec<f32>,
+}
+
+/// A numeric next-state prediction emitted before the target observation exists.
+///
+/// The predictor supplies the candidate state only. It does not supply its own
+/// residual, success judgment, discharge, or CHARGE magnitude.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NumericTransitionPrediction {
+    pub transition_id: String,
+    pub action: NamedVector,
+    pub predicted_next_state: NamedVector,
+    pub horizon_steps: u32,
+}
+
+/// Independently observed numeric state used to score a prior prediction.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NumericStateObservation {
+    pub transition_id: String,
+    pub state: NamedVector,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConceptProposal {
     pub candidate_id: String,
@@ -49,6 +79,8 @@ pub enum LearnedPayload {
     ObjectSet(Vec<LearnedObject>),
     StateEmbedding(Vec<f32>),
     PredictedTransition(PredictedTransition),
+    NumericTransitionPrediction(NumericTransitionPrediction),
+    NumericStateObservation(NumericStateObservation),
     ConceptProposal(ConceptProposal),
     AnomalyScore(f64),
 }
@@ -78,7 +110,10 @@ pub struct LearnedEvidence {
 }
 
 impl LearnedEvidence {
-    pub fn validate(&self, policy: &EvidenceValidationPolicy) -> Result<(), EvidenceValidationError> {
+    pub fn validate(
+        &self,
+        policy: &EvidenceValidationPolicy,
+    ) -> Result<(), EvidenceValidationError> {
         if self.schema_version != policy.accepted_schema_version {
             return Err(EvidenceValidationError::UnsupportedSchema {
                 expected: policy.accepted_schema_version,
@@ -92,8 +127,14 @@ impl LearnedEvidence {
         require_non_empty("provenance.producer", &self.provenance.producer)?;
         require_non_empty("provenance.model_id", &self.provenance.model_id)?;
         require_non_empty("provenance.model_version", &self.provenance.model_version)?;
-        require_non_empty("provenance.checkpoint_digest", &self.provenance.checkpoint_digest)?;
-        require_non_empty("provenance.source_episode_id", &self.provenance.source_episode_id)?;
+        require_non_empty(
+            "provenance.checkpoint_digest",
+            &self.provenance.checkpoint_digest,
+        )?;
+        require_non_empty(
+            "provenance.source_episode_id",
+            &self.provenance.source_episode_id,
+        )?;
 
         require_unit_interval("confidence", self.confidence)?;
         require_unit_interval("uncertainty", self.uncertainty)?;
@@ -174,7 +215,9 @@ pub enum EvidenceValidationError {
     EmptyField(&'static str),
     #[error("{field} must be finite and in [0, 1], got {value}")]
     InvalidUnitInterval { field: &'static str, value: f64 },
-    #[error("provenance mismatch for {field}: declared {declared:?}, provenance {provenance:?}")]
+    #[error(
+        "provenance mismatch for {field}: declared {declared:?}, provenance {provenance:?}"
+    )]
     ProvenanceMismatch {
         field: &'static str,
         declared: String,
@@ -182,9 +225,13 @@ pub enum EvidenceValidationError {
     },
     #[error("invalid evidence timestamp: {0}")]
     InvalidTimestamp(i64),
-    #[error("evidence is stale by {age_secs}s; maximum accepted age is {max_age_secs}s")]
+    #[error(
+        "evidence is stale by {age_secs}s; maximum accepted age is {max_age_secs}s"
+    )]
     StaleEvidence { age_secs: i64, max_age_secs: i64 },
-    #[error("evidence timestamp {timestamp} is too far in the future relative to {now} (max skew {max_future_skew_secs}s)")]
+    #[error(
+        "evidence timestamp {timestamp} is too far in the future relative to {now} (max skew {max_future_skew_secs}s)"
+    )]
     FutureEvidence {
         timestamp: i64,
         now: i64,
@@ -194,16 +241,40 @@ pub enum EvidenceValidationError {
     InvalidPayload(String),
 }
 
-fn require_non_empty(field: &'static str, value: &str) -> Result<(), EvidenceValidationError> {
+fn require_non_empty(
+    field: &'static str,
+    value: &str,
+) -> Result<(), EvidenceValidationError> {
     if value.trim().is_empty() {
         return Err(EvidenceValidationError::EmptyField(field));
     }
     Ok(())
 }
 
-fn require_unit_interval(field: &'static str, value: f64) -> Result<(), EvidenceValidationError> {
+fn require_unit_interval(
+    field: &'static str,
+    value: f64,
+) -> Result<(), EvidenceValidationError> {
     if !value.is_finite() || !(0.0..=1.0).contains(&value) {
         return Err(EvidenceValidationError::InvalidUnitInterval { field, value });
+    }
+    Ok(())
+}
+
+fn validate_named_vector(
+    field: &'static str,
+    vector: &NamedVector,
+) -> Result<(), EvidenceValidationError> {
+    require_non_empty(field, &vector.space)?;
+    if vector.values.is_empty() {
+        return Err(EvidenceValidationError::InvalidPayload(format!(
+            "{field} values cannot be empty"
+        )));
+    }
+    if vector.values.iter().any(|value| !value.is_finite()) {
+        return Err(EvidenceValidationError::InvalidPayload(format!(
+            "{field} values must be finite"
+        )));
     }
     Ok(())
 }
@@ -213,29 +284,83 @@ fn validate_payload(payload: &LearnedPayload) -> Result<(), EvidenceValidationEr
         LearnedPayload::ObjectSet(objects) => {
             for object in objects {
                 require_non_empty("payload.object_id", &object.object_id)?;
-                require_unit_interval("payload.object.confidence", object.confidence)?;
+                require_unit_interval(
+                    "payload.object.confidence",
+                    object.confidence,
+                )?;
                 if object.features.iter().any(|value| !value.is_finite()) {
-                    return Err(EvidenceValidationError::InvalidPayload("object features must be finite".to_string()));
+                    return Err(EvidenceValidationError::InvalidPayload(
+                        "object features must be finite".to_string(),
+                    ));
                 }
             }
         }
         LearnedPayload::StateEmbedding(values) => {
             if values.is_empty() {
-                return Err(EvidenceValidationError::InvalidPayload("state embedding cannot be empty".to_string()));
+                return Err(EvidenceValidationError::InvalidPayload(
+                    "state embedding cannot be empty".to_string(),
+                ));
             }
             if values.iter().any(|value| !value.is_finite()) {
-                return Err(EvidenceValidationError::InvalidPayload("state embedding values must be finite".to_string()));
+                return Err(EvidenceValidationError::InvalidPayload(
+                    "state embedding values must be finite".to_string(),
+                ));
             }
         }
         LearnedPayload::PredictedTransition(prediction) => {
-            require_non_empty("payload.predicted_transition.action", &prediction.action)?;
-            require_non_empty("payload.predicted_transition.predicted_state", &prediction.predicted_state)?;
-            require_unit_interval("payload.predicted_transition.probability", prediction.probability)?;
+            require_non_empty(
+                "payload.predicted_transition.action",
+                &prediction.action,
+            )?;
+            require_non_empty(
+                "payload.predicted_transition.predicted_state",
+                &prediction.predicted_state,
+            )?;
+            require_unit_interval(
+                "payload.predicted_transition.probability",
+                prediction.probability,
+            )?;
+        }
+        LearnedPayload::NumericTransitionPrediction(prediction) => {
+            require_non_empty(
+                "payload.numeric_transition_prediction.transition_id",
+                &prediction.transition_id,
+            )?;
+            validate_named_vector(
+                "payload.numeric_transition_prediction.action.space",
+                &prediction.action,
+            )?;
+            validate_named_vector(
+                "payload.numeric_transition_prediction.predicted_next_state.space",
+                &prediction.predicted_next_state,
+            )?;
+            if prediction.horizon_steps == 0 {
+                return Err(EvidenceValidationError::InvalidPayload(
+                    "numeric transition prediction horizon_steps must be > 0"
+                        .to_string(),
+                ));
+            }
+        }
+        LearnedPayload::NumericStateObservation(observation) => {
+            require_non_empty(
+                "payload.numeric_state_observation.transition_id",
+                &observation.transition_id,
+            )?;
+            validate_named_vector(
+                "payload.numeric_state_observation.state.space",
+                &observation.state,
+            )?;
         }
         LearnedPayload::ConceptProposal(proposal) => {
-            require_non_empty("payload.concept.candidate_id", &proposal.candidate_id)?;
+            require_non_empty(
+                "payload.concept.candidate_id",
+                &proposal.candidate_id,
+            )?;
             require_non_empty("payload.concept.descriptor", &proposal.descriptor)?;
-            require_unit_interval("payload.concept.stability", proposal.stability)?;
+            require_unit_interval(
+                "payload.concept.stability",
+                proposal.stability,
+            )?;
         }
         LearnedPayload::AnomalyScore(score) => {
             require_unit_interval("payload.anomaly_score", *score)?;
@@ -281,7 +406,10 @@ mod tests {
     fn stale_evidence_is_rejected() {
         let evidence = sample_evidence(900);
         let policy = EvidenceValidationPolicy::strict(1_000, 30);
-        assert!(matches!(evidence.validate(&policy), Err(EvidenceValidationError::StaleEvidence { .. })));
+        assert!(matches!(
+            evidence.validate(&policy),
+            Err(EvidenceValidationError::StaleEvidence { .. })
+        ));
     }
 
     #[test]
@@ -289,7 +417,10 @@ mod tests {
         let mut evidence = sample_evidence(1_000);
         evidence.provenance.model_version = "wrong-version".to_string();
         let policy = EvidenceValidationPolicy::strict(1_010, 60);
-        assert!(matches!(evidence.validate(&policy), Err(EvidenceValidationError::ProvenanceMismatch { .. })));
+        assert!(matches!(
+            evidence.validate(&policy),
+            Err(EvidenceValidationError::ProvenanceMismatch { .. })
+        ));
     }
 
     #[test]
@@ -297,6 +428,33 @@ mod tests {
         let mut evidence = sample_evidence(1_000);
         evidence.payload = LearnedPayload::StateEmbedding(vec![0.0, f32::NAN]);
         let policy = EvidenceValidationPolicy::strict(1_010, 60);
-        assert!(matches!(evidence.validate(&policy), Err(EvidenceValidationError::InvalidPayload(_))));
+        assert!(matches!(
+            evidence.validate(&policy),
+            Err(EvidenceValidationError::InvalidPayload(_))
+        ));
+    }
+
+    #[test]
+    fn numeric_transition_requires_positive_horizon() {
+        let mut evidence = sample_evidence(1_000);
+        evidence.payload = LearnedPayload::NumericTransitionPrediction(
+            NumericTransitionPrediction {
+                transition_id: "transition-1".to_string(),
+                action: NamedVector {
+                    space: "synthetic.action.v1".to_string(),
+                    values: vec![0.1, 0.0, -0.2],
+                },
+                predicted_next_state: NamedVector {
+                    space: "synthetic.proprio.v1".to_string(),
+                    values: vec![0.5, 0.5, 0.0],
+                },
+                horizon_steps: 0,
+            },
+        );
+        let policy = EvidenceValidationPolicy::strict(1_010, 60);
+        assert!(matches!(
+            evidence.validate(&policy),
+            Err(EvidenceValidationError::InvalidPayload(_))
+        ));
     }
 }
