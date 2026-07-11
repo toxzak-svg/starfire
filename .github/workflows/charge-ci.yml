@@ -57,6 +57,7 @@ jobs:
           cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star representation_descendants:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
 
       - name: Run real-component CHARGE specialization probe
         run: |
@@ -140,6 +141,12 @@ jobs:
           cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
             | tee omega1-endogenous-state-space-genesis-report.json
 
+      - name: Run Ω2 descendant necessity probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega2_descendant_necessity --locked \
+            | tee omega2-descendant-necessity-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -158,5 +165,6 @@ jobs:
             h10-evidence-bound-rule-induction-report.json
             h11-graph-discovered-relation-induction-report.json
             omega1-endogenous-state-space-genesis-report.json
+            omega2-descendant-necessity-report.json
           if-no-files-found: ignore
           retention-days: 7
