@@ -10,6 +10,7 @@
 //! state into charge but never choose a resolver; routing and induced distinctions
 //! remain empirical and can be falsified independently.
 
+pub mod contrast;
 pub mod diagnostics;
 pub mod emitters;
 pub mod features;
@@ -22,6 +23,11 @@ pub mod shadow;
 pub mod types;
 pub mod verifier;
 
+pub use contrast::{
+    disagreement_pair_schedule, fit_contrast_from_pairs, fit_disagreement_contrast,
+    valid_contrast_pairs, ContrastProbeConfig, ContrastProbeError, ContrastProbeFit,
+    LearnedContrastProbe, ProbeSide, TensionContrast,
+};
 pub use diagnostics::{
     assess_resolver_identifiability, IdentifiabilityAssessment, IdentifiabilityCriteria,
     ResolverLeaderDistribution, ResolverMarginSummary,
