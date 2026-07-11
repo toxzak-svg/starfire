@@ -52,13 +52,13 @@ pub struct OperatorRegistry<E: Environment> {
     operators: Vec<Box<dyn CognitiveOperator<E>>>,
 }
 
-impl<E: Environment> Default for OperatorRegistry<E> {
+impl<E: Environment + 'static> Default for OperatorRegistry<E> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<E: Environment> OperatorRegistry<E> {
+impl<E: Environment + 'static> OperatorRegistry<E> {
     pub fn new() -> Self {
         Self {
             operators: Vec::new(),
