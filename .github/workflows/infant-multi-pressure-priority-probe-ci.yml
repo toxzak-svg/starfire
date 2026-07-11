@@ -44,3 +44,5 @@ jobs:
           path: artifacts/h_infant_multi_pressure_priority_probe.json
           if-no-files-found: warn
           retention-days: 14
+
+# Verdict confirmation retrigger: 2026-07-11
