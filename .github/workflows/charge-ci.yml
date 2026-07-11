@@ -112,6 +112,12 @@ jobs:
           cargo run -p star --example h6_disagreement_contrast_probe --locked \
             | tee h6-disagreement-contrast-report.json
 
+      - name: Run H8 transformed action-order diamond falsification probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h8_transformed_action_order_diamond --locked \
+            | tee h8-transformed-action-order-diamond-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -126,5 +132,6 @@ jobs:
             h5-residual-identity-diagnostic-report.json
             h5-b-identifiability-report.json
             h6-disagreement-contrast-report.json
+            h8-transformed-action-order-diamond-report.json
           if-no-files-found: ignore
           retention-days: 7
