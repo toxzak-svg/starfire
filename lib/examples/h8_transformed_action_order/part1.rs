@@ -1,12 +1,11 @@
-#![allow(dead_code)]
-
+#[allow(dead_code)]
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 
 use star::causal::CausalEngine;
 use star::charge::{
-    directed_normalized_motion, fixed_residual_feature_charge, knowledge_gap_charge,
+    fixed_residual_feature_charge, knowledge_gap_charge,
     ontology_feature_charge, prediction_contradiction_charge, score_resolution, Charge, ChargeKind,
     ConceptPredicate, Direction, DischargeJudge, FixedResidualProjectionConfig,
     ImprovementDirection, OutcomeWitness, QuanotTrajectoryEmitter, RelativeImprovementJudge,
