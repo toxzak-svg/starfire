@@ -168,3 +168,31 @@ jobs:
             omega-r1-representative-transportability-report.json
           if-no-files-found: ignore
           retention-days: 7
+
+  infant-multi-pressure-verdict:
+    name: infant-multi-pressure-verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run frozen H-Infant multi-pressure prioritization probe
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          cargo run -p star --example h_infant_multi_pressure_priority_probe \
+            --features developmental-evidence --locked 2>&1 \
+            | tee artifacts/h_infant_multi_pressure_priority_probe.json
+
+      - name: Upload verdict artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h-infant-multi-pressure-verdict
+          path: artifacts/h_infant_multi_pressure_priority_probe.json
+          if-no-files-found: warn
+          retention-days: 14
