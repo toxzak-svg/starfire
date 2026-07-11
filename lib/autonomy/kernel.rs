@@ -264,7 +264,7 @@ mod tests {
                 clue,
                 candidate,
                 submitted,
-            } = context.observation;
+            } = *context.observation;
 
             let action = if clue.is_none() {
                 HiddenRuleAction::Inspect
