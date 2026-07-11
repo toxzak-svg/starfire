@@ -11,6 +11,7 @@
 //! remain empirical and can be falsified independently.
 
 pub mod diagnostics;
+pub mod disagreement;
 pub mod emitters;
 pub mod features;
 pub mod induction;
@@ -25,6 +26,10 @@ pub mod verifier;
 pub use diagnostics::{
     assess_resolver_identifiability, IdentifiabilityAssessment, IdentifiabilityCriteria,
     ResolverLeaderDistribution, ResolverMarginSummary,
+};
+pub use disagreement::{
+    DisagreementBasis, DisagreementBasisConfig, DisagreementBasisError, DisagreementBudget,
+    DisagreementCarrier, DisagreementDecision, DiscriminationProbe, PairwiseProjection,
 };
 pub use emitters::{
     knowledge_gap_charge, prediction_contradiction_charge, QuanotTrajectoryEmitter,
