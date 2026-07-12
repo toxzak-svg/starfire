@@ -129,7 +129,7 @@ impl CompanionPersistence {
             return Err(CompanionPersistenceError::StateMismatch);
         }
 
-        if matches!(transition.event, CompanionEvent::ClaimDeleted { .. }) {
+        if matches!(&transition.event, CompanionEvent::ClaimDeleted { .. }) {
             journal.checkpoint = resulting_state.clone();
             journal.tail.clear();
             journal.last_compacted_at_ms = Some(committed_at_ms);
@@ -203,9 +203,7 @@ pub enum CompanionPersistenceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::companion_state::{
-        ClaimInput, ClaimSource, Retention, Sensitivity,
-    };
+    use crate::companion_state::{ClaimInput, ClaimSource, Retention, Sensitivity};
     use uuid::Uuid;
 
     fn temporary_path() -> std::path::PathBuf {
@@ -293,9 +291,7 @@ mod tests {
         let deleted = state
             .delete_claim(state.version, first.claim_id.unwrap(), 20)
             .unwrap();
-        persistence
-            .commit(1, &deleted, &state, 20)
-            .unwrap();
+        persistence.commit(1, &deleted, &state, 20).unwrap();
 
         let raw = store.get_identity(JOURNAL_KEY).unwrap().unwrap();
         assert!(!raw.contains("secret-value"));
