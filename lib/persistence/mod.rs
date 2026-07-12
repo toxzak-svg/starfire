@@ -9,6 +9,7 @@ pub mod identity;
 pub mod session;
 pub mod identity_guard;
 pub mod tiers;
+pub mod companion;
 
 pub use store::{Store, MemorySnapshot, ReasoningEvent, ReasoningGap};
 pub use memory::{Memory, MemoryDomain, Belief, BeliefState};
@@ -16,3 +17,6 @@ pub use identity::Identity;
 pub use session::Session;
 pub use identity_guard::IdentityGuard;
 pub use tiers::{MemoryTier, WorkingMemory, ConsolidationManager};
+pub use companion::{
+    CompanionJournalStats, CompanionPersistence, CompanionPersistenceError,
+};
