@@ -207,9 +207,7 @@ fn transition_is_reflected(event: &CompanionEvent, state: &CompanionState) -> bo
             updated_at_ms,
         } => state.claim(*claim_id).is_some_and(|claim| {
             state.observations().get(&observation.id) == Some(observation)
-                && claim
-                    .supporting_observation_ids
-                    .contains(&observation.id)
+                && claim.supporting_observation_ids.contains(&observation.id)
                 && claim.confidence_bps >= *confidence_bps
                 && claim.updated_at_ms >= *updated_at_ms
         }),
@@ -261,9 +259,7 @@ fn event_is_durable(event: &CompanionEvent, state: &CompanionState) -> bool {
 /// identifier counters. Serde is already the journal's compatibility boundary;
 /// projecting the serialized shape lets this adapter exclude private fields
 /// without expanding the public mutation API of `CompanionState`.
-fn durable_projection(
-    state: &CompanionState,
-) -> Result<CompanionState, CompanionPersistenceError> {
+fn durable_projection(state: &CompanionState) -> Result<CompanionState, CompanionPersistenceError> {
     let mut encoded = serde_json::to_value(state)?;
     let root = encoded
         .as_object_mut()
@@ -352,7 +348,9 @@ fn durable_projection(
     let active_by_key = root
         .get_mut("active_by_key")
         .and_then(Value::as_object_mut)
-        .ok_or(CompanionPersistenceError::InvalidStateShape("active_by_key"))?;
+        .ok_or(CompanionPersistenceError::InvalidStateShape(
+            "active_by_key",
+        ))?;
     active_by_key.retain(|_, claim_id| {
         claim_id
             .as_u64()
@@ -495,7 +493,13 @@ mod tests {
         assert_eq!(
             outcomes
                 .iter()
-                .filter(|result| matches!(result, Err(CompanionPersistenceError::VersionConflict { expected: 0, actual: 1 })))
+                .filter(|result| matches!(
+                    result,
+                    Err(CompanionPersistenceError::VersionConflict {
+                        expected: 0,
+                        actual: 1
+                    })
+                ))
                 .count(),
             1
         );
@@ -533,7 +537,11 @@ mod tests {
                 .commit(durable.version, &session, &state, 11)
                 .unwrap();
             assert_eq!(persistence.stats().unwrap().tail_events, 1);
-            let raw = persistence.store().get_identity(JOURNAL_KEY).unwrap().unwrap();
+            let raw = persistence
+                .store()
+                .get_identity(JOURNAL_KEY)
+                .unwrap()
+                .unwrap();
             assert!(!raw.contains("do-not-persist"));
         }
 
@@ -558,7 +566,10 @@ mod tests {
         let persistence = CompanionPersistence::new(store.clone());
         let mut state = CompanionState::new();
         let first = state
-            .record_claim(0, claim("private note", "secret-value", 10, Retention::Durable))
+            .record_claim(
+                0,
+                claim("private note", "secret-value", 10, Retention::Durable),
+            )
             .unwrap();
         persistence.commit(0, &first, &state, 10).unwrap();
 

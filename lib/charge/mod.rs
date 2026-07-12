@@ -89,10 +89,7 @@ mod companion_integration_tests {
     fn companion_contradiction_emits_charge_without_overwriting_user_claim() {
         let mut state = CompanionState::new();
         let original = state
-            .record_claim(
-                0,
-                claim("response style", "direct", 10, Retention::Durable),
-            )
+            .record_claim(0, claim("response style", "direct", 10, Retention::Durable))
             .unwrap();
         let conflict = state
             .record_claim(
