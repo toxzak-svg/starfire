@@ -13,6 +13,9 @@ use thiserror::Error;
 pub type ClaimId = u64;
 pub type ObservationId = u64;
 
+const RETENTION_EXPIRED_REASON: &str = "retention expired";
+const CONTESTED_PARENT_DELETED_REASON: &str = "contested claim deleted";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ClaimSource {
     UserStatement,
@@ -94,11 +97,17 @@ pub struct CorrectionInput {
     pub observed_at_ms: u64,
 }
 
+/// Replayable mutation of companion state.
+///
+/// `retired_expired_claim_id` is part of the event rather than recomputed at
+/// replay time. This makes retention-driven replacement deterministic and
+/// auditable even if replay occurs at a different wall-clock time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompanionEvent {
     ClaimRecorded {
         claim: CompanionClaim,
         observation: Observation,
+        retired_expired_claim_id: Option<ClaimId>,
     },
     ObservationAttached {
         claim_id: ClaimId,
@@ -216,12 +225,25 @@ impl CompanionState {
             );
         }
 
-        if let Some(active_id) = self.active_by_key.get(&key).copied() {
+        let indexed_active_id = self.active_by_key.get(&key).copied();
+        let retired_expired_claim_id = indexed_active_id
+            .filter(|claim_id| {
+                self.claims
+                    .get(claim_id)
+                    .is_some_and(|claim| claim.retention.is_expired(input.observed_at_ms))
+            });
+        let active_id = indexed_active_id.filter(|claim_id| {
+            !retired_expired_claim_id.is_some_and(|expired_id| expired_id == *claim_id)
+        });
+
+        if let Some(active_id) = active_id {
             let active = self
                 .claims
                 .get(&active_id)
                 .ok_or(CompanionError::BrokenActiveIndex(active_id))?;
             if equivalent_value(&active.value, &value) {
+                let confidence_bps = active.confidence_bps.max(input.confidence_bps);
+                let updated_at_ms = active.updated_at_ms.max(input.observed_at_ms);
                 let observation = Observation {
                     id: self.next_observation_id,
                     claim_id: active_id,
@@ -232,8 +254,8 @@ impl CompanionState {
                 let event = CompanionEvent::ObservationAttached {
                     claim_id: active_id,
                     observation,
-                    confidence_bps: active.confidence_bps.max(input.confidence_bps),
-                    updated_at_ms: active.updated_at_ms.max(input.observed_at_ms),
+                    confidence_bps,
+                    updated_at_ms,
                 };
                 let version = self.apply_event(expected_version, event.clone())?;
                 return Ok(CompanionTransition {
@@ -247,7 +269,7 @@ impl CompanionState {
 
         let claim_id = self.next_claim_id;
         let observation_id = self.next_observation_id;
-        let contested_with = self.active_by_key.get(&key).copied();
+        let contested_with = active_id;
         let claim = CompanionClaim {
             id: claim_id,
             key: key.clone(),
@@ -270,11 +292,15 @@ impl CompanionState {
             source: input.source,
             observed_at_ms: input.observed_at_ms,
         };
-        let event = CompanionEvent::ClaimRecorded { claim, observation };
+        let event = CompanionEvent::ClaimRecorded {
+            claim,
+            observation,
+            retired_expired_claim_id,
+        };
         let emitted_charges = contested_with
-            .and_then(|active_id| self.claims.get(&active_id))
-            .map(|active| {
-                contradiction_charge(&key, active.confidence_bps, input.confidence_bps)
+            .and_then(|existing_id| self.claims.get(&existing_id))
+            .map(|existing| {
+                contradiction_charge(&key, existing.confidence_bps, input.confidence_bps)
             })
             .into_iter()
             .collect();
@@ -397,8 +423,15 @@ impl CompanionState {
         self.require_version(expected_version)?;
 
         match &event {
-            CompanionEvent::ClaimRecorded { claim, observation } => {
+            CompanionEvent::ClaimRecorded {
+                claim,
+                observation,
+                retired_expired_claim_id,
+            } => {
                 self.validate_new_claim_event(claim, observation)?;
+                if let Some(expired_id) = retired_expired_claim_id {
+                    self.retire_expired_active(*expired_id, &claim.key, claim.created_at_ms)?;
+                }
                 match &claim.status {
                     ClaimStatus::Active => {
                         if self.active_by_key.contains_key(&claim.key) {
@@ -518,7 +551,7 @@ impl CompanionState {
                     );
                     if contested_deleted {
                         other.status = ClaimStatus::Invalidated {
-                            reason: "contested claim deleted".to_owned(),
+                            reason: CONTESTED_PARENT_DELETED_REASON.to_owned(),
                         };
                     }
                 }
@@ -530,6 +563,30 @@ impl CompanionState {
             .checked_add(1)
             .ok_or(CompanionError::VersionOverflow)?;
         Ok(self.version)
+    }
+
+    fn retire_expired_active(
+        &mut self,
+        claim_id: ClaimId,
+        replacement_key: &str,
+        replacement_at_ms: u64,
+    ) -> Result<(), CompanionError> {
+        let claim = self
+            .claims
+            .get_mut(&claim_id)
+            .ok_or(CompanionError::ClaimNotFound(claim_id))?;
+        if claim.key != replacement_key
+            || self.active_by_key.get(replacement_key) != Some(&claim_id)
+            || !claim.retention.is_expired(replacement_at_ms)
+        {
+            return Err(CompanionError::InvalidExpiredRetirement(claim_id));
+        }
+        claim.status = ClaimStatus::Invalidated {
+            reason: RETENTION_EXPIRED_REASON.to_owned(),
+        };
+        claim.updated_at_ms = claim.updated_at_ms.max(replacement_at_ms);
+        self.active_by_key.remove(replacement_key);
+        Ok(())
     }
 
     fn validate_new_claim_event(
@@ -671,6 +728,8 @@ pub enum CompanionError {
     InvalidInitialStatus,
     #[error("replacement claim must be active")]
     InvalidReplacementStatus,
+    #[error("claim {0} was not a matching expired active claim")]
+    InvalidExpiredRetirement(ClaimId),
     #[error("companion state version overflow")]
     VersionOverflow,
     #[error("companion identifier overflow")]
@@ -764,6 +823,44 @@ mod tests {
     }
 
     #[test]
+    fn expired_active_claim_is_retired_before_new_claim_is_recorded() {
+        let mut state = CompanionState::new();
+        let first = state
+            .record_claim(
+                0,
+                ClaimInput {
+                    key: "temporary preference".to_owned(),
+                    value: "old".to_owned(),
+                    source: ClaimSource::UserStatement,
+                    confidence_bps: 10_000,
+                    sensitivity: Sensitivity::Personal,
+                    retention: Retention::Until { expires_at_ms: 20 },
+                    observed_at_ms: 10,
+                },
+            )
+            .unwrap();
+        let replacement = state
+            .record_claim(
+                first.version,
+                user_claim("temporary preference", "new", 21),
+            )
+            .unwrap();
+
+        assert!(replacement.emitted_charges.is_empty());
+        assert_eq!(
+            &state.claim(first.claim_id.unwrap()).unwrap().status,
+            &ClaimStatus::Invalidated {
+                reason: RETENTION_EXPIRED_REASON.to_owned()
+            }
+        );
+        let active = state
+            .active_claim("temporary preference", 21, true)
+            .unwrap();
+        assert_eq!(active.id, replacement.claim_id.unwrap());
+        assert_eq!(active.value, "new");
+    }
+
+    #[test]
     fn explicit_user_correction_supersedes_active_claim() {
         let mut state = CompanionState::new();
         let first = state
@@ -839,20 +936,21 @@ mod tests {
     fn event_replay_is_deterministic() {
         let mut source = CompanionState::new();
         let first = source
-            .record_claim(0, user_claim("editor", "vim", 10))
-            .unwrap();
-        let second = source
-            .correct_claim(
-                first.version,
-                first.claim_id.unwrap(),
-                CorrectionInput {
-                    value: "helix".to_owned(),
+            .record_claim(
+                0,
+                ClaimInput {
+                    key: "editor".to_owned(),
+                    value: "vim".to_owned(),
+                    source: ClaimSource::UserStatement,
                     confidence_bps: 10_000,
                     sensitivity: Sensitivity::Personal,
-                    retention: Retention::Durable,
-                    observed_at_ms: 15,
+                    retention: Retention::Until { expires_at_ms: 12 },
+                    observed_at_ms: 10,
                 },
             )
+            .unwrap();
+        let second = source
+            .record_claim(first.version, user_claim("editor", "helix", 15))
             .unwrap();
 
         let mut replay = CompanionState::new();
