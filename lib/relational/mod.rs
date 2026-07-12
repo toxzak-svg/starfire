@@ -126,10 +126,7 @@ impl RelationalResidual {
             ChargeKind::PredictionResidual,
             self.residual.iter().map(|value| *value as f32).collect(),
             self.magnitude as f32,
-            ChargeScope::Custom(format!(
-                "relational:{}:{}",
-                self.target, self.context_scope
-            )),
+            ChargeScope::Custom(format!("relational:{}:{}", self.target, self.context_scope)),
         )
     }
 }
@@ -320,9 +317,7 @@ fn validate_config(config: RelationalBridgeConfig) -> Result<(), RelationalBridg
             "min_charge_magnitude must be finite and within 0..=1",
         ));
     }
-    if !config.probability_sum_tolerance.is_finite()
-        || config.probability_sum_tolerance < 0.0
-    {
+    if !config.probability_sum_tolerance.is_finite() || config.probability_sum_tolerance < 0.0 {
         return Err(RelationalBridgeError::InvalidConfig(
             "probability_sum_tolerance must be finite and non-negative",
         ));
@@ -354,7 +349,9 @@ fn validate_prediction(
     for outcome in &prediction.outcomes {
         require_non_blank("outcome.label", &outcome.label)?;
         if !labels.insert(outcome.label.clone()) {
-            return Err(RelationalBridgeError::DuplicateOutcome(outcome.label.clone()));
+            return Err(RelationalBridgeError::DuplicateOutcome(
+                outcome.label.clone(),
+            ));
         }
         if !outcome.probability.is_finite() || !(0.0..=1.0).contains(&outcome.probability) {
             return Err(RelationalBridgeError::InvalidProbability {
@@ -393,7 +390,9 @@ fn validate_witness(
         });
     }
     if !witness.confidence.is_finite() || !(0.0..=1.0).contains(&witness.confidence) {
-        return Err(RelationalBridgeError::InvalidWitnessConfidence(witness.confidence));
+        return Err(RelationalBridgeError::InvalidWitnessConfidence(
+            witness.confidence,
+        ));
     }
     if !witness.source.is_independent() {
         return Err(RelationalBridgeError::NonIndependentWitness);
