@@ -42,6 +42,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
+          git diff --exit-code -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
+
       - name: Compile Star library and A1 probe
         run: |
           set -o pipefail
@@ -53,6 +66,8 @@ jobs:
         run: |
           set -o pipefail
           cargo test -p star charge:: --locked -- --test-threads=1 2>&1 | tee charge-test.log
+          cargo test -p star companion_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star persistence::companion:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star cognitive_cycle:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star environment:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star autonomy:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log

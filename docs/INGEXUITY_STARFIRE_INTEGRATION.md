@@ -26,9 +26,11 @@ The companion layer owns:
 - contradiction detection;
 - response-policy inputs derived from validated companion state.
 
-## Slice S0 — typed companion state
+## Implemented slices
 
-Implemented in this PR:
+### S0 — typed companion state
+
+Merged in Starfire PR #45:
 
 - `CompanionState` with optimistic versions;
 - typed claims and observations;
@@ -45,11 +47,21 @@ The key authority rule is:
 
 > An inferred contradiction may become a contested claim and emit CHARGE, but it may not silently replace an active user claim.
 
-## Next slices
-
 ### S1 — Starfire persistence adapter
 
-Persist companion events and snapshots through Starfire's existing SQLite transaction boundary. Add restart recovery, schema migration, redaction/compaction semantics for deletion, and optimistic-conflict rollback.
+Implemented in Starfire PR #47:
+
+- one versioned companion journal inside Starfire's existing SQLite `Store`;
+- SQLite compare-and-swap across threads, Store instances, and processes;
+- restart recovery from a durable checkpoint;
+- deterministic exclusion of `Retention::Session` claims and observations;
+- source-version continuity across session-only transitions;
+- durable event audit without making the audit tail a second state authority;
+- deletion compaction that clears prior raw event history;
+- repair of the pre-existing unclosed transaction in `Store::open()`;
+- no second database, server, inference loop, or action authority.
+
+## Next slices
 
 ### S2 — legacy user-model bridge
 

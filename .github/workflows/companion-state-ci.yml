@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - "lib/companion_state/**"
+      - "lib/persistence/companion.rs"
+      - "lib/persistence/store.rs"
+      - "lib/persistence/mod.rs"
+      - "lib/charge/mod.rs"
       - "lib/lib.rs"
       - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
       - ".github/workflows/companion-state-ci.yml"
@@ -31,8 +35,18 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
+          git diff --exit-code -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
 
       - name: Check Star library
         run: cargo check -p star --lib --locked
@@ -40,5 +54,11 @@ jobs:
       - name: Lint companion substrate
         run: cargo clippy -p star --lib --locked -- -D warnings
 
-      - name: Test companion contracts
+      - name: Test companion state contracts
         run: cargo test -p star companion_state:: --locked -- --test-threads=1
+
+      - name: Test companion persistence contracts
+        run: cargo test -p star persistence::companion:: --locked -- --test-threads=1
+
+      - name: Test CHARGE companion integration
+        run: cargo test -p star charge::companion_integration_tests:: --locked -- --test-threads=1

@@ -3,7 +3,7 @@
 //! Single-file storage. No server. Human-readable schema.
 //! Transactional for safety.
 
-use crate::persistence::{Memory, MemoryDomain, Belief, BeliefState, IdentityGuard};
+use crate::persistence::{Belief, BeliefState, IdentityGuard, Memory, MemoryDomain};
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
@@ -40,7 +40,7 @@ pub struct ReasoningGap {
 }
 
 /// The persistent store — SQLite backend for all Star's memory.
-/// 
+///
 /// Thread-safe via Mutex. Each operation is transactional.
 pub struct Store {
     conn: Mutex<Connection>,
@@ -52,27 +52,26 @@ impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .context("Failed to create data directory")?;
+            std::fs::create_dir_all(parent).context("Failed to create data directory")?;
         }
 
-        let conn = Connection::open(path)
-            .context("Failed to open database")?;
-        
+        let conn = Connection::open(path).context("Failed to open database")?;
+
         // Configure for Railway's ephemeral filesystem
         conn.execute_batch(
             "PRAGMA journal_mode = WAL;
              PRAGMA busy_timeout = 30000;
              PRAGMA locking_mode = NORMAL;
              PRAGMA synchronous = NORMAL;
-             PRAGMA cache_size = -64000;"
+             PRAGMA cache_size = -64000;",
         )?;
-        
-        // Enable foreign keys and WAL mode for safety
+
+        // Enable foreign keys and WAL mode for safety. Ordinary writes remain in
+        // SQLite autocommit mode; operations that need stronger serialization
+        // open their own bounded transactions.
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
-             PRAGMA foreign_keys=ON;
-             BEGIN IMMEDIATE;"
+             PRAGMA foreign_keys=ON;",
         )?;
 
         let store = Self {
@@ -234,18 +233,58 @@ impl Store {
         Ok(result)
     }
 
+    /// Atomically replace an identity value only when its current value matches
+    /// the caller's expectation.
+    ///
+    /// The comparison and write occur inside an IMMEDIATE SQLite transaction,
+    /// making this safe across multiple `Store` instances and processes. `None`
+    /// means the key must not exist yet.
+    pub fn compare_and_swap_identity(
+        &self,
+        key: &str,
+        expected_value: Option<&str>,
+        new_value: &str,
+        changed_at: i64,
+    ) -> Result<bool> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let current: Option<String> = tx
+            .query_row(
+                "SELECT value FROM identity WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if current.as_deref() != expected_value {
+            tx.rollback()?;
+            return Ok(false);
+        }
+
+        tx.execute(
+            r#"INSERT INTO identity (key, value, formed_at, updated_at)
+               VALUES (?1, ?2, ?3, NULL)
+               ON CONFLICT(key) DO UPDATE SET
+                   value = excluded.value,
+                   updated_at = excluded.formed_at"#,
+            params![key, new_value, changed_at],
+        )?;
+        tx.commit()?;
+        Ok(true)
+    }
+
     // ─────────────────────────────────────────────────────────────────
     // Memory Operations
     // ─────────────────────────────────────────────────────────────────
 
     /// Insert a new memory. Returns the assigned ID.
-    /// 
+    ///
     /// Identity and Relationship memories are protected by the IdentityGuard.
     /// Contradictions of protected memories are blocked.
     pub fn insert_memory(&self, memory: &Memory) -> Result<i64> {
         // Check for conflicts with existing protected memories
         let guard = self.guard.lock().unwrap();
-        
+
         // Get existing memories from this domain
         let existing: Vec<Memory> = self.get_memories_by_domain(memory.domain, None)?;
         if let Some(conflict) = guard.check_conflict(&memory.content, &existing) {
@@ -254,10 +293,11 @@ impl Store {
                 conflict.content
             );
         }
-        
+
         // Also check Identity domain for Star-related self-statements
         if memory.domain != MemoryDomain::Identity {
-            let identity_memories: Vec<Memory> = self.get_memories_by_domain(MemoryDomain::Identity, None)?;
+            let identity_memories: Vec<Memory> =
+                self.get_memories_by_domain(MemoryDomain::Identity, None)?;
             if let Some(conflict) = guard.check_conflict(&memory.content, &identity_memories) {
                 anyhow::bail!(
                     "Cannot insert memory: contradicts protected identity: \"{}\"",
@@ -266,7 +306,7 @@ impl Store {
             }
         }
         drop(guard);
-        
+
         let conn = self.conn.lock().unwrap();
         conn.execute(
             r#"INSERT INTO memories 
@@ -312,36 +352,46 @@ impl Store {
     }
 
     /// Search memories by relevance to a query.
-    pub fn search_memories(&self, query: &str, limit: usize, domain: Option<MemoryDomain>) -> Result<Vec<Memory>> {
+    pub fn search_memories(
+        &self,
+        query: &str,
+        limit: usize,
+        domain: Option<MemoryDomain>,
+    ) -> Result<Vec<Memory>> {
         let conn = self.conn.lock().unwrap();
         let now = crate::now_timestamp();
-        
-        let domain_filter = domain.map(|d| format!("AND domain = '{}'", format!("{:?}", d).to_lowercase())).unwrap_or_default();
+
+        let domain_filter = domain
+            .map(|d| format!("AND domain = '{}'", format!("{:?}", d).to_lowercase()))
+            .unwrap_or_default();
         let sql = format!(
             "SELECT * FROM memories WHERE content LIKE ?1 {} ORDER BY importance DESC, last_accessed DESC LIMIT ?2",
             domain_filter
         );
-        
+
         // Use word boundaries to avoid matching "brain" when searching for "rain"
         // Match: "rain " or " rain" or " rain " at word boundaries
         let exact_pattern = format!("% {} %", query);
         let partial_pattern = format!("%{}%", query);
-        
+
         // Try exact word match first (surrounded by spaces)
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params![exact_pattern, limit as i64], row_to_memory)?;
-        
+
         let mut results = Vec::new();
         for row in rows {
             let mut mem = row?;
             mem.record_access(now);
             results.push(mem);
         }
-        
+
         // If no exact matches and query is long enough, try partial match
         if results.is_empty() && query.len() >= 4 {
             // Avoid matching substrings in common words
-            let skip_substrings = ["the ", "and ", "for ", "brain", "drain", "train", "grain", "plain", "remain", "contain", "about", "which"];
+            let skip_substrings = [
+                "the ", "and ", "for ", "brain", "drain", "train", "grain", "plain", "remain",
+                "contain", "about", "which",
+            ];
             if !skip_substrings.contains(&query.to_lowercase().as_str()) {
                 let mut stmt = conn.prepare(&sql)?;
                 let rows = stmt.query_map(params![partial_pattern, limit as i64], row_to_memory)?;
@@ -352,12 +402,16 @@ impl Store {
                 }
             }
         }
-        
+
         Ok(results)
     }
 
     /// Get all memories of a given domain.
-    pub fn get_memories_by_domain(&self, domain: MemoryDomain, limit: Option<usize>) -> Result<Vec<Memory>> {
+    pub fn get_memories_by_domain(
+        &self,
+        domain: MemoryDomain,
+        limit: Option<usize>,
+    ) -> Result<Vec<Memory>> {
         let conn = self.conn.lock().unwrap();
         let limit_clause = limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
         let sql = format!(
@@ -382,10 +436,15 @@ impl Store {
     }
 
     /// Get memories that have decayed below threshold (for cleanup).
-    pub fn get_forgotten_memories(&self, now: i64, confidence_threshold: f64) -> Result<Vec<Memory>> {
+    pub fn get_forgotten_memories(
+        &self,
+        now: i64,
+        confidence_threshold: f64,
+    ) -> Result<Vec<Memory>> {
         let conn = self.conn.lock().unwrap();
         // This is approximate — full implementation would calculate decay per-memory
-        let sql = "SELECT * FROM memories WHERE decay_rate > 0 AND importance < 0.3 AND access_count < 3";
+        let sql =
+            "SELECT * FROM memories WHERE decay_rate > 0 AND importance < 0.3 AND access_count < 3";
         let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map([], row_to_memory)?;
         let mut results = Vec::new();
@@ -476,8 +535,7 @@ impl Store {
     /// Record a reasoning event.
     pub fn record_reasoning_event(&self, event: &ReasoningEvent) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let chain_json = serde_json::to_string(&event.chain)
-            .unwrap_or_else(|_| "[]".to_string());
+        let chain_json = serde_json::to_string(&event.chain).unwrap_or_else(|_| "[]".to_string());
         let state_str = format!("{:?}", event.confidence_state).to_lowercase();
         let was_uncertain = if event.was_uncertain { 1 } else { 0 };
         conn.execute(
@@ -503,7 +561,11 @@ impl Store {
     }
 
     /// Search reasoning events by query pattern.
-    pub fn search_reasoning_events(&self, query_pattern: &str, limit: usize) -> Result<Vec<ReasoningEvent>> {
+    pub fn search_reasoning_events(
+        &self,
+        query_pattern: &str,
+        limit: usize,
+    ) -> Result<Vec<ReasoningEvent>> {
         let conn = self.conn.lock().unwrap();
         let pattern = format!("%{}%", query_pattern);
         let mut stmt = conn.prepare(
@@ -520,9 +582,8 @@ impl Store {
     /// Get recent reasoning events.
     pub fn get_recent_reasoning_events(&self, limit: usize) -> Result<Vec<ReasoningEvent>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT * FROM reasoning_events ORDER BY timestamp DESC LIMIT ?1"
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT * FROM reasoning_events ORDER BY timestamp DESC LIMIT ?1")?;
         let rows = stmt.query_map(params![limit as i64], row_to_reasoning_event)?;
         let mut results = Vec::new();
         for row in rows {
@@ -536,7 +597,7 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let since = crate::now_timestamp() - seconds_ago;
         let mut stmt = conn.prepare(
-            "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC"
+            "SELECT * FROM reasoning_events WHERE timestamp >= ?1 ORDER BY timestamp DESC",
         )?;
         let rows = stmt.query_map(params![since], row_to_reasoning_event)?;
         let mut results = Vec::new();
@@ -547,7 +608,11 @@ impl Store {
     }
 
     /// Get uncertain reasoning events (gaps worth probing).
-    pub fn get_uncertain_reasoning_events(&self, max_age_seconds: i64, limit: usize) -> Result<Vec<ReasoningEvent>> {
+    pub fn get_uncertain_reasoning_events(
+        &self,
+        max_age_seconds: i64,
+        limit: usize,
+    ) -> Result<Vec<ReasoningEvent>> {
         let conn = self.conn.lock().unwrap();
         let since = crate::now_timestamp() - max_age_seconds;
         let mut stmt = conn.prepare(
@@ -555,7 +620,7 @@ impl Store {
              WHERE (was_uncertain = 1 OR confidence_score < 0.4 OR hedge_count > 0)
                AND timestamp >= ?1
              ORDER BY timestamp DESC
-             LIMIT ?2"
+             LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![since, limit as i64], row_to_reasoning_event)?;
         let mut results = Vec::new();
@@ -567,48 +632,61 @@ impl Store {
 
     /// Detect reasoning gaps — uncertain events ranked by salience.
     /// Returns events that are worth self-probing.
-    pub fn detect_reasoning_gaps(&self, max_age_days: i64, limit: usize) -> Result<Vec<ReasoningGap>> {
+    pub fn detect_reasoning_gaps(
+        &self,
+        max_age_days: i64,
+        limit: usize,
+    ) -> Result<Vec<ReasoningGap>> {
         let conn = self.conn.lock().unwrap();
         let since = crate::now_timestamp() - (max_age_days * 24 * 60 * 60);
-        
+
         // Find uncertain events
         let mut stmt = conn.prepare(
             "SELECT * FROM reasoning_events 
              WHERE (was_uncertain = 1 OR confidence_score < 0.4 OR hedge_count > 0)
                AND timestamp >= ?1
              ORDER BY timestamp DESC
-             LIMIT ?2"
+             LIMIT ?2",
         )?;
-        
+
         let rows = stmt.query_map(params![since, (limit * 2) as i64], row_to_reasoning_event)?;
         let mut gaps = Vec::new();
         let now = crate::now_timestamp();
-        
+
         for row in rows {
             if let Ok(event) = row {
                 // Compute salience: recency * uncertainty * emotional salience
                 let age_hours = (now - event.timestamp) as f64 / 3600.0;
                 let recency = 1.0 / (1.0 + age_hours / 24.0); // decays over days
-                
+
                 let uncertainty = if event.was_uncertain { 1.0 } else { 0.5 };
                 let hedge_bonus = (event.hedge_count as f64).min(1.0) * 0.3;
-                let score_uncertainty = event.confidence_score
+                let score_uncertainty = event
+                    .confidence_score
                     .map(|s| if s < 0.4 { 1.0 } else { 0.5 })
                     .unwrap_or(0.7);
-                
+
                 let emotional = event.emotional_valence.abs(); // how charged was this?
-                let salience = recency * (uncertainty + hedge_bonus) * score_uncertainty * (1.0 + emotional * 0.5);
-                
+                let salience = recency
+                    * (uncertainty + hedge_bonus)
+                    * score_uncertainty
+                    * (1.0 + emotional * 0.5);
+
                 // Don't probe if salience is too low
                 if salience < 0.05 {
                     continue;
                 }
-                
+
                 let topic = event.topic.clone().unwrap_or_else(|| {
                     // Extract from query if no topic stored
-                    event.query.split_whitespace().take(3).collect::<Vec<_>>().join(" ")
+                    event
+                        .query
+                        .split_whitespace()
+                        .take(3)
+                        .collect::<Vec<_>>()
+                        .join(" ")
                 });
-                
+
                 gaps.push(ReasoningGap {
                     event_id: event.id,
                     query: event.query.clone(),
@@ -620,9 +698,13 @@ impl Store {
                         "I concluded '{}' with {} confidence — {}",
                         &event.conclusion[..event.conclusion.len().min(50)],
                         format!("{:?}", event.confidence_state).to_lowercase(),
-                        if event.was_uncertain { "I wasn't sure" }
-                        else if event.hedge_count > 0 { "I hedged" }
-                        else { "my confidence was low" }
+                        if event.was_uncertain {
+                            "I wasn't sure"
+                        } else if event.hedge_count > 0 {
+                            "I hedged"
+                        } else {
+                            "my confidence was low"
+                        }
                     ),
                 });
             }
@@ -630,18 +712,24 @@ impl Store {
                 break;
             }
         }
-        
+
         // Sort by salience descending
-        gaps.sort_by(|a, b| b.salience.partial_cmp(&a.salience).unwrap_or(std::cmp::Ordering::Equal));
+        gaps.sort_by(|a, b| {
+            b.salience
+                .partial_cmp(&a.salience)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         gaps.truncate(limit);
-        
+
         Ok(gaps)
     }
 
     /// Get reasoning event count.
     pub fn reasoning_event_count(&self) -> Result<i64> {
         let conn = self.conn.lock().unwrap();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM reasoning_events", [], |row| row.get(0))?;
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM reasoning_events", [], |row| {
+            row.get(0)
+        })?;
         Ok(count)
     }
 
@@ -719,19 +807,20 @@ impl Store {
             memory_count: self.memory_count()?,
             beliefs_count: {
                 let conn = self.conn.lock().unwrap();
-                let count: i64 = conn.query_row("SELECT COUNT(*) FROM beliefs", [], |row| row.get(0))?;
+                let count: i64 =
+                    conn.query_row("SELECT COUNT(*) FROM beliefs", [], |row| row.get(0))?;
                 count
             },
             sessions_count: {
                 let conn = self.conn.lock().unwrap();
-                let count: i64 = conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
+                let count: i64 =
+                    conn.query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))?;
                 count
             },
             domain_breakdown: {
                 let conn = self.conn.lock().unwrap();
-                let mut stmt = conn.prepare(
-                    "SELECT domain, COUNT(*) FROM memories GROUP BY domain"
-                )?;
+                let mut stmt =
+                    conn.prepare("SELECT domain, COUNT(*) FROM memories GROUP BY domain")?;
                 let rows = stmt.query_map([], |row| {
                     Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
                 })?;
@@ -869,25 +958,31 @@ mod tests {
     fn test_identity_crud() {
         let store = test_store();
         let now = crate::now_timestamp();
-        
+
         store.put_identity("name", "Star", now).unwrap();
-        assert_eq!(store.get_identity("name").unwrap(), Some("Star".to_string()));
-        
+        assert_eq!(
+            store.get_identity("name").unwrap(),
+            Some("Star".to_string())
+        );
+
         store.put_identity("name", "Starfire", now).unwrap();
-        assert_eq!(store.get_identity("name").unwrap(), Some("Starfire".to_string()));
+        assert_eq!(
+            store.get_identity("name").unwrap(),
+            Some("Starfire".to_string())
+        );
     }
 
     #[test]
     fn test_memory_crud() {
         let store = test_store();
-        
+
         let mem = Memory::new("Test memory", MemoryDomain::Empirical, 0.7)
             .with_confidence(0.9)
             .with_provenance("User told me");
-        
+
         let id = store.insert_memory(&mem).unwrap();
         assert!(id > 0);
-        
+
         let retrieved = store.get_memory(id).unwrap().unwrap();
         assert_eq!(retrieved.content, "Test memory");
         assert_eq!(retrieved.domain, MemoryDomain::Empirical);
@@ -917,12 +1012,14 @@ mod tests {
     #[test]
     fn test_session_lifecycle() {
         let store = test_store();
-        
+
         let session_id = store.start_session().unwrap();
         assert!(session_id > 0);
-        
-        store.end_session(session_id, Some("Test conversation")).unwrap();
-        
+
+        store
+            .end_session(session_id, Some("Test conversation"))
+            .unwrap();
+
         let session = store.get_session(session_id).unwrap().unwrap();
         assert!(session.ended_at.is_some());
         assert_eq!(session.summary, Some("Test conversation".to_string()));
@@ -931,10 +1028,10 @@ mod tests {
     #[test]
     fn test_snapshot() {
         let store = test_store();
-        
+
         let mem = Memory::new("Test", MemoryDomain::Empirical, 0.5);
         store.insert_memory(&mem).unwrap();
-        
+
         let snap = store.snapshot().unwrap();
         assert_eq!(snap.memory_count, 1);
         assert_eq!(snap.beliefs_count, 0);
