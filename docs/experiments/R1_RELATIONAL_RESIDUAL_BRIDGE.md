@@ -128,7 +128,7 @@ R1 does not add:
 
 ```text
 cargo check -p star --lib --features relational-evidence --locked
-cargo test -p star relational:: --features relational-evidence --locked -- --test-threads=1
+cargo test -p star --lib --features relational-evidence --locked relational:: -- --test-threads=1
 cargo run -p star --example r1_relational_residual_bridge --features relational-evidence --locked
 ```
 
