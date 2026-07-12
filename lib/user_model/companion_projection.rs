@@ -203,14 +203,20 @@ fn push_unique(values: &mut Vec<String>, value: String) {
 }
 
 fn claim_value_or_suffix(claim: &CompanionClaim, prefix: &str) -> Option<String> {
-    let value = key_topic(&claim.key, prefix)
-        .filter(|topic| topic != "general")
-        .unwrap_or_else(|| claim.value.trim().to_lowercase());
+    let topic = key_topic(&claim.key, prefix)?;
+    let value = if topic == "general" {
+        claim.value.trim().to_lowercase()
+    } else {
+        topic
+    };
     (!value.is_empty()).then_some(value)
 }
 
 fn enabled_topic(claim: &CompanionClaim, prefix: &str) -> Option<String> {
-    truthy(&claim.value).then(|| key_topic(&claim.key, prefix).unwrap_or_else(|| "general".into()))
+    if !truthy(&claim.value) {
+        return None;
+    }
+    key_topic(&claim.key, prefix)
 }
 
 fn key_topic(key: &str, prefix: &str) -> Option<String> {
@@ -427,7 +433,7 @@ mod tests {
                 0,
                 claim(
                     "custom.unknown",
-                    "value",
+                    "yes",
                     9_000,
                     Sensitivity::Personal,
                     Retention::Durable,
@@ -463,5 +469,9 @@ mod tests {
             .unrecognized_claim_ids
             .contains(&contested.claim_id.unwrap()));
         assert!(projection.source_claim_ids.is_empty());
+        assert!(projection.model.strong_domains.is_empty());
+        assert!(projection.model.weak_domains.is_empty());
+        assert!(projection.model.preferences.is_empty());
+        assert!(projection.model.response_patterns.is_empty());
     }
 }
