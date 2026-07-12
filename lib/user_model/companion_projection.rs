@@ -107,11 +107,7 @@ pub fn project_legacy_user_model(
     })
 }
 
-fn claim_allowed(
-    claim: &CompanionClaim,
-    now_ms: u64,
-    policy: CompanionProjectionPolicy,
-) -> bool {
+fn claim_allowed(claim: &CompanionClaim, now_ms: u64, policy: CompanionProjectionPolicy) -> bool {
     matches!(&claim.status, ClaimStatus::Active)
         && claim.confidence_bps >= policy.min_confidence_bps
         && !claim.retention.is_expired(now_ms)
@@ -311,12 +307,9 @@ mod tests {
             .unwrap();
         let before = state.clone();
 
-        let projection = project_legacy_user_model(
-            &state,
-            13_000,
-            CompanionProjectionPolicy::default(),
-        )
-        .unwrap();
+        let projection =
+            project_legacy_user_model(&state, 13_000, CompanionProjectionPolicy::default())
+                .unwrap();
 
         assert_eq!(state, before);
         assert_eq!(projection.source_version, 2);
@@ -374,12 +367,8 @@ mod tests {
             version = state.record_claim(version, input).unwrap().version;
         }
 
-        let projection = project_legacy_user_model(
-            &state,
-            20,
-            CompanionProjectionPolicy::default(),
-        )
-        .unwrap();
+        let projection =
+            project_legacy_user_model(&state, 20, CompanionProjectionPolicy::default()).unwrap();
 
         assert!(projection.is_empty());
         assert!(projection.model.strong_domains.is_empty());
@@ -415,15 +404,18 @@ mod tests {
             )
             .unwrap();
 
-        let projection = project_legacy_user_model(
-            &state,
-            21_000,
-            CompanionProjectionPolicy::default(),
-        )
-        .unwrap();
+        let projection =
+            project_legacy_user_model(&state, 21_000, CompanionProjectionPolicy::default())
+                .unwrap();
 
-        assert_eq!(projection.source_claim_ids, vec![replacement.claim_id.unwrap()]);
-        assert_eq!(projection.model.infer_argument_style(), ArgumentStyle::Concrete);
+        assert_eq!(
+            projection.source_claim_ids,
+            vec![replacement.claim_id.unwrap()]
+        );
+        assert_eq!(
+            projection.model.infer_argument_style(),
+            ArgumentStyle::Concrete
+        );
         assert_eq!(projection.model.preferences.len(), 1);
     }
 
@@ -460,14 +452,13 @@ mod tests {
             )
             .unwrap();
 
-        let projection = project_legacy_user_model(
-            &state,
-            12,
-            CompanionProjectionPolicy::default(),
-        )
-        .unwrap();
+        let projection =
+            project_legacy_user_model(&state, 12, CompanionProjectionPolicy::default()).unwrap();
 
-        assert_eq!(projection.unrecognized_claim_ids, vec![active.claim_id.unwrap()]);
+        assert_eq!(
+            projection.unrecognized_claim_ids,
+            vec![active.claim_id.unwrap()]
+        );
         assert!(!projection
             .unrecognized_claim_ids
             .contains(&contested.claim_id.unwrap()));
