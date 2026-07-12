@@ -68,11 +68,12 @@ impl Store {
              PRAGMA cache_size = -64000;"
         )?;
         
-        // Enable foreign keys and WAL mode for safety
+        // Enable foreign keys and WAL mode for safety. Ordinary writes remain in
+        // SQLite autocommit mode; operations that need stronger serialization
+        // open their own bounded transactions.
         conn.execute_batch(
             "PRAGMA journal_mode=WAL;
-             PRAGMA foreign_keys=ON;
-             BEGIN IMMEDIATE;"
+             PRAGMA foreign_keys=ON;"
         )?;
 
         let store = Self {
@@ -232,6 +233,46 @@ impl Store {
             result.push(row?);
         }
         Ok(result)
+    }
+
+    /// Atomically replace an identity value only when its current value matches
+    /// the caller's expectation.
+    ///
+    /// The comparison and write occur inside an IMMEDIATE SQLite transaction,
+    /// making this safe across multiple `Store` instances and processes. `None`
+    /// means the key must not exist yet.
+    pub fn compare_and_swap_identity(
+        &self,
+        key: &str,
+        expected_value: Option<&str>,
+        new_value: &str,
+        changed_at: i64,
+    ) -> Result<bool> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let current: Option<String> = tx
+            .query_row(
+                "SELECT value FROM identity WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if current.as_deref() != expected_value {
+            tx.rollback()?;
+            return Ok(false);
+        }
+
+        tx.execute(
+            r#"INSERT INTO identity (key, value, formed_at, updated_at)
+               VALUES (?1, ?2, ?3, NULL)
+               ON CONFLICT(key) DO UPDATE SET
+                   value = excluded.value,
+                   updated_at = excluded.formed_at"#,
+            params![key, new_value, changed_at],
+        )?;
+        tx.commit()?;
+        Ok(true)
     }
 
     // ─────────────────────────────────────────────────────────────────
