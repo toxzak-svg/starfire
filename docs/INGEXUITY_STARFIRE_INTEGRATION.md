@@ -49,7 +49,7 @@ The key authority rule is:
 
 ### S1 — Starfire persistence adapter
 
-Implemented in Starfire PR #47:
+Merged in Starfire PR #47:
 
 - one versioned companion journal inside Starfire's existing SQLite `Store`;
 - SQLite compare-and-swap across threads, Store instances, and processes;
@@ -61,11 +61,20 @@ Implemented in Starfire PR #47:
 - repair of the pre-existing unclosed transaction in `Store::open()`;
 - no second database, server, inference loop, or action authority.
 
-## Next slices
-
 ### S2 — legacy user-model bridge
 
-Replace direct mutation of the legacy `UserCognitionModel` with a read-only projection from validated active companion claims. Preserve compatibility while making `CompanionState` authoritative.
+Implemented in the current PR:
+
+- deterministic read-only projection from `CompanionState` to `UserCognitionModel`;
+- explicit confidence, sensitivity, and session-retention policy;
+- active-claim-only semantics, preserving correction and invalidation precedence;
+- provenance mapping from user statements/corrections to teaching and inferred/imported claims to observation;
+- compatibility schema for strong/weak domains, answer-detail, brevity, questions, argument style, and response patterns;
+- source claim IDs and unrecognized claim IDs preserved for audit;
+- no reverse mutation from the legacy model into companion state;
+- no `Runtime::chat()` or response-routing integration.
+
+## Next slices
 
 ### S3 — shadow runtime observation
 
