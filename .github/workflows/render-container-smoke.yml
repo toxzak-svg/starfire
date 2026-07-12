@@ -1,0 +1,61 @@
+name: Render container smoke test
+
+on:
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Dockerfile"
+      - "entrypoint.sh"
+      - "render.yaml"
+      - "lib/**"
+      - "src/**"
+      - ".github/workflows/render-container-smoke.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Dockerfile"
+      - "entrypoint.sh"
+      - "render.yaml"
+      - "lib/**"
+      - "src/**"
+      - ".github/workflows/render-container-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Render image
+        run: docker build --tag starfire-render:test .
+
+      - name: Start container as Render would
+        run: |
+          docker run --detach \
+            --name starfire-render \
+            --env PORT=10000 \
+            --publish 10000:10000 \
+            starfire-render:test
+
+      - name: Verify health endpoint
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:10000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs starfire-render
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker logs starfire-render || true
