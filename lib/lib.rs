@@ -65,6 +65,12 @@ pub mod representation_transport_descendants;
 #[cfg(feature = "developmental-evidence")]
 pub mod developmental;
 
+// R1: IngExuity–Starfire relational prediction residual boundary. Disabled by
+// default and intentionally shadow-only: no Runtime::chat() wiring, action
+// authority, belief mutation, routing authority, or automatic promotion.
+#[cfg(feature = "relational-evidence")]
+pub mod relational;
+
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;
 pub use persistence::Memory;

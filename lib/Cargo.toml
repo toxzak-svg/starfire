@@ -34,3 +34,4 @@ regex.workspace = true
 default = []
 lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
+relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
