@@ -43,6 +43,7 @@ pub mod pain;
 pub mod dreaming;
 pub mod concepts;
 pub mod user_model;
+pub mod companion_state;
 pub mod neural;
 pub mod language_model;
 pub mod variation;
