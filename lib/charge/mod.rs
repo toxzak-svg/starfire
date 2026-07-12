@@ -69,6 +69,9 @@ mod companion_integration_tests {
     use crate::companion_state::{
         ClaimInput, ClaimSource, ClaimStatus, CompanionState, Retention, Sensitivity,
     };
+    use crate::persistence::{CompanionPersistence, Store};
+    use std::sync::Arc;
+    use uuid::Uuid;
 
     fn claim(key: &str, value: &str, observed_at_ms: u64, retention: Retention) -> ClaimInput {
         ClaimInput {
@@ -153,5 +156,37 @@ mod companion_integration_tests {
             &state.claim(original.claim_id.unwrap()).unwrap().status,
             ClaimStatus::Invalidated { reason } if reason == "retention expired"
         ));
+    }
+
+    #[test]
+    fn companion_journal_commits_and_compacts_through_starfire_store() {
+        let path = std::env::temp_dir().join(format!(
+            "starfire-charge-companion-journal-{}.sqlite",
+            Uuid::new_v4()
+        ));
+        let store = Arc::new(Store::open(&path).unwrap());
+        let persistence = CompanionPersistence::new(store);
+        let mut state = CompanionState::new();
+        let recorded = state
+            .record_claim(
+                0,
+                claim("private note", "temporary secret", 10, Retention::Durable),
+            )
+            .unwrap();
+        persistence.commit(0, &recorded, &state, 10).unwrap();
+        assert_eq!(persistence.load_state().unwrap(), state);
+
+        let deleted = state
+            .delete_claim(state.version, recorded.claim_id.unwrap(), 20)
+            .unwrap();
+        persistence.commit(1, &deleted, &state, 20).unwrap();
+        let stats = persistence.stats().unwrap();
+        assert_eq!(stats.checkpoint_version, 2);
+        assert_eq!(stats.current_version, 2);
+        assert_eq!(stats.tail_events, 0);
+        assert_eq!(persistence.load_state().unwrap(), state);
+
+        drop(persistence);
+        let _ = std::fs::remove_file(path);
     }
 }
