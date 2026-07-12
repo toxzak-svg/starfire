@@ -48,12 +48,16 @@ jobs:
             lib/persistence/companion.rs \
             lib/persistence/store.rs \
             lib/persistence/mod.rs \
-            lib/charge/mod.rs
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
           git diff --exit-code -- \
             lib/persistence/companion.rs \
             lib/persistence/store.rs \
             lib/persistence/mod.rs \
-            lib/charge/mod.rs
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
 
       - name: Compile Star library and A1 probe
         run: |
@@ -68,6 +72,7 @@ jobs:
           cargo test -p star charge:: --locked -- --test-threads=1 2>&1 | tee charge-test.log
           cargo test -p star companion_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star persistence::companion:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star user_model::companion_projection:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star cognitive_cycle:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star environment:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star autonomy:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
