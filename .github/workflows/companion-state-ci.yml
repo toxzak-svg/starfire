@@ -37,7 +37,12 @@ jobs:
 
       - name: Check scoped formatting
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
+          git diff --exit-code -- \
             lib/persistence/companion.rs \
             lib/persistence/store.rs \
             lib/persistence/mod.rs \
