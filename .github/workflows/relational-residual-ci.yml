@@ -33,11 +33,11 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Format temporary checkout
-        run: |
-          cargo fmt --all
-          git diff --binary -- lib/lib.rs lib/relational/mod.rs \
-            lib/examples/r1_relational_residual_bridge.rs > r1-rustfmt.patch
+      - name: Check R1 formatting
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/relational/mod.rs
+          lib/examples/r1_relational_residual_bridge.rs
 
       - name: Compile feature-gated bridge
         run: cargo check -p star --lib --features relational-evidence --locked
@@ -54,13 +54,11 @@ jobs:
             --features relational-evidence --locked \
             | tee r1-relational-residual-report.json
 
-      - name: Preserve R1 diagnostics
+      - name: Preserve R1 report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r1-relational-residual-diagnostics
-          path: |
-            r1-relational-residual-report.json
-            r1-rustfmt.patch
+          name: r1-relational-residual-report
+          path: r1-relational-residual-report.json
           if-no-files-found: ignore
           retention-days: 30
