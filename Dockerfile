@@ -44,10 +44,11 @@ RUN cargo build --release --bin star 2>&1 | tail -20
 # ============================================
 FROM debian:bookworm-slim
 
-# Install runtime dependencies only
+# Install runtime dependencies and the health-check client
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -75,5 +76,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # Run as non-root
 USER starfire
 ENV STARFIRE_HOME=/data
+ENV STARFIRE_DATA=/data
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
