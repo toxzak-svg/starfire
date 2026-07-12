@@ -99,6 +99,20 @@ pub fn project_legacy_user_model(
         }
     }
 
+    // The legacy delegation API returns the first preference for a topic. Keep
+    // every compatible preference, but put explicit question preferences first
+    // so an earlier detail/brevity claim cannot mask a later active question
+    // preference for the same topic.
+    model.preferences.sort_by(|left, right| {
+        left.topic
+            .to_ascii_lowercase()
+            .cmp(&right.topic.to_ascii_lowercase())
+            .then_with(|| {
+                preference_priority(&left.preference).cmp(&preference_priority(&right.preference))
+            })
+            .then_with(|| left.learned_at.cmp(&right.learned_at))
+    });
+
     Ok(LegacyUserModelProjection {
         source_version: state.version,
         model,
@@ -152,7 +166,9 @@ fn project_claim(
         return Ok(true);
     }
     if let Some(topic) = key_topic(&claim.key, ARGUMENT_STYLE_PREFIX) {
-        let style = parse_argument_style(&claim.value)?;
+        let Some(style) = parse_argument_style(&claim.value) else {
+            return Ok(false);
+        };
         model.preferences.push(preference_from_claim(
             claim,
             topic,
@@ -196,6 +212,15 @@ fn preference_from_claim(
     })
 }
 
+fn preference_priority(preference: &PreferenceType) -> u8 {
+    match preference {
+        PreferenceType::PrefersQuestions => 0,
+        PreferenceType::PrefersDetail | PreferenceType::PrefersBrevity => 1,
+        PreferenceType::AgreesWithStyle(_) => 2,
+        PreferenceType::HasStrongPrior | PreferenceType::Unfamiliar => 3,
+    }
+}
+
 fn push_unique(values: &mut Vec<String>, value: String) {
     if !values.iter().any(|existing| existing == &value) {
         values.push(value);
@@ -237,14 +262,12 @@ fn truthy(value: &str) -> bool {
     )
 }
 
-fn parse_argument_style(value: &str) -> Result<ArgumentStyle, CompanionProjectionError> {
+fn parse_argument_style(value: &str) -> Option<ArgumentStyle> {
     match value.trim().to_ascii_lowercase().as_str() {
-        "concrete" | "concrete examples" | "examples" => Ok(ArgumentStyle::Concrete),
-        "abstract" | "abstraction" | "theory" => Ok(ArgumentStyle::Abstract),
-        "adaptive" | "mixed" | "contextual" => Ok(ArgumentStyle::Adaptive),
-        other => Err(CompanionProjectionError::UnknownArgumentStyle(
-            other.to_owned(),
-        )),
+        "concrete" | "concrete examples" | "examples" => Some(ArgumentStyle::Concrete),
+        "abstract" | "abstraction" | "theory" => Some(ArgumentStyle::Abstract),
+        "adaptive" | "mixed" | "contextual" => Some(ArgumentStyle::Adaptive),
+        _ => None,
     }
 }
 
@@ -254,8 +277,6 @@ pub enum CompanionProjectionError {
     ConfidenceOutOfRange(u16),
     #[error("claim {0} timestamp cannot be represented by the legacy model")]
     TimestampOverflow(ClaimId),
-    #[error("unknown legacy argument style {0}")]
-    UnknownArgumentStyle(String),
 }
 
 #[cfg(test)]
@@ -423,6 +444,90 @@ mod tests {
             ArgumentStyle::Concrete
         );
         assert_eq!(projection.model.preferences.len(), 1);
+    }
+
+    #[test]
+    fn question_preference_precedes_same_topic_detail_for_legacy_delegation() {
+        let mut state = CompanionState::new();
+        let detail = state
+            .record_claim(
+                0,
+                claim(
+                    "preference.detail.technical",
+                    "yes",
+                    9_000,
+                    Sensitivity::Personal,
+                    Retention::Durable,
+                    10_000,
+                ),
+            )
+            .unwrap();
+        state
+            .record_claim(
+                detail.version,
+                claim(
+                    "preference.questions.technical",
+                    "yes",
+                    9_000,
+                    Sensitivity::Personal,
+                    Retention::Durable,
+                    11_000,
+                ),
+            )
+            .unwrap();
+
+        let projection =
+            project_legacy_user_model(&state, 12_000, CompanionProjectionPolicy::default())
+                .unwrap();
+
+        assert_eq!(projection.model.preferences.len(), 2);
+        assert!(matches!(
+            projection.model.preferences[0].preference,
+            PreferenceType::PrefersQuestions
+        ));
+        assert!(projection.model.should_delegate_to_user("technical"));
+    }
+
+    #[test]
+    fn unsupported_argument_style_is_unrecognized_without_aborting_projection() {
+        let mut state = CompanionState::new();
+        let strong = state
+            .record_claim(
+                0,
+                claim(
+                    "knowledge.strong_domain.rust",
+                    "rust",
+                    9_000,
+                    Sensitivity::Personal,
+                    Retention::Durable,
+                    10_000,
+                ),
+            )
+            .unwrap();
+        let unsupported = state
+            .record_claim(
+                strong.version,
+                claim(
+                    "preference.argument_style.general",
+                    "direct",
+                    9_000,
+                    Sensitivity::Personal,
+                    Retention::Durable,
+                    11_000,
+                ),
+            )
+            .unwrap();
+
+        let projection =
+            project_legacy_user_model(&state, 12_000, CompanionProjectionPolicy::default())
+                .unwrap();
+
+        assert_eq!(projection.source_claim_ids, vec![strong.claim_id.unwrap()]);
+        assert_eq!(
+            projection.unrecognized_claim_ids,
+            vec![unsupported.claim_id.unwrap()]
+        );
+        assert_eq!(projection.model.likely_knows("Rust ownership"), Some(true));
     }
 
     #[test]
