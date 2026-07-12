@@ -204,12 +204,16 @@ pub enum CompanionPersistenceError {
 mod tests {
     use super::*;
     use crate::companion_state::{ClaimInput, ClaimSource, Retention, Sensitivity};
-    use uuid::Uuid;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temporary_path() -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         std::env::temp_dir().join(format!(
-            "starfire-companion-persistence-{}.sqlite",
-            Uuid::new_v4()
+            "starfire-companion-persistence-{}-{nonce}.sqlite",
+            std::process::id()
         ))
     }
 
