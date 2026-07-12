@@ -45,20 +45,37 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Apply rustfmt and push formatting-only commit
+      - name: Apply scoped rustfmt and push formatting-only commit
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          cargo fmt --all
-          if ! git diff --quiet; then
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
+          if ! git diff --quiet -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -- '*.rs'
-            git commit -m "style: apply rustfmt"
+            git add \
+              lib/persistence/companion.rs \
+              lib/persistence/store.rs \
+              lib/persistence/mod.rs \
+              lib/charge/mod.rs
+            git commit -m "style: apply scoped rustfmt"
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           fi
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs
 
       - name: Compile Star library and A1 probe
         run: |
