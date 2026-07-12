@@ -1,0 +1,39 @@
+name: UI static export
+
+on:
+  pull_request:
+    paths:
+      - "ui/**"
+      - "package.json"
+      - "wrangler.toml"
+      - ".github/workflows/ui-static-export-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "ui/**"
+      - "package.json"
+      - "wrangler.toml"
+      - ".github/workflows/ui-static-export-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Build static UI
+        run: npm run build
+
+      - name: Verify export
+        run: test -f ui/out/index.html
