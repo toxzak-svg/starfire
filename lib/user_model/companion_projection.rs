@@ -12,7 +12,7 @@ use super::{
 use crate::companion_state::{
     ClaimId, ClaimSource, ClaimStatus, CompanionClaim, CompanionState, Retention, Sensitivity,
 };
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
 use thiserror::Error;
 
 const STRONG_DOMAIN_KEY: &str = "knowledge.strong_domain";
@@ -75,12 +75,10 @@ pub fn project_legacy_user_model(
 
     let mut model = UserCognitionModel {
         memory: UserMemoryModel::new(),
-        typical_stance: None,
-        preferred_argument_style: None,
         preferences: Vec::new(),
+        strong_domains: Vec::new(),
+        weak_domains: Vec::new(),
         response_patterns: Vec::new(),
-        strong_domains: HashSet::new(),
-        weak_domains: HashSet::new(),
         last_updated: 0,
     };
     let mut source_claim_ids = BTreeSet::new();
@@ -114,7 +112,7 @@ fn claim_allowed(
     now_ms: u64,
     policy: CompanionProjectionPolicy,
 ) -> bool {
-    matches!(claim.status, ClaimStatus::Active)
+    matches!(&claim.status, ClaimStatus::Active)
         && claim.confidence_bps >= policy.min_confidence_bps
         && !claim.retention.is_expired(now_ms)
         && (policy.include_session || claim.retention != Retention::Session)
@@ -126,11 +124,11 @@ fn project_claim(
     model: &mut UserCognitionModel,
 ) -> Result<bool, CompanionProjectionError> {
     if let Some(domain) = claim_value_or_suffix(claim, STRONG_DOMAIN_KEY) {
-        model.strong_domains.insert(domain);
+        push_unique(&mut model.strong_domains, domain);
         return Ok(true);
     }
     if let Some(domain) = claim_value_or_suffix(claim, WEAK_DOMAIN_KEY) {
-        model.weak_domains.insert(domain);
+        push_unique(&mut model.weak_domains, domain);
         return Ok(true);
     }
     if let Some(topic) = enabled_topic(claim, DETAIL_PREFIX) {
@@ -159,9 +157,6 @@ fn project_claim(
     }
     if let Some(topic) = key_topic(&claim.key, ARGUMENT_STYLE_PREFIX) {
         let style = parse_argument_style(&claim.value)?;
-        if topic == "general" {
-            model.preferred_argument_style = Some(style);
-        }
         model.preferences.push(preference_from_claim(
             claim,
             topic,
@@ -193,7 +188,7 @@ fn preference_from_claim(
         topic,
         preference,
         confidence: f64::from(claim.confidence_bps) / 10_000.0,
-        inferred_from: match claim.source {
+        inferred_from: match &claim.source {
             ClaimSource::UserStatement | ClaimSource::UserCorrection { .. } => {
                 InferenceSource::Teaching
             }
@@ -203,6 +198,12 @@ fn preference_from_claim(
         },
         learned_at,
     })
+}
+
+fn push_unique(values: &mut Vec<String>, value: String) {
+    if !values.iter().any(|existing| existing == &value) {
+        values.push(value);
+    }
 }
 
 fn claim_value_or_suffix(claim: &CompanionClaim, prefix: &str) -> Option<String> {
@@ -320,7 +321,7 @@ mod tests {
         assert_eq!(state, before);
         assert_eq!(projection.source_version, 2);
         assert_eq!(projection.source_claim_ids, vec![1, 2]);
-        assert!(projection.model.is_strong_domain("rust"));
+        assert_eq!(projection.model.likely_knows("Rust ownership"), Some(true));
         assert!(projection
             .model
             .preferences
@@ -422,10 +423,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(projection.source_claim_ids, vec![replacement.claim_id.unwrap()]);
-        assert_eq!(
-            projection.model.preferred_argument_style,
-            Some(ArgumentStyle::Concrete)
-        );
+        assert_eq!(projection.model.infer_argument_style(), ArgumentStyle::Concrete);
         assert_eq!(projection.model.preferences.len(), 1);
     }
 
