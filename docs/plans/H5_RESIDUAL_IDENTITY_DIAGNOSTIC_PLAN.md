@@ -2,7 +2,22 @@
 
 ## Status
 
-Planned. Gates and experiment order are defined here before implementation.
+Partially implemented. H5-A and H5-B diagnostic execution are complete in
+`h5_residual_identity_diagnostic`.
+
+Latest local committed result: `754ba148` (`Improve H5 verifier task profiling`).
+
+Current verdict:
+
+- H5-A fixed-width residual projection diagnostic: passed
+- original surface-verifier H5-B matrix: failed
+- task-profiled H5-B matrix: passed
+- H5-C ontology induction: not implemented yet
+
+The original surface-verifier H5-B failure remains evidence that the verifier
+ecology matters. It is no longer the gating matrix for H5-C. H5-C may proceed
+only against the task-profiled verifier contract now exposed through
+`star::charge::verifier`.
 
 This plan follows the frozen H4 real closed-cycle rejection recorded on PR #14.
 
@@ -14,7 +29,7 @@ H4 established three facts that must be kept separate:
 
 H5 is not an attempt to make H4 pass. H4 remains rejected.
 
-H5 diagnoses why the feature-destroyed control remained competitive and whether any independently recoverable distinction exists after removing the easy memory split.
+H5 diagnoses why the feature-destroyed control remained competitive and whether any independently recoverable distinction exists after removing the easy memory split. The answer so far is split: fixed-width projection exposed residual-shape leakage, and the non-memory distinction appears only when the verifier distinguishes contradiction correction from causal-mechanism resolution.
 
 ---
 
@@ -66,15 +81,25 @@ A negative H5-A result means residual length was not the main explanation and th
 
 ### Hypothesis
 
-Most H4 routing gain came from one easy memory specialization. After removing that cohort, the remaining reasoning and causal regimes are not sufficiently distinct under current independently judged component outcomes.
+Most H4 routing gain came from one easy memory specialization. After removing
+that cohort, the remaining reasoning and causal regimes may or may not be
+sufficiently distinct under independently judged component outcomes.
+
+The surface-coverage verifier is now known to be too weak for this decision: it
+fails H5-B even though the same emitted charges and same H4 memory exclusion
+pass when contradiction correction and causal mechanism tasks are scored by the
+task-profiled verifier.
 
 ### Falsification question
 
 > On the non-memory remainder only, is there measurable resolver specialization between reasoning and causal components before ontology induction is attempted?
 
-This stage asks whether there is a learnable signal to discover at all.
+This stage asks whether there is a learnable signal to discover at all under the
+verifier contract that will be used for H5-C.
 
-If the outcome matrix itself does not show stable reasoning-versus-causal specialization, the ontology inducer must not be blamed for failing to recover it.
+If the task-profiled outcome matrix itself does not show stable
+reasoning-versus-causal specialization, the ontology inducer must not be blamed
+for failing to recover it.
 
 ---
 
@@ -425,9 +450,29 @@ The remaining matrix is considered meaningfully multi-regime only if all are tru
 5. the same directionality appears in at least `3/4` future windows
 6. no single resolver leads more than `70%` of retained future observations
 
-If H5-B fails, stop.
+These gates now apply to the task-profiled verifier matrix. The original
+surface-coverage verifier matrix is retained as a negative control and
+documentation of verifier/task-ecology sensitivity.
 
-### Supported conclusion after H5-B failure
+If task-profiled H5-B fails, stop.
+
+### Current H5-B outcome
+
+At commit `754ba148`, the original surface matrix failed, but the task-profiled
+matrix passed:
+
+- retained non-memory observations: `96`
+- reasoning leader fraction: `0.5`
+- causal leader fraction: `0.5`
+- positive margin fraction: about `0.302`
+- negative margin fraction: `0.5`
+- directional windows: `3`
+- passed: `true`
+
+This is enough to proceed to H5-C under the task-profiled verifier contract. It
+does not rescue the original surface-verifier matrix.
+
+### Supported conclusion after task-profiled H5-B failure
 
 > The current real-component verifier/outcome matrix does not expose two stable non-memory resolver regimes strongly enough for ontology induction to recover reasoning-shaped versus causal-shaped tension.
 
@@ -437,7 +482,7 @@ The next work would then be improving the environment/verifier/component task ec
 
 # Phase 5 — H5-C frozen non-memory ontology induction
 
-Only run this phase if H5-B passes.
+Only run this phase if task-profiled H5-B passes.
 
 ## Goal
 
@@ -458,6 +503,12 @@ Do not append raw residuals.
 Do not expose original residual length.
 
 Do not expose the H4 memory predicate result as a feature. It is used only to define the excluded cohort.
+
+Use the task-profiled verifier contract from `star::charge::verifier` for the
+outcome matrix. The H5-C executable must report both:
+
+- the canonical task-profiled verifier result used for fitting and gates
+- the original surface-verifier H5-B failure as a non-gating negative control
 
 ## Proposal vocabulary
 
@@ -492,6 +543,21 @@ And(2 terms):     0.008
 ```
 
 Freeze these before the first H5-C acceptance run.
+
+Current frozen candidate for the primary H5-C implementation:
+
+```text
+SEED: 0x4834_5245_414c_4359
+TRAIN_WINDOWS: 2
+HOLDOUT_WINDOWS: 1
+TRANSFER_WINDOWS: 4
+fixed projection width: existing H5-A config
+verifier profile: TaskProfiled
+task classes: KnowledgeGap, PredictionContradiction, CausalMechanism
+candidate operators: ResidualThreshold, Not(threshold), And(2 thresholds)
+complexity penalties: 0.003, 0.004, 0.008
+promotion criteria: shared PromotionCriteria
+```
 
 ## Search strategy
 
@@ -719,6 +785,15 @@ H5-C: can normalized ontology induction recover transferable non-memory structur
                 next: naturally occurring online closed-cycle histories
 ```
 
+Current path through the tree:
+
+```text
+H5-A: YES
+surface-verifier H5-B: NO, retained as negative control
+task-profiled H5-B: YES
+next node: H5-C primary acceptance implementation
+```
+
 ---
 
 # Claim boundaries
@@ -735,7 +810,7 @@ Not supported:
 - reasoning/causal regimes are identifiable
 - live ontology promotion is justified
 
-## If H5-B passes
+## If task-profiled H5-B passes
 
 Supported:
 
@@ -765,24 +840,26 @@ Still not supported:
 
 # Recommended execution order
 
-1. merge or otherwise preserve PR #14 as the immutable H4 falsification record
-2. implement fixed-width residual projection with tests
-3. implement H5-A on the exact H4 judged observation stream
-4. inspect only the predeclared H5-A diagnostic verdict
-5. implement H5-B direct outcome-matrix identifiability report
-6. stop if H5-B fails
-7. freeze H5-C source constants and candidate vocabulary
-8. run the primary H5-C acceptance seed once
-9. preserve the complete verdict without tuning
-10. if primary H5-C passes, run the eight predeclared replication seeds
-11. only after replicated success discuss shadow automatic promotion
+1. done: preserve H4 as the immutable rejected real closed-cycle record
+2. done: implement fixed-width residual projection with tests
+3. done: implement H5-A on the H5 diagnostic stream
+4. done: inspect the predeclared H5-A diagnostic verdict
+5. done: implement H5-B direct outcome-matrix identifiability report
+6. done: add task-profiled verifier scoring and make it the canonical H5-B gate
+7. next: implement `h5_non_memory_ontology_probe`
+8. next: freeze H5-C source constants and candidate vocabulary before the first complete verdict
+9. next: run the primary H5-C acceptance seed once
+10. next: preserve the complete verdict without tuning
+11. if primary H5-C passes, run the eight predeclared replication seeds
+12. only after replicated success discuss shadow automatic promotion
 
 ## Bottom line
 
-Do not make the ontology inducer more complicated yet.
+Do not make the ontology inducer broadly more complicated yet.
 
-First determine whether Starfire's current real closed-cycle data actually contains a second stable distinction to discover and whether the existing residual representation leaks emitter identity through vector shape.
+The immediate engineering target is now narrower:
 
-The immediate engineering target is therefore:
-
-> Build a fixed-width, label-blind CHARGE projection and an identifiability diagnostic that can tell us whether reasoning-shaped and causal-shaped tension exist as separable empirical regimes after the frozen H4 memory concept is removed.
+> Build a shadow-only H5-C ontology probe over the fixed-width projection and
+> task-profiled verifier outcome matrix, then test whether simple threshold,
+> negated-threshold, and two-threshold conjunction predicates recover useful
+> transferable non-memory resolver structure.

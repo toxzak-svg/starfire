@@ -1,0 +1,81 @@
+name: Infant Fusion CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/developmental/**"
+      - "lib/tests/developmental_evidence_fixture.rs"
+      - "lib/tests/fixtures/infant_state_embedding_v1.json"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "plans/INFANT_STARFIRE_FUSION_PLAN.md"
+      - ".github/workflows/infant-fusion-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infant-fusion-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  developmental-evidence-contract:
+    name: developmental-evidence-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-infant-fusion-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-infant-fusion-
+            ${{ runner.os }}-cargo-
+
+      - name: Compile developmental evidence feature
+        run: |
+          set -o pipefail
+          # Scope this workflow to the fusion contract it owns. Existing repository
+          # workflows remain responsible for unrelated examples and research probes.
+          cargo check -p star --features developmental-evidence --lib --tests --locked 2>&1 \
+            | tee infant-fusion-cargo-check.log
+
+      - name: Run developmental evidence unit tests
+        run: |
+          set -o pipefail
+          cargo test -p star --features developmental-evidence developmental:: --lib --locked -- --test-threads=1 2>&1 \
+            | tee infant-fusion-test.log
+
+      - name: Validate exact Infant JSON fixture
+        run: |
+          set -o pipefail
+          cargo test -p star --features developmental-evidence --test developmental_evidence_fixture --locked -- --test-threads=1 2>&1 \
+            | tee -a infant-fusion-test.log
+
+      - name: Preserve contract logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: infant-fusion-contract-logs
+          path: |
+            infant-fusion-cargo-check.log
+            infant-fusion-test.log
+          if-no-files-found: ignore
+          retention-days: 7

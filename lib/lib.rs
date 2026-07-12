@@ -49,6 +49,19 @@ pub mod variation;
 pub mod charge;
 pub mod environment;
 pub mod cognitive_cycle;
+pub mod commitment_state;
+pub mod rule_induction;
+pub mod graph_discovery;
+pub mod representation_genesis;
+pub mod representation_transport_orbit;
+pub use representation_transport_orbit as representation_transport;
+pub mod representation_transport_descendants;
+
+// H-Infant-0: typed developmental evidence boundary only. Disabled by default
+// and intentionally not wired into Runtime::chat(), routing, belief promotion,
+// ontology promotion, or autonomous action selection.
+#[cfg(feature = "developmental-evidence")]
+pub mod developmental;
 
 // Re-export commonly used types at crate root for ergonomic access
 pub use runtime::Runtime;

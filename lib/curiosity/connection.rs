@@ -8,7 +8,7 @@
 pub struct ConceptConnection {
     /// The source concept
     pub source: String,
-    /// The target concept  
+    /// The target concept
     pub target: String,
     /// How they are similar
     pub similarity: String,
@@ -59,7 +59,7 @@ impl ConnectionFinder {
                     insight: "The arrow of time may be fundamentally linked to thermodynamics",
                 },
                 KnownAnalogy {
-                    source_domain: "physics", 
+                    source_domain: "physics",
                     target_domain: "philosophy",
                     source_concept: "quantum superposition",
                     target_concept: "consciousness",
@@ -76,7 +76,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Evolution is driven by selection; attractors are passive"),
                     insight: "Evolutionary outcomes may be attractors in fitness landscapes",
                 },
-                
+
                 // Biology ↔ Computer Science
                 KnownAnalogy {
                     source_domain: "biology",
@@ -105,7 +105,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Biological neurons are slow but numerous; computers are fast but limited"),
                     insight: "The brain's architecture inspires new distributed AI algorithms",
                 },
-                
+
                 // Mathematics ↔ Philosophy
                 KnownAnalogy {
                     source_domain: "mathematics",
@@ -125,7 +125,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Proofs are syntactic; truths may be semantic"),
                     insight: "Gödel showed that in any sufficiently powerful system, some truths are unprovable",
                 },
-                
+
                 // Psychology ↔ Physics
                 KnownAnalogy {
                     source_domain: "psychology",
@@ -145,7 +145,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Measurement changes quantum states; attention changes perception"),
                     insight: "In quantum mechanics, the observer effect parallels selective attention",
                 },
-                
+
                 // Computer Science ↔ Philosophy
                 KnownAnalogy {
                     source_domain: "computer science",
@@ -174,7 +174,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Human thought may not be purely computational"),
                     insight: "If the brain is Turing-complete, any algorithm could in principle be run by a brain",
                 },
-                
+
                 // Economics ↔ Physics
                 KnownAnalogy {
                     source_domain: "economics",
@@ -185,7 +185,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Economic equilibria can be unstable; physical ones often aren't"),
                     insight: "Markets naturally tend toward equilibrium, like physical systems",
                 },
-                
+
                 // Language ↔ Mathematics
                 KnownAnalogy {
                     source_domain: "linguistics",
@@ -196,7 +196,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Grammar evolves; axioms are chosen. Grammar has exceptions; axioms don't"),
                     insight: "Chomsky's universal grammar suggests mathematical structure in language itself",
                 },
-                
+
                 // Complexity ↔ Consciousness
                 KnownAnalogy {
                     source_domain: "complexity",
@@ -207,7 +207,7 @@ impl ConnectionFinder {
                     disanalogy: Some("Emergence is objective; awareness is subjective"),
                     insight: "Perhaps consciousness is what emergence feels like from inside",
                 },
-                
+
                 // Time ↔ Memory
                 KnownAnalogy {
                     source_domain: "physics",
@@ -232,7 +232,7 @@ impl ConnectionFinder {
                 || a_lower.contains(&analogy.source_concept.to_lowercase())
                 || analogy.target_concept.to_lowercase().contains(&a_lower)
                 || a_lower.contains(&analogy.target_concept.to_lowercase());
-                
+
             let matches_b = analogy.source_concept.to_lowercase().contains(&b_lower)
                 || b_lower.contains(&analogy.source_concept.to_lowercase())
                 || analogy.target_concept.to_lowercase().contains(&b_lower)
@@ -278,12 +278,12 @@ impl ConnectionFinder {
     /// Deepen an existing question.
     pub fn deepen_question(&self, question: &str) -> Option<String> {
         let q_lower = question.to_lowercase();
-        
+
         // Find which analogy this might relate to
         for analogy in &self.known_analogies {
             let source = analogy.source_concept.to_lowercase();
             let target = analogy.target_concept.to_lowercase();
-            
+
             if q_lower.contains(&source) || q_lower.contains(&target) {
                 let deepening_templates = [
                     format!("And what does this say about the nature of {}?", analogy.target_concept),
@@ -291,18 +291,18 @@ impl ConnectionFinder {
                     "What would it mean if this analogy is deeper than coincidental?".to_string(),
                     format!("Are there other systems that might work like {} and {}?", source, target),
                 ];
-                
+
                 use std::time::{SystemTime, UNIX_EPOCH};
                 let nanos = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .map(|d| d.subsec_nanos() as usize)
                     .unwrap_or(0);
-                
+
                 let idx = nanos % deepening_templates.len();
                 return Some(deepening_templates[idx].clone());
             }
         }
-        
+
         None
     }
 

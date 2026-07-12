@@ -53,6 +53,11 @@ jobs:
           cargo test -p star charge:: --locked -- --test-threads=1 2>&1 | tee charge-test.log
           cargo test -p star cognitive_cycle:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star environment:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star representation_transport_orbit:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
 
       - name: Run real-component CHARGE specialization probe
         run: |
@@ -66,12 +71,81 @@ jobs:
           cargo run -p star --example h4_shadow_promotion_probe --locked \
             | tee h4-shadow-promotion-report.json
 
-      - name: Run H4 real closed-cycle shadow transfer probe
+      - name: Reproduce frozen H4 real-cycle rejection diagnostically
         continue-on-error: true
         run: |
-          set -o pipefail
+          set +e
           cargo run -p star --example h4_real_cycle_shadow_probe --locked 2>&1 \
             | tee h4-real-cycle-shadow-report.json
+          h4_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$h4_status" -ne 0 ]; then
+            if grep -q '"status": "Rejected"' h4-real-cycle-shadow-report.json \
+              && grep -q '"pass": false' h4-real-cycle-shadow-report.json; then
+              echo "H4 real-cycle probe emitted the frozen scientific rejection; continuing."
+            else
+              exit "$h4_status"
+            fi
+          fi
+
+      - name: Run H5 residual identity diagnostic
+        run: |
+          set -o pipefail
+          cargo run -p star --example h5_residual_identity_diagnostic --locked 2>&1 \
+            | tee h5-residual-identity-diagnostic-report.json
+
+      - name: Reproduce frozen H5-B non-memory identifiability verdict diagnostically
+        continue-on-error: true
+        run: |
+          set +e
+          cargo run -p star --example h5_b_identifiability_probe --locked 2>&1 \
+            | tee h5-b-identifiability-report.json
+          h5b_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$h5b_status" -ne 0 ]; then
+            if grep -q '"status": "NotIdentifiable"' h5-b-identifiability-report.json \
+              && grep -q '"pass": false' h5-b-identifiability-report.json; then
+              echo "H5-B emitted the frozen non-identifiable verdict; continuing to H6."
+            else
+              exit "$h5b_status"
+            fi
+          fi
+
+      - name: Run H6 disagreement-induced contrast falsification probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h6_disagreement_contrast_probe --locked \
+            | tee h6-disagreement-contrast-report.json
+
+      - name: Run H9 proof-carrying executable commitment probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h9_executable_commitment_state --locked \
+            | tee h9-executable-commitment-state-report.json
+
+      - name: Run H10 evidence-bound rule induction probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h10_evidence_bound_rule_induction --locked \
+            | tee h10-evidence-bound-rule-induction-report.json
+
+      - name: Run H11 graph-discovered relation induction probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h11_graph_discovered_relation_induction --locked \
+            | tee h11-graph-discovered-relation-induction-report.json
+
+      - name: Run Ω1 endogenous state-space genesis probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
+            | tee omega1-endogenous-state-space-genesis-report.json
+
+      - name: Run ΩR1 representative transportability probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_r1_representative_transportability --locked \
+            | tee omega-r1-representative-transportability-report.json
 
       - name: Preserve CHARGE diagnostics and reports
         if: always()
@@ -84,5 +158,13 @@ jobs:
             charge-real-component-report.json
             h4-shadow-promotion-report.json
             h4-real-cycle-shadow-report.json
+            h5-residual-identity-diagnostic-report.json
+            h5-b-identifiability-report.json
+            h6-disagreement-contrast-report.json
+            h9-executable-commitment-state-report.json
+            h10-evidence-bound-rule-induction-report.json
+            h11-graph-discovered-relation-induction-report.json
+            omega1-endogenous-state-space-genesis-report.json
+            omega-r1-representative-transportability-report.json
           if-no-files-found: ignore
           retention-days: 7

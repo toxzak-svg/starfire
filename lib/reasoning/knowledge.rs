@@ -3,8 +3,8 @@
 //! Represents entities, relationships, and inferred facts.
 //! The substrate for all reasoning — without this, reasoning has nothing to work with.
 
-use std::collections::{HashMap, HashSet, VecDeque};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// A knowledge graph — entities, relationships, and facts.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -110,7 +110,7 @@ impl KnowledgeGraph {
 
     /// Ingest a simple factual statement as a relationship.
     /// Parses "subject verb object" into a relationship between entities.
-    /// 
+    ///
     /// Examples:
     /// - ingest_fact("fire", "causes", "heat", 0.9)
     /// - ingest_fact("star", "is", "reasoning intelligence", 0.95)
@@ -120,8 +120,12 @@ impl KnowledgeGraph {
         let verb = verb.trim().to_lowercase();
         let object = object.trim().to_lowercase();
 
-        if subject.len() < 2 || object.len() < 2 { return; }
-        if verb.is_empty() { return; }
+        if subject.len() < 2 || object.len() < 2 {
+            return;
+        }
+        if verb.is_empty() {
+            return;
+        }
 
         // Map common verbs to relation types (only valid enum variants)
         let rel_type = match verb.as_str() {
@@ -154,9 +158,10 @@ impl KnowledgeGraph {
 
         // Deduplicate: only add if not already present
         let key = format!("{}:{}:{}", rel.from, rel.relation.as_str(), rel.to);
-        let exists = self.relationships.iter().any(|r| 
-            format!("{}:{}:{}", r.from, r.relation.as_str(), r.to) == key
-        );
+        let exists = self
+            .relationships
+            .iter()
+            .any(|r| format!("{}:{}:{}", r.from, r.relation.as_str(), r.to) == key);
         if !exists {
             self.relationships.push(rel);
         }
@@ -165,7 +170,7 @@ impl KnowledgeGraph {
     /// Extract entities (nouns and noun phrases) from text using simple pattern matching.
     pub fn extract_entities(&self, text: &str) -> Vec<String> {
         let mut entities = Vec::new();
-        
+
         // Pattern 1: Capitalized words (proper nouns)
         let mut prev_was_cap = false;
         let mut current_phrase = String::new();
@@ -188,12 +193,12 @@ impl KnowledgeGraph {
         if !current_phrase.is_empty() && current_phrase.len() > 1 {
             entities.push(current_phrase);
         }
-        
+
         // Pattern 2: Quoted phrases
         for (i, ch) in text.char_indices() {
             if ch == '"' {
-                if let Some(end) = text[i+1..].find('"') {
-                    let phrase = &text[i+1..i+1+end];
+                if let Some(end) = text[i + 1..].find('"') {
+                    let phrase = &text[i + 1..i + 1 + end];
                     if phrase.len() > 2 {
                         entities.push(phrase.to_string());
                     }
@@ -201,17 +206,21 @@ impl KnowledgeGraph {
                 break;
             }
         }
-        
+
         entities.dedup();
         entities
     }
 
     /// Add an entity.
     pub fn add_entity(&mut self, name: &str) {
-        if name.len() < 2 { return; }
+        if name.len() < 2 {
+            return;
+        }
         let name = name.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
-        if name.len() < 2 { return; }
-        
+        if name.len() < 2 {
+            return;
+        }
+
         self.entities.entry(name.clone()).or_insert_with(|| Entity {
             name: name.clone(),
             properties: HashMap::new(),
@@ -222,21 +231,29 @@ impl KnowledgeGraph {
 
     /// Add a relationship between entities.
     pub fn add_relationship(&mut self, from: &str, relation: RelationType, to: &str) {
-        if from.is_empty() || to.is_empty() { return; }
+        if from.is_empty() || to.is_empty() {
+            return;
+        }
 
         let from = from.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
         let to = to.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
-        
-        if from.is_empty() || to.is_empty() { return; }
-        
-        self.add_entity(&from);
-        self.add_entity(&to);
-        
-        // Avoid duplicate relationships
-        if self.relationships.iter().any(|r| r.from == from && r.relation == relation && r.to == to) {
+
+        if from.is_empty() || to.is_empty() {
             return;
         }
-        
+
+        self.add_entity(&from);
+        self.add_entity(&to);
+
+        // Avoid duplicate relationships
+        if self
+            .relationships
+            .iter()
+            .any(|r| r.from == from && r.relation == relation && r.to == to)
+        {
+            return;
+        }
+
         self.relationships.push(Relationship {
             from,
             relation,
@@ -248,7 +265,9 @@ impl KnowledgeGraph {
 
     /// Add a property to an entity.
     pub fn add_property(&mut self, entity: &str, property: &str, value: &str) {
-        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        let normalized_entity = entity
+            .trim_matches(|c| !char::is_alphanumeric(c))
+            .to_string();
         self.add_entity(&normalized_entity);
         if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.properties.insert(property.to_string(), value.to_string());
@@ -257,7 +276,9 @@ impl KnowledgeGraph {
 
     /// Add a fact about an entity.
     pub fn add_fact(&mut self, entity: &str, fact: &str) {
-        let normalized_entity = entity.trim_matches(|c| !char::is_alphanumeric(c)).to_string();
+        let normalized_entity = entity
+            .trim_matches(|c| !char::is_alphanumeric(c))
+            .to_string();
         self.add_entity(&normalized_entity);
         if let Some(e) = self.entities.get_mut(&normalized_entity) {
             e.description = Some(fact.to_string());
@@ -267,53 +288,81 @@ impl KnowledgeGraph {
     /// Get an entity by name.
     pub fn get_entity(&self, name: &str) -> Option<&Entity> {
         // Case-insensitive lookup
-        self.entities.get(name)
+        self.entities
+            .get(name)
             .or_else(|| self.entities.get(&name.to_lowercase()))
             .or_else(|| {
                 // Try case-insensitive search through all entities
-                self.entities.iter()
-                    .find(|(k, _)| k.to_lowercase() == name.to_lowercase())
-                    .map(|(_, v)| v)
+                let name_lower = name.to_lowercase();
+                let mut matches: Vec<_> = self
+                    .entities
+                    .iter()
+                    .filter(|(key, _)| key.to_lowercase() == name_lower)
+                    .collect();
+                matches.sort_by(|(left, _), (right, _)| left.cmp(right));
+                matches.first().map(|(_, value)| *value)
             })
     }
 
     /// Get all entity names (owned Strings).
     pub fn entities(&self) -> Vec<String> {
-        self.entities.keys().cloned().collect()
+        let mut entities: Vec<String> = self.entities.keys().cloned().collect();
+        entities.sort();
+        entities
     }
 
     /// Get all relationships from an entity (case-insensitive, owned).
     pub fn get_relationships_from(&self, entity: &str) -> Vec<Relationship> {
         let entity_lower = entity.to_lowercase();
-        self.relationships.iter()
+        let mut relationships: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.from.to_lowercase() == entity_lower)
             .cloned()
-            .collect()
+            .collect();
+        relationships.sort_by(|left, right| {
+            left.from
+                .cmp(&right.from)
+                .then_with(|| left.relation.as_str().cmp(right.relation.as_str()))
+                .then_with(|| left.to.cmp(&right.to))
+        });
+        relationships
     }
 
     /// Get all relationships to an entity (case-insensitive, owned).
     pub fn get_relationships_to(&self, entity: &str) -> Vec<Relationship> {
         let entity_lower = entity.to_lowercase();
-        self.relationships.iter()
+        let mut relationships: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.to.to_lowercase() == entity_lower)
             .cloned()
-            .collect()
+            .collect();
+        relationships.sort_by(|left, right| {
+            left.from
+                .cmp(&right.from)
+                .then_with(|| left.relation.as_str().cmp(right.relation.as_str()))
+                .then_with(|| left.to.cmp(&right.to))
+        });
+        relationships
     }
 
     /// Get all facts about an entity.
     pub fn get_facts_about(&self, entity: &str) -> Vec<String> {
         let mut facts = Vec::new();
-        
+
         // Use case-insensitive entity lookup
         if let Some(e) = self.get_entity(entity) {
-            for (_prop, val) in &e.properties {
+            let mut properties: Vec<_> = e.properties.values().collect();
+            properties.sort();
+            for val in properties {
                 facts.push(format!("{} has {}", e.name, val));
             }
             if let Some(desc) = &e.description {
                 facts.push(desc.clone());
             }
         }
-        
+
         // Relationships
         for rel in self.get_relationships_from(entity) {
             facts.push(format!("{} {} {}", entity, rel.relation.as_str(), rel.to));
@@ -323,7 +372,8 @@ impl KnowledgeGraph {
                 facts.push(format!("{} {} {}", entity, rel.relation.as_str(), rel.to));
             }
         }
-        
+        facts.sort();
+        facts.dedup();
         facts
     }
 
@@ -331,37 +381,50 @@ impl KnowledgeGraph {
     pub fn get_facts_containing(&self, term: &str) -> Vec<String> {
         let term_lower = term.to_lowercase();
         let mut facts = Vec::new();
-        
-        for entity in self.entities.keys() {
+
+        let mut entities: Vec<&String> = self.entities.keys().collect();
+        entities.sort();
+        for entity in entities {
             let entity_lower = entity.to_lowercase();
             if entity_lower.contains(&term_lower) {
                 facts.extend(self.get_facts_about(entity));
             }
         }
-        
+        facts.sort();
+        facts.dedup();
         facts
     }
 
     /// Get causes of an entity (what causes it).
     pub fn get_causes(&self, entity: &str) -> Vec<String> {
-        self.relationships.iter()
+        let mut causes: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.to == entity && r.relation == RelationType::Causes)
             .map(|r| format!("{} {}", r.from, r.relation.as_str()))
-            .collect()
+            .collect();
+        causes.sort();
+        causes.dedup();
+        causes
     }
 
     /// Get effects of an entity (what it causes).
     pub fn get_effects(&self, entity: &str) -> Vec<String> {
-        self.relationships.iter()
+        let mut effects: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.from == entity && r.relation == RelationType::Causes)
             .map(|r| format!("{} {}", r.relation.as_str(), r.to))
-            .collect()
+            .collect();
+        effects.sort();
+        effects.dedup();
+        effects
     }
 
     /// Get mechanisms related to an entity.
     pub fn get_mechanisms(&self, entity: &str) -> Vec<String> {
         let mut mechanisms = Vec::new();
-        
+
         for rel in self.relationships.iter() {
             if rel.from == entity && rel.relation == RelationType::Uses {
                 mechanisms.push(format!("uses {}", rel.to));
@@ -370,7 +433,9 @@ impl KnowledgeGraph {
                 mechanisms.push(format!("enabled by {}", rel.from));
             }
         }
-        
+
+        mechanisms.sort();
+        mechanisms.dedup();
         mechanisms
     }
 
@@ -378,32 +443,44 @@ impl KnowledgeGraph {
     pub fn get_values_related(&self, topic: &str) -> Vec<String> {
         let topic_lower = topic.to_lowercase();
         let mut related = Vec::new();
-        
+
         // Look for entities that have "good" or "value" in their relationships
         for rel in &self.relationships {
-            if (rel.from.to_lowercase().contains(&topic_lower) ||
-               rel.to.to_lowercase().contains(&topic_lower))
-                && rel.relation == RelationType::RelatedTo {
-                    related.push(format!("{} {} {}", rel.from, rel.relation.as_str(), rel.to));
-                }
+            if (rel.from.to_lowercase().contains(&topic_lower)
+                || rel.to.to_lowercase().contains(&topic_lower))
+                && rel.relation == RelationType::RelatedTo
+            {
+                related.push(format!("{} {} {}", rel.from, rel.relation.as_str(), rel.to));
+            }
         }
-        
+
+        related.sort();
+        related.dedup();
         related
     }
 
     /// Infer new relationships using transitive reasoning.
-    pub fn infer_transitive(&self, from: &str, relation: &RelationType, depth: usize) -> Vec<String> {
-        if depth == 0 { return Vec::new(); }
-        
+    pub fn infer_transitive(
+        &self,
+        from: &str,
+        relation: &RelationType,
+        depth: usize,
+    ) -> Vec<String> {
+        if depth == 0 {
+            return Vec::new();
+        }
+
         let mut results = Vec::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         queue.push_back((from.to_string(), depth));
-        
+
         while let Some((current, remaining)) = queue.pop_front() {
-            if visited.contains(&current) { continue; }
+            if visited.contains(&current) {
+                continue;
+            }
             visited.insert(current.clone());
-            
+
             for rel in self.get_relationships_from(&current) {
                 if &rel.relation == relation {
                     results.push(rel.to.clone());
@@ -413,7 +490,9 @@ impl KnowledgeGraph {
                 }
             }
         }
-        
+
+        results.sort();
+        results.dedup();
         results
     }
 
@@ -422,36 +501,43 @@ impl KnowledgeGraph {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         queue.push_back(vec![from.to_string()]);
-        
+
         while let Some(path) = queue.pop_front() {
             let current = path.last().unwrap();
-            
+
             if current == to {
                 return Some(path);
             }
-            
-            if path.len() >= max_depth { continue; }
-            if visited.contains(current) { continue; }
+
+            if path.len() >= max_depth {
+                continue;
+            }
+            if visited.contains(current) {
+                continue;
+            }
             visited.insert(current.clone());
-            
+
             for rel in self.get_relationships_from(current) {
                 let mut new_path = path.clone();
                 new_path.push(rel.to.clone());
                 queue.push_back(new_path);
             }
         }
-        
+
         None
     }
 
     /// Add a concept (abstract idea with definition).
     pub fn add_concept(&mut self, name: &str, definition: &str) {
-        self.concepts.insert(name.to_string(), Concept {
-            name: name.to_string(),
-            definition: definition.to_string(),
-            examples: Vec::new(),
-            related_concepts: Vec::new(),
-        });
+        self.concepts.insert(
+            name.to_string(),
+            Concept {
+                name: name.to_string(),
+                definition: definition.to_string(),
+                examples: Vec::new(),
+                related_concepts: Vec::new(),
+            },
+        );
     }
 
     /// Get a concept.
@@ -470,12 +556,12 @@ impl KnowledgeGraph {
     }
 
     /// Find analogies between two concepts by exploring shared relational structure.
-    /// 
+    ///
     /// This is the core of dynamic analogy-making: instead of hardcoded categories,
     /// we inspect the *actual* relationships in the knowledge graph and look for
     /// structural parallels. "A:B :: C:D" when A→X and C→Y are the same *type*
     /// of relationship, even if X≠Y.
-    /// 
+    ///
     /// Returns a list of discovered analogies sorted by confidence.
     pub fn find_analogies(&self, concept_a: &str, concept_b: &str) -> Vec<DynamicAnalogy> {
         let mut analogies = Vec::new();
@@ -483,10 +569,14 @@ impl KnowledgeGraph {
         let b_lower = concept_b.to_lowercase();
 
         // Get all relationships from A and B
-        let rels_from_a: Vec<_> = self.relationships.iter()
+        let rels_from_a: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.from.to_lowercase() == a_lower)
             .collect();
-        let rels_from_b: Vec<_> = self.relationships.iter()
+        let rels_from_b: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.from.to_lowercase() == b_lower)
             .collect();
 
@@ -495,7 +585,7 @@ impl KnowledgeGraph {
                 // Same relation type → structural parallel
                 if rel_a.relation == rel_b.relation {
                     let target_same = rel_a.to.to_lowercase() == rel_b.to.to_lowercase();
-                    
+
                     let analogy = DynamicAnalogy {
                         source: concept_a.to_string(),
                         source_relation: format!("{} {}", rel_a.relation.as_str(), rel_a.to),
@@ -508,10 +598,12 @@ impl KnowledgeGraph {
                     };
                     analogies.push(analogy);
                 }
-                
+
                 // Inverse relation → potential contrast/opposite
                 if let Some(inv) = rel_a.relation.inverse() {
-                    if inv == rel_b.relation && rel_a.from.to_lowercase() != rel_b.from.to_lowercase() {
+                    if inv == rel_b.relation
+                        && rel_a.from.to_lowercase() != rel_b.from.to_lowercase()
+                    {
                         analogies.push(DynamicAnalogy {
                             source: concept_a.to_string(),
                             source_relation: format!("{} {}", rel_a.relation.as_str(), rel_a.to),
@@ -529,16 +621,15 @@ impl KnowledgeGraph {
 
         // Sort by confidence and deduplicate
         analogies.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
-        analogies.dedup_by(|a, b| 
-            a.source == b.source && a.target == b.target 
-            && a.source_rel_type == b.source_rel_type
-        );
+        analogies.dedup_by(|a, b| {
+            a.source == b.source && a.target == b.target && a.source_rel_type == b.source_rel_type
+        });
 
         analogies
     }
 
     /// Find the best analogy connecting two arbitrary concepts by traversing the graph.
-    /// 
+    ///
     /// Unlike `find_analogies` which takes two specific concepts, this one searches
     /// the graph for any two concepts that share structural similarity — useful when
     /// we want to understand "what is X like?" without knowing Y in advance.
@@ -547,20 +638,26 @@ impl KnowledgeGraph {
         let mut all_analogies = Vec::new();
 
         // Find concepts that share a relationship with this one
-        let rels_from = self.relationships.iter()
-            .filter(|r| r.from.to_lowercase() == concept_lower || r.to.to_lowercase() == concept_lower)
+        let rels_from = self
+            .relationships
+            .iter()
+            .filter(|r| {
+                r.from.to_lowercase() == concept_lower || r.to.to_lowercase() == concept_lower
+            })
             .collect::<Vec<_>>();
 
         for rel in &rels_from {
             // Find another relationship of the SAME type
-            let others: Vec<_> = self.relationships.iter()
+            let others: Vec<_> = self
+                .relationships
+                .iter()
                 .filter(|r| r.relation == rel.relation && r.from != rel.from && r.to != rel.to)
                 .collect();
 
             for other in others {
                 let shared_targets = rel.to.to_lowercase() == other.to.to_lowercase();
                 let shared_sources = rel.from.to_lowercase() == other.from.to_lowercase();
-                
+
                 if !shared_targets && !shared_sources {
                     // Genuinely different — might be an analogy
                     let (src, tgt, oth_src, oth_tgt) = if rel.from.to_lowercase() == concept_lower {
@@ -584,34 +681,57 @@ impl KnowledgeGraph {
         }
 
         // Also try transitive analogies: if A→X→Y and B→Z→W, and X≈Z, then A:Y :: B:W
-        let rels_from_concept: Vec<_> = self.relationships.iter()
+        let rels_from_concept: Vec<_> = self
+            .relationships
+            .iter()
             .filter(|r| r.from.to_lowercase() == concept_lower)
             .collect();
-        
+
         for rel in &rels_from_concept {
-            let second_hop: Vec<_> = self.relationships.iter()
+            let second_hop: Vec<_> = self
+                .relationships
+                .iter()
                 .filter(|r| r.from.to_lowercase() == rel.to.to_lowercase())
                 .collect();
-            
+
             for sh in &second_hop {
                 // Find another chain of same length with same relation type at both hops
-                let matches: Vec<_> = self.relationships.iter()
-                    .filter(|r| r.relation == rel.relation && r.from.to_lowercase() != concept_lower)
+                let matches: Vec<_> = self
+                    .relationships
+                    .iter()
+                    .filter(|r| {
+                        r.relation == rel.relation && r.from.to_lowercase() != concept_lower
+                    })
                     .collect();
-                
+
                 for m in &matches {
-                    let m2: Vec<_> = self.relationships.iter()
-                        .filter(|r| r.from.to_lowercase() == m.to.to_lowercase() && r.relation == sh.relation)
+                    let m2: Vec<_> = self
+                        .relationships
+                        .iter()
+                        .filter(|r| {
+                            r.from.to_lowercase() == m.to.to_lowercase()
+                                && r.relation == sh.relation
+                        })
                         .collect();
-                    
+
                     for m2 in m2 {
                         if rel.to.to_lowercase() != m.to.to_lowercase() {
                             all_analogies.push(DynamicAnalogy {
                                 source: concept.to_string(),
-                                source_relation: format!("{} → {} {}", rel.relation.as_str(), rel.to, sh.relation.as_str()),
+                                source_relation: format!(
+                                    "{} → {} {}",
+                                    rel.relation.as_str(),
+                                    rel.to,
+                                    sh.relation.as_str()
+                                ),
                                 source_rel_type: rel.relation,
                                 target: m.from.clone(),
-                                target_relation: format!("{} → {} {}", m.relation.as_str(), m.to, m2.relation.as_str()),
+                                target_relation: format!(
+                                    "{} → {} {}",
+                                    m.relation.as_str(),
+                                    m.to,
+                                    m2.relation.as_str()
+                                ),
                                 target_rel_type: m.relation,
                                 is_parallel: false,
                                 confidence: 0.6,
@@ -694,7 +814,7 @@ mod tests {
         let mut kg = KnowledgeGraph::new();
         kg.add_entity("Star");
         kg.add_fact("Star", "A reasoning intelligence");
-        
+
         assert!(kg.get_entity("Star").is_some());
         assert_eq!(kg.entity_count(), 1);
     }
@@ -704,7 +824,7 @@ mod tests {
         let mut kg = KnowledgeGraph::new();
         kg.add_relationship("Fire", RelationType::Causes, "Heat");
         kg.add_relationship("Heat", RelationType::Causes, "Expansion");
-        
+
         let effects = kg.get_effects("Fire");
         assert!(effects.contains(&"causes Heat".to_string()));
     }
@@ -715,7 +835,7 @@ mod tests {
         kg.add_relationship("A", RelationType::IsA, "B");
         kg.add_relationship("B", RelationType::IsA, "C");
         kg.add_relationship("C", RelationType::IsA, "D");
-        
+
         let inferred = kg.infer_transitive("A", &RelationType::IsA, 3);
         assert!(inferred.contains(&"B".to_string()));
         assert!(inferred.contains(&"C".to_string()));
@@ -728,7 +848,7 @@ mod tests {
         kg.add_relationship("Fire", RelationType::Causes, "Heat");
         kg.add_relationship("Heat", RelationType::Causes, "Expansion");
         kg.add_relationship("Expansion", RelationType::Causes, "Pressure");
-        
+
         let path = kg.find_connection("Fire", "Pressure", 5);
         assert!(path.is_some());
         let path = path.unwrap();
