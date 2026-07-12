@@ -34,18 +34,3 @@ regex.workspace = true
 default = []
 lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
-
-[[example]]
-name = "h_infant_residual_revision_probe"
-path = "examples/h_infant_residual_revision_probe.rs"
-required-features = ["developmental-evidence"]
-
-[[example]]
-name = "h_infant_typed_pressure_routing_probe"
-path = "examples/h_infant_typed_pressure_routing_probe.rs"
-required-features = ["developmental-evidence"]
-
-[[example]]
-name = "h_infant_multi_pressure_priority_probe"
-path = "examples/h_infant_multi_pressure_priority_probe.rs"
-required-features = ["developmental-evidence"]
