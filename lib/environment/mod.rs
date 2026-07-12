@@ -4,6 +4,8 @@
 //! same observe/predict/act/judge loop in unfamiliar symbolic worlds, bounded
 //! filesystems, code tasks, research tasks, and other controlled environments.
 
+pub mod hidden_rule;
+
 use std::fmt::Debug;
 
 /// Objective evidence exposed by an environment independently of a cognitive

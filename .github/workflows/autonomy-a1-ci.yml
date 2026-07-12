@@ -1,0 +1,55 @@
+name: Autonomy A1 CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/autonomy/**"
+      - "lib/environment/**"
+      - "lib/examples/a1_bounded_autonomous_kernel.rs"
+      - "lib/lib.rs"
+      - "docs/experiments/A1_BOUNDED_AUTONOMOUS_KERNEL.md"
+      - ".github/workflows/autonomy-a1-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bounded-autonomous-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check Star library and A1 example
+        run: |
+          cargo check -p star --lib --locked
+          cargo check -p star --example a1_bounded_autonomous_kernel --locked
+
+      - name: Test autonomy contracts
+        run: cargo test -p star autonomy:: --locked -- --test-threads=1
+
+      - name: Test hidden-rule environment
+        run: cargo test -p star environment::hidden_rule:: --locked -- --test-threads=1
+
+      - name: Execute A1 foundation probe
+        run: |
+          cargo run -p star --example a1_bounded_autonomous_kernel --locked \
+            | tee a1-bounded-autonomous-kernel-report.json
+
+      - name: Preserve A1 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: a1-bounded-autonomous-kernel-report
+          path: a1-bounded-autonomous-kernel-report.json
+          retention-days: 30
