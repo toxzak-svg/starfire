@@ -71,7 +71,7 @@ mod companion_integration_tests {
     };
     use crate::persistence::{CompanionPersistence, Store};
     use std::sync::Arc;
-    use uuid::Uuid;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn claim(key: &str, value: &str, observed_at_ms: u64, retention: Retention) -> ClaimInput {
         ClaimInput {
@@ -160,9 +160,13 @@ mod companion_integration_tests {
 
     #[test]
     fn companion_journal_commits_and_compacts_through_starfire_store() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let path = std::env::temp_dir().join(format!(
-            "starfire-charge-companion-journal-{}.sqlite",
-            Uuid::new_v4()
+            "starfire-charge-companion-journal-{}-{nonce}.sqlite",
+            std::process::id()
         ));
         let store = Arc::new(Store::open(&path).unwrap());
         let persistence = CompanionPersistence::new(store);
