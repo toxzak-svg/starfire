@@ -44,7 +44,7 @@ jobs:
 
       - name: Test relational contracts deterministically
         run: >-
-          cargo test -p star relational:: --features relational-evidence --locked
+          cargo test -p star --lib --features relational-evidence --locked relational::
           -- --test-threads=1
 
       - name: Run R1 replay probe
