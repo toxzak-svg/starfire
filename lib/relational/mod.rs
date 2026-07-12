@@ -1,11 +1,11 @@
 //! Shadow-only bridge from longitudinal user predictions to Starfire CHARGE.
 //!
-//! This module accepts a prediction issued before an interaction and a later,
+//! The bridge accepts a prediction issued before an interaction and a later,
 //! independently sourced outcome witness. It validates both records, computes the
 //! residual itself, and may emit an unissued `PredictionResidual` charge.
 //!
-//! It is deliberately feature-gated and has no connection to `Runtime::chat()`,
-//! live routing, user-belief mutation, ontology promotion, or autonomous action.
+//! It is feature-gated and has no connection to `Runtime::chat()`, live routing,
+//! user-belief mutation, ontology promotion, or autonomous action.
 
 use std::collections::BTreeSet;
 
@@ -43,7 +43,7 @@ pub struct EvidenceProducer {
 pub struct RelationalPrediction {
     pub schema_version: u16,
     pub prediction_id: String,
-    /// Opaque subject identifier. Human-readable names are not required.
+    /// Opaque identifier; a human-readable user name is unnecessary.
     pub subject_id: String,
     pub target: String,
     pub context_scope: String,
@@ -61,7 +61,7 @@ pub enum OutcomeSource {
     SubsequentUserBehavior,
     TaskMetric,
     ExternalEvaluator,
-    /// Kept in the wire schema so self-judgment can be rejected explicitly.
+    /// Present in the wire schema so self-judgment is rejected explicitly.
     GeneratorSelfReport,
 }
 
@@ -79,7 +79,7 @@ pub struct RelationalOutcomeWitness {
     pub observed_at_sequence: u64,
     pub observed_label: String,
     pub source: OutcomeSource,
-    /// Confidence in the witness, not confidence claimed by the predictor.
+    /// Confidence in the witness, never confidence claimed by the predictor.
     pub confidence: f64,
     pub evidence_id: String,
 }
@@ -108,7 +108,7 @@ pub struct RelationalResidual {
     pub target: String,
     pub context_scope: String,
     pub labels: Vec<String>,
-    /// One-hot observation minus the probability assigned to each label.
+    /// One-hot observation minus the assigned probability for each label.
     pub residual: Vec<f64>,
     /// Multiclass Brier score: sum of squared residual coordinates.
     pub brier_score: f64,
@@ -145,10 +145,9 @@ pub enum BridgeStatus {
 pub struct BridgeAssessment {
     pub status: BridgeStatus,
     pub residual: RelationalResidual,
-    /// Always unissued (`id == 0`). A caller must use the normal ledger if a
-    /// later experiment is authorized to persist it.
+    /// Always unissued (`id == 0`); this module never inserts into a ledger.
     pub charge: Option<Charge>,
-    /// This bridge never authorizes promotion or action by itself.
+    /// The bridge cannot authorize promotion or action by itself.
     pub promotion_eligible: bool,
 }
 
@@ -226,7 +225,11 @@ impl RelationalResidualBridge {
 
         for outcome in &prediction.outcomes {
             labels.push(outcome.label.clone());
-            let observed = f64::from(outcome.label == witness.observed_label);
+            let observed = if outcome.label == witness.observed_label {
+                1.0
+            } else {
+                0.0
+            };
             residual.push(observed - outcome.probability);
             if outcome.label == witness.observed_label {
                 observed_probability = Some(outcome.probability);
@@ -236,7 +239,6 @@ impl RelationalResidualBridge {
         let brier_score = residual.iter().map(|value| value * value).sum::<f64>();
         let rms = (brier_score / residual.len() as f64).sqrt();
         let magnitude = (rms * witness.confidence).clamp(0.0, 1.0);
-
         let relational_residual = RelationalResidual {
             prediction_id: prediction.prediction_id.clone(),
             target: prediction.target.clone(),
@@ -249,12 +251,8 @@ impl RelationalResidualBridge {
             witness_confidence: witness.confidence,
             evidence_id: witness.evidence_id.clone(),
         };
-
-        let charge = if magnitude >= self.config.min_charge_magnitude {
-            Some(relational_residual.to_shadow_charge())
-        } else {
-            None
-        };
+        let charge = (magnitude >= self.config.min_charge_magnitude)
+            .then(|| relational_residual.to_shadow_charge());
 
         Ok(BridgeAssessment {
             status: if charge.is_some() {
@@ -276,7 +274,6 @@ impl RelationalResidualBridge {
             .iter()
             .map(|case| self.assess(&case.prediction, &case.witness))
             .collect::<Result<Vec<_>, _>>()?;
-
         let emitted_charge_count = assessments
             .iter()
             .filter(|assessment| assessment.charge.is_some())
@@ -348,7 +345,6 @@ fn validate_prediction(
     require_non_blank("context_scope", &prediction.context_scope)?;
     require_non_blank("producer.name", &prediction.producer.name)?;
     require_non_blank("producer.version", &prediction.producer.version)?;
-
     if prediction.outcomes.len() < 2 {
         return Err(RelationalBridgeError::TooFewOutcomes);
     }
@@ -358,9 +354,7 @@ fn validate_prediction(
     for outcome in &prediction.outcomes {
         require_non_blank("outcome.label", &outcome.label)?;
         if !labels.insert(outcome.label.clone()) {
-            return Err(RelationalBridgeError::DuplicateOutcome(
-                outcome.label.clone(),
-            ));
+            return Err(RelationalBridgeError::DuplicateOutcome(outcome.label.clone()));
         }
         if !outcome.probability.is_finite() || !(0.0..=1.0).contains(&outcome.probability) {
             return Err(RelationalBridgeError::InvalidProbability {
@@ -370,14 +364,12 @@ fn validate_prediction(
         }
         sum += outcome.probability;
     }
-
     if (sum - 1.0).abs() > probability_sum_tolerance {
         return Err(RelationalBridgeError::ProbabilitySum {
             sum,
             tolerance: probability_sum_tolerance,
         });
     }
-
     Ok(())
 }
 
@@ -394,7 +386,6 @@ fn validate_witness(
     require_non_blank("witness.prediction_id", &witness.prediction_id)?;
     require_non_blank("witness.observed_label", &witness.observed_label)?;
     require_non_blank("witness.evidence_id", &witness.evidence_id)?;
-
     if prediction.prediction_id != witness.prediction_id {
         return Err(RelationalBridgeError::PredictionIdMismatch {
             expected: prediction.prediction_id.clone(),
@@ -402,9 +393,7 @@ fn validate_witness(
         });
     }
     if !witness.confidence.is_finite() || !(0.0..=1.0).contains(&witness.confidence) {
-        return Err(RelationalBridgeError::InvalidWitnessConfidence(
-            witness.confidence,
-        ));
+        return Err(RelationalBridgeError::InvalidWitnessConfidence(witness.confidence));
     }
     if !witness.source.is_independent() {
         return Err(RelationalBridgeError::NonIndependentWitness);
@@ -421,7 +410,6 @@ fn validate_witness(
             witness.observed_label.clone(),
         ));
     }
-
     Ok(())
 }
 
@@ -483,9 +471,8 @@ mod tests {
 
         assert_eq!(assessment.status, BridgeStatus::EmittedShadowCharge);
         assert!(!assessment.promotion_eligible);
-        assert_eq!(assessment.residual.observed_probability, 0.1);
+        assert!((assessment.residual.observed_probability - 0.1).abs() < 1e-12);
         assert!((assessment.residual.magnitude - 0.9).abs() < 1e-12);
-
         let charge = assessment.charge.unwrap();
         assert_eq!(charge.id, 0);
         assert_eq!(charge.kind, ChargeKind::PredictionResidual);
@@ -512,7 +499,6 @@ mod tests {
     fn response_generator_cannot_grade_itself() {
         let mut self_report = witness("explain_first");
         self_report.source = OutcomeSource::GeneratorSelfReport;
-
         assert_eq!(
             RelationalResidualBridge::default()
                 .assess(&prediction(0.9), &self_report)
@@ -525,7 +511,6 @@ mod tests {
     fn witness_must_follow_prediction() {
         let mut early = witness("explain_first");
         early.observed_at_sequence = 10;
-
         assert_eq!(
             RelationalResidualBridge::default()
                 .assess(&prediction(0.9), &early)
@@ -538,7 +523,6 @@ mod tests {
     fn malformed_probability_distribution_is_rejected() {
         let mut malformed = prediction(0.9);
         malformed.outcomes[1].probability = 0.9;
-
         assert!(matches!(
             RelationalResidualBridge::default().assess(&malformed, &witness("explain_first")),
             Err(RelationalBridgeError::ProbabilitySum { .. })
@@ -558,7 +542,6 @@ mod tests {
                 witness: witness("direct_implementation"),
             },
         ];
-
         let first = bridge.replay(&cases).unwrap();
         let second = bridge.replay(&cases).unwrap();
 
