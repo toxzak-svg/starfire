@@ -7,9 +7,11 @@ on:
     paths:
       - "lib/autonomy/**"
       - "lib/environment/**"
+      - "lib/companion_state/**"
       - "lib/examples/a1_bounded_autonomous_kernel.rs"
       - "lib/lib.rs"
       - "docs/experiments/A1_BOUNDED_AUTONOMOUS_KERNEL.md"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
       - ".github/workflows/autonomy-a1-ci.yml"
   workflow_dispatch:
 
@@ -41,6 +43,9 @@ jobs:
 
       - name: Test hidden-rule environment
         run: cargo test -p star environment::hidden_rule:: --locked -- --test-threads=1
+
+      - name: Test companion state contracts
+        run: cargo test -p star companion_state:: --locked -- --test-threads=1
 
       - name: Execute A1 foundation probe
         run: |

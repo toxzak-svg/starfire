@@ -1,0 +1,44 @@
+name: Companion State CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_state/**"
+      - "lib/lib.rs"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - ".github/workflows/companion-state-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  companion-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check Star library
+        run: cargo check -p star --lib --locked
+
+      - name: Lint companion substrate
+        run: cargo clippy -p star --lib --locked -- -D warnings
+
+      - name: Test companion contracts
+        run: cargo test -p star companion_state:: --locked -- --test-threads=1
