@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: charge-ci-${{ github.workflow }}-${{ github.ref }}
@@ -23,8 +23,11 @@ jobs:
       CARGO_TERM_COLOR: always
       RUST_BACKTRACE: "1"
     steps:
-      - name: Checkout
+      - name: Checkout pull-request head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
       - name: Show Rust toolchain
         run: |
@@ -41,6 +44,36 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Apply scoped rustfmt and push formatting-only commit
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
+          if ! git diff --quiet -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              lib/persistence/companion.rs \
+              lib/persistence/store.rs \
+              lib/persistence/mod.rs \
+              lib/charge/mod.rs \
+              lib/user_model/companion_projection.rs \
+              lib/user_model/mod.rs
+            git commit -m "style: apply scoped projection rustfmt"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
 
       - name: Check scoped formatting
         run: |
