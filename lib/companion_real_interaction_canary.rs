@@ -215,7 +215,7 @@ impl CanaryEvidenceLedger {
             .seals
             .get(&attestation.trial_id)
             .ok_or(CanaryEvidenceError::UnsealedTrial(attestation.trial_id))?;
-        validate_seal_against_outcomes(seal, outcomes)?;
+        validate_seal_against_outcomes(self.config, seal, outcomes)?;
         validate_direct_attestation(self.config, seal, &attestation)?;
 
         let exported_evidence = ObservedOutcomeEvidence {
@@ -258,7 +258,7 @@ impl CanaryEvidenceLedger {
             .seals
             .get(&attestation.trial_id)
             .ok_or(CanaryEvidenceError::UnsealedTrial(attestation.trial_id))?;
-        validate_seal_against_outcomes(seal, outcomes)?;
+        validate_seal_against_outcomes(self.config, seal, outcomes)?;
         validate_pairwise_attestation(self.config, seal, &attestation)?;
 
         let exported_evidence = PairedEvaluationEvidence {
@@ -362,14 +362,12 @@ impl CanaryEvidenceLedger {
             return Err(CanaryEvidenceError::UnsealedEvaluationTrial);
         }
         for seal in self.seals.values() {
-            validate_seal_against_outcomes(seal, outcomes)?;
+            validate_seal_against_outcomes(self.config, seal, outcomes)?;
         }
 
         let s5c_report = evaluate_shadow_policies(outcomes, compute, config)?;
-        let opaque_subject_holdout_present = split_has_trials(
-            &s5c_report,
-            EvaluationSplit::OpaqueSubjectHoldout,
-        );
+        let opaque_subject_holdout_present =
+            split_has_trials(&s5c_report, EvaluationSplit::OpaqueSubjectHoldout);
         let temporal_holdout_present =
             split_has_trials(&s5c_report, EvaluationSplit::TemporalHoldout);
         let evidence = self.summary();
@@ -516,7 +514,9 @@ fn build_seal(
         .collect();
     arms.sort_by_key(|arm| arm.variant);
     if arms.iter().any(|arm| arm.policy_digest_fnv1a64 == 0)
-        || arms.windows(2).any(|pair| pair[0].variant == pair[1].variant)
+        || arms
+            .windows(2)
+            .any(|pair| pair[0].variant == pair[1].variant)
     {
         return Err(CanaryEvidenceError::MalformedTrial(trial.id));
     }
@@ -565,6 +565,18 @@ fn validate_seal(
     {
         return Err(CanaryEvidenceError::MalformedSeal(seal.trial_id));
     }
+    let expected_split = if seal.issued_at_ms >= config.split_policy.temporal_holdout_start_ms {
+        EvaluationSplit::TemporalHoldout
+    } else if seal.subject_scope_digest % config.split_policy.opaque_subject_modulus
+        == config.split_policy.opaque_subject_remainder
+    {
+        EvaluationSplit::OpaqueSubjectHoldout
+    } else {
+        EvaluationSplit::Development
+    };
+    if seal.split != expected_split {
+        return Err(CanaryEvidenceError::SplitAssignmentMismatch(seal.trial_id));
+    }
     if seal.seal_digest_fnv1a64 != canonical_seal_digest(seal) {
         return Err(CanaryEvidenceError::SealDigestMismatch(seal.trial_id));
     }
@@ -572,57 +584,20 @@ fn validate_seal(
 }
 
 fn validate_seal_against_outcomes(
+    config: CanaryStudyConfig,
     seal: &CanaryTrialSeal,
     outcomes: &InteractionOutcomeLedger,
 ) -> Result<(), CanaryEvidenceError> {
+    validate_seal(config, seal)?;
     let trial = outcomes
         .trials()
         .get(&seal.trial_id)
         .ok_or(CanaryEvidenceError::UnknownTrial(seal.trial_id))?;
-    let rebuilt = build_seal(
-        CanaryStudyConfig {
-            study_digest: seal.study_digest,
-            protocol_digest: seal.protocol_digest,
-            split_policy: split_policy_for_seal(seal),
-            allow_synthetic_fixture: true,
-        },
-        trial,
-        seal.consent_digest,
-        seal.operator_digest,
-    )?;
-    if rebuilt.trial_id != seal.trial_id
-        || rebuilt.subject_scope_digest != seal.subject_scope_digest
-        || rebuilt.context_digest != seal.context_digest
-        || rebuilt.issued_at_ms != seal.issued_at_ms
-        || rebuilt.not_before_ms != seal.not_before_ms
-        || rebuilt.expires_at_ms != seal.expires_at_ms
-        || rebuilt.delivered_variant != seal.delivered_variant
-        || rebuilt.arms != seal.arms
-        || rebuilt.split != seal.split
-    {
+    let rebuilt = build_seal(config, trial, seal.consent_digest, seal.operator_digest)?;
+    if rebuilt != *seal {
         return Err(CanaryEvidenceError::TrialChangedAfterSeal(seal.trial_id));
     }
     Ok(())
-}
-
-fn split_policy_for_seal(seal: &CanaryTrialSeal) -> EvaluationSplitPolicy {
-    match seal.split {
-        EvaluationSplit::TemporalHoldout => EvaluationSplitPolicy {
-            temporal_holdout_start_ms: seal.issued_at_ms,
-            opaque_subject_modulus: 2,
-            opaque_subject_remainder: (seal.subject_scope_digest + 1) % 2,
-        },
-        EvaluationSplit::OpaqueSubjectHoldout => EvaluationSplitPolicy {
-            temporal_holdout_start_ms: seal.expires_at_ms.saturating_add(1),
-            opaque_subject_modulus: 2,
-            opaque_subject_remainder: seal.subject_scope_digest % 2,
-        },
-        EvaluationSplit::Development => EvaluationSplitPolicy {
-            temporal_holdout_start_ms: seal.expires_at_ms.saturating_add(1),
-            opaque_subject_modulus: 2,
-            opaque_subject_remainder: (seal.subject_scope_digest + 1) % 2,
-        },
-    }
 }
 
 fn validate_direct_attestation(
@@ -810,9 +785,10 @@ fn count_origin(origin: CanaryEvidenceOrigin, real: &mut u64, synthetic: &mut u6
 }
 
 fn split_has_trials(report: &PolicyEvaluationReport, split: EvaluationSplit) -> bool {
-    report.splits.iter().any(|entry| {
-        entry.split == split && entry.arms.values().any(|metrics| metrics.trials > 0)
-    })
+    report
+        .splits
+        .iter()
+        .any(|entry| entry.split == split && entry.arms.values().any(|metrics| metrics.trials > 0))
 }
 
 #[derive(Debug, Error)]
@@ -837,6 +813,8 @@ pub enum CanaryEvidenceError {
     SealDigestMismatch(InteractionTrialId),
     #[error("trial seal does not match the configured study and protocol")]
     StudyBindingMismatch,
+    #[error("trial {0} has a split inconsistent with the frozen split policy")]
+    SplitAssignmentMismatch(InteractionTrialId),
     #[error("trial {0} changed after S6-C sealing")]
     TrialChangedAfterSeal(InteractionTrialId),
     #[error("synthetic canary evidence is rejected by production-default intake")]

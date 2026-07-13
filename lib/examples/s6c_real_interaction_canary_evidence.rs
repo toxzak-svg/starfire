@@ -2,21 +2,17 @@ use serde::Serialize;
 use star::companion_interaction_outcomes::{
     InteractionOutcomeLedger, ObservedSignal, PairwisePreference,
 };
-use star::companion_interaction_policy::{
-    PolicyContext, PolicyVariant, ShadowPolicyPlanner,
-};
+use star::companion_interaction_policy::{PolicyContext, PolicyVariant, ShadowPolicyPlanner};
 use star::companion_policy_evaluation::{
     ArmComputeObservation, EvaluationSplit, EvaluationSplitPolicy, PolicyEvaluationConfig,
     PolicyEvaluationVerdict,
 };
 use star::companion_prediction_ledger::{PredictionLedger, WitnessSource};
 use star::companion_real_interaction_canary::{
-    CanaryEvidenceError, CanaryEvidenceLedger, CanaryEvidenceOrigin, CanaryEvaluationReport,
+    CanaryEvaluationReport, CanaryEvidenceError, CanaryEvidenceLedger, CanaryEvidenceOrigin,
     CanaryStudyConfig, DirectCanaryAttestation, PairwiseCanaryAttestation,
 };
-use star::companion_state::{
-    ClaimInput, ClaimSource, CompanionState, Retention, Sensitivity,
-};
+use star::companion_state::{ClaimInput, ClaimSource, CompanionState, Retention, Sensitivity};
 
 const PRODUCER_DIGEST: u64 = 0xA11CE;
 
@@ -87,11 +83,7 @@ fn claim(key: &str, value: &str, at: u64) -> ClaimInput {
     }
 }
 
-fn context(
-    context_digest: u64,
-    subject_scope_digest: u64,
-    issued_at_ms: u64,
-) -> PolicyContext {
+fn context(context_digest: u64, subject_scope_digest: u64, issued_at_ms: u64) -> PolicyContext {
     PolicyContext {
         context_digest,
         subject_scope_digest,
@@ -108,9 +100,7 @@ fn context(
 fn split_seed(split: EvaluationSplit, ordinal: u64) -> (u64, u64) {
     match split {
         EvaluationSplit::Development => (10_000 + ordinal * 10, 2_000 + ordinal * 2),
-        EvaluationSplit::OpaqueSubjectHoldout => {
-            (50_000 + ordinal * 10, 3_001 + ordinal * 2)
-        }
+        EvaluationSplit::OpaqueSubjectHoldout => (50_000 + ordinal * 10, 3_001 + ordinal * 2),
         EvaluationSplit::TemporalHoldout => (100_000 + ordinal * 10, 4_000 + ordinal),
     }
 }
@@ -169,8 +159,14 @@ fn register_trial(
     policy_context: PolicyContext,
     delivered_variant: Option<PolicyVariant>,
 ) -> u64 {
+    let expected_prediction_version = predictions.version;
     let enrollment = planner
-        .enroll(state, predictions, predictions.version, policy_context)
+        .enroll(
+            state,
+            predictions,
+            expected_prediction_version,
+            policy_context,
+        )
         .unwrap();
     let trial_id = outcomes
         .register_enrollment(
@@ -200,7 +196,7 @@ fn direct_attestation(
         producer_digest: PRODUCER_DIGEST,
         consent_digest,
         observed_at_ms,
-        evidence_digest: 0xE000_0000 + trial_id,
+        evidence_digest: 0xE000_0000_u64.wrapping_add(trial_id),
     }
 }
 
@@ -371,27 +367,25 @@ fn populate_split(
                 |error| matches!(error, CanaryEvidenceError::ResponseGeneratorWitnessRejected),
             );
 
-            let mut same_identity =
-                direct_attestation(trial_id, consent_digest, issued_at_ms + 200, PRODUCER_DIGEST);
-            same_identity.witness_digest = PRODUCER_DIGEST;
-            checks.same_identity_rejected_atomically = direct_rejected_atomically(
-                canary,
-                outcomes,
-                predictions,
-                same_identity,
-                |error| matches!(error, CanaryEvidenceError::WitnessNotIndependent),
+            let mut same_identity = direct_attestation(
+                trial_id,
+                consent_digest,
+                issued_at_ms + 200,
+                PRODUCER_DIGEST,
             );
+            same_identity.witness_digest = PRODUCER_DIGEST;
+            checks.same_identity_rejected_atomically =
+                direct_rejected_atomically(canary, outcomes, predictions, same_identity, |error| {
+                    matches!(error, CanaryEvidenceError::WitnessNotIndependent)
+                });
 
             let mut wrong_consent =
                 direct_attestation(trial_id, consent_digest, issued_at_ms + 200, 0x7004);
             wrong_consent.consent_digest += 1;
-            checks.consent_mismatch_rejected_atomically = direct_rejected_atomically(
-                canary,
-                outcomes,
-                predictions,
-                wrong_consent,
-                |error| matches!(error, CanaryEvidenceError::ConsentMismatch),
-            );
+            checks.consent_mismatch_rejected_atomically =
+                direct_rejected_atomically(canary, outcomes, predictions, wrong_consent, |error| {
+                    matches!(error, CanaryEvidenceError::ConsentMismatch)
+                });
 
             checks.early_evidence_rejected_atomically = direct_rejected_atomically(
                 canary,
@@ -425,9 +419,7 @@ fn populate_split(
                 outcomes,
                 predictions,
                 valid,
-                |error| {
-                    matches!(error, CanaryEvidenceError::DuplicateDirectEvidence(id) if *id == trial_id)
-                },
+                |error| matches!(error, CanaryEvidenceError::DuplicateDirectEvidence(id) if *id == trial_id),
             );
         }
         ordinal += 1;
@@ -472,25 +464,19 @@ fn populate_split(
         if !checks.invalid_pairwise_rejected_atomically {
             let mut invalid = valid.clone();
             invalid.right_render_digest = invalid.left_render_digest;
-            checks.invalid_pairwise_rejected_atomically = pairwise_rejected_atomically(
-                canary,
-                outcomes,
-                predictions,
-                invalid,
-                |error| matches!(error, CanaryEvidenceError::InvalidPairwiseEvidence),
-            );
+            checks.invalid_pairwise_rejected_atomically =
+                pairwise_rejected_atomically(canary, outcomes, predictions, invalid, |error| {
+                    matches!(error, CanaryEvidenceError::InvalidPairwiseEvidence)
+                });
         }
         canary
             .import_pairwise(canary.version, outcomes, predictions, valid.clone())
             .unwrap();
         if !checks.duplicate_pairwise_rejected_atomically {
-            checks.duplicate_pairwise_rejected_atomically = pairwise_rejected_atomically(
-                canary,
-                outcomes,
-                predictions,
-                valid,
-                |error| matches!(error, CanaryEvidenceError::DuplicatePairwiseEvidence { .. }),
-            );
+            checks.duplicate_pairwise_rejected_atomically =
+                pairwise_rejected_atomically(canary, outcomes, predictions, valid, |error| {
+                    matches!(error, CanaryEvidenceError::DuplicatePairwiseEvidence { .. })
+                });
         }
         ordinal += 1;
     }
