@@ -1,0 +1,75 @@
+name: Apply S6-C split-binding hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/fix_s6c_split_binding.py"
+      - ".github/workflows/apply-s6c-split-binding.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-s6c-split-binding:
+    if: github.head_ref == 'experiment/s6c-real-interaction-canary-evidence'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out S6-C branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6c-real-interaction-canary-evidence
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Apply split-binding hardening
+        run: python3 .github/scripts/fix_s6c_split_binding.py
+
+      - name: Format source
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_real_interaction_canary.rs \
+            lib/examples/s6c_real_interaction_canary_evidence.rs
+
+      - name: Verify S6-C implementation
+        run: |
+          cargo check -p star --lib \
+            --features companion-real-interaction-canary --locked
+          cargo check -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked
+          cargo clippy -p star --lib \
+            --features companion-real-interaction-canary --locked \
+            -- -D warnings
+          cargo clippy -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked \
+            -- -D warnings
+          cargo test -p star --lib \
+            --features companion-real-interaction-canary --locked \
+            companion_real_interaction_canary:: -- --test-threads=1
+          cargo run -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked
+
+      - name: Remove one-shot machinery
+        run: |
+          rm .github/scripts/fix_s6c_split_binding.py
+          rm .github/workflows/apply-s6c-split-binding.yml
+
+      - name: Commit hardened S6-C source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 1
+          fi
+          git commit -m "fix(companion): bind S6-C seals to frozen split policy"
+          git push origin HEAD:experiment/s6c-real-interaction-canary-evidence
