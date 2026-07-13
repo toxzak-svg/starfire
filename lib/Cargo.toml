@@ -50,6 +50,11 @@ path = "examples/s6c_real_interaction_canary_evidence.rs"
 required-features = ["companion-real-interaction-canary"]
 
 [[example]]
+name = "s6c_external_evaluator_channel_probe"
+path = "examples/s6c_external_evaluator_channel_probe.rs"
+required-features = ["companion-real-interaction-canary"]
+
+[[example]]
 name = "stlm_l0_semantic_program_probe"
 path = "examples/stlm_l0_semantic_program_probe.rs"
 required-features = ["semantic-response-program"]
