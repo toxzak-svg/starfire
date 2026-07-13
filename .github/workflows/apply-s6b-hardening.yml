@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".github/scripts/apply_s6b_hardening.py"
+      - ".github/scripts/fix_s6b_legacy_tests.py"
       - ".github/workflows/apply-s6b-hardening.yml"
   workflow_dispatch:
 
@@ -31,7 +32,9 @@ jobs:
           components: rustfmt, clippy
 
       - name: Apply reviewed hardening transformation
-        run: python3 .github/scripts/apply_s6b_hardening.py
+        run: |
+          python3 .github/scripts/apply_s6b_hardening.py
+          python3 .github/scripts/fix_s6b_legacy_tests.py
 
       - name: Format transformed Rust
         run: |
@@ -69,6 +72,7 @@ jobs:
       - name: Remove one-shot machinery
         run: |
           rm .github/scripts/apply_s6b_hardening.py
+          rm .github/scripts/fix_s6b_legacy_tests.py
           rm .github/workflows/apply-s6b-hardening.yml
 
       - name: Commit hardened S6-B source
