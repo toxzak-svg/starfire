@@ -80,6 +80,12 @@ pub mod companion_prediction_ledger;
 #[cfg(feature = "companion-interaction-policy")]
 pub mod companion_interaction_policy;
 
+// S5-B: delayed independently witnessed outcomes for every non-abstaining S5-A
+// arm. Split assignment is frozen before outcomes and collection remains atomic,
+// replayable, and incapable of influencing live response behavior.
+#[cfg(feature = "companion-policy-outcomes")]
+pub mod companion_policy_outcomes;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
