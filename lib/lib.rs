@@ -105,6 +105,12 @@ pub mod companion_bounded_live_policy;
 #[cfg(feature = "semantic-response-program")]
 pub mod semantic_response;
 
+// STLM L0-C: deterministic reference realization from validated semantic
+// programs and bounded lexical bindings. Disabled by default and has no live
+// chat influence, raw conversation or memory access, tools, persistence, or action authority.
+#[cfg(feature = "deterministic-language-renderer")]
+pub mod language_realization;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.

@@ -1,0 +1,86 @@
+name: STLM Deterministic Renderer L0-C CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/language_realization/**"
+      - "lib/examples/stlm_l0c_deterministic_renderer_probe.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "docs/experiments/STLM_L0C_DETERMINISTIC_RENDERER.md"
+      - "docs/experiments/STLM_L0C_DETERMINISTIC_RENDERER_RESULT.md"
+      - ".github/workflows/stlm-deterministic-renderer-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stlm-l0c-deterministic-renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check canonical formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/language_realization/mod.rs \
+            lib/examples/stlm_l0c_deterministic_renderer_probe.rs
+
+      - name: Compile renderer and probe
+        run: |
+          cargo check -p star --lib --features deterministic-language-renderer --locked
+          cargo check -p star --example stlm_l0c_deterministic_renderer_probe \
+            --features deterministic-language-renderer --locked
+
+      - name: Lint scoped STLM L0-C sources
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features deterministic-language-renderer --locked \
+              --message-format=short
+            cargo clippy -p star --example stlm_l0c_deterministic_renderer_probe \
+              --features deterministic-language-renderer --locked --message-format=short
+          } 2>&1 | tee stlm-l0c-clippy.log
+          if grep -E \
+            'lib/language_realization/|lib/examples/stlm_l0c_deterministic_renderer_probe\.rs:' \
+            stlm-l0c-clippy.log; then
+            echo "STLM L0-C scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run deterministic renderer contracts
+        run: >-
+          cargo test -p star --lib --features deterministic-language-renderer --locked
+          language_realization:: -- --test-threads=1
+
+      - name: Run frozen STLM L0-C probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example stlm_l0c_deterministic_renderer_probe \
+            --features deterministic-language-renderer --locked \
+            | tee stlm-l0c-deterministic-renderer-report.json
+
+      - name: Preserve report and lint output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l0c-deterministic-renderer-report
+          path: |
+            stlm-l0c-deterministic-renderer-report.json
+            stlm-l0c-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
