@@ -1,6 +1,23 @@
 # S6-C Real-Interaction Canary Evidence — Preregistration
 
-Status: **FROZEN BEFORE IMPLEMENTATION**
+Status: **FROZEN BEFORE IMPLEMENTATION — one post-freeze channel erratum recorded below**
+
+## Post-freeze erratum
+
+The original frozen text mistakenly listed `ExternalEvaluator` as a valid direct witness.
+That conflicts with the already-frozen S5-B contract, which reserves external evaluators
+for offline blind pairwise comparison and rejects them on direct observed evidence as
+`WrongEvidenceChannel`.
+
+The correction is restrictive rather than permissive:
+
+- direct intake accepts only `UserObservation` or channel-compatible `Environment` evidence;
+- `ExternalEvaluator` on direct intake must be rejected atomically;
+- external evaluators remain required for blind pairwise intake.
+
+The original preregistration commit remains preserved at
+`469654d1ce2008888e6804d407d17d37379a88f1`. This erratum does not loosen any gate,
+change any outcome threshold, or grant new authority.
 
 ## Question
 
@@ -23,6 +40,7 @@ The implementation may not:
 
 - retain prompts, responses, names, email addresses, free-form feedback, or other raw conversation content;
 - allow `WitnessSource::ResponseGenerator`;
+- allow `WitnessSource::ExternalEvaluator` on direct observed evidence;
 - permit the producer and witness identities to share the same non-zero digest;
 - change a trial's split after sealing;
 - resolve an unshown arm from direct user evidence;
@@ -58,7 +76,8 @@ A trial cannot be sealed twice or resealed into a different split.
 A direct witness attestation must:
 
 - reference a sealed trial with a delivered arm;
-- use `UserObservation`, `Environment`, or `ExternalEvaluator` as its witness source;
+- use `UserObservation` or channel-compatible `Environment` evidence as its witness source;
+- reject `ExternalEvaluator` as the wrong direct-evidence channel;
 - carry non-zero witness, producer, consent, and evidence digests;
 - have a witness digest different from the producer digest;
 - match the sealed consent digest;
@@ -116,6 +135,7 @@ The committed probe must demonstrate:
 - production-default rejection of synthetic intake;
 - successful synthetic-fixture intake only under explicit test configuration;
 - rejection of response-generator witnesses;
+- atomic rejection of external evaluators on the direct-evidence channel;
 - rejection of same-identity producer/witness pairs;
 - rejection of consent mismatch, early evidence, expired evidence, duplicate direct evidence, duplicate pairwise evidence, unknown trials, and unsealed trials;
 - exact preservation of S5-B and S4 state after rejected operations;
@@ -128,4 +148,4 @@ The committed probe must demonstrate:
 
 ## Claim boundary
 
-A PASS establishes only that the S6-C intake mechanism conforms to this synthetic preregistered contract. It does not establish that real users prefer the companion policy, that the canary is statistically powered, that broader deployment is safe, or that Starfire has autonomous intelligence or AGI.
+A PASS establishes only that the S6-C intake mechanism conforms to this synthetic preregistered contract as restrictively corrected above. It does not establish that real users prefer the companion policy, that the canary is statistically powered, that broader deployment is safe, or that Starfire has autonomous intelligence or AGI.
