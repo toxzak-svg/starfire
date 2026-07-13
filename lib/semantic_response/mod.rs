@@ -307,7 +307,9 @@ pub enum SemanticProgramError {
     EmptyCompanionStateVersion,
     #[error("subject scope must be nonzero")]
     EmptySubjectScope,
-    #[error("program source cognitive-state version is stale: expected {expected}, actual {actual}")]
+    #[error(
+        "program source cognitive-state version is stale: expected {expected}, actual {actual}"
+    )]
     StaleCognitiveStateVersion { expected: u64, actual: u64 },
     #[error("program source companion-state version is stale or mismatched")]
     CompanionStateVersionMismatch,
@@ -618,26 +620,21 @@ fn validate_claim_collections(
     {
         return Err(SemanticProgramError::DuplicateSemanticKey);
     }
-    if !required_keys.is_disjoint(&prohibited_keys)
-        || !optional_keys.is_disjoint(&prohibited_keys)
+    if !required_keys.is_disjoint(&prohibited_keys) || !optional_keys.is_disjoint(&prohibited_keys)
     {
         return Err(SemanticProgramError::AuthorizedProhibitedOverlap);
     }
     Ok(())
 }
 
-fn validate_authorized_claim_order(
-    claims: &[AuthorizedClaim],
-) -> Result<(), SemanticProgramError> {
+fn validate_authorized_claim_order(claims: &[AuthorizedClaim]) -> Result<(), SemanticProgramError> {
     let mut previous = 0_u64;
     for claim in claims {
         if claim.id.0 == 0 || claim.id.0 <= previous {
             return Err(SemanticProgramError::NoncanonicalClaimOrder);
         }
         validate_semantic_key(&claim.semantic_key)?;
-        if claim.confidence_bps > 10_000
-            || !claim.epistemic_status.permits(claim.confidence_bps)
-        {
+        if claim.confidence_bps > 10_000 || !claim.epistemic_status.permits(claim.confidence_bps) {
             return Err(SemanticProgramError::InvalidClaimConfidence);
         }
         previous = claim.id.0;
@@ -645,9 +642,7 @@ fn validate_authorized_claim_order(
     Ok(())
 }
 
-fn validate_prohibited_claim_order(
-    claims: &[ProhibitedClaim],
-) -> Result<(), SemanticProgramError> {
+fn validate_prohibited_claim_order(claims: &[ProhibitedClaim]) -> Result<(), SemanticProgramError> {
     let mut previous = 0_u64;
     let mut keys = BTreeSet::new();
     for claim in claims {
@@ -1022,9 +1017,7 @@ mod tests {
                 },
                 DiscourseOperation {
                     id: OperationId(9),
-                    kind: DiscourseOperationKind::Abstain(
-                        AbstentionReason::InsufficientEvidence,
-                    ),
+                    kind: DiscourseOperationKind::Abstain(AbstentionReason::InsufficientEvidence),
                 },
             ],
             required_claims,
@@ -1079,10 +1072,15 @@ mod tests {
         let first = SemanticResponseProgram::validate(payload.clone(), context(41)).unwrap();
         let second = SemanticResponseProgram::validate(payload, context(41)).unwrap();
         assert_eq!(first, second);
-        assert_eq!(first.canonical_bytes().unwrap(), second.canonical_bytes().unwrap());
+        assert_eq!(
+            first.canonical_bytes().unwrap(),
+            second.canonical_bytes().unwrap()
+        );
 
         let mut registry = SemanticProgramRegistry::default();
-        registry.commit(0, first.payload.clone(), context(41)).unwrap();
+        registry
+            .commit(0, first.payload.clone(), context(41))
+            .unwrap();
         let replayed = SemanticProgramRegistry::replay(registry.events()).unwrap();
         assert_eq!(registry, replayed);
     }
@@ -1114,8 +1112,7 @@ mod tests {
     #[test]
     fn authorized_and_prohibited_overlap_is_rejected() {
         let mut payload = fixture_payload(1, 41);
-        payload.prohibited_claims[0].semantic_key =
-            payload.required_claims[0].semantic_key.clone();
+        payload.prohibited_claims[0].semantic_key = payload.required_claims[0].semantic_key.clone();
         assert_eq!(
             SemanticResponseProgram::validate(payload, context(41)).unwrap_err(),
             SemanticProgramError::AuthorizedProhibitedOverlap

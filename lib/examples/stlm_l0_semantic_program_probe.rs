@@ -3,13 +3,12 @@
 use serde_json::json;
 use star::semantic_response::{
     authority_boundary, AbstentionReason, AcknowledgmentLevel, AuthorizedClaim, ClaimId,
-    ClaimPolarity, CompanionStateVersion, ComputeBudget, CognitiveStateVersion, DetailLevel,
-    DialogueMode, DiscourseOperation, DiscourseOperationKind, EpistemicConstraint,
-    EpistemicStatus, MissingVariableId, ObservationId, OperationId, OutputBudget,
-    PredictionId, ProhibitedClaim, ResponseProgramId, SemanticProgramError,
-    SemanticProgramRegistry, SemanticResponseIntent, SemanticResponseProgram,
-    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-    SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+    ClaimPolarity, CognitiveStateVersion, CompanionStateVersion, ComputeBudget, DetailLevel,
+    DialogueMode, DiscourseOperation, DiscourseOperationKind, EpistemicConstraint, EpistemicStatus,
+    MissingVariableId, ObservationId, OperationId, OutputBudget, PredictionId, ProhibitedClaim,
+    ResponseProgramId, SemanticProgramError, SemanticProgramRegistry, SemanticResponseIntent,
+    SemanticResponseProgram, SemanticResponseProgramPayload, SemanticValidationContext,
+    SensitivityLevel, SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
 };
 
 fn claim(
@@ -150,9 +149,7 @@ fn fixture_payload(program_id: u64, source_version: u64) -> SemanticResponseProg
             },
             DiscourseOperation {
                 id: OperationId(9),
-                kind: DiscourseOperationKind::Abstain(
-                    AbstentionReason::InsufficientEvidence,
-                ),
+                kind: DiscourseOperationKind::Abstain(AbstentionReason::InsufficientEvidence),
             },
         ],
         required_claims,
@@ -209,11 +206,7 @@ fn rejected_atomically(
 ) -> bool {
     let before = registry.clone();
     registry
-        .commit(
-            expected_registry_version,
-            payload,
-            validation_context,
-        )
+        .commit(expected_registry_version, payload, validation_context)
         .is_err()
         && *registry == before
 }
@@ -222,9 +215,9 @@ fn main() {
     let payload = fixture_payload(1, 41);
     let first = SemanticResponseProgram::validate(payload.clone(), context(41));
     let second = SemanticResponseProgram::validate(payload.clone(), context(41));
-    let deterministic_validation = matches!((&first, &second), (Ok(left), Ok(right)) if left == right);
-    let canonical_bytes_identical =
-        matches!((&first, &second), (Ok(left), Ok(right)) if left.canonical_bytes().ok() == right.canonical_bytes().ok());
+    let deterministic_validation =
+        matches!((&first, &second), (Ok(left), Ok(right)) if left == right);
+    let canonical_bytes_identical = matches!((&first, &second), (Ok(left), Ok(right)) if left.canonical_bytes().ok() == right.canonical_bytes().ok());
     let digest_identical =
         matches!((&first, &second), (Ok(left), Ok(right)) if left.digest == right.digest);
 
@@ -233,30 +226,30 @@ fn main() {
         operations
             .iter()
             .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Assert(_)))
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Qualify { .. })
-            })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Contrast { .. })
-            })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Correct { .. })
-            })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Explain { .. })
-            })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Acknowledge(_))
-            })
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Qualify { .. }))
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Contrast { .. }))
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Correct { .. }))
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Explain { .. }))
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Acknowledge(_)))
             && operations.iter().any(|operation| {
                 matches!(&operation.kind, DiscourseOperationKind::RequestEvidence(_))
             })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Commit(_))
-            })
-            && operations.iter().any(|operation| {
-                matches!(&operation.kind, DiscourseOperationKind::Abstain(_))
-            })
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Commit(_)))
+            && operations
+                .iter()
+                .any(|operation| matches!(&operation.kind, DiscourseOperationKind::Abstain(_)))
     };
 
     let mut registry = SemanticProgramRegistry::default();
@@ -275,21 +268,15 @@ fn main() {
 
     let mut duplicate_operation = fixture_payload(3, 43);
     duplicate_operation.operations[1].id = OperationId(1);
-    let duplicate_operation_rejected = rejected_atomically(
-        &mut registry,
-        2,
-        duplicate_operation,
-        context(43),
-    );
+    let duplicate_operation_rejected =
+        rejected_atomically(&mut registry, 2, duplicate_operation, context(43));
 
     let mut unknown_claim = fixture_payload(3, 43);
     unknown_claim.operations[1].kind = DiscourseOperationKind::Assert(ClaimId(999));
-    let unknown_claim_rejected =
-        rejected_atomically(&mut registry, 2, unknown_claim, context(43));
+    let unknown_claim_rejected = rejected_atomically(&mut registry, 2, unknown_claim, context(43));
 
     let mut overlap = fixture_payload(3, 43);
-    overlap.prohibited_claims[0].semantic_key =
-        overlap.required_claims[0].semantic_key.clone();
+    overlap.prohibited_claims[0].semantic_key = overlap.required_claims[0].semantic_key.clone();
     let authorized_prohibited_overlap_rejected =
         rejected_atomically(&mut registry, 2, overlap, context(43));
 
@@ -303,15 +290,10 @@ fn main() {
         claim: ClaimId(4),
         status: EpistemicStatus::Possible,
     };
-    let qualifier_mismatch_rejected =
-        rejected_atomically(&mut registry, 2, qualifier, context(43));
+    let qualifier_mismatch_rejected = rejected_atomically(&mut registry, 2, qualifier, context(43));
 
-    let stale_state_rejected = rejected_atomically(
-        &mut registry,
-        2,
-        fixture_payload(3, 43),
-        context(44),
-    );
+    let stale_state_rejected =
+        rejected_atomically(&mut registry, 2, fixture_payload(3, 43), context(44));
 
     let stale_companion_rejected = {
         let before = registry.clone();
@@ -363,18 +345,10 @@ fn main() {
     let exceeded_compute_budget_rejected =
         rejected_atomically(&mut registry, 2, compute_budget, context(43));
 
-    let duplicate_program_rejected = rejected_atomically(
-        &mut registry,
-        2,
-        fixture_payload(1, 41),
-        context(41),
-    );
-    let stale_registry_version_rejected = rejected_atomically(
-        &mut registry,
-        1,
-        fixture_payload(3, 43),
-        context(43),
-    );
+    let duplicate_program_rejected =
+        rejected_atomically(&mut registry, 2, fixture_payload(1, 41), context(41));
+    let stale_registry_version_rejected =
+        rejected_atomically(&mut registry, 1, fixture_payload(3, 43), context(43));
 
     let digest_tampering_rejected = {
         let mut tampered = registry.events().to_vec();
