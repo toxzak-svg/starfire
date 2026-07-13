@@ -98,4 +98,10 @@ new_enrollment = '''    let expected_prediction_version = predictions.version;
 if old_enrollment not in probe:
     raise SystemExit("probe enrollment anchor not found")
 probe = probe.replace(old_enrollment, new_enrollment, 1)
+
+digest_anchor = "        evidence_digest: 0xE000_0000 + trial_id,"
+digest_replacement = "        evidence_digest: 0xE000_0000_u64.wrapping_add(trial_id),"
+if digest_anchor not in probe:
+    raise SystemExit("probe evidence digest anchor not found")
+probe = probe.replace(digest_anchor, digest_replacement, 1)
 probe_path.write_text(probe)
