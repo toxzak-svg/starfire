@@ -863,14 +863,46 @@ fn validate_surface_payload(
         &lexical_table.payload.forbidden_surface_forms,
     )?;
     validate_alignments(payload, program)?;
+    let operation_cost =
+        u32::try_from(payload.alignments.len()).map_err(|_| RealizationError::BudgetExceeded)?;
+    let claim_cost = u32::try_from(
+        payload
+            .alignments
+            .iter()
+            .map(|alignment| alignment.claim_ids.len())
+            .sum::<usize>(),
+    )
+    .map_err(|_| RealizationError::BudgetExceeded)?;
+    let verification_step_cost = operation_cost
+        .checked_add(claim_cost)
+        .and_then(|cost| cost.checked_add(operation_cost))
+        .ok_or(RealizationError::BudgetExceeded)?;
+    let character_cost =
+        u32::try_from(payload.text.len()).map_err(|_| RealizationError::BudgetExceeded)?;
+    let sentence_count = count_sentences(&payload.text)?;
+    let paragraph_count = if payload.text.is_empty() {
+        0
+    } else {
+        u16::try_from(payload.text.split("\n\n").count())
+            .map_err(|_| RealizationError::BudgetExceeded)?
+    };
+    if payload.operation_cost != operation_cost
+        || payload.claim_cost != claim_cost
+        || payload.verification_step_cost != verification_step_cost
+        || payload.character_cost != character_cost
+        || payload.sentence_count != sentence_count
+        || payload.paragraph_count != paragraph_count
+    {
+        return Err(RealizationError::BudgetExceeded);
+    }
     validate_realization_budgets(
         program,
-        payload.operation_cost,
-        payload.claim_cost,
-        payload.verification_step_cost,
-        payload.character_cost,
-        payload.sentence_count,
-        payload.paragraph_count,
+        operation_cost,
+        claim_cost,
+        verification_step_cost,
+        character_cost,
+        sentence_count,
+        paragraph_count,
     )?;
     validate_semantic_markers(payload, program, lexical_table)?;
     Ok(())
@@ -883,6 +915,17 @@ fn validate_alignments(
     if payload.alignments.len() != program.payload.operations.len() {
         return Err(RealizationError::OperationCoverageMismatch);
     }
+    let max_paragraphs = usize::from(program.payload.style.maximum_paragraphs);
+    if max_paragraphs == 0 {
+        return Err(RealizationError::BudgetExceeded);
+    }
+    let target_paragraphs = match program.payload.style.detail {
+        DetailLevel::Detailed => payload.alignments.len().min(max_paragraphs),
+        DetailLevel::Brief | DetailLevel::Standard => 1,
+    }
+    .max(1);
+    let operations_per_paragraph = payload.alignments.len().div_ceil(target_paragraphs).max(1);
+
     let mut previous_end = 0_usize;
     for (index, alignment) in payload.alignments.iter().enumerate() {
         let expected_operation = OperationId(index as u64 + 1);
@@ -890,8 +933,26 @@ fn validate_alignments(
             || alignment.span.start_byte < previous_end
             || alignment.span.start_byte >= alignment.span.end_byte
             || alignment.span.end_byte > payload.text.len()
+            || !payload.text.is_char_boundary(previous_end)
             || !payload.text.is_char_boundary(alignment.span.start_byte)
             || !payload.text.is_char_boundary(alignment.span.end_byte)
+        {
+            return Err(RealizationError::InvalidAlignment);
+        }
+        let expected_separator = if index == 0 {
+            ""
+        } else if program.payload.style.detail == DetailLevel::Detailed
+            && index % operations_per_paragraph == 0
+        {
+            "\n\n"
+        } else {
+            " "
+        };
+        let expected_start = previous_end
+            .checked_add(expected_separator.len())
+            .ok_or(RealizationError::InvalidAlignment)?;
+        if alignment.span.start_byte != expected_start
+            || &payload.text[previous_end..alignment.span.start_byte] != expected_separator
         {
             return Err(RealizationError::InvalidAlignment);
         }
@@ -903,6 +964,9 @@ fn validate_alignments(
             return Err(RealizationError::OperationCoverageMismatch);
         }
         previous_end = alignment.span.end_byte;
+    }
+    if previous_end != payload.text.len() {
+        return Err(RealizationError::InvalidAlignment);
     }
     Ok(())
 }

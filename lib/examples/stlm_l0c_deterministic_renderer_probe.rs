@@ -499,11 +499,40 @@ fn main() {
         )
     };
 
+    let unaligned_gap_rejected = {
+        let mut realization = first.clone();
+        let insertion = " unsupported";
+        let insertion_point = realization.payload.alignments[0].span.end_byte;
+        realization
+            .payload
+            .text
+            .insert_str(insertion_point, insertion);
+        for alignment in realization.payload.alignments.iter_mut().skip(1) {
+            alignment.span.start_byte += insertion.len();
+            alignment.span.end_byte += insertion.len();
+        }
+        realization.payload.character_cost +=
+            u32::try_from(insertion.len()).expect("frozen insertion length fits u32");
+        matches!(
+            realization.verify_integrity(&detailed_program, &detailed_table),
+            Err(RealizationError::InvalidAlignment)
+        )
+    };
+
+    let underreported_costs_rejected = {
+        let mut realization = first.clone();
+        realization.payload.character_cost = 1;
+        matches!(
+            realization.verify_integrity(&detailed_program, &detailed_table),
+            Err(RealizationError::BudgetExceeded)
+        )
+    };
+
     let polarity_tampering_rejected = {
         let mut realization = first.clone();
         realization.payload.text = realization.payload.text.replace(
             "the renderer does not own the cognition",
-            "the renderer owns the cognition",
+            "the renderer does now own the cognition",
         );
         matches!(
             realization.verify_integrity(&detailed_program, &detailed_table),
@@ -556,6 +585,8 @@ fn main() {
         && alignment_overlap_rejected
         && operation_reorder_rejected
         && operation_omission_rejected
+        && unaligned_gap_rejected
+        && underreported_costs_rejected
         && polarity_tampering_rejected
         && authority_closed;
 
@@ -592,6 +623,8 @@ fn main() {
         "alignment_overlap_rejected": alignment_overlap_rejected,
         "operation_reorder_rejected": operation_reorder_rejected,
         "operation_omission_rejected": operation_omission_rejected,
+        "unaligned_gap_rejected": unaligned_gap_rejected,
+        "underreported_costs_rejected": underreported_costs_rejected,
         "polarity_tampering_rejected": polarity_tampering_rejected,
         "authority_boundary_closed": authority_closed,
         "detailed_character_cost": first.payload.character_cost,
