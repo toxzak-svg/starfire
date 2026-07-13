@@ -1,0 +1,78 @@
+name: Apply S6-B scoped lint fix
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/fix_s6b_clippy.py"
+      - ".github/workflows/apply-s6b-clippy-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-s6b-clippy-fix:
+    if: github.head_ref == 'experiment/s6b-adversarial-live-policy-stress'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out S6-B branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6b-adversarial-live-policy-stress
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Apply scoped lint corrections
+        run: python3 .github/scripts/fix_s6b_clippy.py
+
+      - name: Format source
+        run: rustfmt --edition 2021 lib/companion_bounded_live_policy.rs
+
+      - name: Verify corrected S6 implementation
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-live-policy-stress --locked \
+              --message-format=short
+            cargo clippy -p star --example s6a_bounded_live_policy_probe \
+              --features companion-live-policy-stress --locked --message-format=short
+            cargo clippy -p star --example s6b_adversarial_live_policy_stress \
+              --features companion-live-policy-stress --locked --message-format=short
+          } 2>&1 | tee s6b-clippy-fix.log
+          if grep -E \
+            'lib/companion_bounded_live_policy\.rs:|lib/examples/s6a_bounded_live_policy_probe\.rs:|lib/examples/s6b_adversarial_live_policy_stress\.rs:' \
+            s6b-clippy-fix.log; then
+            echo "S6 scoped Clippy finding remains"
+            exit 1
+          fi
+          cargo test -p star --lib --features companion-live-policy-stress --locked \
+            companion_bounded_live_policy:: -- --test-threads=1
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-live-policy-stress --locked
+          cargo run -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-live-policy-stress --locked
+
+      - name: Remove one-shot machinery
+        run: |
+          rm .github/scripts/fix_s6b_clippy.py
+          rm .github/workflows/apply-s6b-clippy-fix.yml
+
+      - name: Commit scoped S6-B lint fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 1
+          fi
+          git commit -m "fix(companion): satisfy scoped S6-B lint"
+          git push origin HEAD:experiment/s6b-adversarial-live-policy-stress
