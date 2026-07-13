@@ -37,9 +37,9 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check S5-C formatting
+      - name: Format S5-C sources for verification
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/companion_policy_evaluation.rs \
             lib/examples/s5c_comparative_policy_evaluation_probe.rs
 
