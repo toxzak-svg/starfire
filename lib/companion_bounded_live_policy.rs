@@ -868,7 +868,7 @@ impl BoundedLivePolicyController {
 
 fn canonical_claim_ids(proposal: &ShadowPolicyProposal) -> Result<Vec<u64>, LivePolicyError> {
     let mut claim_ids = proposal.source_claim_ids();
-    if claim_ids.is_empty() || claim_ids.iter().any(|claim_id| *claim_id == 0) {
+    if claim_ids.is_empty() || claim_ids.contains(&0) {
         return Err(LivePolicyError::InvalidAuthorizationClaims);
     }
     claim_ids.sort_unstable();
@@ -912,7 +912,7 @@ fn validate_replay_lease(
     }
     if lease.source_policy_digest_fnv1a64 == 0
         || lease.source_claim_ids.is_empty()
-        || lease.source_claim_ids.iter().any(|claim_id| *claim_id == 0)
+        || lease.source_claim_ids.contains(&0)
         || lease
             .source_claim_ids
             .windows(2)
@@ -1021,10 +1021,6 @@ fn validate_activation_request(
         return Err(LivePolicyError::InvalidActivationWindow);
     }
     Ok(())
-}
-
-fn intent_allowed(intent: &ResponseIntent) -> bool {
-    intent_label_allowed(intent.label())
 }
 
 fn intent_label_allowed(intent_label: &str) -> bool {

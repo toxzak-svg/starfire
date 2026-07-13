@@ -1,0 +1,731 @@
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m untrusted v0.9.0
+[1m[92m  Downloaded[0m stable_deref_trait v1.2.1
+[1m[92m  Downloaded[0m unicode-ident v1.0.24
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m url v2.5.8
+[1m[92m  Downloaded[0m yoke-derive v0.8.1
+[1m[92m  Downloaded[0m ahash v0.8.12
+[1m[92m  Downloaded[0m anstyle v1.0.14
+[1m[92m  Downloaded[0m urlencoding v2.1.3
+[1m[92m  Downloaded[0m version_check v0.9.5
+[1m[92m  Downloaded[0m thiserror-impl v2.0.18
+[1m[92m  Downloaded[0m utf8parse v0.2.2
+[1m[92m  Downloaded[0m heck v0.5.0
+[1m[92m  Downloaded[0m idna_adapter v1.2.1
+[1m[92m  Downloaded[0m utf8_iter v1.0.4
+[1m[92m  Downloaded[0m rand_core v0.6.4
+[1m[92m  Downloaded[0m anstream v1.0.0
+[1m[92m  Downloaded[0m zerofrom v0.1.6
+[1m[92m  Downloaded[0m zerofrom-derive v0.1.6
+[1m[92m  Downloaded[0m matchers v0.2.0
+[1m[92m  Downloaded[0m potential_utf v0.1.4
+[1m[92m  Downloaded[0m lazy_static v1.5.0
+[1m[92m  Downloaded[0m webpki-roots v0.26.11
+[1m[92m  Downloaded[0m writeable v0.6.2
+[1m[92m  Downloaded[0m zeroize v1.8.2
+[1m[92m  Downloaded[0m zerovec-derive v0.11.2
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m clap_lex v1.1.0
+[1m[92m  Downloaded[0m colorchoice v1.0.5
+[1m[92m  Downloaded[0m dirs v5.0.1
+[1m[92m  Downloaded[0m dirs-sys v0.4.1
+[1m[92m  Downloaded[0m getrandom v0.2.17
+[1m[92m  Downloaded[0m httpdate v1.0.3
+[1m[92m  Downloaded[0m is_terminal_polyfill v1.70.2
+[1m[92m  Downloaded[0m nu-ansi-term v0.50.3
+[1m[92m  Downloaded[0m option-ext v0.2.0
+[1m[92m  Downloaded[0m yoke v0.8.1
+[1m[92m  Downloaded[0m num-traits v0.2.19
+[1m[92m  Downloaded[0m clap_derive v4.6.0
+[1m[92m  Downloaded[0m itoa v1.0.18
+[1m[92m  Downloaded[0m zmij v1.0.21
+[1m[92m  Downloaded[0m subtle v2.6.1
+[1m[92m  Downloaded[0m pkg-config v0.3.32
+[1m[92m  Downloaded[0m strsim v0.11.1
+[1m[92m  Downloaded[0m zerotrie v0.2.3
+[1m[92m  Downloaded[0m chunked_transfer v1.5.0
+[1m[92m  Downloaded[0m fallible-streaming-iterator v0.1.9
+[1m[92m  Downloaded[0m form_urlencoded v1.2.2
+[1m[92m  Downloaded[0m percent-encoding v2.3.2
+[1m[92m  Downloaded[0m rand_chacha v0.3.1
+[1m[92m  Downloaded[0m anstyle-query v1.1.5
+[1m[92m  Downloaded[0m pin-project-lite v0.2.17
+[1m[92m  Downloaded[0m tiny_http v0.12.0
+[1m[92m  Downloaded[0m ureq v2.12.1
+[1m[92m  Downloaded[0m cc v1.2.58
+[1m[92m  Downloaded[0m hashlink v0.9.1
+[1m[92m  Downloaded[0m ppv-lite86 v0.2.21
+[1m[92m  Downloaded[0m quote v1.0.45
+[1m[92m  Downloaded[0m shlex v1.3.0
+[1m[92m  Downloaded[0m zerovec v0.11.5
+[1m[92m  Downloaded[0m fallible-iterator v0.3.0
+[1m[92m  Downloaded[0m find-msvc-tools v0.1.9
+[1m[92m  Downloaded[0m synstructure v0.13.2
+[1m[92m  Downloaded[0m thiserror v2.0.18
+[1m[92m  Downloaded[0m tracing-log v0.2.0
+[1m[92m  Downloaded[0m autocfg v1.5.0
+[1m[92m  Downloaded[0m displaydoc v0.2.5
+[1m[92m  Downloaded[0m anyhow v1.0.102
+[1m[92m  Downloaded[0m smallvec v1.15.1
+[1m[92m  Downloaded[0m tracing-subscriber v0.3.23
+[1m[92m  Downloaded[0m vcpkg v0.2.15
+[1m[92m  Downloaded[0m webpki-roots v1.0.6
+[1m[92m  Downloaded[0m tracing-attributes v0.1.31
+[1m[92m  Downloaded[0m zerocopy v0.8.48
+[1m[92m  Downloaded[0m icu_locale_core v2.1.1
+[1m[92m  Downloaded[0m litemap v0.8.1
+[1m[92m  Downloaded[0m once_cell v1.21.4
+[1m[92m  Downloaded[0m serde_core v1.0.228
+[1m[92m  Downloaded[0m serde_derive v1.0.228
+[1m[92m  Downloaded[0m simd-adler32 v0.3.9
+[1m[92m  Downloaded[0m thread_local v1.1.9
+[1m[92m  Downloaded[0m tinystr v0.8.2
+[1m[92m  Downloaded[0m tracing-core v0.1.36
+[1m[92m  Downloaded[0m anstyle-parse v1.0.0
+[1m[92m  Downloaded[0m ascii v1.1.0
+[1m[92m  Downloaded[0m bitflags v2.11.0
+[1m[92m  Downloaded[0m clap v4.6.0
+[1m[92m  Downloaded[0m crc32fast v1.5.0
+[1m[92m  Downloaded[0m icu_properties v2.1.2
+[1m[92m  Downloaded[0m icu_provider v2.1.1
+[1m[92m  Downloaded[0m log v0.4.29
+[1m[92m  Downloaded[0m proc-macro2 v1.0.106
+[1m[92m  Downloaded[0m rand_distr v0.4.3
+[1m[92m  Downloaded[0m rustls-pki-types v1.14.0
+[1m[92m  Downloaded[0m sharded-slab v0.1.7
+[1m[92m  Downloaded[0m serde v1.0.228
+[1m[92m  Downloaded[0m base64 v0.22.1
+[1m[92m  Downloaded[0m hashbrown v0.14.5
+[1m[92m  Downloaded[0m icu_normalizer_data v2.1.1
+[1m[92m  Downloaded[0m miniz_oxide v0.8.9
+[1m[92m  Downloaded[0m icu_collections v2.1.1
+[1m[92m  Downloaded[0m icu_normalizer v2.1.1
+[1m[92m  Downloaded[0m flate2 v1.1.9
+[1m[92m  Downloaded[0m memchr v2.8.0
+[1m[92m  Downloaded[0m rand v0.8.5
+[1m[92m  Downloaded[0m rustls-webpki v0.103.10
+[1m[92m  Downloaded[0m aho-corasick v1.1.4
+[1m[92m  Downloaded[0m serde_json v1.0.149
+[1m[92m  Downloaded[0m regex v1.12.3
+[1m[92m  Downloaded[0m idna v1.1.0
+[1m[92m  Downloaded[0m icu_properties_data v2.1.2
+[1m[92m  Downloaded[0m libm v0.2.16
+[1m[92m  Downloaded[0m clap_builder v4.6.0
+[1m[92m  Downloaded[0m rusqlite v0.32.1
+[1m[92m  Downloaded[0m syn v2.0.117
+[1m[92m  Downloaded[0m rustls v0.23.37
+[1m[92m  Downloaded[0m regex-syntax v0.8.10
+[1m[92m  Downloaded[0m tracing v0.1.44
+[1m[92m  Downloaded[0m regex-automata v0.4.14
+[1m[92m  Downloaded[0m libc v0.2.183
+[1m[92m  Downloaded[0m tokio v1.50.0
+[1m[92m  Downloaded[0m ring v0.17.14
+[1m[92m  Downloaded[0m libsqlite3-sys v0.30.1
+[1m[92m   Compiling[0m proc-macro2 v1.0.106
+[1m[92m   Compiling[0m unicode-ident v1.0.24
+[1m[92m   Compiling[0m quote v1.0.45
+[1m[92m    Checking[0m cfg-if v1.0.4
+[1m[92m    Checking[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m libc v0.2.183
+[1m[92m   Compiling[0m find-msvc-tools v0.1.9
+[1m[92m   Compiling[0m syn v2.0.117
+[1m[92m   Compiling[0m shlex v1.3.0
+[1m[92m   Compiling[0m cc v1.2.58
+[1m[92m   Compiling[0m zerocopy v0.8.48
+[1m[92m    Checking[0m once_cell v1.21.4
+[1m[92m   Compiling[0m synstructure v0.13.2
+[1m[92m   Compiling[0m zerofrom-derive v0.1.6
+[1m[92m   Compiling[0m yoke-derive v0.8.1
+[1m[92m    Checking[0m zerofrom v0.1.6
+[1m[92m   Compiling[0m zerovec-derive v0.11.2
+[1m[92m    Checking[0m yoke v0.8.1
+[1m[92m   Compiling[0m displaydoc v0.2.5
+[1m[92m    Checking[0m getrandom v0.2.17
+[1m[92m    Checking[0m litemap v0.8.1
+[1m[92m    Checking[0m writeable v0.6.2
+[1m[92m    Checking[0m zerovec v0.11.5
+[1m[92m    Checking[0m zerotrie v0.2.3
+[1m[92m   Compiling[0m icu_normalizer_data v2.1.1
+[1m[92m   Compiling[0m icu_properties_data v2.1.2
+[1m[92m    Checking[0m smallvec v1.15.1
+[1m[92m    Checking[0m tinystr v0.8.2
+[1m[92m    Checking[0m potential_utf v0.1.4
+[1m[92m    Checking[0m icu_locale_core v2.1.1
+[1m[92m    Checking[0m icu_collections v2.1.1
+[1m[92m   Compiling[0m ring v0.17.14
+[1m[92m    Checking[0m icu_provider v2.1.1
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m    Checking[0m memchr v2.8.0
+[1m[92m    Checking[0m zeroize v1.8.2
+[1m[92m    Checking[0m rustls-pki-types v1.14.0
+[1m[92m   Compiling[0m ahash v0.8.12
+[1m[92m    Checking[0m log v0.4.29
+[1m[92m    Checking[0m icu_properties v2.1.2
+[1m[92m    Checking[0m icu_normalizer v2.1.1
+[1m[92m    Checking[0m aho-corasick v1.1.4
+[1m[92m   Compiling[0m vcpkg v0.2.15
+[1m[92m    Checking[0m utf8parse v0.2.2
+[1m[92m   Compiling[0m serde_core v1.0.228
+[1m[92m   Compiling[0m crc32fast v1.5.0
+[1m[92m    Checking[0m regex-syntax v0.8.10
+[1m[92m   Compiling[0m autocfg v1.5.0
+[1m[92m    Checking[0m untrusted v0.9.0
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m pkg-config v0.3.32
+[1m[92m   Compiling[0m libsqlite3-sys v0.30.1
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m    Checking[0m regex-automata v0.4.14
+[1m[92m    Checking[0m anstyle-parse v1.0.0
+[1m[92m    Checking[0m idna_adapter v1.2.1
+[1m[92m    Checking[0m rand_core v0.6.4
+[1m[92m    Checking[0m ppv-lite86 v0.2.21
+[1m[92m    Checking[0m tracing-core v0.1.36
+[1m[92m   Compiling[0m rustls v0.23.37
+[1m[92m    Checking[0m simd-adler32 v0.3.9
+[1m[92m    Checking[0m percent-encoding v2.3.2
+[1m[92m    Checking[0m adler2 v2.0.1
+[1m[92m    Checking[0m colorchoice v1.0.5
+[1m[92m    Checking[0m anstyle v1.0.14
+[1m[92m    Checking[0m anstyle-query v1.1.5
+[1m[92m    Checking[0m pin-project-lite v0.2.17
+[1m[92m    Checking[0m utf8_iter v1.0.4
+[1m[92m    Checking[0m is_terminal_polyfill v1.70.2
+[1m[92m   Compiling[0m zmij v1.0.21
+[1m[92m    Checking[0m anstream v1.0.0
+[1m[92m    Checking[0m idna v1.1.0
+[1m[92m    Checking[0m miniz_oxide v0.8.9
+[1m[92m    Checking[0m form_urlencoded v1.2.2
+[1m[92m    Checking[0m rand_chacha v0.3.1
+[1m[92m    Checking[0m hashbrown v0.14.5
+[1m[92m    Checking[0m rustls-webpki v0.103.10
+[1m[92m    Checking[0m webpki-roots v1.0.6
+[1m[92m   Compiling[0m tracing-attributes v0.1.31
+[1m[92m   Compiling[0m serde_json v1.0.149
+[1m[92m   Compiling[0m anyhow v1.0.102
+[1m[92m   Compiling[0m serde v1.0.228
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m    Checking[0m clap_lex v1.1.0
+[1m[92m   Compiling[0m thiserror v2.0.18
+[1m[92m    Checking[0m strsim v0.11.1
+[1m[92m    Checking[0m option-ext v0.2.0
+[1m[92m    Checking[0m subtle v2.6.1
+[1m[92m    Checking[0m lazy_static v1.5.0
+[1m[92m    Checking[0m sharded-slab v0.1.7
+[1m[92m    Checking[0m dirs-sys v0.4.1
+[1m[92m    Checking[0m clap_builder v4.6.0
+[1m[92m   Compiling[0m clap_derive v4.6.0
+[1m[92m    Checking[0m tracing v0.1.44
+[1m[92m    Checking[0m webpki-roots v0.26.11
+[1m[92m    Checking[0m flate2 v1.1.9
+[1m[92m    Checking[0m hashlink v0.9.1
+[1m[92m    Checking[0m rand v0.8.5
+[1m[92m    Checking[0m url v2.5.8
+[1m[92m    Checking[0m tracing-log v0.2.0
+[1m[92m    Checking[0m matchers v0.2.0
+[1m[92m   Compiling[0m serde_derive v1.0.228
+[1m[92m   Compiling[0m thiserror-impl v2.0.18
+[1m[92m    Checking[0m thread_local v1.1.9
+[1m[92m    Checking[0m nu-ansi-term v0.50.3
+[1m[92m    Checking[0m ascii v1.1.0
+[1m[92m    Checking[0m fallible-streaming-iterator v0.1.9
+[1m[92m    Checking[0m bitflags v2.11.0
+[1m[92m    Checking[0m chunked_transfer v1.5.0
+[1m[92m    Checking[0m httpdate v1.0.3
+[1m[92m    Checking[0m base64 v0.22.1
+[1m[92m    Checking[0m itoa v1.0.18
+[1m[92m    Checking[0m fallible-iterator v0.3.0
+[1m[92m    Checking[0m rusqlite v0.32.1
+[1m[92m    Checking[0m ureq v2.12.1
+[1m[92m    Checking[0m tiny_http v0.12.0
+[1m[92m    Checking[0m tracing-subscriber v0.3.23
+[1m[92m    Checking[0m rand_distr v0.4.3
+[1m[92m    Checking[0m clap v4.6.0
+[1m[92m    Checking[0m dirs v5.0.1
+[1m[92m    Checking[0m tokio v1.50.0
+[1m[92m    Checking[0m regex v1.12.3
+[1m[92m    Checking[0m urlencoding v2.1.3
+[1m[92m    Checking[0m star v0.1.0 (/home/runner/work/starfire/starfire/lib)
+lib/conversation/mod.rs:10:42: [1m[33mwarning[0m: unused import: `Tempo`
+lib/runtime/tempo.rs:21:58: [1m[33mwarning[0m: unused import: `QueryType`
+lib/runtime/mod.rs:29:43: [1m[33mwarning[0m: unused import: `ConversationContext`
+lib/world_model/prediction.rs:5:38: [1m[33mwarning[0m: unused import: `RelationType`
+lib/quanot/quantum_inspired.rs:199:1: [1m[33mwarning[0m: empty line after doc comment
+lib/curriculum/scheduler.rs:3:38: [1m[33mwarning[0m: unused imports: `GapType` and `KnowledgeGap`
+lib/prediction/question_gravity.rs:8:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/prediction/belief_revision.rs:263:9: [1m[33mwarning[0m: unnecessary parentheses around block return value
+lib/pain/event.rs:4:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/dreaming/synthesizer.rs:3:27: [1m[33mwarning[0m: unused imports: `DreamEngine` and `DreamEpisode`
+lib/concepts/concept.rs:4:40: [1m[33mwarning[0m: unused import: `LifecycleEvent`
+lib/user_model/preference.rs:3:35: [1m[33mwarning[0m: unused imports: `ReasoningStance` and `UserCognitionModel`
+lib/user_model/types.rs:3:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/neural/network.rs:5:73: [1m[33mwarning[0m: unused import: `NeuronConfig`
+lib/neural/layer.rs:6:5: [1m[33mwarning[0m: unused import: `crate::neural::neuron::NeuronConfig`
+lib/neural/train.rs:5:49: [1m[33mwarning[0m: unused imports: `NetworkConfig` and `Topology`
+lib/neural/neurons/causal_neuron.rs:7:35: [1m[33mwarning[0m: unused imports: `CausalEdge` and `CausalHypothesis`
+lib/neural/neurons/fewshot_neuron.rs:7:48: [1m[33mwarning[0m: unused import: `Hypothesis`
+lib/neural/neurons/curriculum_neuron.rs:7:43: [1m[33mwarning[0m: unused imports: `GapId`, `KnowledgeGap`, and `LearningTask`
+lib/neural/neurons/worldmodel_neuron.rs:7:38: [1m[33mwarning[0m: unused import: `EntityId`
+lib/neural/mod.rs:29:83: [1m[33mwarning[0m: unused import: `NeuralSignal`
+lib/language_model/model.rs:1130:29: [1m[33mwarning[0m: unused import: `BufRead`
+lib/language_model/train.rs:3:45: [1m[33mwarning[0m: unused import: `ModelConfig`
+lib/language_model/generate.rs:5:5: [1m[33mwarning[0m: unused import: `rand::Rng`
+lib/conversation/mod.rs:493:13: [1m[33mwarning[0m: unused variable: `tempo_tag`: help: if this is intentional, prefix it with an underscore: `_tempo_tag`
+lib/metacog/critic.rs:197:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:242:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:271:32: [1m[33mwarning[0m: unused variable: `query`: help: if this is intentional, prefix it with an underscore: `_query`
+lib/runtime/mod.rs:1541:45: [1m[33mwarning[0m: unused variable: `input`: help: if this is intentional, prefix it with an underscore: `_input`
+lib/prediction/basin.rs:234:13: [1m[33mwarning[0m: unused variable: `node`: help: if this is intentional, prefix it with an underscore: `_node`
+lib/prediction/meta_prediction.rs:47:13: [1m[33mwarning[0m: unused variable: `n`: help: if this is intentional, prefix it with an underscore: `_n`
+lib/prediction/meta_prediction.rs:289:38: [1m[33mwarning[0m: unused variable: `prediction_id`: help: if this is intentional, prefix it with an underscore: `_prediction_id`
+lib/prediction/counterfactual.rs:138:9: [1m[33mwarning[0m: unused variable: `basin`: help: if this is intentional, prefix it with an underscore: `_basin`
+lib/input_normalizer/mod.rs:407:13: [1m[33mwarning[0m: unused variable: `text_lower`: help: if this is intentional, prefix it with an underscore: `_text_lower`
+lib/input_normalizer/mod.rs:610:13: [1m[33mwarning[0m: unused variable: `qwerty_proximity`: help: if this is intentional, prefix it with an underscore: `_qwerty_proximity`
+lib/personality/mod.rs:263:13: [1m[33mwarning[0m: unused variable: `normalized`: help: if this is intentional, prefix it with an underscore: `_normalized`
+lib/personality/mod.rs:299:13: [1m[33mwarning[0m: unused variable: `markers`: help: if this is intentional, prefix it with an underscore: `_markers`
+lib/user_model/types.rs:149:49: [1m[33mwarning[0m: unused variable: `topic`: help: if this is intentional, prefix it with an underscore: `_topic`
+lib/neural/network.rs:193:21: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/layer.rs:130:36: [1m[33mwarning[0m: unused variable: `reservoir_dim`: help: if this is intentional, prefix it with an underscore: `_reservoir_dim`
+lib/neural/neurons/quanot_neuron.rs:60:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:66:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:120:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/neurons/causal_neuron.rs:93:13: [1m[33mwarning[0m: unused variable: `effects`: help: if this is intentional, prefix it with an underscore: `_effects`
+lib/language_model/model.rs:872:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/prediction/basin.rs:14:5: [1m[33mwarning[0m: type `prediction::basin::BasinNode` is more private than the item `prediction::basin::BasinEngine::nodes`: field `prediction::basin::BasinEngine::nodes` is reachable at visibility `pub`
+lib/reasoning/mod.rs:584:8: [1m[33mwarning[0m: method `looks_like_math` is never used
+lib/metacog/critic.rs:114:5: [1m[33mwarning[0m: fields `concerns` and `answer` are never read
+lib/prediction/belief_revision.rs:25:5: [1m[33mwarning[0m: fields `exchange` and `at` are never read
+lib/prediction/belief_revision.rs:281:5: [1m[33mwarning[0m: fields `pre_state` and `post_state` are never read
+lib/prediction/basin.rs:20:5: [1m[33mwarning[0m: field `max_nodes` is never read
+lib/prediction/basin.rs:42:9: [1m[33mwarning[0m: field `id` is never read
+lib/prediction/basin.rs:61:9: [1m[33mwarning[0m: fields `id` and `satisfied` are never read
+lib/prediction/basin.rs:102:5: [1m[33mwarning[0m: field `energy` is never read
+lib/prediction/meta_prediction.rs:27:9: [1m[33mwarning[0m: field `engine` is never read
+lib/prediction/meta_prediction.rs:81:9: [1m[33mwarning[0m: field `kind` is never read
+lib/personality/mod.rs:370:8: [1m[33mwarning[0m: method `detect_zach_style` is never used
+lib/pain/cost_model.rs:13:5: [1m[33mwarning[0m: field `decay_rate` is never read
+lib/dreaming/dream_engine.rs:95:5: [1m[33mwarning[0m: fields `dream_id`, `hypothesis`, and `at` are never read
+lib/user_model/memory_model.rs:26:5: [1m[33mwarning[0m: field `forgotten_topics` is never read
+lib/neural/neurons/quanot_neuron.rs:55:8: [1m[33mwarning[0m: method `encode_result` is never used
+lib/neural/neurons/causal_neuron.rs:48:8: [1m[33mwarning[0m: method `decode_vector` is never used
+lib/neural/neurons/goals_neuron.rs:40:8: [1m[33mwarning[0m: method `encode_goal` is never used
+lib/neural/neurons/fewshot_neuron.rs:38:8: [1m[33mwarning[0m: method `encode_text` is never used
+lib/language_model/model.rs:343:5: [1m[33mwarning[0m: field `seq_len` is never read
+lib/language_model/model.rs:522:8: [1m[33mwarning[0m: multiple methods are never used
+lib/latent_roles.rs:634:5: [1m[33mwarning[0m: field `nodes` is never read
+lib/reasoning/knowledge.rs:302:17: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/conversation/mod.rs:216:91: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:259:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:275:90: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:295:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:315:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:343:44: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:352:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:375:89: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:408:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:862:78: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:873:74: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1263:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1558:28: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1559:53: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1560:54: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/metacog/critic.rs:334:9: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/metacog/intents.rs:60:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:225:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:313:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/learning/eviction.rs:134:22: [1m[33mwarning[0m: using `clone` on type `HypothesisId` which implements the `Copy` trait: help: try removing the `clone` call: `h.id`
+lib/learning/mod.rs:186:5: [1m[33mwarning[0m: you should consider adding a `Default` implementation for `HypothesisId`
+lib/learning/mod.rs:277:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/runtime/curious.rs:215:17: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `probe.topic`
+lib/runtime/tempo.rs:216:39: [1m[33mwarning[0m: you are using an explicit closure for cloning elements: help: consider calling the dedicated `cloned` method: `self.fast_cache.keys().next().cloned()`
+lib/runtime/tempo.rs:352:5: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/runtime/mod.rs:1010:84: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `response.content`
+lib/math/symbolic.rs:326:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/symbolic.rs:328:15: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/logic.rs:187:22: [1m[33mwarning[0m: the loop variable `j` is used to index `vars`
+lib/math/logic.rs:226:22: [1m[33mwarning[0m: the loop variable `j` is used to index `all_vars`
+lib/math/logic.rs:286:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/world_model/state.rs:220:40: [1m[33mwarning[0m: using `clone` on type `RelationType` which implements the `Copy` trait: help: try removing the `clone` call: `rel.relation_type`
+lib/quanot/reservoir.rs:106:22: [1m[33mwarning[0m: the loop variable `j` is used to index `input_vec`
+lib/quanot/chaos.rs:196:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(-5.0, 5.0)`
+lib/quanot/chaos.rs:275:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(0.0, 10.0)`
+lib/quanot/quantum_inspired.rs:101:30: [1m[33mwarning[0m: the loop variable `k` is used to index `j`
+lib/multimodal/binding.rs:94:13: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/causal/mod.rs:179:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/causal/mod.rs:184:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/research/mod.rs:178:49: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `topic`
+lib/prediction/types.rs:99:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:171:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:187:5: [1m[33mwarning[0m: method `from_str` can be confused for the standard trait method `std::str::FromStr::from_str`
+lib/prediction/types.rs:198:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/question_gravity.rs:53:33: [1m[33mwarning[0m: length comparison to zero: help: using `!is_empty` is clearer and more explicit: `!context.discussed_entities.is_empty()`
+lib/prediction/question_gravity.rs:192:17: [1m[33mwarning[0m: useless use of `format!`: help: consider using `.to_string()`: `"How do these competing ideas both coexist?".to_string()`
+lib/prediction/basin.rs:345:18: [1m[33mwarning[0m: this `.filter_map(..)` can be written more simply using `.map(..)`
+lib/input_normalizer/mod.rs:311:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:560:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:580:62: [1m[33mwarning[0m: `to_string` applied to a type that implements `Display` in `format!` args: help: remove this
+lib/input_normalizer/mod.rs:688:9: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `confidence.clamp(0.1, 1.0)`
+lib/pain/tracker.rs:166:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/neural/neuron.rs:175:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/neural/network.rs:261:69: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `neuron_id`
+lib/neural/network.rs:327:48: [1m[33mwarning[0m: you seem to be trying to use `&Box<T>`. Consider using just `&T`: help: try: `&dyn Neuron`
+lib/neural/layer.rs:94:18: [1m[33mwarning[0m: the loop variable `j` is used to index `output`
+lib/neural/layer.rs:95:22: [1m[33mwarning[0m: the loop variable `i` is used to index `input`
+lib/neural/train.rs:37:37: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/train.rs:62:41: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/neurons/knowledge_neuron.rs:62:9: [1m[33mwarning[0m: returning the result of a `let` binding from a block
+lib/neural/neurons/goals_neuron.rs:80:29: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `(vector_mean as f64).clamp(0.0, 1.0)`
+lib/neural/neurons/worldmodel_neuron.rs:53:34: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.consciousness_proxy`
+lib/neural/neurons/worldmodel_neuron.rs:54:22: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.novelty`
+lib/language_model/model.rs:132:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:136:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(1.0_f32, b_len)`
+lib/language_model/model.rs:140:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:144:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:649:22: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:701:18: [1m[33mwarning[0m: the loop variable `t` is used to index `sequence`
+lib/language_model/model.rs:832:22: [1m[33mwarning[0m: the loop variable `i` is used to index `logits`
+lib/language_model/model.rs:834:26: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:896:22: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:900:22: [1m[33mwarning[0m: the loop variable `j` is used to index `h_last`
+lib/language_model/model.rs:901:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:907:22: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_buf`
+lib/language_model/model.rs:909:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:1012:26: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_prev_buf`
+lib/language_model/model.rs:1025:30: [1m[33mwarning[0m: the loop variable `j` is used to index `dx_buf`
+lib/language_model/train.rs:233:16: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `batch_num.is_multiple_of(10)`
+lib/language_model/generate.rs:152:23: [1m[33mwarning[0m: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
+lib/language_model/intent_reranker.rs:306:28: [1m[33mwarning[0m: use of `default` to create a unit struct
+lib/language_model/intent_reranker.rs:662:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/charge/shadow.rs:294:23: [1m[33mwarning[0m: called `unwrap` on `self.assessment` after checking its variant with `is_some`
+lib/representation_transport_orbit.rs:25:37: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `!history.events.len().is_multiple_of(self.block_width)`
+lib/companion_prediction_ledger.rs:334:38: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_interaction_policy.rs:209:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/companion_policy_evaluation.rs:767:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:775:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:783:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:791:8: [1m[33mwarning[0m: manual checked division: check performed here
+[1m[33mwarning[0m: `star` (lib) generated 158 warnings (run `cargo clippy --fix --lib -p star -- ` to apply 92 suggestions)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 49.37s
+lib/conversation/mod.rs:10:42: [1m[33mwarning[0m: unused import: `Tempo`
+lib/runtime/tempo.rs:21:58: [1m[33mwarning[0m: unused import: `QueryType`
+lib/runtime/mod.rs:29:43: [1m[33mwarning[0m: unused import: `ConversationContext`
+lib/world_model/prediction.rs:5:38: [1m[33mwarning[0m: unused import: `RelationType`
+lib/quanot/quantum_inspired.rs:199:1: [1m[33mwarning[0m: empty line after doc comment
+lib/curriculum/scheduler.rs:3:38: [1m[33mwarning[0m: unused imports: `GapType` and `KnowledgeGap`
+lib/prediction/question_gravity.rs:8:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/prediction/belief_revision.rs:263:9: [1m[33mwarning[0m: unnecessary parentheses around block return value
+lib/pain/event.rs:4:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/dreaming/synthesizer.rs:3:27: [1m[33mwarning[0m: unused imports: `DreamEngine` and `DreamEpisode`
+lib/concepts/concept.rs:4:40: [1m[33mwarning[0m: unused import: `LifecycleEvent`
+lib/user_model/preference.rs:3:35: [1m[33mwarning[0m: unused imports: `ReasoningStance` and `UserCognitionModel`
+lib/user_model/types.rs:3:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/neural/network.rs:5:73: [1m[33mwarning[0m: unused import: `NeuronConfig`
+lib/neural/layer.rs:6:5: [1m[33mwarning[0m: unused import: `crate::neural::neuron::NeuronConfig`
+lib/neural/train.rs:5:49: [1m[33mwarning[0m: unused imports: `NetworkConfig` and `Topology`
+lib/neural/neurons/causal_neuron.rs:7:35: [1m[33mwarning[0m: unused imports: `CausalEdge` and `CausalHypothesis`
+lib/neural/neurons/fewshot_neuron.rs:7:48: [1m[33mwarning[0m: unused import: `Hypothesis`
+lib/neural/neurons/curriculum_neuron.rs:7:43: [1m[33mwarning[0m: unused imports: `GapId`, `KnowledgeGap`, and `LearningTask`
+lib/neural/neurons/worldmodel_neuron.rs:7:38: [1m[33mwarning[0m: unused import: `EntityId`
+lib/neural/mod.rs:29:83: [1m[33mwarning[0m: unused import: `NeuralSignal`
+lib/language_model/model.rs:1130:29: [1m[33mwarning[0m: unused import: `BufRead`
+lib/language_model/train.rs:3:45: [1m[33mwarning[0m: unused import: `ModelConfig`
+lib/language_model/generate.rs:5:5: [1m[33mwarning[0m: unused import: `rand::Rng`
+lib/conversation/mod.rs:493:13: [1m[33mwarning[0m: unused variable: `tempo_tag`: help: if this is intentional, prefix it with an underscore: `_tempo_tag`
+lib/metacog/critic.rs:197:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:242:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:271:32: [1m[33mwarning[0m: unused variable: `query`: help: if this is intentional, prefix it with an underscore: `_query`
+lib/runtime/mod.rs:1541:45: [1m[33mwarning[0m: unused variable: `input`: help: if this is intentional, prefix it with an underscore: `_input`
+lib/prediction/basin.rs:234:13: [1m[33mwarning[0m: unused variable: `node`: help: if this is intentional, prefix it with an underscore: `_node`
+lib/prediction/meta_prediction.rs:47:13: [1m[33mwarning[0m: unused variable: `n`: help: if this is intentional, prefix it with an underscore: `_n`
+lib/prediction/meta_prediction.rs:289:38: [1m[33mwarning[0m: unused variable: `prediction_id`: help: if this is intentional, prefix it with an underscore: `_prediction_id`
+lib/prediction/counterfactual.rs:138:9: [1m[33mwarning[0m: unused variable: `basin`: help: if this is intentional, prefix it with an underscore: `_basin`
+lib/input_normalizer/mod.rs:407:13: [1m[33mwarning[0m: unused variable: `text_lower`: help: if this is intentional, prefix it with an underscore: `_text_lower`
+lib/input_normalizer/mod.rs:610:13: [1m[33mwarning[0m: unused variable: `qwerty_proximity`: help: if this is intentional, prefix it with an underscore: `_qwerty_proximity`
+lib/personality/mod.rs:263:13: [1m[33mwarning[0m: unused variable: `normalized`: help: if this is intentional, prefix it with an underscore: `_normalized`
+lib/personality/mod.rs:299:13: [1m[33mwarning[0m: unused variable: `markers`: help: if this is intentional, prefix it with an underscore: `_markers`
+lib/user_model/types.rs:149:49: [1m[33mwarning[0m: unused variable: `topic`: help: if this is intentional, prefix it with an underscore: `_topic`
+lib/neural/network.rs:193:21: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/layer.rs:130:36: [1m[33mwarning[0m: unused variable: `reservoir_dim`: help: if this is intentional, prefix it with an underscore: `_reservoir_dim`
+lib/neural/neurons/quanot_neuron.rs:60:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:66:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:120:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/neurons/causal_neuron.rs:93:13: [1m[33mwarning[0m: unused variable: `effects`: help: if this is intentional, prefix it with an underscore: `_effects`
+lib/language_model/model.rs:872:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/prediction/basin.rs:14:5: [1m[33mwarning[0m: type `prediction::basin::BasinNode` is more private than the item `prediction::basin::BasinEngine::nodes`: field `prediction::basin::BasinEngine::nodes` is reachable at visibility `pub`
+lib/reasoning/mod.rs:584:8: [1m[33mwarning[0m: method `looks_like_math` is never used
+lib/metacog/critic.rs:114:5: [1m[33mwarning[0m: fields `concerns` and `answer` are never read
+lib/prediction/belief_revision.rs:25:5: [1m[33mwarning[0m: fields `exchange` and `at` are never read
+lib/prediction/belief_revision.rs:281:5: [1m[33mwarning[0m: fields `pre_state` and `post_state` are never read
+lib/prediction/basin.rs:20:5: [1m[33mwarning[0m: field `max_nodes` is never read
+lib/prediction/basin.rs:42:9: [1m[33mwarning[0m: field `id` is never read
+lib/prediction/basin.rs:61:9: [1m[33mwarning[0m: fields `id` and `satisfied` are never read
+lib/prediction/basin.rs:102:5: [1m[33mwarning[0m: field `energy` is never read
+lib/prediction/meta_prediction.rs:27:9: [1m[33mwarning[0m: field `engine` is never read
+lib/prediction/meta_prediction.rs:81:9: [1m[33mwarning[0m: field `kind` is never read
+lib/personality/mod.rs:370:8: [1m[33mwarning[0m: method `detect_zach_style` is never used
+lib/pain/cost_model.rs:13:5: [1m[33mwarning[0m: field `decay_rate` is never read
+lib/dreaming/dream_engine.rs:95:5: [1m[33mwarning[0m: fields `dream_id`, `hypothesis`, and `at` are never read
+lib/user_model/memory_model.rs:26:5: [1m[33mwarning[0m: field `forgotten_topics` is never read
+lib/neural/neurons/quanot_neuron.rs:55:8: [1m[33mwarning[0m: method `encode_result` is never used
+lib/neural/neurons/causal_neuron.rs:48:8: [1m[33mwarning[0m: method `decode_vector` is never used
+lib/neural/neurons/goals_neuron.rs:40:8: [1m[33mwarning[0m: method `encode_goal` is never used
+lib/neural/neurons/fewshot_neuron.rs:38:8: [1m[33mwarning[0m: method `encode_text` is never used
+lib/language_model/model.rs:343:5: [1m[33mwarning[0m: field `seq_len` is never read
+lib/language_model/model.rs:522:8: [1m[33mwarning[0m: multiple methods are never used
+lib/latent_roles.rs:634:5: [1m[33mwarning[0m: field `nodes` is never read
+lib/reasoning/knowledge.rs:302:17: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/conversation/mod.rs:216:91: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:259:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:275:90: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:295:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:315:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:343:44: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:352:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:375:89: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:408:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:862:78: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:873:74: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1263:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1558:28: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1559:53: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1560:54: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/metacog/critic.rs:334:9: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/metacog/intents.rs:60:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:225:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:313:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/learning/eviction.rs:134:22: [1m[33mwarning[0m: using `clone` on type `HypothesisId` which implements the `Copy` trait: help: try removing the `clone` call: `h.id`
+lib/learning/mod.rs:186:5: [1m[33mwarning[0m: you should consider adding a `Default` implementation for `HypothesisId`
+lib/learning/mod.rs:277:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/runtime/curious.rs:215:17: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `probe.topic`
+lib/runtime/tempo.rs:216:39: [1m[33mwarning[0m: you are using an explicit closure for cloning elements: help: consider calling the dedicated `cloned` method: `self.fast_cache.keys().next().cloned()`
+lib/runtime/tempo.rs:352:5: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/runtime/mod.rs:1010:84: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `response.content`
+lib/math/symbolic.rs:326:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/symbolic.rs:328:15: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/logic.rs:187:22: [1m[33mwarning[0m: the loop variable `j` is used to index `vars`
+lib/math/logic.rs:226:22: [1m[33mwarning[0m: the loop variable `j` is used to index `all_vars`
+lib/math/logic.rs:286:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/world_model/state.rs:220:40: [1m[33mwarning[0m: using `clone` on type `RelationType` which implements the `Copy` trait: help: try removing the `clone` call: `rel.relation_type`
+lib/quanot/reservoir.rs:106:22: [1m[33mwarning[0m: the loop variable `j` is used to index `input_vec`
+lib/quanot/chaos.rs:196:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(-5.0, 5.0)`
+lib/quanot/chaos.rs:275:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(0.0, 10.0)`
+lib/quanot/quantum_inspired.rs:101:30: [1m[33mwarning[0m: the loop variable `k` is used to index `j`
+lib/multimodal/binding.rs:94:13: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/causal/mod.rs:179:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/causal/mod.rs:184:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/research/mod.rs:178:49: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `topic`
+lib/prediction/types.rs:99:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:171:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:187:5: [1m[33mwarning[0m: method `from_str` can be confused for the standard trait method `std::str::FromStr::from_str`
+lib/prediction/types.rs:198:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/question_gravity.rs:53:33: [1m[33mwarning[0m: length comparison to zero: help: using `!is_empty` is clearer and more explicit: `!context.discussed_entities.is_empty()`
+lib/prediction/question_gravity.rs:192:17: [1m[33mwarning[0m: useless use of `format!`: help: consider using `.to_string()`: `"How do these competing ideas both coexist?".to_string()`
+lib/prediction/basin.rs:345:18: [1m[33mwarning[0m: this `.filter_map(..)` can be written more simply using `.map(..)`
+lib/input_normalizer/mod.rs:311:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:560:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:580:62: [1m[33mwarning[0m: `to_string` applied to a type that implements `Display` in `format!` args: help: remove this
+lib/input_normalizer/mod.rs:688:9: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `confidence.clamp(0.1, 1.0)`
+lib/pain/tracker.rs:166:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/neural/neuron.rs:175:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/neural/network.rs:261:69: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `neuron_id`
+lib/neural/network.rs:327:48: [1m[33mwarning[0m: you seem to be trying to use `&Box<T>`. Consider using just `&T`: help: try: `&dyn Neuron`
+lib/neural/layer.rs:94:18: [1m[33mwarning[0m: the loop variable `j` is used to index `output`
+lib/neural/layer.rs:95:22: [1m[33mwarning[0m: the loop variable `i` is used to index `input`
+lib/neural/train.rs:37:37: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/train.rs:62:41: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/neurons/knowledge_neuron.rs:62:9: [1m[33mwarning[0m: returning the result of a `let` binding from a block
+lib/neural/neurons/goals_neuron.rs:80:29: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `(vector_mean as f64).clamp(0.0, 1.0)`
+lib/neural/neurons/worldmodel_neuron.rs:53:34: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.consciousness_proxy`
+lib/neural/neurons/worldmodel_neuron.rs:54:22: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.novelty`
+lib/language_model/model.rs:132:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:136:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(1.0_f32, b_len)`
+lib/language_model/model.rs:140:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:144:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:649:22: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:701:18: [1m[33mwarning[0m: the loop variable `t` is used to index `sequence`
+lib/language_model/model.rs:832:22: [1m[33mwarning[0m: the loop variable `i` is used to index `logits`
+lib/language_model/model.rs:834:26: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:896:22: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:900:22: [1m[33mwarning[0m: the loop variable `j` is used to index `h_last`
+lib/language_model/model.rs:901:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:907:22: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_buf`
+lib/language_model/model.rs:909:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:1012:26: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_prev_buf`
+lib/language_model/model.rs:1025:30: [1m[33mwarning[0m: the loop variable `j` is used to index `dx_buf`
+lib/language_model/train.rs:233:16: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `batch_num.is_multiple_of(10)`
+lib/language_model/generate.rs:152:23: [1m[33mwarning[0m: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
+lib/language_model/intent_reranker.rs:306:28: [1m[33mwarning[0m: use of `default` to create a unit struct
+lib/language_model/intent_reranker.rs:662:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/charge/shadow.rs:294:23: [1m[33mwarning[0m: called `unwrap` on `self.assessment` after checking its variant with `is_some`
+lib/representation_transport_orbit.rs:25:37: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `!history.events.len().is_multiple_of(self.block_width)`
+lib/companion_prediction_ledger.rs:334:38: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_interaction_policy.rs:209:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/companion_policy_evaluation.rs:767:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:775:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:783:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:791:8: [1m[33mwarning[0m: manual checked division: check performed here
+[1m[33mwarning[0m: `star` (lib) generated 158 warnings (run `cargo clippy --fix --lib -p star -- ` to apply 92 suggestions)
+[1m[92m    Checking[0m star v0.1.0 (/home/runner/work/starfire/starfire/lib)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+lib/conversation/mod.rs:10:42: [1m[33mwarning[0m: unused import: `Tempo`
+lib/runtime/tempo.rs:21:58: [1m[33mwarning[0m: unused import: `QueryType`
+lib/runtime/mod.rs:29:43: [1m[33mwarning[0m: unused import: `ConversationContext`
+lib/world_model/prediction.rs:5:38: [1m[33mwarning[0m: unused import: `RelationType`
+lib/quanot/quantum_inspired.rs:199:1: [1m[33mwarning[0m: empty line after doc comment
+lib/curriculum/scheduler.rs:3:38: [1m[33mwarning[0m: unused imports: `GapType` and `KnowledgeGap`
+lib/prediction/question_gravity.rs:8:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/prediction/belief_revision.rs:263:9: [1m[33mwarning[0m: unnecessary parentheses around block return value
+lib/pain/event.rs:4:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/dreaming/synthesizer.rs:3:27: [1m[33mwarning[0m: unused imports: `DreamEngine` and `DreamEpisode`
+lib/concepts/concept.rs:4:40: [1m[33mwarning[0m: unused import: `LifecycleEvent`
+lib/user_model/preference.rs:3:35: [1m[33mwarning[0m: unused imports: `ReasoningStance` and `UserCognitionModel`
+lib/user_model/types.rs:3:5: [1m[33mwarning[0m: unused import: `std::collections::HashMap`
+lib/neural/network.rs:5:73: [1m[33mwarning[0m: unused import: `NeuronConfig`
+lib/neural/layer.rs:6:5: [1m[33mwarning[0m: unused import: `crate::neural::neuron::NeuronConfig`
+lib/neural/train.rs:5:49: [1m[33mwarning[0m: unused imports: `NetworkConfig` and `Topology`
+lib/neural/neurons/causal_neuron.rs:7:35: [1m[33mwarning[0m: unused imports: `CausalEdge` and `CausalHypothesis`
+lib/neural/neurons/fewshot_neuron.rs:7:48: [1m[33mwarning[0m: unused import: `Hypothesis`
+lib/neural/neurons/curriculum_neuron.rs:7:43: [1m[33mwarning[0m: unused imports: `GapId`, `KnowledgeGap`, and `LearningTask`
+lib/neural/neurons/worldmodel_neuron.rs:7:38: [1m[33mwarning[0m: unused import: `EntityId`
+lib/neural/mod.rs:29:83: [1m[33mwarning[0m: unused import: `NeuralSignal`
+lib/language_model/model.rs:1130:29: [1m[33mwarning[0m: unused import: `BufRead`
+lib/language_model/train.rs:3:45: [1m[33mwarning[0m: unused import: `ModelConfig`
+lib/language_model/generate.rs:5:5: [1m[33mwarning[0m: unused import: `rand::Rng`
+lib/conversation/mod.rs:493:13: [1m[33mwarning[0m: unused variable: `tempo_tag`: help: if this is intentional, prefix it with an underscore: `_tempo_tag`
+lib/metacog/critic.rs:197:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:242:23: [1m[33mwarning[0m: unused variable: `label`: help: if this is intentional, prefix it with an underscore: `_label`
+lib/metacog/critic.rs:271:32: [1m[33mwarning[0m: unused variable: `query`: help: if this is intentional, prefix it with an underscore: `_query`
+lib/runtime/mod.rs:1541:45: [1m[33mwarning[0m: unused variable: `input`: help: if this is intentional, prefix it with an underscore: `_input`
+lib/prediction/basin.rs:234:13: [1m[33mwarning[0m: unused variable: `node`: help: if this is intentional, prefix it with an underscore: `_node`
+lib/prediction/meta_prediction.rs:47:13: [1m[33mwarning[0m: unused variable: `n`: help: if this is intentional, prefix it with an underscore: `_n`
+lib/prediction/meta_prediction.rs:289:38: [1m[33mwarning[0m: unused variable: `prediction_id`: help: if this is intentional, prefix it with an underscore: `_prediction_id`
+lib/prediction/counterfactual.rs:138:9: [1m[33mwarning[0m: unused variable: `basin`: help: if this is intentional, prefix it with an underscore: `_basin`
+lib/input_normalizer/mod.rs:407:13: [1m[33mwarning[0m: unused variable: `text_lower`: help: if this is intentional, prefix it with an underscore: `_text_lower`
+lib/input_normalizer/mod.rs:610:13: [1m[33mwarning[0m: unused variable: `qwerty_proximity`: help: if this is intentional, prefix it with an underscore: `_qwerty_proximity`
+lib/personality/mod.rs:263:13: [1m[33mwarning[0m: unused variable: `normalized`: help: if this is intentional, prefix it with an underscore: `_normalized`
+lib/personality/mod.rs:299:13: [1m[33mwarning[0m: unused variable: `markers`: help: if this is intentional, prefix it with an underscore: `_markers`
+lib/user_model/types.rs:149:49: [1m[33mwarning[0m: unused variable: `topic`: help: if this is intentional, prefix it with an underscore: `_topic`
+lib/neural/network.rs:193:21: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/layer.rs:130:36: [1m[33mwarning[0m: unused variable: `reservoir_dim`: help: if this is intentional, prefix it with an underscore: `_reservoir_dim`
+lib/neural/neurons/quanot_neuron.rs:60:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:66:13: [1m[33mwarning[0m: unused variable: `i`: help: if this is intentional, prefix it with an underscore: `_i`
+lib/neural/neurons/quanot_neuron.rs:120:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/neural/neurons/causal_neuron.rs:93:13: [1m[33mwarning[0m: unused variable: `effects`: help: if this is intentional, prefix it with an underscore: `_effects`
+lib/language_model/model.rs:872:13: [1m[33mwarning[0m: variable does not need to be mutable
+lib/prediction/basin.rs:14:5: [1m[33mwarning[0m: type `prediction::basin::BasinNode` is more private than the item `prediction::basin::BasinEngine::nodes`: field `prediction::basin::BasinEngine::nodes` is reachable at visibility `pub`
+lib/reasoning/mod.rs:584:8: [1m[33mwarning[0m: method `looks_like_math` is never used
+lib/metacog/critic.rs:114:5: [1m[33mwarning[0m: fields `concerns` and `answer` are never read
+lib/prediction/belief_revision.rs:25:5: [1m[33mwarning[0m: fields `exchange` and `at` are never read
+lib/prediction/belief_revision.rs:281:5: [1m[33mwarning[0m: fields `pre_state` and `post_state` are never read
+lib/prediction/basin.rs:20:5: [1m[33mwarning[0m: field `max_nodes` is never read
+lib/prediction/basin.rs:42:9: [1m[33mwarning[0m: field `id` is never read
+lib/prediction/basin.rs:61:9: [1m[33mwarning[0m: fields `id` and `satisfied` are never read
+lib/prediction/basin.rs:102:5: [1m[33mwarning[0m: field `energy` is never read
+lib/prediction/meta_prediction.rs:27:9: [1m[33mwarning[0m: field `engine` is never read
+lib/prediction/meta_prediction.rs:81:9: [1m[33mwarning[0m: field `kind` is never read
+lib/personality/mod.rs:370:8: [1m[33mwarning[0m: method `detect_zach_style` is never used
+lib/pain/cost_model.rs:13:5: [1m[33mwarning[0m: field `decay_rate` is never read
+lib/dreaming/dream_engine.rs:95:5: [1m[33mwarning[0m: fields `dream_id`, `hypothesis`, and `at` are never read
+lib/user_model/memory_model.rs:26:5: [1m[33mwarning[0m: field `forgotten_topics` is never read
+lib/neural/neurons/quanot_neuron.rs:55:8: [1m[33mwarning[0m: method `encode_result` is never used
+lib/neural/neurons/causal_neuron.rs:48:8: [1m[33mwarning[0m: method `decode_vector` is never used
+lib/neural/neurons/goals_neuron.rs:40:8: [1m[33mwarning[0m: method `encode_goal` is never used
+lib/neural/neurons/fewshot_neuron.rs:38:8: [1m[33mwarning[0m: method `encode_text` is never used
+lib/language_model/model.rs:343:5: [1m[33mwarning[0m: field `seq_len` is never read
+lib/language_model/model.rs:522:8: [1m[33mwarning[0m: multiple methods are never used
+lib/latent_roles.rs:634:5: [1m[33mwarning[0m: field `nodes` is never read
+lib/reasoning/knowledge.rs:302:17: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/conversation/mod.rs:216:91: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:259:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:275:90: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:295:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:315:38: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:343:44: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:352:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:375:89: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:408:80: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:862:78: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:873:74: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1263:40: [1m[33mwarning[0m: casting to the same type is unnecessary (`usize` -> `usize`): help: try: `now_seconds()`
+lib/conversation/mod.rs:1558:28: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1559:53: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/conversation/mod.rs:1560:54: [1m[33mwarning[0m: unnecessary map of the identity function: help: remove the call to `map`
+lib/metacog/critic.rs:334:9: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/metacog/intents.rs:60:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:225:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/metacog/intents.rs:313:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/learning/eviction.rs:134:22: [1m[33mwarning[0m: using `clone` on type `HypothesisId` which implements the `Copy` trait: help: try removing the `clone` call: `h.id`
+lib/learning/mod.rs:186:5: [1m[33mwarning[0m: you should consider adding a `Default` implementation for `HypothesisId`
+lib/learning/mod.rs:277:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/runtime/curious.rs:215:17: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `probe.topic`
+lib/runtime/tempo.rs:216:39: [1m[33mwarning[0m: you are using an explicit closure for cloning elements: help: consider calling the dedicated `cloned` method: `self.fast_cache.keys().next().cloned()`
+lib/runtime/tempo.rs:352:5: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/runtime/mod.rs:1010:84: [1m[33mwarning[0m: redundant reference in `format!` argument: help: remove the redundant `&`: `response.content`
+lib/math/symbolic.rs:326:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/symbolic.rs:328:15: [1m[33mwarning[0m: stripping a prefix manually
+lib/math/logic.rs:187:22: [1m[33mwarning[0m: the loop variable `j` is used to index `vars`
+lib/math/logic.rs:226:22: [1m[33mwarning[0m: the loop variable `j` is used to index `all_vars`
+lib/math/logic.rs:286:13: [1m[33mwarning[0m: stripping a prefix manually
+lib/world_model/state.rs:220:40: [1m[33mwarning[0m: using `clone` on type `RelationType` which implements the `Copy` trait: help: try removing the `clone` call: `rel.relation_type`
+lib/quanot/reservoir.rs:106:22: [1m[33mwarning[0m: the loop variable `j` is used to index `input_vec`
+lib/quanot/chaos.rs:196:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(-5.0, 5.0)`
+lib/quanot/chaos.rs:275:5: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `slope.clamp(0.0, 10.0)`
+lib/quanot/quantum_inspired.rs:101:30: [1m[33mwarning[0m: the loop variable `k` is used to index `j`
+lib/multimodal/binding.rs:94:13: [1m[33mwarning[0m: this `if` statement can be collapsed
+lib/causal/mod.rs:179:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/causal/mod.rs:184:40: [1m[33mwarning[0m: needlessly taken reference of left operand
+lib/research/mod.rs:178:49: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `topic`
+lib/prediction/types.rs:99:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:171:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/types.rs:187:5: [1m[33mwarning[0m: method `from_str` can be confused for the standard trait method `std::str::FromStr::from_str`
+lib/prediction/types.rs:198:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/prediction/question_gravity.rs:53:33: [1m[33mwarning[0m: length comparison to zero: help: using `!is_empty` is clearer and more explicit: `!context.discussed_entities.is_empty()`
+lib/prediction/question_gravity.rs:192:17: [1m[33mwarning[0m: useless use of `format!`: help: consider using `.to_string()`: `"How do these competing ideas both coexist?".to_string()`
+lib/prediction/basin.rs:345:18: [1m[33mwarning[0m: this `.filter_map(..)` can be written more simply using `.map(..)`
+lib/input_normalizer/mod.rs:311:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:560:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/input_normalizer/mod.rs:580:62: [1m[33mwarning[0m: `to_string` applied to a type that implements `Display` in `format!` args: help: remove this
+lib/input_normalizer/mod.rs:688:9: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `confidence.clamp(0.1, 1.0)`
+lib/pain/tracker.rs:166:9: [1m[33mwarning[0m: consider using `sort_by_key`
+lib/neural/neuron.rs:175:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/neural/network.rs:261:69: [1m[33mwarning[0m: this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `neuron_id`
+lib/neural/network.rs:327:48: [1m[33mwarning[0m: you seem to be trying to use `&Box<T>`. Consider using just `&T`: help: try: `&dyn Neuron`
+lib/neural/layer.rs:94:18: [1m[33mwarning[0m: the loop variable `j` is used to index `output`
+lib/neural/layer.rs:95:22: [1m[33mwarning[0m: the loop variable `i` is used to index `input`
+lib/neural/train.rs:37:37: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/train.rs:62:41: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `p.clamp(1e-7, 1.0 - 1e-7)`
+lib/neural/neurons/knowledge_neuron.rs:62:9: [1m[33mwarning[0m: returning the result of a `let` binding from a block
+lib/neural/neurons/goals_neuron.rs:80:29: [1m[33mwarning[0m: clamp-like pattern without using clamp function: help: replace with clamp: `(vector_mean as f64).clamp(0.0, 1.0)`
+lib/neural/neurons/worldmodel_neuron.rs:53:34: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.consciousness_proxy`
+lib/neural/neurons/worldmodel_neuron.rs:54:22: [1m[33mwarning[0m: casting to the same type is unnecessary (`f64` -> `f64`): help: try: `perception.novelty`
+lib/language_model/model.rs:132:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:136:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(1.0_f32, b_len)`
+lib/language_model/model.rs:140:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:144:24: [1m[33mwarning[0m: this `repeat().take()` can be written more concisely: help: consider using `repeat_n()` instead: `std::iter::repeat_n(0.0_f32, b_len)`
+lib/language_model/model.rs:649:22: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:701:18: [1m[33mwarning[0m: the loop variable `t` is used to index `sequence`
+lib/language_model/model.rs:832:22: [1m[33mwarning[0m: the loop variable `i` is used to index `logits`
+lib/language_model/model.rs:834:26: [1m[33mwarning[0m: the loop variable `j` is used to index `hidden_last`
+lib/language_model/model.rs:896:22: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:900:22: [1m[33mwarning[0m: the loop variable `j` is used to index `h_last`
+lib/language_model/model.rs:901:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:907:22: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_buf`
+lib/language_model/model.rs:909:26: [1m[33mwarning[0m: the loop variable `i` is used to index `d_logits_buf`
+lib/language_model/model.rs:1012:26: [1m[33mwarning[0m: the loop variable `j` is used to index `dh_prev_buf`
+lib/language_model/model.rs:1025:30: [1m[33mwarning[0m: the loop variable `j` is used to index `dx_buf`
+lib/language_model/train.rs:233:16: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `batch_num.is_multiple_of(10)`
+lib/language_model/generate.rs:152:23: [1m[33mwarning[0m: writing `&mut Vec` instead of `&mut [_]` involves a new object where a slice will do
+lib/language_model/intent_reranker.rs:306:28: [1m[33mwarning[0m: use of `default` to create a unit struct
+lib/language_model/intent_reranker.rs:662:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/charge/shadow.rs:294:23: [1m[33mwarning[0m: called `unwrap` on `self.assessment` after checking its variant with `is_some`
+lib/representation_transport_orbit.rs:25:37: [1m[33mwarning[0m: manual implementation of `.is_multiple_of()`: help: replace with: `!history.events.len().is_multiple_of(self.block_width)`
+lib/companion_prediction_ledger.rs:334:38: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_interaction_policy.rs:209:1: [1m[33mwarning[0m: this `impl` can be derived
+lib/companion_policy_evaluation.rs:767:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:775:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:783:8: [1m[33mwarning[0m: manual checked division: check performed here
+lib/companion_policy_evaluation.rs:791:8: [1m[33mwarning[0m: manual checked division: check performed here
+[1m[33mwarning[0m: `star` (lib) generated 158 warnings (run `cargo clippy --fix --lib -p star -- ` to apply 92 suggestions)
+[1m[92m    Checking[0m star v0.1.0 (/home/runner/work/starfire/starfire/lib)
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
