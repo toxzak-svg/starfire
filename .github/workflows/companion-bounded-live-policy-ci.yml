@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   s6a-bounded-live-policy:
@@ -28,8 +28,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Check out repository
+      - name: Check out pull-request branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -38,6 +40,146 @@ jobs:
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
+
+      - name: Harden duplicate-turn audit contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          module = Path("lib/companion_bounded_live_policy.rs")
+          text = module.read_text()
+          if "InvalidDuplicateFallback" not in text:
+              pattern = re.compile(
+                  r"LivePolicyEvent::TurnPlanned \{\s*turn_digest,\s*disposition,\s*remaining_turns_after,\s*\.\.,\s*\} => \{\s*if !self\.seen_turns\.insert\(\*turn_digest\) \{\s*return Err\(LivePolicyError::DuplicateAuditTurn\(\*turn_digest\)\);\s*\}",
+                  re.MULTILINE,
+              )
+              replacement = '''LivePolicyEvent::TurnPlanned {
+                          turn_digest,
+                          disposition,
+                          fallback_reason,
+                          remaining_turns_after,
+                          ..
+                      } => {
+                          let duplicate_fallback = *disposition == LivePlanDisposition::NeutralFallback
+                              && *fallback_reason == Some(NeutralFallbackReason::DuplicateTurn);
+                          if duplicate_fallback {
+                              if !self.seen_turns.contains(turn_digest) {
+                                  return Err(LivePolicyError::InvalidDuplicateFallback(*turn_digest));
+                              }
+                          } else if !self.seen_turns.insert(*turn_digest) {
+                              return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));
+                          }'''
+              text, count = pattern.subn(replacement, text, count=1)
+              assert count == 1, "duplicate-turn event pattern not found"
+              text = text.replace(
+                  '''    #[error("audit contains duplicate turn digest {0}")]
+              DuplicateAuditTurn(u64),
+              #[error("audit budget does not match deterministic transition")]''',
+                  '''    #[error("audit contains duplicate turn digest {0} without duplicate fallback")]
+              DuplicateAuditTurn(u64),
+              #[error("duplicate fallback references unseen turn digest {0}")]
+              InvalidDuplicateFallback(u64),
+              #[error("audit budget does not match deterministic transition")]''',
+                  1,
+              )
+              marker = '''    #[test]
+              fn replay_is_exact() {'''
+              test = '''    #[test]
+              fn duplicate_turn_is_audited_neutral_fallback_without_consuming_budget() {
+                  let config = LivePolicyControllerConfig {
+                      allow_simulated_activation: true,
+                      ..LivePolicyControllerConfig::default()
+                  };
+                  let gate = ValidatedPromotionGate::validate(
+                      &passing_report(),
+                      EvaluationEvidenceClass::FrozenSimulation,
+                      1,
+                  )
+                  .unwrap();
+                  let mut controller = BoundedLivePolicyController::new(config).unwrap();
+                  controller
+                      .activate(0, &gate, &proposal(), activation())
+                      .unwrap();
+                  let (response, rerank) = baseline();
+                  controller
+                      .plan_response(controller.version, context(1, false), response, rerank)
+                      .unwrap();
+                  let (duplicate_response, duplicate_rerank) = baseline();
+                  let duplicate = controller
+                      .plan_response(
+                          controller.version,
+                          context(1, false),
+                          duplicate_response,
+                          duplicate_rerank,
+                      )
+                      .unwrap();
+                  assert_eq!(duplicate.disposition, LivePlanDisposition::NeutralFallback);
+                  assert_eq!(
+                      duplicate.fallback_reason,
+                      Some(NeutralFallbackReason::DuplicateTurn)
+                  );
+                  assert_eq!(duplicate.remaining_turns, 1);
+                  let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();
+                  assert_eq!(replayed, controller);
+              }
+
+          '''
+              assert marker in text, "replay test marker not found"
+              text = text.replace(marker, test + marker, 1)
+              module.write_text(text)
+
+          probe = Path("lib/examples/s6a_bounded_live_policy_probe.rs")
+          text = probe.read_text()
+          if "duplicate_turn_used_neutral_fallback" not in text:
+              text = text.replace(
+                  '''    sensitive_context_used_exact_neutral_fallback: bool,
+              disallowed_intent_used_neutral_fallback: bool,''',
+                  '''    sensitive_context_used_exact_neutral_fallback: bool,
+              duplicate_turn_used_neutral_fallback: bool,
+              disallowed_intent_used_neutral_fallback: bool,''',
+                  1,
+              )
+              marker = '''    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
+
+              let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);'''
+              insertion = '''    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
+
+              let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);
+              let duplicate = controller
+                  .plan_response(
+                      controller.version,
+                      context(1, false),
+                      duplicate_response,
+                      duplicate_config,
+                  )
+                  .unwrap();
+              let duplicate_turn_used_neutral_fallback = duplicate.disposition
+                  == LivePlanDisposition::NeutralFallback
+                  && duplicate.fallback_reason == Some(NeutralFallbackReason::DuplicateTurn)
+                  && duplicate.remaining_turns == 1;
+
+              let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);'''
+              assert marker in text, "probe insertion marker not found"
+              text = text.replace(marker, insertion, 1)
+              text = text.replace(
+                  '''        && sensitive_context_used_exact_neutral_fallback
+                      && disallowed_intent_used_neutral_fallback''',
+                  '''        && sensitive_context_used_exact_neutral_fallback
+                      && duplicate_turn_used_neutral_fallback
+                      && disallowed_intent_used_neutral_fallback''',
+                  1,
+              )
+              text = text.replace(
+                  '''        sensitive_context_used_exact_neutral_fallback,
+                  disallowed_intent_used_neutral_fallback,''',
+                  '''        sensitive_context_used_exact_neutral_fallback,
+                  duplicate_turn_used_neutral_fallback,
+                  disallowed_intent_used_neutral_fallback,''',
+                  1,
+              )
+              probe.write_text(text)
+          PY
 
       - name: Format S6-A sources canonically
         run: |
@@ -78,6 +220,17 @@ jobs:
           cargo run -p star --example s6a_bounded_live_policy_probe \
             --features companion-bounded-live-policy --locked \
             | tee s6a-bounded-live-policy-report.json
+
+      - name: Commit verified canonical sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/companion_bounded_live_policy.rs \
+            lib/examples/s6a_bounded_live_policy_probe.rs
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(companion): harden S6-A duplicate-turn replay"
+            git push origin HEAD:${{ github.head_ref }}
+          fi
 
       - name: Preserve S6-A report, lint, and formatted sources
         if: always()
