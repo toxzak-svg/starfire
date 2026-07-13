@@ -54,7 +54,9 @@ action authority:             false
 The committed S6-A implementation establishes that Starfire can return a
 companion-derived response-planning policy only when every preregistered canary
 condition passes, while returning the exact neutral policy on every failure
-path.
+path. `PromotionAuthorization` is deliberately non-serializable and has private
+fields, so external callers cannot deserialize or reconstruct a forged
+`RealHeldOut` capability token around the validated constructor.
 
 The frozen probe covers:
 
