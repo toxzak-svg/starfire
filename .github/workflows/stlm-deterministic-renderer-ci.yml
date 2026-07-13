@@ -40,22 +40,16 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from textwrap import dedent
 
           module = Path("lib/language_realization/mod.rs")
           text = module.read_text()
 
-          old_budget = '''    validate_alignments(payload, program)?;
-              validate_realization_budgets(
-                  program,
-                  payload.operation_cost,
-                  payload.claim_cost,
-                  payload.verification_step_cost,
-                  payload.character_cost,
-                  payload.sentence_count,
-                  payload.paragraph_count,
-              )?;
-              validate_semantic_markers(payload, program, lexical_table)?;'''
-          new_budget = '''    validate_alignments(payload, program)?;
+          budget_start = text.index("    validate_alignments(payload, program)?;")
+          budget_end_marker = "    validate_semantic_markers(payload, program, lexical_table)?;"
+          budget_end = text.index(budget_end_marker, budget_start) + len(budget_end_marker)
+          hardened_budget = dedent('''\
+              validate_alignments(payload, program)?;
               let operation_cost = u32::try_from(payload.alignments.len())
                   .map_err(|_| RealizationError::BudgetExceeded)?;
               let claim_cost = u32::try_from(
@@ -97,14 +91,13 @@ jobs:
                   sentence_count,
                   paragraph_count,
               )?;
-              validate_semantic_markers(payload, program, lexical_table)?;'''
-          if old_budget not in text:
-              raise SystemExit("budget verification anchor not found")
-          text = text.replace(old_budget, new_budget, 1)
+              validate_semantic_markers(payload, program, lexical_table)?;''')
+          text = text[:budget_start] + hardened_budget + text[budget_end:]
 
-          start = text.index("fn validate_alignments(")
-          end = text.index("\nfn expected_claim_ids", start)
-          hardened_alignments = '''fn validate_alignments(
+          alignment_start = text.index("fn validate_alignments(")
+          alignment_end = text.index("\nfn expected_claim_ids", alignment_start)
+          hardened_alignments = dedent('''\
+          fn validate_alignments(
               payload: &SurfaceRealizationPayload,
               program: &SemanticResponseProgram,
           ) -> Result<(), RealizationError> {
@@ -168,66 +161,68 @@ jobs:
               }
               Ok(())
           }
-          '''
-          text = text[:start] + hardened_alignments + text[end:]
+          ''')
+          text = text[:alignment_start] + hardened_alignments + text[alignment_end:]
           module.write_text(text)
 
           probe = Path("lib/examples/stlm_l0c_deterministic_renderer_probe.rs")
           probe_text = probe.read_text()
+          old_polarity = '"the renderer owns the cognition",\n        );'
+          new_polarity = '"the renderer does now own the cognition",\n        );'
+          if old_polarity not in probe_text:
+              raise SystemExit("polarity replacement anchor not found")
+          probe_text = probe_text.replace(old_polarity, new_polarity, 1)
+
+          polarity_anchor = probe_text.index("    let polarity_tampering_rejected = {")
+          new_controls = dedent('''\
+              let unaligned_gap_rejected = {
+                  let mut realization = first.clone();
+                  let insertion = " unsupported";
+                  let insertion_point = realization.payload.alignments[0].span.end_byte;
+                  realization.payload.text.insert_str(insertion_point, insertion);
+                  for alignment in realization.payload.alignments.iter_mut().skip(1) {
+                      alignment.span.start_byte += insertion.len();
+                      alignment.span.end_byte += insertion.len();
+                  }
+                  realization.payload.character_cost +=
+                      u32::try_from(insertion.len()).expect("frozen insertion length fits u32");
+                  matches!(
+                      realization.verify_integrity(&detailed_program, &detailed_table),
+                      Err(RealizationError::InvalidAlignment)
+                  )
+              };
+
+              let underreported_costs_rejected = {
+                  let mut realization = first.clone();
+                  realization.payload.character_cost = 1;
+                  matches!(
+                      realization.verify_integrity(&detailed_program, &detailed_table),
+                      Err(RealizationError::BudgetExceeded)
+                  )
+              };
+
+          ''')
+          probe_text = probe_text[:polarity_anchor] + new_controls + probe_text[polarity_anchor:]
+
+          gate_anchor = "        && operation_omission_rejected\n"
+          if gate_anchor not in probe_text:
+              raise SystemExit("gate anchor not found")
           probe_text = probe_text.replace(
-              '"the renderer owns the cognition",\n        );',
-              '"the renderer does now own the cognition",\n        );',
+              gate_anchor,
+              gate_anchor
+              + "        && unaligned_gap_rejected\n"
+              + "        && underreported_costs_rejected\n",
               1,
           )
-          anchor = '''    let polarity_tampering_rejected = {
-              let mut realization = first.clone();'''
-          controls = '''    let unaligned_gap_rejected = {
-              let mut realization = first.clone();
-              let insertion = " unsupported";
-              let insertion_point = realization.payload.alignments[0].span.end_byte;
-              realization.payload.text.insert_str(insertion_point, insertion);
-              for alignment in realization.payload.alignments.iter_mut().skip(1) {
-                  alignment.span.start_byte += insertion.len();
-                  alignment.span.end_byte += insertion.len();
-              }
-              realization.payload.character_cost +=
-                  u32::try_from(insertion.len()).expect("frozen insertion length fits u32");
-              matches!(
-                  realization.verify_integrity(&detailed_program, &detailed_table),
-                  Err(RealizationError::InvalidAlignment)
-              )
-          };
 
-          let underreported_costs_rejected = {
-              let mut realization = first.clone();
-              realization.payload.character_cost = 1;
-              matches!(
-                  realization.verify_integrity(&detailed_program, &detailed_table),
-                  Err(RealizationError::BudgetExceeded)
-              )
-          };
-
-          let polarity_tampering_rejected = {
-              let mut realization = first.clone();'''
-          if anchor not in probe_text:
-              raise SystemExit("probe polarity anchor not found")
-          probe_text = probe_text.replace(anchor, controls, 1)
+          report_anchor = '        "operation_omission_rejected": operation_omission_rejected,\n'
+          if report_anchor not in probe_text:
+              raise SystemExit("report anchor not found")
           probe_text = probe_text.replace(
-              '''        && operation_omission_rejected
-                  && polarity_tampering_rejected''',
-              '''        && operation_omission_rejected
-                  && unaligned_gap_rejected
-                  && underreported_costs_rejected
-                  && polarity_tampering_rejected''',
-              1,
-          )
-          probe_text = probe_text.replace(
-              '''        "operation_omission_rejected": operation_omission_rejected,
-                  "polarity_tampering_rejected": polarity_tampering_rejected,''',
-              '''        "operation_omission_rejected": operation_omission_rejected,
-                  "unaligned_gap_rejected": unaligned_gap_rejected,
-                  "underreported_costs_rejected": underreported_costs_rejected,
-                  "polarity_tampering_rejected": polarity_tampering_rejected,''',
+              report_anchor,
+              report_anchor
+              + '        "unaligned_gap_rejected": unaligned_gap_rejected,\n'
+              + '        "underreported_costs_rejected": underreported_costs_rejected,\n',
               1,
           )
           probe.write_text(probe_text)
