@@ -1,0 +1,92 @@
+name: Companion Policy Evaluation S5-C CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_policy_evaluation.rs"
+      - "lib/examples/s5c_comparative_policy_evaluation_probe.rs"
+      - "lib/companion_interaction_outcomes.rs"
+      - "lib/companion_interaction_policy.rs"
+      - "lib/companion_prediction_ledger.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S5C_COMPARATIVE_POLICY_EVALUATION.md"
+      - "docs/experiments/S5C_COMPARATIVE_POLICY_EVALUATION_RESULT.md"
+      - ".github/workflows/companion-policy-evaluation-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s5c-comparative-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format S5-C sources for verification
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_policy_evaluation.rs \
+            lib/examples/s5c_comparative_policy_evaluation_probe.rs
+
+      - name: Compile S5-C evaluator and probe
+        run: |
+          cargo check -p star --lib --features companion-policy-evaluation --locked
+          cargo check -p star --example s5c_comparative_policy_evaluation_probe \
+            --features companion-policy-evaluation --locked
+
+      - name: Lint S5-C sources without inheriting legacy warnings
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-policy-evaluation --locked \
+              --message-format=short
+            cargo clippy -p star --example s5c_comparative_policy_evaluation_probe \
+              --features companion-policy-evaluation --locked --message-format=short
+          } 2>&1 | tee s5c-clippy.log
+          grep -E \
+            'lib/companion_policy_evaluation\.rs:|lib/examples/s5c_comparative_policy_evaluation_probe\.rs:' \
+            s5c-clippy.log \
+            | grep -v 'manual checked division' \
+            > s5c-scoped-findings.log || true
+          if test -s s5c-scoped-findings.log; then
+            cat s5c-scoped-findings.log
+            echo "S5-C scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Test S5-C contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-policy-evaluation --locked
+          companion_policy_evaluation:: -- --test-threads=1
+
+      - name: Run frozen S5-C comparative-policy probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s5c_comparative_policy_evaluation_probe \
+            --features companion-policy-evaluation --locked \
+            | tee s5c-comparative-policy-evaluation-report.json
+
+      - name: Preserve S5-C report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5c-comparative-policy-evaluation-report
+          path: s5c-comparative-policy-evaluation-report.json
+          if-no-files-found: ignore
+          retention-days: 30

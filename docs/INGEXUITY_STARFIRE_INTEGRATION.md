@@ -127,11 +127,9 @@ Merged in Starfire PR #55:
 
 The frozen S5-A fixture validates controlled experiment construction. It does not establish that the companion-derived arm improves user outcomes.
 
-## Current slice
-
 ### S5-B — independently witnessed outcome collection
 
-The feature-gated S5-B implementation provides:
+Merged in Starfire PR #58:
 
 - typed trial registration over the exact six S5-A arms;
 - one optional declared delivered arm per trial;
@@ -151,15 +149,32 @@ The central counterfactual rule is:
 
 > A witness may resolve only the response it actually observed. Unshown arms remain pending unless an external evaluator explicitly compares rendered alternatives.
 
-## Later slices
+## Current slice
 
 ### S5-C — comparative policy evaluation
 
-Compare candidate and controls using Brier score, calibration, correction rate, clarification burden, completion, abstention quality, compute overhead, temporal holdout, and held-out users. Promotion requires credible improvement and must remain reversible.
+The feature-gated S5-C implementation provides:
+
+- deterministic development, opaque-subject holdout, and temporal-holdout assignment from pre-outcome metadata only;
+- complete per-arm accounting for predictions, resolutions, pending outcomes, expirations, abstentions, Brier score, and calibration error;
+- delivered-arm correction, clarification, completion, and abandonment rates;
+- candidate-relative pairwise wins, losses, ties, and signed win margins;
+- mandatory positive compute observations for every arm in every trial;
+- separate candidate-versus-control comparisons for all five controls on both holdouts;
+- minimum evidence gates before performance is judged;
+- Brier improvement, calibration, burden, completion, abstention, and compute non-regression gates;
+- explicit `PASS`, `FAIL`, and `INCONCLUSIVE` verdicts;
+- structural exclusion of development evidence from the verdict;
+- deterministic repeated evaluation and a frozen synthetic probe;
+- no live response influence, routing, companion-state mutation, belief promotion, persistence authority, or autonomous actions.
+
+A synthetic S5-C `PASS` validates the evaluator and gate composition only. Real promotion eligibility requires frozen real-world held-out evidence under the same preregistered contract.
+
+## Later slices
 
 ### S6 — bounded live use
 
-Permit validated, non-sensitive active claims to influence response planning under explicit budgets and audit logs. Sensitive claims remain excluded unless the calling policy explicitly authorizes them.
+Permit validated, non-sensitive active claims to influence response planning under explicit budgets, audit logs, neutral fallback, rollback, and adversarial safety checks. Sensitive claims remain excluded unless the calling policy explicitly authorizes them.
 
 ## Required invariants
 

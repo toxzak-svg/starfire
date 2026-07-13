@@ -87,6 +87,12 @@ pub mod companion_interaction_policy;
 #[cfg(feature = "companion-interaction-outcomes")]
 pub mod companion_interaction_outcomes;
 
+// S5-C: comparative held-out evaluation of S5-A arms over frozen S5-B evidence.
+// Development data cannot influence the verdict, and PASS grants no runtime,
+// routing, belief-promotion, persistence, or autonomous action authority.
+#[cfg(feature = "companion-policy-evaluation")]
+pub mod companion_policy_evaluation;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
