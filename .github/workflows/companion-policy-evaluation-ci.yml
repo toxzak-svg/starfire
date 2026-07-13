@@ -50,8 +50,21 @@ jobs:
           cargo check -p star --example s5c_comparative_policy_evaluation_probe \
             --features companion-policy-evaluation --locked
 
-      - name: Lint S5-C feature path
-        run: cargo clippy -p star --lib --features companion-policy-evaluation --locked
+      - name: Lint S5-C sources without inheriting legacy warnings
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-policy-evaluation --locked \
+              --message-format=short
+            cargo clippy -p star --example s5c_comparative_policy_evaluation_probe \
+              --features companion-policy-evaluation --locked --message-format=short
+          } 2>&1 | tee s5c-clippy.log
+          if grep -E \
+            'lib/companion_policy_evaluation\.rs:|lib/examples/s5c_comparative_policy_evaluation_probe\.rs:' \
+            s5c-clippy.log; then
+            echo "S5-C scoped Clippy finding detected"
+            exit 1
+          fi
 
       - name: Test S5-C contracts deterministically
         run: >-
