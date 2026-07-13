@@ -110,11 +110,9 @@ Merged in Starfire PR #53:
 
 The synthetic S4 control result validates the ledger and evaluation harness. It does not establish that current companion predictions generalize to real conversations.
 
-## Current slice
-
 ### S5-A — shadow interaction-policy proposals
 
-The feature-gated S5-A implementation provides:
+Merged in Starfire PR #55:
 
 - complete bounded policies over detail, explanation style, dialogue mode, vocabulary, and acknowledgment;
 - source claim IDs, confidence, update times, sensitivity, and companion version preserved in every candidate;
@@ -127,17 +125,37 @@ The feature-gated S5-A implementation provides:
 - exact S4 replay equality in the frozen fixture;
 - no `Runtime::chat()` wiring, generated-text influence, routing authority, belief promotion, persistence authority, or autonomous actions.
 
-The frozen S5-A fixture validates the controlled experiment construction. It does not establish that the companion-derived arm improves user outcomes.
+The frozen S5-A fixture validates controlled experiment construction. It does not establish that the companion-derived arm improves user outcomes.
 
-## Later slices
+## Current slice
 
 ### S5-B — independently witnessed outcome collection
 
-Collect delayed user, environment, or evaluator outcomes for every enrolled arm using temporal and held-out splits. The response generator remains prohibited from resolving predictions.
+The feature-gated S5-B implementation provides:
+
+- typed trial registration over the exact six S5-A arms;
+- one optional declared delivered arm per trial;
+- direct user or environment evidence restricted to that delivered arm;
+- pure-shadow trials that reject direct observed evidence;
+- explicit positive, negative, correction, clarification, completion, abandonment, and neutral signals;
+- inconclusive neutral signals without forced S4 resolution;
+- rejection of response-generator self-grading;
+- rejection of external evaluator evidence on the direct-observation channel;
+- offline paired evaluation requiring two distinct policy arms and two distinct render digests;
+- zero S4 resolutions for a tie and exactly two for a decisive comparison;
+- atomic clone-then-commit updates across the S5-B ledger and its mirrored S4 ledger;
+- deterministic replay from a captured base S4 state with exact transition equality;
+- no live response influence, routing, companion-state mutation, belief promotion, persistence authority, or autonomous actions.
+
+The central counterfactual rule is:
+
+> A witness may resolve only the response it actually observed. Unshown arms remain pending unless an external evaluator explicitly compares rendered alternatives.
+
+## Later slices
 
 ### S5-C — comparative policy evaluation
 
-Compare candidate and controls using Brier score, calibration, correction rate, clarification burden, completion, abstention quality, and compute overhead. Promotion requires credible held-out improvement and must remain reversible.
+Compare candidate and controls using Brier score, calibration, correction rate, clarification burden, completion, abstention quality, compute overhead, temporal holdout, and held-out users. Promotion requires credible improvement and must remain reversible.
 
 ### S6 — bounded live use
 

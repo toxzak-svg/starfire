@@ -25,6 +25,11 @@ path = "examples/s5a_shadow_interaction_policy_probe.rs"
 required-features = ["companion-interaction-policy"]
 
 [[example]]
+name = "s5b_independent_interaction_outcomes_probe"
+path = "examples/s5b_independent_interaction_outcomes_probe.rs"
+required-features = ["companion-interaction-outcomes"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -71,5 +76,6 @@ lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
 companion-observer = []  # S3 explicit-statement observer; proposal-only and shadow-only
 companion-prediction-ledger = []  # S4 unresolved commitments and independent scoring; no live influence
 companion-interaction-policy = ["companion-prediction-ledger"]  # S5-A shadow proposals and controls
+companion-interaction-outcomes = ["companion-interaction-policy"]  # S5-B independent witnesses and replay
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only

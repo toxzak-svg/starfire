@@ -80,6 +80,12 @@ pub mod companion_prediction_ledger;
 #[cfg(feature = "companion-interaction-policy")]
 pub mod companion_interaction_policy;
 
+// S5-B: independently witnessed outcomes for S5-A trials. Direct evidence may
+// resolve only the delivered arm; unshown arms require external paired review.
+// This remains evaluation-only and has no live response or action authority.
+#[cfg(feature = "companion-interaction-outcomes")]
+pub mod companion_interaction_outcomes;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
