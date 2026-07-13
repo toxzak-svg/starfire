@@ -2,19 +2,18 @@
 
 use serde_json::json;
 use star::language_realization::{
-    authority_boundary as renderer_authority_boundary, ClaimLexicalBinding,
-    DeterministicRenderer, LexicalBindingTable, LexicalBindingTablePayload,
-    MissingVariableLexicalBinding, ObservationLexicalBinding, PredictionLexicalBinding,
-    RealizationError, SurfaceReference,
+    authority_boundary as renderer_authority_boundary, ClaimLexicalBinding, DeterministicRenderer,
+    LexicalBindingTable, LexicalBindingTablePayload, MissingVariableLexicalBinding,
+    ObservationLexicalBinding, PredictionLexicalBinding, RealizationError, SurfaceReference,
 };
 use star::semantic_response::{
     AbstentionReason, AcknowledgmentLevel, AuthorizedClaim, ClaimId, ClaimPolarity,
-    CompanionStateVersion, ComputeBudget, CognitiveStateVersion, DetailLevel, DialogueMode,
+    CognitiveStateVersion, CompanionStateVersion, ComputeBudget, DetailLevel, DialogueMode,
     DiscourseOperation, DiscourseOperationKind, EpistemicConstraint, EpistemicStatus,
     MissingVariableId, ObservationId, OperationId, OutputBudget, PredictionId, ProhibitedClaim,
     ResponseProgramId, SemanticResponseIntent, SemanticResponseProgram,
-    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-    SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel, SensitivityPolicy,
+    StyleEnvelope, SubjectScope, VocabularyLevel,
 };
 
 fn claim(
@@ -265,21 +264,16 @@ fn lexical_payload(program: &SemanticResponseProgram) -> LexicalBindingTablePayl
     }
 }
 
-fn rejected_table(
-    payload: LexicalBindingTablePayload,
-    program: &SemanticResponseProgram,
-) -> bool {
+fn rejected_table(payload: LexicalBindingTablePayload, program: &SemanticResponseProgram) -> bool {
     LexicalBindingTable::validate(payload, program).is_err()
 }
 
 fn main() {
     let renderer = DeterministicRenderer;
     let detailed_program = program(1, DetailLevel::Detailed, true, 5_000);
-    let detailed_table = LexicalBindingTable::validate(
-        lexical_payload(&detailed_program),
-        &detailed_program,
-    )
-    .expect("frozen lexical table must validate");
+    let detailed_table =
+        LexicalBindingTable::validate(lexical_payload(&detailed_program), &detailed_program)
+            .expect("frozen lexical table must validate");
     let first = renderer
         .render(&detailed_program, &detailed_table)
         .expect("frozen detailed render must succeed");
@@ -326,7 +320,10 @@ fn main() {
         .payload
         .text
         .contains("the renderer does not own the cognition")
-        && !first.payload.text.contains("the renderer owns the cognition");
+        && !first
+            .payload
+            .text
+            .contains("the renderer owns the cognition");
     let epistemic_markers_preserved = first.payload.text.contains("I know that")
         && first.payload.text.contains("It is probable that")
         && first.payload.text.contains("It is possible that")
@@ -338,11 +335,9 @@ fn main() {
         .contains("fluency proves cognition");
 
     let brief_program = program(2, DetailLevel::Brief, false, 5_000);
-    let brief_table = LexicalBindingTable::validate(
-        lexical_payload(&brief_program),
-        &brief_program,
-    )
-    .expect("frozen brief lexical table must validate");
+    let brief_table =
+        LexicalBindingTable::validate(lexical_payload(&brief_program), &brief_program)
+            .expect("frozen brief lexical table must validate");
     let brief = renderer
         .render(&brief_program, &brief_table)
         .expect("frozen brief render must succeed");
@@ -451,11 +446,8 @@ fn main() {
 
     let budget_overflow_rejected_without_truncation = {
         let tiny_program = program(3, DetailLevel::Standard, true, 64);
-        let table = LexicalBindingTable::validate(
-            lexical_payload(&tiny_program),
-            &tiny_program,
-        )
-        .expect("tiny-budget lexical table must validate");
+        let table = LexicalBindingTable::validate(lexical_payload(&tiny_program), &tiny_program)
+            .expect("tiny-budget lexical table must validate");
         matches!(
             renderer.render(&tiny_program, &table),
             Err(RealizationError::BudgetExceeded)
@@ -509,16 +501,14 @@ fn main() {
 
     let polarity_tampering_rejected = {
         let mut realization = first.clone();
-        realization.payload.text = realization
-            .payload
-            .text
-            .replace(
-                "the renderer does not own the cognition",
-                "the renderer owns the cognition",
-            );
+        realization.payload.text = realization.payload.text.replace(
+            "the renderer does not own the cognition",
+            "the renderer owns the cognition",
+        );
         matches!(
             realization.verify_integrity(&detailed_program, &detailed_table),
-            Err(RealizationError::SemanticMarkerMismatch | RealizationError::RealizationDigestMismatch)
+            Err(RealizationError::SemanticMarkerMismatch
+                | RealizationError::RealizationDigestMismatch)
         )
     };
 

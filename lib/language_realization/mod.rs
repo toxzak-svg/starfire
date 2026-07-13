@@ -6,10 +6,9 @@
 //! discharge, or autonomous action.
 
 use crate::semantic_response::{
-    AbstentionReason, AuthorizedClaim, ClaimId, ClaimPolarity, DetailLevel, DialogueMode,
-    DiscourseOperationKind, EpistemicStatus, MissingVariableId, ObservationId, OperationId,
-    PredictionId, ResponseProgramDigest, SemanticProgramError, SemanticResponseProgram,
-    SubjectScope,
+    AbstentionReason, AuthorizedClaim, ClaimId, ClaimPolarity, DetailLevel, DiscourseOperationKind,
+    EpistemicStatus, MissingVariableId, ObservationId, OperationId, PredictionId,
+    ResponseProgramDigest, SemanticProgramError, SemanticResponseProgram, SubjectScope,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -300,7 +299,8 @@ impl DeterministicRenderer {
             .checked_add(claim_cost)
             .and_then(|cost| cost.checked_add(operation_cost))
             .ok_or(RealizationError::BudgetExceeded)?;
-        let character_cost = u32::try_from(text.len()).map_err(|_| RealizationError::BudgetExceeded)?;
+        let character_cost =
+            u32::try_from(text.len()).map_err(|_| RealizationError::BudgetExceeded)?;
         let sentence_count = count_sentences(&text)?;
 
         validate_realization_budgets(
@@ -407,11 +407,7 @@ fn render_operation(
             semantic_markers.push((authorized.id, *status, authorized.polarity));
             format!(
                 "{}.",
-                render_claim_with_status(
-                    authorized,
-                    *status,
-                    claim_lexemes.get(claim).copied(),
-                )?
+                render_claim_with_status(authorized, *status, claim_lexemes.get(claim).copied(),)?
             )
         }
         DiscourseOperationKind::Contrast { left, right } => {
@@ -425,7 +421,11 @@ fn render_operation(
                 .copied()
                 .ok_or(RealizationError::LexicalCoverageMismatch)?;
             semantic_markers.extend([
-                (left_claim.id, left_claim.epistemic_status, left_claim.polarity),
+                (
+                    left_claim.id,
+                    left_claim.epistemic_status,
+                    left_claim.polarity,
+                ),
                 (
                     right_claim.id,
                     right_claim.epistemic_status,
@@ -463,10 +463,7 @@ fn render_operation(
             format!(
                 "Correction: {}; instead, {}.",
                 render_claim(prior_claim, claim_lexemes.get(prior).copied())?,
-                render_claim(
-                    replacement_claim,
-                    claim_lexemes.get(replacement).copied(),
-                )?
+                render_claim(replacement_claim, claim_lexemes.get(replacement).copied(),)?
             )
         }
         DiscourseOperationKind::Explain { claims } => {
@@ -478,10 +475,7 @@ fn render_operation(
                     .copied()
                     .ok_or(RealizationError::LexicalCoverageMismatch)?;
                 semantic_markers.push((claim.id, claim.epistemic_status, claim.polarity));
-                rendered.push(render_claim(
-                    claim,
-                    claim_lexemes.get(claim_id).copied(),
-                )?);
+                rendered.push(render_claim(claim, claim_lexemes.get(claim_id).copied())?);
             }
             format!("Relevant support: {}.", rendered.join("; "))
         }
@@ -599,6 +593,7 @@ fn assemble_segments(
     let mut text = String::new();
     let mut alignments = Vec::with_capacity(segments.len());
     for (index, segment) in segments.iter().enumerate() {
+        debug_assert_eq!(segment.semantic_markers.len(), segment.claim_ids.len());
         if index > 0 {
             if program.payload.style.detail == DetailLevel::Detailed
                 && index % operations_per_paragraph == 0
@@ -625,8 +620,7 @@ fn assemble_segments(
     let paragraph_count = if text.is_empty() {
         0
     } else {
-        u16::try_from(text.split("\n\n").count())
-            .map_err(|_| RealizationError::BudgetExceeded)?
+        u16::try_from(text.split("\n\n").count()).map_err(|_| RealizationError::BudgetExceeded)?
     };
     Ok((text, alignments, paragraph_count))
 }
@@ -688,14 +682,8 @@ fn validate_lexical_payload(
     }
 
     for binding in &payload.claims {
-        reject_forbidden_text(
-            &binding.positive_clause,
-            &payload.forbidden_surface_forms,
-        )?;
-        reject_forbidden_text(
-            &binding.negative_clause,
-            &payload.forbidden_surface_forms,
-        )?;
+        reject_forbidden_text(&binding.positive_clause, &payload.forbidden_surface_forms)?;
+        reject_forbidden_text(&binding.negative_clause, &payload.forbidden_surface_forms)?;
     }
     for label in payload
         .observations
@@ -760,9 +748,7 @@ fn expected_lexical_references(program: &SemanticResponseProgram) -> ExpectedLex
     expected
 }
 
-fn validate_claim_binding_order(
-    bindings: &[ClaimLexicalBinding],
-) -> Result<(), RealizationError> {
+fn validate_claim_binding_order(bindings: &[ClaimLexicalBinding]) -> Result<(), RealizationError> {
     let mut previous = 0_u64;
     for binding in bindings {
         if binding.claim.0 == 0 || binding.claim.0 <= previous {
@@ -923,8 +909,9 @@ fn validate_alignments(
 
 fn expected_claim_ids(operation: &DiscourseOperationKind) -> Vec<ClaimId> {
     match operation {
-        DiscourseOperationKind::Assert(claim)
-        | DiscourseOperationKind::Qualify { claim, .. } => vec![*claim],
+        DiscourseOperationKind::Assert(claim) | DiscourseOperationKind::Qualify { claim, .. } => {
+            vec![*claim]
+        }
         DiscourseOperationKind::Contrast { left, right } => vec![*left, *right],
         DiscourseOperationKind::Correct { prior, replacement } => vec![*prior, *replacement],
         DiscourseOperationKind::Explain { claims } => claims.clone(),
@@ -1088,11 +1075,11 @@ fn mix_u64(mut digest: u64, value: u64) -> u64 {
 mod tests {
     use super::*;
     use crate::semantic_response::{
-        AcknowledgmentLevel, ClaimPolarity, CompanionStateVersion, ComputeBudget,
-        CognitiveStateVersion, DiscourseOperation, EpistemicConstraint, LexicalTableDigest as _,
-        OutputBudget, ProhibitedClaim, ResponseProgramId, SemanticResponseIntent,
-        SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-        SensitivityPolicy, StyleEnvelope, VocabularyLevel,
+        AcknowledgmentLevel, ClaimPolarity, CognitiveStateVersion, CompanionStateVersion,
+        ComputeBudget, DialogueMode, DiscourseOperation, EpistemicConstraint, OutputBudget,
+        ProhibitedClaim, ResponseProgramId, SemanticResponseIntent, SemanticResponseProgramPayload,
+        SemanticValidationContext, SensitivityLevel, SensitivityPolicy, StyleEnvelope,
+        VocabularyLevel,
     };
 
     fn claim(
@@ -1232,9 +1219,7 @@ mod tests {
                 },
                 DiscourseOperation {
                     id: OperationId(9),
-                    kind: DiscourseOperationKind::Abstain(
-                        AbstentionReason::InsufficientEvidence,
-                    ),
+                    kind: DiscourseOperationKind::Abstain(AbstentionReason::InsufficientEvidence),
                 },
             ],
             required_claims,
