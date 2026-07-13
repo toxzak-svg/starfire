@@ -80,3 +80,22 @@ if error_anchor not in src:
 src = src.replace(error_anchor, error_insert, 1)
 
 path.write_text(src)
+
+probe_path = Path("lib/examples/s6c_real_interaction_canary_evidence.rs")
+probe = probe_path.read_text()
+old_enrollment = '''    let enrollment = planner
+        .enroll(state, predictions, predictions.version, policy_context)
+        .unwrap();'''
+new_enrollment = '''    let expected_prediction_version = predictions.version;
+    let enrollment = planner
+        .enroll(
+            state,
+            predictions,
+            expected_prediction_version,
+            policy_context,
+        )
+        .unwrap();'''
+if old_enrollment not in probe:
+    raise SystemExit("probe enrollment anchor not found")
+probe = probe.replace(old_enrollment, new_enrollment, 1)
+probe_path.write_text(probe)
