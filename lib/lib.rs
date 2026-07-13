@@ -99,6 +99,12 @@ pub mod companion_policy_evaluation;
 #[cfg(feature = "companion-bounded-live-policy")]
 pub mod companion_bounded_live_policy;
 
+// S6-C: consented and independently witnessed canary-evidence intake. Disabled
+// by default; retains typed fields and opaque digests only, imports atomically
+// through S5-B, and grants no runtime, routing, memory, belief, tool, or action authority.
+#[cfg(feature = "companion-real-interaction-canary")]
+pub mod companion_real_interaction_canary;
+
 // STLM L0-B: typed semantic response authorization, validation, canonical
 // digesting, and in-memory replay. Disabled by default and intentionally has no
 // renderer, Runtime::chat(), persistence, routing, mutation, tool, or action authority.

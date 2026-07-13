@@ -45,6 +45,16 @@ path = "examples/s6b_adversarial_live_policy_stress.rs"
 required-features = ["companion-live-policy-stress"]
 
 [[example]]
+name = "s6c_real_interaction_canary_evidence"
+path = "examples/s6c_real_interaction_canary_evidence.rs"
+required-features = ["companion-real-interaction-canary"]
+
+[[example]]
+name = "s6c_external_evaluator_channel_probe"
+path = "examples/s6c_external_evaluator_channel_probe.rs"
+required-features = ["companion-real-interaction-canary"]
+
+[[example]]
 name = "stlm_l0_semantic_program_probe"
 path = "examples/stlm_l0_semantic_program_probe.rs"
 required-features = ["semantic-response-program"]
@@ -109,6 +119,7 @@ companion-interaction-outcomes = ["companion-interaction-policy"]  # S5-B indepe
 companion-policy-evaluation = ["companion-interaction-outcomes"]  # S5-C held-out comparative evaluation; no live influence
 companion-bounded-live-policy = ["companion-policy-evaluation"]  # S6-A opt-in bounded response-planning metadata
 companion-live-policy-stress = ["companion-bounded-live-policy"]  # S6-B adversarial audit/replay stress; no new authority
+companion-real-interaction-canary = ["companion-policy-evaluation"]  # S6-C consented typed canary intake; no runtime authority
 semantic-response-program = []  # STLM L0-B typed semantic authorization and replay; no Runtime::chat() wiring
 deterministic-language-renderer = ["semantic-response-program"]  # STLM L0-C bounded reference realization; no live influence
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
