@@ -1,0 +1,62 @@
+name: Diagnose S6-C Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/diagnose-s6c-review-fixes.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6c-limited-runtime-canary
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Apply and format hardening draft
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/apply-s6c-review-fixes.yml').read_text()
+          opener = "          python3 - <<'PY'\n"
+          start = workflow.index(opener) + len(opener)
+          end = workflow.index("          PY\n", start)
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in workflow[start:end].splitlines()
+          ) + "\n"
+          exec(compile(script, 'apply-s6c-review-fixes.py', 'exec'))
+          PY
+          rustfmt --edition 2021 \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs
+      - name: Capture short compiler diagnostics
+        run: |
+          set +e
+          cargo check -q -p star --lib --features companion-runtime-canary --locked \
+            --message-format=short > s6c-compile.log 2>&1
+          library_status=$?
+          cargo check -q -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked --message-format=short \
+            >> s6c-compile.log 2>&1
+          example_status=$?
+          echo "library_status=${library_status}" >> s6c-compile.log
+          echo "example_status=${example_status}" >> s6c-compile.log
+          cat s6c-compile.log
+          exit 0
+      - name: Upload diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6c-review-diagnostics
+          path: s6c-compile.log
+          retention-days: 1
