@@ -45,6 +45,12 @@ jobs:
           set -o pipefail
           cargo check -p star --all-targets --locked 2>&1 | tee omega-d1-cargo-check.log
 
+      - name: Compile H-Infant feature-gated probe
+        run: |
+          set -o pipefail
+          cargo check -p star --example h_infant_typed_pressure_routing_probe \
+            --features developmental-evidence --locked 2>&1 | tee omega-d1-developmental-check.log
+
       - name: Run transport and descendant contract tests deterministically
         run: |
           set -o pipefail
@@ -77,6 +83,7 @@ jobs:
           name: omega-d1-diagnostics
           path: |
             omega-d1-cargo-check.log
+            omega-d1-developmental-check.log
             omega-d1-test.log
             omega1-endogenous-state-space-genesis-report.json
             omega-r1-representative-transportability-report.json
