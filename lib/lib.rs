@@ -93,9 +93,9 @@ pub mod companion_interaction_outcomes;
 #[cfg(feature = "companion-policy-evaluation")]
 pub mod companion_policy_evaluation;
 
-// S6-A: opt-in, bounded response-planning metadata derived from an explicitly
-// approved companion policy. Neutral fallback is exact; no routing, memory,
-// belief, ontology, persistence, tool, or autonomous-action authority is added.
+// S6-A/S6-B: bounded companion-policy response-planning metadata and adversarial
+// replay hardening. Both remain opt-in and add no default chat, routing, memory,
+// belief, ontology, persistence, tool, or autonomous-action authority.
 #[cfg(feature = "companion-bounded-live-policy")]
 pub mod companion_bounded_live_policy;
 
@@ -104,6 +104,12 @@ pub mod companion_bounded_live_policy;
 // delivered arm is registered. Disabled and not attached to Runtime::chat().
 #[cfg(feature = "companion-runtime-canary")]
 pub mod companion_runtime_canary;
+
+// STLM L0-B: typed semantic response authorization, validation, canonical
+// digesting, and in-memory replay. Disabled by default and intentionally has no
+// renderer, Runtime::chat(), persistence, routing, mutation, tool, or action authority.
+#[cfg(feature = "semantic-response-program")]
+pub mod semantic_response;
 
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
