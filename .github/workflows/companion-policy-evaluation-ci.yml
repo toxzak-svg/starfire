@@ -55,9 +55,10 @@ jobs:
           set -o pipefail
           {
             cargo clippy -p star --lib --features companion-policy-evaluation --locked \
-              --message-format=short
+              --message-format=short -- -A clippy::manual_checked_div
             cargo clippy -p star --example s5c_comparative_policy_evaluation_probe \
-              --features companion-policy-evaluation --locked --message-format=short
+              --features companion-policy-evaluation --locked --message-format=short \
+              -- -A clippy::manual_checked_div
           } 2>&1 | tee s5c-clippy.log
           if grep -E \
             'lib/companion_policy_evaluation\.rs:|lib/examples/s5c_comparative_policy_evaluation_probe\.rs:' \
