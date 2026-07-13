@@ -6,11 +6,12 @@
 //! routing, belief promotion, persistence, or autonomous side effects.
 
 use crate::companion_prediction_ledger::{
-    AbstentionInput, OutcomeProbability, PredictionId, PredictionInput, PredictionLedger,
-    PredictionLedgerError, PredictionProducer, PredictionProducerKind, PredictionTransition,
+    AbstentionId, AbstentionInput, OutcomeProbability, PredictionId, PredictionInput,
+    PredictionLedger, PredictionLedgerError, PredictionProducer, PredictionProducerKind,
+    PredictionTransition,
 };
 use crate::companion_state::{
-    AbstentionId as _, ClaimId, ClaimStatus, CompanionClaim, CompanionState, Retention, Sensitivity,
+    ClaimId, ClaimStatus, CompanionClaim, CompanionState, Retention, Sensitivity,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -150,22 +151,6 @@ impl ShadowPolicyProposal {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ShadowPolicyBatch {
-    pub source_companion_version: u64,
-    pub context: PolicyContext,
-    pub proposals: Vec<ShadowPolicyProposal>,
-}
-
-impl ShadowPolicyBatch {
-    #[must_use]
-    pub fn proposal(&self, variant: PolicyVariant) -> Option<&ShadowPolicyProposal> {
-        self.proposals
-            .iter()
-            .find(|proposal| proposal.variant == variant)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyContext {
     /// Digest of the pre-response context. Raw conversation text is excluded.
     pub context_digest: u64,
@@ -179,6 +164,22 @@ pub struct PolicyContext {
     pub issued_at_ms: u64,
     pub not_before_ms: u64,
     pub expires_at_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShadowPolicyBatch {
+    pub source_companion_version: u64,
+    pub context: PolicyContext,
+    pub proposals: Vec<ShadowPolicyProposal>,
+}
+
+impl ShadowPolicyBatch {
+    #[must_use]
+    pub fn proposal(&self, variant: PolicyVariant) -> Option<&ShadowPolicyProposal> {
+        self.proposals
+            .iter()
+            .find(|proposal| proposal.variant == variant)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -245,7 +246,8 @@ impl ShadowPolicyPlanner {
             .filter(|claim| recognized_claim(claim, domain.as_deref()))
             .collect::<Vec<_>>();
 
-        let candidate = self.companion_candidate(state.version, &context, domain.as_deref(), &eligible);
+        let candidate =
+            self.companion_candidate(state.version, &context, domain.as_deref(), &eligible);
         let neutral = proposal(
             PolicyVariant::NeutralDefault,
             state.version,
@@ -255,7 +257,8 @@ impl ShadowPolicyPlanner {
             &context,
             None,
         );
-        let recency = self.recency_control(state.version, &context, domain.as_deref(), &eligible);
+        let recency =
+            self.recency_control(state.version, &context, domain.as_deref(), &eligible);
         let majority = proposal(
             PolicyVariant::MajorityPrior,
             state.version,
@@ -394,7 +397,7 @@ impl ShadowPolicyPlanner {
     }
 
     fn claim_allowed(&self, claim: &CompanionClaim, now_ms: u64) -> bool {
-        matches!(claim.status, ClaimStatus::Active)
+        matches!(&claim.status, ClaimStatus::Active)
             && claim.confidence_bps >= self.config.min_confidence_bps
             && !claim.retention.is_expired(now_ms)
             && (self.config.include_session_claims || claim.retention != Retention::Session)
@@ -536,7 +539,7 @@ pub struct ShadowPolicyEnrollment {
     pub ledger_version_before: u64,
     pub ledger_version_after: u64,
     pub prediction_ids: Vec<PredictionId>,
-    pub abstention_ids: Vec<u64>,
+    pub abstention_ids: Vec<AbstentionId>,
     pub transitions: Vec<PredictionTransition>,
 }
 
@@ -654,34 +657,35 @@ fn scramble_policy(mut policy: InteractionPolicy, context_digest: u64) -> Intera
 }
 
 fn apply_single_claim(policy: &mut InteractionPolicy, claim: &CompanionClaim) {
-    if key_matches(&claim.key, DETAIL_PREFIX, None) {
+    if claim_key_has_prefix(&claim.key, DETAIL_PREFIX) {
         policy.detail = DetailLevel::Detailed;
-    } else if key_matches(&claim.key, BREVITY_PREFIX, None) {
+    } else if claim_key_has_prefix(&claim.key, BREVITY_PREFIX) {
         policy.detail = DetailLevel::Brief;
-    } else if key_matches(&claim.key, QUESTIONS_PREFIX, None) {
+    } else if claim_key_has_prefix(&claim.key, QUESTIONS_PREFIX) {
         policy.dialogue = DialogueMode::QuestionLed;
-    } else if key_matches(&claim.key, ARGUMENT_STYLE_PREFIX, None) {
+    } else if claim_key_has_prefix(&claim.key, ARGUMENT_STYLE_PREFIX) {
         if let Some(style) = parse_explanation_style(&claim.value) {
             policy.explanation_style = style;
         }
-    } else if key_matches(&claim.key, STRONG_DOMAIN_PREFIX, None) {
+    } else if claim_key_has_prefix(&claim.key, STRONG_DOMAIN_PREFIX) {
         policy.vocabulary = VocabularyLevel::Technical;
-    } else if key_matches(&claim.key, WEAK_DOMAIN_PREFIX, None) {
+    } else if claim_key_has_prefix(&claim.key, WEAK_DOMAIN_PREFIX) {
         policy.vocabulary = VocabularyLevel::Plain;
     }
 }
 
 fn recognized_claim(claim: &CompanionClaim, domain: Option<&str>) -> bool {
-    [
-        DETAIL_PREFIX,
-        BREVITY_PREFIX,
-        QUESTIONS_PREFIX,
-        ARGUMENT_STYLE_PREFIX,
-        STRONG_DOMAIN_PREFIX,
-        WEAK_DOMAIN_PREFIX,
-    ]
-    .iter()
-    .any(|prefix| key_matches(&claim.key, prefix, domain))
+    if topic_matches(&claim.key, DETAIL_PREFIX, domain)
+        || topic_matches(&claim.key, BREVITY_PREFIX, domain)
+        || topic_matches(&claim.key, QUESTIONS_PREFIX, domain)
+    {
+        return truthy(&claim.value);
+    }
+    if topic_matches(&claim.key, ARGUMENT_STYLE_PREFIX, domain) {
+        return parse_explanation_style(&claim.value).is_some();
+    }
+    topic_matches(&claim.key, STRONG_DOMAIN_PREFIX, domain)
+        || topic_matches(&claim.key, WEAK_DOMAIN_PREFIX, domain)
 }
 
 fn best_claim<'a>(
@@ -692,7 +696,7 @@ fn best_claim<'a>(
     claims
         .iter()
         .copied()
-        .filter(|claim| key_matches(&claim.key, prefix, domain))
+        .filter(|claim| topic_matches(&claim.key, prefix, domain))
         .max_by_key(|claim| {
             let domain_specific = domain
                 .is_some_and(|domain| claim.key == format!("{prefix}.{domain}"));
@@ -700,11 +704,21 @@ fn best_claim<'a>(
         })
 }
 
-fn key_matches(key: &str, prefix: &str, domain: Option<&str>) -> bool {
-    if key == prefix || key == format!("{prefix}.general") {
-        return true;
-    }
-    domain.is_some_and(|domain| key == format!("{prefix}.{domain}"))
+fn topic_matches(key: &str, prefix: &str, domain: Option<&str>) -> bool {
+    key == prefix
+        || key == format!("{prefix}.general")
+        || domain.is_some_and(|domain| key == format!("{prefix}.{domain}"))
+}
+
+fn claim_key_has_prefix(key: &str, prefix: &str) -> bool {
+    key == prefix || key.starts_with(&format!("{prefix}."))
+}
+
+fn truthy(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "true" | "yes" | "1" | "on" | "prefer" | "preferred"
+    )
 }
 
 fn parse_explanation_style(value: &str) -> Option<ExplanationStyle> {
@@ -809,8 +823,8 @@ pub enum ShadowPolicyError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::companion_state::{ClaimInput, ClaimSource};
     use crate::companion_prediction_ledger::PredictionStatus;
+    use crate::companion_state::{ClaimInput, ClaimSource};
 
     fn context() -> PolicyContext {
         PolicyContext {
@@ -967,6 +981,14 @@ mod tests {
             .map(|proposal| proposal.variant)
             .collect::<BTreeSet<_>>();
         assert_eq!(variants, PolicyVariant::all().into_iter().collect());
+        assert_eq!(
+            first
+                .proposal(PolicyVariant::RecencyOnly)
+                .unwrap()
+                .policy
+                .vocabulary,
+            VocabularyLevel::Technical
+        );
         assert_ne!(
             first
                 .proposal(PolicyVariant::CompanionDerived)
