@@ -1,0 +1,79 @@
+name: Run S6-C Review Fixes
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/run-s6c-review-fixes-pr.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6c-limited-runtime-canary
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Execute frozen hardening script
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/apply-s6c-review-fixes.yml').read_text()
+          opener = "          python3 - <<'PY'\n"
+          start = workflow.index(opener) + len(opener)
+          end = workflow.index("          PY\n", start)
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in workflow[start:end].splitlines()
+          ) + "\n"
+          exec(compile(script, 'apply-s6c-review-fixes.py', 'exec'))
+          PY
+
+      - name: Format hardened sources
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs
+
+      - name: Compile hardened S6-C
+        run: |
+          cargo check -p star --lib --features companion-runtime-canary --locked
+          cargo check -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked
+
+      - name: Run hardened gates
+        run: |
+          cargo test -p star --lib --features companion-runtime-canary --locked \
+            companion_runtime_canary:: -- --test-threads=1
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-runtime-canary --locked
+          cargo run -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-runtime-canary --locked
+          cargo run -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked
+
+      - name: Commit verified hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs \
+            docs/experiments/S6C_LIMITED_RUNTIME_CANARY_RESULT.md
+          if git diff --cached --quiet; then
+            echo "No hardening changes remain"
+            exit 0
+          fi
+          git commit -m "fix(companion): harden S6-C trial binding and replay"
+          git push origin HEAD:experiment/s6c-limited-runtime-canary
