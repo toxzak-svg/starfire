@@ -63,6 +63,8 @@ pub mod representation_transport_descendants;
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
 #[cfg(feature = "companion-observer")]
+#[deny(warnings)]
+#[allow(clippy::derivable_impls)]
 pub mod companion_observer;
 
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
