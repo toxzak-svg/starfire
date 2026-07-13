@@ -40,16 +40,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Compile all star targets
+      - name: Compile all default-feature star targets
         run: |
           set -o pipefail
           cargo check -p star --all-targets --locked 2>&1 | tee omega-d1-cargo-check.log
 
-      - name: Compile H-Infant feature-gated probe
+      - name: Compile feature-gated probes with their declared features
         run: |
           set -o pipefail
-          cargo check -p star --example h_infant_typed_pressure_routing_probe \
-            --features developmental-evidence --locked 2>&1 | tee omega-d1-developmental-check.log
+          cargo check -p star --example s3_companion_observer_false_positive_probe \
+            --features companion-observer --locked 2>&1 | tee omega-d1-feature-check.log
+          cargo check -p star --example s4_companion_prediction_ledger_probe \
+            --features companion-prediction-ledger --locked 2>&1 | tee -a omega-d1-feature-check.log
+          cargo check -p star \
+            --example h_infant_typed_pressure_routing_probe \
+            --example h_infant_multi_pressure_priority_probe \
+            --example h_infant_residual_revision_probe \
+            --features developmental-evidence --locked 2>&1 | tee -a omega-d1-feature-check.log
+          cargo check -p star --example r1_relational_residual_bridge \
+            --features relational-evidence --locked 2>&1 | tee -a omega-d1-feature-check.log
 
       - name: Run transport and descendant contract tests deterministically
         run: |
@@ -83,7 +92,7 @@ jobs:
           name: omega-d1-diagnostics
           path: |
             omega-d1-cargo-check.log
-            omega-d1-developmental-check.log
+            omega-d1-feature-check.log
             omega-d1-test.log
             omega1-endogenous-state-space-genesis-report.json
             omega-r1-representative-transportability-report.json
