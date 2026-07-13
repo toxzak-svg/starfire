@@ -25,6 +25,7 @@ The companion layer owns:
 - sensitivity and retention policy metadata;
 - contradiction detection;
 - falsifiable predictions and independently witnessed outcomes;
+- shadow interaction-policy proposals and matched controls;
 - response-policy inputs derived from validated companion state only after later evaluation gates.
 
 ## Implemented slices
@@ -90,11 +91,9 @@ Completed by merged PR #50 after repairing the incomplete PR #49 integration:
 
 S3 produces inert `ClaimInput` proposals only. A separate reviewed boundary must decide whether any proposal becomes a companion-state event.
 
-## Current slice
-
 ### S4 — falsifiable prediction ledger
 
-The feature-gated S4 implementation provides:
+Merged in Starfire PR #53:
 
 - typed monotonic prediction and abstention IDs;
 - producer provenance and opaque subject scope;
@@ -111,11 +110,34 @@ The feature-gated S4 implementation provides:
 
 The synthetic S4 control result validates the ledger and evaluation harness. It does not establish that current companion predictions generalize to real conversations.
 
+## Current slice
+
+### S5-A — shadow interaction-policy proposals
+
+The feature-gated S5-A implementation provides:
+
+- complete bounded policies over detail, explanation style, dialogue mode, vocabulary, and acknowledgment;
+- source claim IDs, confidence, update times, sensitivity, and companion version preserved in every candidate;
+- default exclusion of sensitive, expired, low-confidence, and non-active claims;
+- explicit candidate abstention for insufficient or contradictory evidence;
+- six deterministic arms: companion-derived, neutral, recency-only, majority prior, context-only, and scrambled scope;
+- deterministic policy digests and opaque subject scopes;
+- atomic clone-then-commit enrollment into the S4 ledger;
+- pending predictions or explicit abstentions only;
+- exact S4 replay equality in the frozen fixture;
+- no `Runtime::chat()` wiring, generated-text influence, routing authority, belief promotion, persistence authority, or autonomous actions.
+
+The frozen S5-A fixture validates the controlled experiment construction. It does not establish that the companion-derived arm improves user outcomes.
+
 ## Later slices
 
-### S5 — interaction-policy evaluation
+### S5-B — independently witnessed outcome collection
 
-Evaluate response adaptation and emotional-interaction policies against matched controls. Promotion requires independent outcome evidence and may be rolled back.
+Collect delayed user, environment, or evaluator outcomes for every enrolled arm using temporal and held-out splits. The response generator remains prohibited from resolving predictions.
+
+### S5-C — comparative policy evaluation
+
+Compare candidate and controls using Brier score, calibration, correction rate, clarification burden, completion, abstention quality, and compute overhead. Promotion requires credible held-out improvement and must remain reversible.
 
 ### S6 — bounded live use
 

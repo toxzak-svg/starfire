@@ -74,6 +74,12 @@ pub mod companion_observer;
 #[cfg(feature = "companion-prediction-ledger")]
 pub mod companion_prediction_ledger;
 
+// S5-A: companion-derived interaction-policy proposals and matched controls.
+// Disabled by default and shadow-only: policies are enrolled as S4 predictions
+// but cannot alter generated text, routing, beliefs, persistence, or actions.
+#[cfg(feature = "companion-interaction-policy")]
+pub mod companion_interaction_policy;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
