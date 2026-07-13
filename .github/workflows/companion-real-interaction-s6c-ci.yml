@@ -1,0 +1,95 @@
+name: Companion Real-Interaction S6-C CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_real_interaction_canary.rs"
+      - "lib/examples/s6c_real_interaction_canary_evidence.rs"
+      - "lib/examples/s5b_independent_interaction_outcomes_probe.rs"
+      - "lib/examples/s5c_comparative_policy_evaluation_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/S6C_REAL_INTERACTION_CANARY_EVIDENCE.md"
+      - "docs/experiments/S6C_REAL_INTERACTION_CANARY_EVIDENCE_RESULT.md"
+      - ".github/workflows/companion-real-interaction-s6c-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s6c-real-interaction-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check S6-C formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/companion_real_interaction_canary.rs \
+            lib/examples/s6c_real_interaction_canary_evidence.rs
+
+      - name: Compile S6-C boundary and probe
+        run: |
+          cargo check -p star --lib \
+            --features companion-real-interaction-canary --locked
+          cargo check -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked
+
+      - name: Lint scoped S6-C sources
+        run: |
+          cargo clippy -p star --lib \
+            --features companion-real-interaction-canary --locked \
+            -- -D warnings
+          cargo clippy -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked \
+            -- -D warnings
+
+      - name: Run deterministic S6-C contracts
+        run: |
+          cargo test -p star --lib \
+            --features companion-real-interaction-canary --locked \
+            companion_real_interaction_canary:: -- --test-threads=1
+
+      - name: Re-run S5-B independent outcome regression
+        run: |
+          cargo run -p star --example s5b_independent_interaction_outcomes_probe \
+            --features companion-interaction-outcomes --locked \
+            | tee /tmp/s5b-regression.json
+
+      - name: Re-run S5-C held-out evaluation regression
+        run: |
+          cargo run -p star --example s5c_comparative_policy_evaluation_probe \
+            --features companion-policy-evaluation --locked \
+            | tee /tmp/s5c-regression.json
+
+      - name: Run frozen S6-C canary evidence probe
+        run: |
+          cargo run -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked \
+            | tee /tmp/s6c-canary-report.json
+
+      - name: Preserve reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6c-real-interaction-canary-report
+          path: |
+            /tmp/s5b-regression.json
+            /tmp/s5c-regression.json
+            /tmp/s6c-canary-report.json
+          if-no-files-found: ignore
+          retention-days: 30
