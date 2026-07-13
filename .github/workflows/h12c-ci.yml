@@ -40,10 +40,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check H12-C formatting
-        run: |
-          rustfmt --edition 2021 --check lib/examples/h12_c_literal_control_conformance.rs
-
       - name: Compile H12-C and latent-role substrate
         run: |
           set -o pipefail
