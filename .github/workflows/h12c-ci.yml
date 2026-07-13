@@ -1,0 +1,76 @@
+name: H12-C Conformance CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h12c-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  h12c-contract:
+    name: h12c-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check H12-C formatting
+        run: |
+          rustfmt --edition 2021 --check lib/examples/h12_c_literal_control_conformance.rs
+
+      - name: Compile H12-C and latent-role substrate
+        run: |
+          set -o pipefail
+          cargo check -p star --lib --locked 2>&1 | tee h12c-cargo-check.log
+          cargo check -p star --example h12_c_literal_control_conformance --locked 2>&1 \
+            | tee -a h12c-cargo-check.log
+
+      - name: Run latent-role substrate tests deterministically
+        run: |
+          set -o pipefail
+          cargo test -p star latent_roles:: --locked -- --test-threads=1 2>&1 \
+            | tee h12c-test.log
+
+      - name: Run first frozen H12-C verdict
+        run: |
+          set -o pipefail
+          cargo run -p star --example h12_c_literal_control_conformance --locked \
+            | tee h12c-literal-control-conformance-report.json
+
+      - name: Preserve H12-C diagnostics and report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h12c-literal-control-conformance
+          path: |
+            h12c-cargo-check.log
+            h12c-test.log
+            h12c-literal-control-conformance-report.json
+          if-no-files-found: ignore
+          retention-days: 14
