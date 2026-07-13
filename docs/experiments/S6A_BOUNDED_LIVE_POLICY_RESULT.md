@@ -51,3 +51,15 @@ This `PASS` establishes that S6-A correctly validates a promotion-evidence shape
 It does **not** establish that companion-derived policy improves real conversations. It does not authorize default `Runtime::chat()` integration, persistent live personalization, response routing, CHARGE control, companion-state mutation, belief or ontology promotion, tool selection, or autonomous action.
 
 Real activation still requires a separately collected `HeldOutConversationStudy` result satisfying the frozen S5-C contract. S6-B must stress rollback, cross-subject isolation, malformed evidence, unsafe-context handling, reordered events, and budget races before any default runtime hook is considered.
+
+
+## Companion-version binding hardening
+
+Status: **PENDING**
+
+The follow-up hardening binds every validated promotion gate to the exact positive
+companion-state version evaluated by its artifact. Activation must use a proposal
+from that same version, and every planned turn must present the current companion
+version. Any drift returns the exact neutral response plan without consuming the
+lease budget. The frozen probe now requires both activation-time mismatch
+rejection and post-activation drift fallback.

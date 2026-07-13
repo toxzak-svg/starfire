@@ -19,13 +19,14 @@ A lease requires all of the following:
 - every evidence and performance gate passing;
 - all S5-C authority flags remaining false;
 - an evaluation artifact digest;
+- the exact positive companion-state version evaluated by that artifact;
 - an explicit operator-approval digest;
 - a non-abstaining `CompanionDerived` proposal;
 - non-sensitive source evidence;
 - minimum policy confidence;
 - bounded activation duration and turn count.
 
-Synthetic evaluator conformance is rejected by the production-default controller. A dedicated configuration flag exists only so the frozen S6-A simulation can exercise the applied path.
+The promotion gate is non-serializable, and activation rejects any proposal whose source companion version differs from the evaluated version. Synthetic evaluator conformance is rejected by the production-default controller. A dedicated configuration flag exists only so the frozen S6-A simulation can exercise the applied path.
 
 ## Eligibility boundary
 
@@ -58,7 +59,7 @@ Each activation is a lease with:
 - source companion version, claim IDs, confidence, and policy digest;
 - promotion-gate and operator-approval digests.
 
-Only applied turns consume the turn budget. Neutral fallbacks do not. Revocation is immediate and replayable.
+Only applied turns consume the turn budget. Neutral fallbacks do not. Any later companion-state version change immediately forces exact neutral fallback without consuming budget. Revocation is immediate and replayable.
 
 ## Audit and replay
 
@@ -72,6 +73,8 @@ The deterministic probe requires:
 
 - structural S5-C promotion-gate validation;
 - production-default rejection of simulated evidence;
+- rejection of activation from a mismatched companion version;
+- exact neutral fallback after companion-version drift;
 - an explicit simulation override for the synthetic applied path;
 - unchanged response body before reranking;
 - bounded style and character metadata changes;
