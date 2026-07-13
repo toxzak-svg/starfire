@@ -110,11 +110,9 @@ Merged in Starfire PR #53:
 
 The synthetic S4 control result validates the ledger and evaluation harness. It does not establish that current companion predictions generalize to real conversations.
 
-## Current slice
-
 ### S5-A — shadow interaction-policy proposals
 
-The feature-gated S5-A implementation provides:
+Merged in Starfire PR #55:
 
 - complete bounded policies over detail, explanation style, dialogue mode, vocabulary, and acknowledgment;
 - source claim IDs, confidence, update times, sensitivity, and companion version preserved in every candidate;
@@ -129,11 +127,26 @@ The feature-gated S5-A implementation provides:
 
 The frozen S5-A fixture validates the controlled experiment construction. It does not establish that the companion-derived arm improves user outcomes.
 
-## Later slices
+## Current slice
 
 ### S5-B — independently witnessed outcome collection
 
-Collect delayed user, environment, or evaluator outcomes for every enrolled arm using temporal and held-out splits. The response generator remains prohibited from resolving predictions.
+The feature-gated S5-B implementation provides:
+
+- deterministic development, opaque-subject holdout, and temporal-holdout assignment from pre-outcome metadata;
+- exact one-observation coverage for every non-abstaining S5-A arm;
+- delayed user, environment, or external-evaluator witnesses only;
+- explicit rejection of response-generator self-grading and producer-identical witness IDs;
+- unique evidence digests across policy arms;
+- bounded correction count, clarification burden, completion, and compute metrics for S5-C;
+- validation that ledger records still match the frozen S5-A enrollment;
+- atomic clone-then-commit resolution of complete batches;
+- exact S4 issue-and-resolution replay;
+- no comparative winner selection, promotion, runtime influence, routing, belief mutation, persistence authority, or actions.
+
+The frozen S5-B fixture validates collection mechanics on synthetic observations. It does not prove that any policy arm is superior.
+
+## Later slices
 
 ### S5-C — comparative policy evaluation
 
