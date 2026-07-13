@@ -53,10 +53,10 @@ jobs:
           cargo test -p star latent_roles:: --locked -- --test-threads=1 2>&1 \
             | tee h12c-test.log
 
-      - name: Run first frozen H12-C verdict
+      - name: Reproduce terminal H12-C infrastructure failure diagnostically
         run: |
           set -o pipefail
-          cargo run -p star --example h12_c_literal_control_conformance --locked \
+          cargo run -p star --example h12_c_literal_control_conformance --locked 2>&1 \
             | tee h12c-literal-control-conformance-report.json
 
       - name: Preserve H12-C diagnostics and report
