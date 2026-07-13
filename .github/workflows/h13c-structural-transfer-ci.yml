@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: h13c-structural-transfer-${{ github.workflow }}-${{ github.ref }}
@@ -30,8 +30,10 @@ jobs:
       CARGO_TERM_COLOR: always
       RUST_BACKTRACE: "1"
     steps:
-      - name: Checkout
+      - name: Checkout branch head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Cache Cargo
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
@@ -44,7 +46,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Format probe and preserve exact patch
+      - name: Format and commit exact output
+        if: github.event_name == 'pull_request'
         run: |
           rustfmt --edition 2021 \
             lib/structural_transfer.rs \
@@ -54,6 +57,16 @@ jobs:
             lib/structural_transfer.rs \
             lib/examples/h13c_structural_role_transfer_stress.rs \
             | tee h13c-rustfmt.patch
+          if ! git diff --quiet -- \
+            lib/structural_transfer.rs \
+            lib/examples/h13c_structural_role_transfer_stress.rs; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/structural_transfer.rs \
+              lib/examples/h13c_structural_role_transfer_stress.rs
+            git commit -m "style(h13c): apply frozen rustfmt output"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
 
       - name: Compile H13-C probe
         run: |
@@ -90,7 +103,5 @@ jobs:
             h13c-structural-transfer-tests.log
             h13c-structural-role-transfer-report.json
             target/h13c-structural-role-transfer-report.json
-            lib/structural_transfer.rs
-            lib/examples/h13c_structural_role_transfer_stress.rs
           if-no-files-found: ignore
           retention-days: 14
