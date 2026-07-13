@@ -22,7 +22,7 @@ jobs:
       - name: Check out branch
         uses: actions/checkout@v4
       - name: Package repository source
-        run: tar --exclude=.git --exclude=target -czf starfire-s6c-source.tar.gz .
+        run: tar --exclude=.git --exclude=target --exclude=starfire-s6c-source.tar.gz -czf starfire-s6c-source.tar.gz .
       - name: Upload source
         uses: actions/upload-artifact@v4
         with:
