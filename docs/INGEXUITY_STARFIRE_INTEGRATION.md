@@ -149,11 +149,9 @@ The central counterfactual rule is:
 
 > A witness may resolve only the response it actually observed. Unshown arms remain pending unless an external evaluator explicitly compares rendered alternatives.
 
-## Current slice
-
 ### S5-C — comparative policy evaluation
 
-The feature-gated S5-C implementation provides:
+Merged in Starfire PR #61:
 
 - deterministic development, opaque-subject holdout, and temporal-holdout assignment from pre-outcome metadata only;
 - complete per-arm accounting for predictions, resolutions, pending outcomes, expirations, abstentions, Brier score, and calibration error;
@@ -170,11 +168,33 @@ The feature-gated S5-C implementation provides:
 
 A synthetic S5-C `PASS` validates the evaluator and gate composition only. Real promotion eligibility requires frozen real-world held-out evidence under the same preregistered contract.
 
+## Current slice
+
+### S6-A — bounded live response planning
+
+The feature-gated S6-A implementation provides:
+
+- structural validation of complete S5-C promotion evidence;
+- default rejection of synthetic-conformance evidence for live activation;
+- explicit operator approval, artifact digest, subject scope, duration, and turn budgets;
+- non-sensitive, non-abstaining companion-policy activation only;
+- low-risk informational-intent allowlisting;
+- exact neutral fallback for sensitive, disallowed, mismatched, expired, duplicate, or exhausted turns;
+- body-preserving response planning through style hints, bounded character limits, and typed policy slots;
+- deterministic activation, planning, fallback, revocation, and replay events;
+- no default `Runtime::chat()` wiring, routing, companion-state mutation, belief promotion, persistence authority, or autonomous actions.
+
+The frozen S6-A probe may explicitly allow simulated activation to test mechanics. Production defaults do not.
+
 ## Later slices
 
-### S6 — bounded live use
+### S6-B — adversarial rollback and safety evaluation
 
-Permit validated, non-sensitive active claims to influence response planning under explicit budgets, audit logs, neutral fallback, rollback, and adversarial safety checks. Sensitive claims remain excluded unless the calling policy explicitly authorizes them.
+Stress malformed promotion evidence, cross-subject leakage, sensitive-context classification, duplicate and reordered events, budget races, rollback, and neutral-fallback equivalence before any default runtime integration.
+
+### S6-C — limited runtime integration
+
+Only after real held-out evidence and S6-B survival, consider a separately enabled per-session runtime hook with immediate neutral fallback and revocation.
 
 ## Required invariants
 
