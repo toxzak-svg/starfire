@@ -1,22 +1,21 @@
 //! Shadow-only companion observation.
 //!
-//! The observer extracts a small, explicit vocabulary of first-person user
-//! statements into typed `ClaimInput` proposals. It has no access to
-//! `CompanionState`, persistence, response routing, or action authority. A
-//! caller must separately review and commit any proposal.
+//! The observer extracts a deliberately small vocabulary of explicit,
+//! first-person user statements into typed `ClaimInput` proposals. It has no
+//! access to `CompanionState`, persistence, response routing, or action
+//! authority. A separate caller must review and commit any proposal.
 
 use crate::companion_state::{ClaimInput, ClaimSource, Retention, Sensitivity};
-use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 use thiserror::Error;
 
 const DEFAULT_MAX_MESSAGE_BYTES: usize = 16 * 1024;
 const DEFAULT_MAX_PROPOSALS: usize = 4;
 const EXPLICIT_STATEMENT_CONFIDENCE_BPS: u16 = 10_000;
+const MAX_DOMAIN_BYTES: usize = 40;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ShadowObservationRule {
     PrefersDetail,
     PrefersBrevity,
@@ -123,9 +122,10 @@ impl ShadowCompanionObserver {
 
     /// Observe one user message and return inert claim proposals.
     ///
-    /// No state is read or mutated. Rules are evaluated in a fixed order and
-    /// duplicate key/value pairs are removed before the proposal budget is
-    /// applied.
+    /// Only complete sentence-like clauses beginning with an explicit supported
+    /// first-person statement or direct preference request are eligible. This
+    /// excludes quoted, hypothetical, third-person, and adversarial occurrences
+    /// of the same words. No state is read or mutated.
     pub fn observe(
         &self,
         message: &str,
@@ -139,8 +139,9 @@ impl ShadowCompanionObserver {
         }
 
         let mut candidates = Vec::new();
-        self.observe_fixed_rules(message, observed_at_ms, &mut candidates);
-        self.observe_domain_rules(message, observed_at_ms, &mut candidates);
+        for clause in explicit_clauses(message) {
+            self.observe_clause(message, clause, observed_at_ms, &mut candidates);
+        }
 
         let mut seen = BTreeSet::new();
         candidates.retain(|proposal| {
@@ -158,127 +159,93 @@ impl ShadowCompanionObserver {
         })
     }
 
-    fn observe_fixed_rules(
+    fn observe_clause(
         &self,
         message: &str,
+        clause: ClauseSpan,
         observed_at_ms: u64,
         proposals: &mut Vec<ShadowClaimProposal>,
     ) {
-        let rules = [
+        let Some(text) = message.get(clause.start_byte..clause.end_byte) else {
+            return;
+        };
+        let lower = text.to_ascii_lowercase();
+
+        let fixed_rules = [
             (
                 ShadowObservationRule::PrefersDetail,
-                detail_regex(),
                 "preference.detail.general",
                 "yes",
+                DETAIL_PREFIXES,
             ),
             (
                 ShadowObservationRule::PrefersBrevity,
-                brevity_regex(),
                 "preference.brevity.general",
                 "yes",
+                BREVITY_PREFIXES,
             ),
             (
                 ShadowObservationRule::PrefersQuestions,
-                questions_regex(),
                 "preference.questions.general",
                 "yes",
+                QUESTION_PREFIXES,
             ),
             (
                 ShadowObservationRule::PrefersConcreteExamples,
-                concrete_regex(),
                 "preference.argument_style.general",
                 "concrete",
+                CONCRETE_PREFIXES,
             ),
             (
                 ShadowObservationRule::PrefersAbstractExplanations,
-                abstract_regex(),
                 "preference.argument_style.general",
                 "abstract",
+                ABSTRACT_PREFIXES,
             ),
             (
                 ShadowObservationRule::PrefersAdaptiveStyle,
-                adaptive_regex(),
                 "preference.argument_style.general",
                 "adaptive",
+                ADAPTIVE_PREFIXES,
             ),
         ];
 
-        for (rule, regex, key, value) in rules {
-            if let Some(found) = regex.find(message) {
+        for (rule, key, value, prefixes) in fixed_rules {
+            if prefixes.iter().any(|prefix| starts_with_phrase(&lower, prefix)) {
                 proposals.push(self.proposal(
                     rule,
-                    found.start(),
-                    found.end(),
+                    clause,
                     key.to_owned(),
                     value.to_owned(),
                     observed_at_ms,
                 ));
             }
         }
-    }
 
-    fn observe_domain_rules(
-        &self,
-        message: &str,
-        observed_at_ms: u64,
-        proposals: &mut Vec<ShadowClaimProposal>,
-    ) {
-        for captures in strong_domain_regex().captures_iter(message) {
-            if let Some(proposal) = self.domain_proposal(
+        if let Some(domain) = domain_after_prefix(&lower, STRONG_DOMAIN_PREFIXES) {
+            proposals.push(self.proposal(
                 ShadowObservationRule::StrongDomain,
-                "knowledge.strong_domain",
-                captures,
+                clause,
+                format!("knowledge.strong_domain.{domain}"),
+                domain,
                 observed_at_ms,
-            ) {
-                proposals.push(proposal);
-            }
+            ));
         }
-        for captures in strong_domain_well_regex().captures_iter(message) {
-            if let Some(proposal) = self.domain_proposal(
-                ShadowObservationRule::StrongDomain,
-                "knowledge.strong_domain",
-                captures,
-                observed_at_ms,
-            ) {
-                proposals.push(proposal);
-            }
-        }
-        for captures in weak_domain_regex().captures_iter(message) {
-            if let Some(proposal) = self.domain_proposal(
+        if let Some(domain) = domain_after_prefix(&lower, WEAK_DOMAIN_PREFIXES) {
+            proposals.push(self.proposal(
                 ShadowObservationRule::WeakDomain,
-                "knowledge.weak_domain",
-                captures,
+                clause,
+                format!("knowledge.weak_domain.{domain}"),
+                domain,
                 observed_at_ms,
-            ) {
-                proposals.push(proposal);
-            }
+            ));
         }
-    }
-
-    fn domain_proposal(
-        &self,
-        rule: ShadowObservationRule,
-        key_prefix: &str,
-        captures: Captures<'_>,
-        observed_at_ms: u64,
-    ) -> Option<ShadowClaimProposal> {
-        let whole = captures.get(0)?;
-        let domain = normalize_domain(captures.get(1)?.as_str())?;
-        Some(self.proposal(
-            rule,
-            whole.start(),
-            whole.end(),
-            format!("{key_prefix}.{domain}"),
-            domain,
-            observed_at_ms,
-        ))
     }
 
     fn proposal(
         &self,
         rule: ShadowObservationRule,
-        start_byte: usize,
-        end_byte: usize,
+        evidence: ClauseSpan,
         key: String,
         value: String,
         observed_at_ms: u64,
@@ -286,8 +253,8 @@ impl ShadowCompanionObserver {
         ShadowClaimProposal {
             rule,
             evidence: EvidenceSpan {
-                start_byte,
-                end_byte,
+                start_byte: evidence.start_byte,
+                end_byte: evidence.end_byte,
             },
             claim: ClaimInput {
                 key,
@@ -302,14 +269,180 @@ impl ShadowCompanionObserver {
     }
 }
 
+const DETAIL_PREFIXES: &[&str] = &[
+    "i prefer detailed answers",
+    "i prefer detailed responses",
+    "i prefer detailed explanations",
+    "i prefer more detailed answers",
+    "i prefer more detailed responses",
+    "i want detailed answers",
+    "i want detailed responses",
+    "i want more detailed answers",
+    "please give me detailed answers",
+    "please give me more detailed answers",
+    "give me detailed answers",
+    "give me more detailed answers",
+];
+
+const BREVITY_PREFIXES: &[&str] = &[
+    "i prefer short answers",
+    "i prefer brief answers",
+    "i prefer concise answers",
+    "i prefer short responses",
+    "i prefer brief responses",
+    "i prefer concise responses",
+    "i want short answers",
+    "i want brief answers",
+    "i want concise answers",
+    "please keep it short",
+    "please keep it brief",
+    "please keep it concise",
+    "please keep responses short",
+    "please keep responses brief",
+    "please keep responses concise",
+    "keep it short",
+    "keep it brief",
+    "keep it concise",
+];
+
+const QUESTION_PREFIXES: &[&str] = &[
+    "i prefer being asked questions",
+    "i prefer answering questions",
+    "i want you to ask me questions",
+    "please ask me questions",
+];
+
+const CONCRETE_PREFIXES: &[&str] = &[
+    "i prefer examples",
+    "i prefer concrete examples",
+    "please use examples",
+    "please use concrete examples",
+    "use examples",
+    "use concrete examples",
+];
+
+const ABSTRACT_PREFIXES: &[&str] = &[
+    "i prefer abstract explanations",
+    "i prefer theory",
+    "i prefer theoretical explanations",
+    "please use abstract explanations",
+    "please use theory",
+    "please use theoretical explanations",
+    "use abstract explanations",
+    "use theory",
+    "use theoretical explanations",
+];
+
+const ADAPTIVE_PREFIXES: &[&str] = &[
+    "i prefer an adaptive style",
+    "i prefer a mixed style",
+    "i prefer a contextual style",
+    "please use an adaptive style",
+    "please use a mixed approach",
+    "please use a contextual approach",
+    "use an adaptive style",
+    "use a mixed approach",
+    "use a contextual approach",
+];
+
+const STRONG_DOMAIN_PREFIXES: &[&str] = &[
+    "i am good at ",
+    "i'm good at ",
+    "i am strong in ",
+    "i'm strong in ",
+    "i am experienced with ",
+    "i'm experienced with ",
+    "i am skilled in ",
+    "i'm skilled in ",
+    "i know ",
+];
+
+const WEAK_DOMAIN_PREFIXES: &[&str] = &[
+    "i struggle with ",
+    "i am weak at ",
+    "i'm weak at ",
+    "i am weak in ",
+    "i'm weak in ",
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ClauseSpan {
+    start_byte: usize,
+    end_byte: usize,
+}
+
+fn explicit_clauses(message: &str) -> Vec<ClauseSpan> {
+    let mut clauses = Vec::new();
+    let mut segment_start = 0;
+
+    for (index, character) in message.char_indices() {
+        if matches!(character, '.' | '!' | '?' | '\n') {
+            push_trimmed_clause(message, segment_start, index, &mut clauses);
+            segment_start = index + character.len_utf8();
+        }
+    }
+    push_trimmed_clause(message, segment_start, message.len(), &mut clauses);
+    clauses
+}
+
+fn push_trimmed_clause(
+    message: &str,
+    start: usize,
+    end: usize,
+    clauses: &mut Vec<ClauseSpan>,
+) {
+    let Some(segment) = message.get(start..end) else {
+        return;
+    };
+    let leading = segment.len() - segment.trim_start().len();
+    let trailing = segment.len() - segment.trim_end().len();
+    let trimmed_start = start + leading;
+    let trimmed_end = end.saturating_sub(trailing);
+    if trimmed_start < trimmed_end {
+        clauses.push(ClauseSpan {
+            start_byte: trimmed_start,
+            end_byte: trimmed_end,
+        });
+    }
+}
+
+fn starts_with_phrase(text: &str, phrase: &str) -> bool {
+    let Some(rest) = text.strip_prefix(phrase) else {
+        return false;
+    };
+    rest.is_empty()
+        || rest
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_whitespace() || ",;:".contains(character))
+}
+
+fn domain_after_prefix(text: &str, prefixes: &[&str]) -> Option<String> {
+    for prefix in prefixes {
+        let Some(raw) = text.strip_prefix(prefix) else {
+            continue;
+        };
+        let raw = if *prefix == "i know " {
+            raw.strip_suffix(" well")?
+        } else {
+            raw
+        };
+        return normalize_domain(raw);
+    }
+    None
+}
+
 fn normalize_domain(raw: &str) -> Option<String> {
-    let normalized = raw
-        .trim_matches(|character: char| character.is_whitespace() || ",;:.!?".contains(character))
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_ascii_lowercase();
-    (!normalized.is_empty()).then_some(normalized)
+    let normalized = raw.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty()
+        || normalized.len() > MAX_DOMAIN_BYTES
+        || !normalized
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || " +#._-".contains(character))
+    {
+        return None;
+    }
+    Some(normalized.to_ascii_lowercase())
 }
 
 fn fnv1a64(bytes: &[u8]) -> u64 {
@@ -319,82 +452,6 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     hash
-}
-
-fn regex(pattern: &'static str, cell: &'static OnceLock<Regex>) -> &'static Regex {
-    cell.get_or_init(|| Regex::new(pattern).expect("companion observer regex must compile"))
-}
-
-fn detail_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i prefer|i want|please give me|give me)\s+(?:more\s+)?(?:detailed|in-depth)\s+(?:answers?|responses?|explanations?)\b",
-        &CELL,
-    )
-}
-
-fn brevity_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:(?:i prefer|i want)\s+(?:short|brief|concise)\s+(?:answers?|responses?)|(?:please\s+)?keep\s+(?:it|answers?|responses?)\s+(?:short|brief|concise))\b",
-        &CELL,
-    )
-}
-
-fn questions_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i prefer\s+(?:being asked|answering)\s+questions?|i want you to\s+ask\s+me\s+questions?|please\s+ask\s+me\s+questions?)\b",
-        &CELL,
-    )
-}
-
-fn concrete_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i prefer|please use|use)\s+(?:concrete\s+)?examples?\b",
-        &CELL,
-    )
-}
-
-fn abstract_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i prefer|please use|use)\s+(?:abstract explanations?|theory|theoretical explanations?)\b",
-        &CELL,
-    )
-}
-
-fn adaptive_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i prefer|please use|use)\s+(?:an?\s+)?(?:adaptive|mixed|contextual)\s+(?:style|approach|explanations?)\b",
-        &CELL,
-    )
-}
-
-fn strong_domain_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i am|i'm)\s+(?:good|strong|experienced|skilled)\s+(?:at|in|with)\s+([a-z0-9][a-z0-9+#._ -]{1,39})(?:[.!?]|$)",
-        &CELL,
-    )
-}
-
-fn strong_domain_well_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\bi\s+know\s+([a-z0-9][a-z0-9+#._ -]{1,39})\s+well(?:[.!?]|$)",
-        &CELL,
-    )
-}
-
-fn weak_domain_regex() -> &'static Regex {
-    static CELL: OnceLock<Regex> = OnceLock::new();
-    regex(
-        r"(?i)\b(?:i struggle with|i am weak (?:at|in)|i'm weak (?:at|in))\s+([a-z0-9][a-z0-9+#._ -]{1,39})(?:[.!?]|$)",
-        &CELL,
-    )
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
@@ -443,12 +500,48 @@ mod tests {
     }
 
     #[test]
-    fn negated_and_third_person_statements_do_not_produce_claims() {
+    fn matched_control_corpus_has_no_false_positives() {
         let observer = ShadowCompanionObserver::default();
-        let message = "I don't prefer detailed answers. She prefers brief answers. I am not good at Rust.";
-        let batch = observer.observe(message, 10).unwrap();
+        let controls = [
+            "I do not prefer detailed answers.",
+            "I don't prefer detailed answers.",
+            "She prefers detailed answers.",
+            "He said, \"I prefer detailed answers.\"",
+            "I said, 'I prefer detailed answers.'",
+            "If I prefer detailed answers, would that help?",
+            "Imagine I prefer detailed answers.",
+            "Repeat exactly: I prefer detailed answers.",
+            "Ignore this test phrase: I prefer detailed answers.",
+            "> I prefer detailed answers.",
+            "The user wrote I struggle with calculus.",
+            "Suppose I'm good at Rust.",
+        ];
 
-        assert!(batch.proposals.is_empty());
+        for message in controls {
+            let batch = observer.observe(message, 10).unwrap();
+            assert!(batch.proposals.is_empty(), "false positive for: {message}");
+        }
+    }
+
+    #[test]
+    fn frozen_explicit_corpus_has_no_false_negatives() {
+        let observer = ShadowCompanionObserver::default();
+        let cases = [
+            ("I prefer detailed answers.", ShadowObservationRule::PrefersDetail),
+            ("Please keep responses concise.", ShadowObservationRule::PrefersBrevity),
+            ("I want you to ask me questions.", ShadowObservationRule::PrefersQuestions),
+            ("Please use concrete examples.", ShadowObservationRule::PrefersConcreteExamples),
+            ("Please use theoretical explanations.", ShadowObservationRule::PrefersAbstractExplanations),
+            ("Use a mixed approach.", ShadowObservationRule::PrefersAdaptiveStyle),
+            ("I'm good at Rust.", ShadowObservationRule::StrongDomain),
+            ("I struggle with public speaking.", ShadowObservationRule::WeakDomain),
+        ];
+
+        for (message, expected_rule) in cases {
+            let batch = observer.observe(message, 10).unwrap();
+            assert_eq!(batch.proposals.len(), 1, "missed or duplicated: {message}");
+            assert_eq!(batch.proposals[0].rule, expected_rule);
+        }
     }
 
     #[test]
