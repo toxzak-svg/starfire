@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  s6c-real-interaction-canary:
+  s6c-canary-evidence:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -42,10 +42,9 @@ jobs:
             lib/companion_real_interaction_canary.rs \
             lib/examples/s6c_real_interaction_canary_evidence.rs
 
-      - name: Compile S6-C boundary and probe
+      - name: Compile S6-C boundary and probes
         run: |
-          cargo check -p star --lib \
-            --features companion-real-interaction-canary --locked
+          cargo check -p star --lib --features companion-real-interaction-canary --locked
           cargo check -p star --example s6c_real_interaction_canary_evidence \
             --features companion-real-interaction-canary --locked
 
@@ -53,53 +52,50 @@ jobs:
         run: |
           set -o pipefail
           {
-            cargo clippy -p star --lib \
-              --features companion-real-interaction-canary --locked \
+            cargo clippy -p star --lib --features companion-real-interaction-canary --locked \
               --message-format=short
             cargo clippy -p star --example s6c_real_interaction_canary_evidence \
-              --features companion-real-interaction-canary --locked \
-              --message-format=short
-          } 2>&1 | tee /tmp/s6c-clippy.log
+              --features companion-real-interaction-canary --locked --message-format=short
+          } 2>&1 | tee s6c-clippy.log
           if grep -E \
             'lib/companion_real_interaction_canary\.rs:|lib/examples/s6c_real_interaction_canary_evidence\.rs:' \
-            /tmp/s6c-clippy.log; then
+            s6c-clippy.log; then
             echo "S6-C scoped Clippy finding detected"
             exit 1
           fi
 
       - name: Run deterministic S6-C contracts
-        run: |
-          cargo test -p star --lib \
-            --features companion-real-interaction-canary --locked \
-            companion_real_interaction_canary:: -- --test-threads=1
+        run: >-
+          cargo test -p star --lib --features companion-real-interaction-canary --locked
+          companion_real_interaction_canary:: -- --test-threads=1
 
-      - name: Re-run S5-B independent outcome regression
+      - name: Re-run S5-B independent-outcome regression
         run: |
           cargo run -p star --example s5b_independent_interaction_outcomes_probe \
             --features companion-interaction-outcomes --locked \
-            | tee /tmp/s5b-regression.json
+            | tee s5b-regression-report.json
 
       - name: Re-run S5-C held-out evaluation regression
         run: |
           cargo run -p star --example s5c_comparative_policy_evaluation_probe \
             --features companion-policy-evaluation --locked \
-            | tee /tmp/s5c-regression.json
+            | tee s5c-regression-report.json
 
-      - name: Run frozen S6-C canary evidence probe
+      - name: Run frozen S6-C canary-evidence probe
         run: |
           cargo run -p star --example s6c_real_interaction_canary_evidence \
             --features companion-real-interaction-canary --locked \
-            | tee /tmp/s6c-canary-report.json
+            | tee s6c-canary-report.json
 
-      - name: Preserve reports
+      - name: Preserve reports and lint findings
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s6c-real-interaction-canary-report
           path: |
-            /tmp/s5b-regression.json
-            /tmp/s5c-regression.json
-            /tmp/s6c-canary-report.json
-            /tmp/s6c-clippy.log
+            s5b-regression-report.json
+            s5c-regression-report.json
+            s6c-canary-report.json
+            s6c-clippy.log
           if-no-files-found: ignore
           retention-days: 30
