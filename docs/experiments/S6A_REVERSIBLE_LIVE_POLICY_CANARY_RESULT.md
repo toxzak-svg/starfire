@@ -1,13 +1,60 @@
 # S6-A Reversible Live Policy Canary Result
 
-Status: **PENDING — EXPERIMENT_READY mechanics only**
+Status: **EXPERIMENT_READY — mechanics conformance passed**
+
+## Authoritative committed-source run
+
+The first complete run after binding promotion authorization to the exact
+`CompanionState` version compiled and linted the feature, executed the unit
+contracts, ran the frozen canary probe, and validated the authority boundary:
+
+```text
+workflow: Companion Live Policy Canary S6-A CI
+run id:   29258607758
+head:     95e4caad32057fb37147e4e707954cbaef73e701
+result:   success
+artifact: 8282361331
+artifact digest: sha256:7cbed2257720f40d07b99d818ba9c645b9ec46e70325c1dd60849adfe38f8662
+```
+
+## Frozen mechanics result
+
+```text
+terminal classification:              EXPERIMENT_READY
+synthetic authorization refused:      true
+real-canary influence path exercised: true
+expected bounded policy returned:     true
+stale authorization refused:          true
+rollout fallback:                     true
+compute fallback:                     true
+contradiction fallback:               true
+rollback fallback:                    true
+failed evaluation latched rollback:   true
+audit chain valid:                    true
+source state unchanged:               true
+neutral fallback exact:               true
+gate passed:                          true
+audit events:                         14
+```
+
+Every authority flag remained false:
+
+```text
+Runtime::chat() wiring:       false
+generated-text mutation:      false
+routing authority:            false
+belief-promotion authority:   false
+ontology-promotion authority: false
+persistence authority:        false
+action authority:             false
+```
 
 ## Implemented boundary
 
-The committed S6-A implementation is intended to establish that Starfire can
-apply a companion-derived response-planning policy only when every preregistered
-canary condition passes, while returning the exact neutral policy on every
-failure path.
+The committed S6-A implementation establishes that Starfire can return a
+companion-derived response-planning policy only when every preregistered canary
+condition passes, while returning the exact neutral policy on every failure
+path.
 
 The frozen probe covers:
 
@@ -24,18 +71,19 @@ The frozen probe covers:
 - source companion-state immutability;
 - exact neutral-policy equality across all fallback classes.
 
-## Claim boundary
+## Interpretation and claim boundary
 
-Until a committed-source workflow run succeeds, no implementation result is
-claimed. Even after that mechanics run succeeds, the terminal classification
-remains `EXPERIMENT_READY` because the fixture does not contain real user
-interactions.
+`EXPERIMENT_READY` is a mechanics classification, not a scientific capability
+`PASS`. The frozen fixture contains an explicit real-held-out authorization
+*attestation* solely to exercise the allowed branch; it does not contain real
+user interactions and does not establish that companion-derived policies
+improve real conversations.
 
 No automatic runtime promotion is authorized. No `Runtime::chat()` wiring,
 generated-text mutation, routing authority, persistence authority, belief or
 ontology promotion, commitment mutation, capability invocation, or autonomous
 action authority is introduced.
 
-## Authoritative run
-
-Pending.
+A scientific S6 result requires independently witnessed real interactions,
+frozen opaque-subject and temporal holdouts, and another S5-C comparison against
+all five controls under the preregistered thresholds.
