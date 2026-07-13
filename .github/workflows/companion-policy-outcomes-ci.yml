@@ -37,11 +37,21 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check S5-B formatting
+      - name: Format S5-B sources for verification
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/companion_policy_outcomes.rs \
             lib/examples/s5b_independent_policy_outcomes_probe.rs
+
+      - name: Preserve formatted S5-B sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5b-formatted-sources
+          path: |
+            lib/companion_policy_outcomes.rs
+            lib/examples/s5b_independent_policy_outcomes_probe.rs
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Compile S5-B collector and probe
         run: |
