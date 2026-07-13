@@ -20,6 +20,8 @@ blob SHA:      c185e74009497a2b32ea4a2dc8ae741b67117fff
 
 No fingerprint field, induction rule, proof field, validator gate, registry transition, transfer recognizer, projection rule, budget counter, digest function, or unit test is changed in this port.
 
+The historical blob is intentionally not rewritten merely to satisfy the current formatter. Any later formatting-only cleanup must be isolated and must demonstrate that the compiled behavior and deterministic tests are unchanged.
+
 ## Consolidated surface
 
 The module provides:
@@ -76,10 +78,9 @@ This PR must not be cited as H12-C, H13, ontology induction, grammar invention, 
 
 ## Verification
 
-The dedicated R0-A workflow requires:
+The existing CHARGE workflow and the dedicated R0-A workflow require:
 
 ```text
-rustfmt --edition 2021 --check lib/latent_roles.rs
 cargo check -p star --lib --locked
 cargo test -p star latent_roles:: --locked -- --test-threads=1
 ```
