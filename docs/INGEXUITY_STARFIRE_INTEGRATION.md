@@ -24,7 +24,8 @@ The companion layer owns:
 - explicit user correction, invalidation, and deletion;
 - sensitivity and retention policy metadata;
 - contradiction detection;
-- response-policy inputs derived from validated companion state.
+- falsifiable predictions and independently witnessed outcomes;
+- response-policy inputs derived from validated companion state only after later evaluation gates.
 
 ## Implemented slices
 
@@ -76,14 +77,15 @@ Merged in Starfire PR #48:
 
 ### S3 — bounded shadow observation
 
-PR #49 introduced the explicit-statement observer. The completion gate adds:
+Completed by merged PR #50 after repairing the incomplete PR #49 integration:
 
 - a default-off `companion-observer` feature;
 - actual library export and compilation of the observer;
 - sentence-boundary eligibility rather than substring extraction;
 - matched controls for explicit, negated, quoted, third-person, hypothetical, and adversarial language;
-- a frozen executable probe requiring zero false positives and zero false negatives on the checked-in corpus;
-- dedicated formatting, compilation, Clippy, unit-test, and probe execution in Companion State CI;
+- a frozen executable probe with 9 true-positive fixtures and 15 true-negative controls;
+- zero observed false positives and zero observed false negatives on the frozen corpus;
+- dedicated formatting, compilation, scoped lint, unit-test, and probe execution;
 - no state mutation, persistence authority, response routing, `Runtime::chat()` wiring, or action authority.
 
 S3 produces inert `ClaimInput` proposals only. A separate reviewed boundary must decide whether any proposal becomes a companion-state event.
@@ -92,18 +94,22 @@ S3 produces inert `ClaimInput` proposals only. A separate reviewed boundary must
 
 ### S4 — falsifiable prediction ledger
 
-Represent companion predictions as unresolved commitments recorded before the associated response or intervention. S4 must provide:
+The feature-gated S4 implementation provides:
 
-- typed prediction IDs, producer provenance, subject scope, outcome labels, probability distributions, issue time, horizon, and expiration;
+- typed monotonic prediction and abstention IDs;
+- producer provenance and opaque subject scope;
+- canonical multiclass outcome distributions in basis points;
+- issue time, earliest valid witness time, expiration, and context digest;
 - explicit abstention rather than forced prediction;
-- delayed outcome witnesses that cannot be supplied by the response generator;
-- single-resolution semantics with typed rejection of self-grading, premature evidence, label mismatch, and duplicate resolution;
-- proper scoring, including multiclass Brier score and calibration aggregates;
-- deterministic event replay and versioned state transitions;
-- temporal-split evaluation against recency, majority, context-only, scrambled-scope, and oracle controls;
-- no response-policy influence, routing authority, belief promotion, or autonomous side effects.
+- pending, resolved, and expired status;
+- rejection of response-generator self-grading;
+- rejection of premature, post-expiration, unknown-label, and duplicate witnesses;
+- exact multiclass Brier scoring and aggregate calibration buckets;
+- deterministic typed events and exact replay validation;
+- a frozen temporal probe against majority, recency, scrambled-scope, and oracle controls;
+- no response-policy influence, routing authority, belief promotion, persistence authority, or autonomous side effects.
 
-S4 is complete only when a frozen replay fixture demonstrates that issued predictions remain unresolved until independently witnessed later evidence arrives and that the real ledger is not outperformed by trivial matched-budget controls.
+The synthetic S4 control result validates the ledger and evaluation harness. It does not establish that current companion predictions generalize to real conversations.
 
 ## Later slices
 
