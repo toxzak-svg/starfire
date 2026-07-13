@@ -90,5 +90,7 @@ jobs:
             h13c-structural-transfer-tests.log
             h13c-structural-role-transfer-report.json
             target/h13c-structural-role-transfer-report.json
+            lib/structural_transfer.rs
+            lib/examples/h13c_structural_role_transfer_stress.rs
           if-no-files-found: ignore
           retention-days: 14
