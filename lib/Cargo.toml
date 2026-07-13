@@ -50,6 +50,11 @@ path = "examples/s6c_limited_runtime_canary.rs"
 required-features = ["companion-runtime-canary"]
 
 [[example]]
+name = "stlm_l0_semantic_program_probe"
+path = "examples/stlm_l0_semantic_program_probe.rs"
+required-features = ["semantic-response-program"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -105,5 +110,6 @@ companion-policy-evaluation = ["companion-interaction-outcomes"]  # S5-C held-ou
 companion-bounded-live-policy = ["companion-policy-evaluation"]  # S6-A opt-in bounded response-planning metadata
 companion-live-policy-stress = ["companion-bounded-live-policy"]  # S6-B adversarial audit/replay stress; no new authority
 companion-runtime-canary = ["companion-live-policy-stress"]  # S6-C two-phase session canary; disabled and unwired by default
+semantic-response-program = []  # STLM L0-B typed semantic authorization and replay; no Runtime::chat() wiring
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
