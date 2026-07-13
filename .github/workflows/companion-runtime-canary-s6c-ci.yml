@@ -104,3 +104,5 @@ jobs:
             s6c-clippy.log
           if-no-files-found: ignore
           retention-days: 30
+
+# This workflow intentionally reruns S6-A and S6-B before accepting S6-C.
