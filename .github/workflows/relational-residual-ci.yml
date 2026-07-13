@@ -100,7 +100,12 @@ jobs:
             --features companion-observer --locked
 
       - name: Lint S3 observer
-        run: cargo clippy -p star --lib --features companion-observer --locked -- -D warnings
+        id: s3_clippy
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo clippy -p star --lib --features companion-observer --locked -- -D warnings \
+            2>&1 | tee s3-clippy.log
 
       - name: Test S3 contracts deterministically
         run: >-
@@ -114,13 +119,18 @@ jobs:
             --features companion-observer --locked \
             | tee s3-companion-observer-report.json
 
-      - name: Preserve S3 report and formatting patch
+      - name: Preserve S3 report, lint, and formatting patch
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s3-companion-observer-report
           path: |
             s3-companion-observer-report.json
+            s3-clippy.log
             s3-rustfmt.patch
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Enforce S3 lint gate
+        if: always()
+        run: test "${{ steps.s3_clippy.outcome }}" = "success"
