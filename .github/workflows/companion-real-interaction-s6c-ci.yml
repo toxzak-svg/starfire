@@ -7,6 +7,7 @@ on:
     paths:
       - "lib/companion_real_interaction_canary.rs"
       - "lib/examples/s6c_real_interaction_canary_evidence.rs"
+      - "lib/examples/s6c_external_evaluator_channel_probe.rs"
       - "lib/examples/s5b_independent_interaction_outcomes_probe.rs"
       - "lib/examples/s5c_comparative_policy_evaluation_probe.rs"
       - "lib/lib.rs"
@@ -40,12 +41,15 @@ jobs:
         run: |
           rustfmt --edition 2021 --check \
             lib/companion_real_interaction_canary.rs \
-            lib/examples/s6c_real_interaction_canary_evidence.rs
+            lib/examples/s6c_real_interaction_canary_evidence.rs \
+            lib/examples/s6c_external_evaluator_channel_probe.rs
 
       - name: Compile S6-C boundary and probes
         run: |
           cargo check -p star --lib --features companion-real-interaction-canary --locked
           cargo check -p star --example s6c_real_interaction_canary_evidence \
+            --features companion-real-interaction-canary --locked
+          cargo check -p star --example s6c_external_evaluator_channel_probe \
             --features companion-real-interaction-canary --locked
 
       - name: Lint scoped S6-C sources
@@ -56,9 +60,11 @@ jobs:
               --message-format=short
             cargo clippy -p star --example s6c_real_interaction_canary_evidence \
               --features companion-real-interaction-canary --locked --message-format=short
+            cargo clippy -p star --example s6c_external_evaluator_channel_probe \
+              --features companion-real-interaction-canary --locked --message-format=short
           } 2>&1 | tee s6c-clippy.log
           if grep -E \
-            'lib/companion_real_interaction_canary\.rs:|lib/examples/s6c_real_interaction_canary_evidence\.rs:' \
+            'lib/companion_real_interaction_canary\.rs:|lib/examples/s6c_real_interaction_canary_evidence\.rs:|lib/examples/s6c_external_evaluator_channel_probe\.rs:' \
             s6c-clippy.log; then
             echo "S6-C scoped Clippy finding detected"
             exit 1
@@ -87,6 +93,12 @@ jobs:
             --features companion-real-interaction-canary --locked \
             | tee s6c-canary-report.json
 
+      - name: Run S6-C external-evaluator channel regression
+        run: |
+          cargo run -p star --example s6c_external_evaluator_channel_probe \
+            --features companion-real-interaction-canary --locked \
+            | tee s6c-external-evaluator-channel-report.json
+
       - name: Preserve reports and lint findings
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,6 +108,7 @@ jobs:
             s5b-regression-report.json
             s5c-regression-report.json
             s6c-canary-report.json
+            s6c-external-evaluator-channel-report.json
             s6c-clippy.log
           if-no-files-found: ignore
           retention-days: 30
