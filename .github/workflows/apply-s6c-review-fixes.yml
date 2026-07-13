@@ -1,0 +1,987 @@
+name: Apply S6-C Review Fixes
+
+on:
+  push:
+    branches:
+      - experiment/s6c-limited-runtime-canary
+    paths:
+      - ".github/workflows/apply-s6c-review-fixes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6c-limited-runtime-canary
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply review fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          module_path = Path("lib/companion_runtime_canary.rs")
+          module = module_path.read_text()
+          module = replace_once(
+              module,
+              'use crate::companion_interaction_outcomes::{InteractionTrial, InteractionTrialId};\n',
+              'use crate::companion_interaction_outcomes::{\n'
+              '    InteractionOutcomeEvent, InteractionOutcomeLedger, InteractionTrial, InteractionTrialId,\n'
+              '};\n',
+              "module outcome imports",
+          )
+          module = replace_once(
+              module,
+              'use std::fmt;\n',
+              'use std::collections::BTreeSet;\nuse std::fmt;\n',
+              "module collection import",
+          )
+
+          proof = r'''
+          /// Opaque proof that an interaction trial exists in an S5-B outcome ledger
+          /// as an exact `TrialRegistered` event. Callers cannot construct this proof
+          /// from a public `InteractionTrial` value alone.
+          #[derive(Clone, PartialEq, Eq)]
+          pub struct ValidatedRegisteredInteractionTrial {
+              trial: InteractionTrial,
+              outcome_ledger_version: u64,
+          }
+
+          impl fmt::Debug for ValidatedRegisteredInteractionTrial {
+              fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                  f.debug_struct("ValidatedRegisteredInteractionTrial")
+                      .field("trial_id", &self.trial.id)
+                      .field("outcome_ledger_version", &self.outcome_ledger_version)
+                      .field("delivered_variant", &self.trial.delivered_variant)
+                      .finish_non_exhaustive()
+              }
+          }
+
+          impl ValidatedRegisteredInteractionTrial {
+              pub fn validate(
+                  ledger: &InteractionOutcomeLedger,
+                  trial_id: InteractionTrialId,
+              ) -> Result<Self, RuntimeCanaryError> {
+                  if trial_id == 0 {
+                      return Err(RuntimeCanaryError::InvalidTrialId);
+                  }
+                  let trial = ledger
+                      .trials()
+                      .get(&trial_id)
+                      .ok_or(RuntimeCanaryError::UnknownRegisteredTrial(trial_id))?;
+                  let registered_exactly = ledger.events().iter().any(|event| {
+                      matches!(
+                          event,
+                          InteractionOutcomeEvent::TrialRegistered {
+                              trial: registered,
+                              ..
+                          } if registered == trial
+                      )
+                  });
+                  if !registered_exactly {
+                      return Err(RuntimeCanaryError::MissingTrialRegistrationEvent(trial_id));
+                  }
+                  Ok(Self {
+                      trial: trial.clone(),
+                      outcome_ledger_version: ledger.version,
+                  })
+              }
+
+              #[must_use]
+              pub const fn trial_id(&self) -> InteractionTrialId {
+                  self.trial.id
+              }
+
+              fn trial(&self) -> &InteractionTrial {
+                  &self.trial
+              }
+          }
+
+          '''
+          marker = '#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\npub enum RuntimeCanaryEvent {'
+          module = replace_once(module, marker, proof + marker, "registered trial proof insertion")
+
+          module = replace_once(
+              module,
+              '        trial: &InteractionTrial,\n',
+              '        registered_trial: &ValidatedRegisteredInteractionTrial,\n',
+              "commit proof parameter",
+          )
+          module = replace_once(
+              module,
+              '        validate_trial_binding(&pending, trial)?;\n',
+              '''        let trial = registered_trial.trial();
+                  if self.events.iter().any(|event| {
+                      matches!(
+                          event,
+                          RuntimeCanaryEvent::TurnCommitted {
+                              trial_id,
+                              ..
+                          } if *trial_id == trial.id
+                      )
+                  }) {
+                      return Err(RuntimeCanaryError::TrialAlreadyCommitted(trial.id));
+                  }
+                  validate_trial_binding(&pending, trial)?;
+          ''',
+              "one-shot trial binding",
+          )
+
+          replay = r'''
+              /// Independently replay the canary event stream into its externally
+              /// observable summary. This does not consult the live session object.
+              pub fn replay_summary(
+                  events: &[RuntimeCanaryEvent],
+              ) -> Result<RuntimeCanarySummary, RuntimeCanaryError> {
+                  let first = events
+                      .first()
+                      .ok_or(RuntimeCanaryError::MalformedCanaryEventReplay(
+                          "missing activation event",
+                      ))?;
+                  let (
+                      session_scope_digest,
+                      subject_scope_digest,
+                      valid_from_ms,
+                      expires_at_ms,
+                      max_turns,
+                  ) = match first {
+                      RuntimeCanaryEvent::Activated {
+                          session_scope_digest,
+                          subject_scope_digest,
+                          valid_from_ms,
+                          expires_at_ms,
+                          max_turns,
+                          operator_approval_digest,
+                          held_out_study_artifact_digest,
+                          authorization_digest_fnv1a64,
+                      } if *session_scope_digest != 0
+                          && *subject_scope_digest != 0
+                          && *valid_from_ms < *expires_at_ms
+                          && *max_turns > 0
+                          && *max_turns <= MAX_CANARY_TURNS
+                          && *operator_approval_digest != 0
+                          && *held_out_study_artifact_digest != 0
+                          && *authorization_digest_fnv1a64 != 0 => (
+                          *session_scope_digest,
+                          *subject_scope_digest,
+                          *valid_from_ms,
+                          *expires_at_ms,
+                          *max_turns,
+                      ),
+                      RuntimeCanaryEvent::Activated { .. } => {
+                          return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                              "invalid activation event",
+                          ));
+                      }
+                      _ => {
+                          return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                              "first event is not activation",
+                          ));
+                      }
+                  };
+
+                  let mut summary = RuntimeCanarySummary {
+                      version: 1,
+                      session_scope_digest,
+                      subject_scope_digest,
+                      active: true,
+                      committed_turns: 0,
+                      companion_applied_turns: 0,
+                      neutral_fallbacks: 0,
+                      revocations: 0,
+                      remaining_turns: max_turns,
+                  };
+                  let mut controller_version = 1_u64;
+                  let mut committed_trials = BTreeSet::new();
+
+                  for event in &events[1..] {
+                      match event {
+                          RuntimeCanaryEvent::Activated { .. } => {
+                              return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                                  "duplicate activation event",
+                              ));
+                          }
+                          RuntimeCanaryEvent::TurnCommitted {
+                              session_scope_digest: event_session,
+                              subject_scope_digest: event_subject,
+                              turn_digest,
+                              context_digest,
+                              trial_id,
+                              delivered_variant,
+                              disposition,
+                              fallback_reason,
+                              controller_version: event_controller_version,
+                              remaining_turns,
+                          } => {
+                              if *event_session != session_scope_digest
+                                  || *event_subject != subject_scope_digest
+                                  || *turn_digest == 0
+                                  || *context_digest == 0
+                                  || *trial_id == 0
+                              {
+                                  return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                                      "invalid committed-turn scope or identity",
+                                  ));
+                              }
+                              if !committed_trials.insert(*trial_id) {
+                                  return Err(RuntimeCanaryError::TrialAlreadyCommitted(*trial_id));
+                              }
+                              let expected_controller_version = controller_version
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              if *event_controller_version != expected_controller_version {
+                                  return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                                      "controller version discontinuity",
+                                  ));
+                              }
+                              match disposition {
+                                  LivePlanDisposition::Applied => {
+                                      if !summary.active
+                                          || *delivered_variant
+                                              != PolicyVariant::CompanionDerived
+                                          || fallback_reason.is_some()
+                                          || summary.remaining_turns == 0
+                                          || *remaining_turns + 1 != summary.remaining_turns
+                                      {
+                                          return Err(
+                                              RuntimeCanaryError::MalformedCanaryEventReplay(
+                                                  "invalid applied-turn event",
+                                              ),
+                                          );
+                                      }
+                                      summary.companion_applied_turns = summary
+                                          .companion_applied_turns
+                                          .checked_add(1)
+                                          .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                                  }
+                                  LivePlanDisposition::NeutralFallback => {
+                                      if *delivered_variant != PolicyVariant::NeutralDefault
+                                          || fallback_reason.is_none()
+                                          || *remaining_turns != summary.remaining_turns
+                                      {
+                                          return Err(
+                                              RuntimeCanaryError::MalformedCanaryEventReplay(
+                                                  "invalid neutral-fallback event",
+                                              ),
+                                          );
+                                      }
+                                      summary.neutral_fallbacks = summary
+                                          .neutral_fallbacks
+                                          .checked_add(1)
+                                          .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                                  }
+                              }
+                              summary.committed_turns = summary
+                                  .committed_turns
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              summary.remaining_turns = *remaining_turns;
+                              summary.version = summary
+                                  .version
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              controller_version = *event_controller_version;
+                          }
+                          RuntimeCanaryEvent::Revoked {
+                              revoked_at_ms,
+                              reason_digest,
+                              controller_version: event_controller_version,
+                          } => {
+                              if *revoked_at_ms < valid_from_ms
+                                  || *revoked_at_ms > expires_at_ms
+                                  || *reason_digest == 0
+                                  || !summary.active
+                              {
+                                  return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                                      "invalid revocation event",
+                                  ));
+                              }
+                              let expected_controller_version = controller_version
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              if *event_controller_version != expected_controller_version {
+                                  return Err(RuntimeCanaryError::MalformedCanaryEventReplay(
+                                      "revocation version discontinuity",
+                                  ));
+                              }
+                              summary.active = false;
+                              summary.revocations = summary
+                                  .revocations
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              summary.version = summary
+                                  .version
+                                  .checked_add(1)
+                                  .ok_or(RuntimeCanaryError::VersionOverflow)?;
+                              controller_version = *event_controller_version;
+                          }
+                      }
+                  }
+                  Ok(summary)
+              }
+
+          '''
+          module = replace_once(
+              module,
+              '    fn require_version(&self, expected_version: u64) -> Result<(), RuntimeCanaryError> {\n',
+              replay + '    fn require_version(&self, expected_version: u64) -> Result<(), RuntimeCanaryError> {\n',
+              "event replay insertion",
+          )
+
+          module = replace_once(
+              module,
+              '    #[error("interaction trial id must be non-zero")]\n    InvalidTrialId,\n',
+              '''    #[error("interaction trial id must be non-zero")]
+                  InvalidTrialId,
+                  #[error("registered interaction trial {0} is absent from the S5-B ledger")]
+                  UnknownRegisteredTrial(InteractionTrialId),
+                  #[error("interaction trial {0} lacks an exact S5-B registration event")]
+                  MissingTrialRegistrationEvent(InteractionTrialId),
+                  #[error("interaction trial {0} has already committed a canary response")]
+                  TrialAlreadyCommitted(InteractionTrialId),
+          ''',
+              "trial proof errors",
+          )
+          module = replace_once(
+              module,
+              '    #[error("runtime canary version overflow")]\n    VersionOverflow,\n',
+              '''    #[error("runtime canary version overflow")]
+                  VersionOverflow,
+                  #[error("malformed runtime-canary event replay: {0}")]
+                  MalformedCanaryEventReplay(&'static str),
+          ''',
+              "replay error",
+          )
+          module_path.write_text(module)
+
+          probe_path = Path("lib/examples/s6c_limited_runtime_canary.rs")
+          probe = probe_path.read_text()
+          main_index = probe.index("fn main() {")
+          main = probe[main_index:]
+          prefix = r'''use serde::Serialize;
+          use star::companion_bounded_live_policy::{
+              BoundedLivePolicyController, EvaluationEvidenceClass, LivePlanDisposition,
+              NeutralFallbackReason, ValidatedPromotionGate,
+          };
+          use star::companion_interaction_outcomes::{InteractionOutcomeLedger, InteractionTrialId};
+          use star::companion_interaction_policy::{
+              PolicyContext, PolicyVariant, ShadowPolicyBatch, ShadowPolicyPlanner,
+              ShadowPolicyProposal,
+          };
+          use star::companion_policy_evaluation::{
+              CandidateControlComparison, CandidatePairwiseMetrics, ComparisonGates, EvaluationSplit,
+              PolicyEvaluationReport, PolicyEvaluationVerdict, SplitEvaluationReport,
+          };
+          use star::companion_prediction_ledger::PredictionLedger;
+          use star::companion_runtime_canary::{
+              CanaryRegistrationRequirement, RuntimeCanaryActivation, RuntimeCanaryConfig,
+              RuntimeCanaryError, RuntimeCanaryEvent, RuntimeCanarySession,
+              RuntimeCanaryTurnContext, ValidatedRegisteredInteractionTrial,
+          };
+          use star::companion_state::{
+              ClaimInput, ClaimSource, CompanionState, Retention, Sensitivity,
+          };
+          use star::language_model::RerankConfig;
+          use star::runtime::response_intent::{Response, ResponseIntent};
+
+          const SESSION: u64 = 0x51;
+          const SUBJECT: u64 = 0xAA;
+
+          #[derive(Debug, Serialize)]
+          struct S6CReport {
+              preregistered_before_implementation: bool,
+              synthetic_activation_rejected: bool,
+              held_out_activation_accepted: bool,
+              prepare_left_live_state_unchanged: bool,
+              pending_debug_redacted_response: bool,
+              applied_requires_companion_arm: bool,
+              neutral_requires_neutral_arm: bool,
+              wrong_arm_rejected_atomically: bool,
+              wrong_subject_rejected_atomically: bool,
+              wrong_session_rejected_atomically: bool,
+              wrong_context_rejected_atomically: bool,
+              wrong_version_rejected_atomically: bool,
+              wrong_policy_digest_rejected_atomically: bool,
+              expired_trial_rejected_atomically: bool,
+              reused_trial_rejected_atomically: bool,
+              sensitive_context_exact_neutral: bool,
+              disallowed_intent_exact_neutral: bool,
+              companion_version_drift_exact_neutral: bool,
+              duplicate_turn_exact_neutral: bool,
+              applied_turn_budget_enforced: bool,
+              session_expiry_exact_neutral: bool,
+              revocation_immediate: bool,
+              canary_event_replay_equal: bool,
+              replay_deterministic: bool,
+              unauthorized_applied_turns: u64,
+              committed_turns: u64,
+              companion_applied_turns: u64,
+              neutral_fallbacks: u64,
+              default_runtime_chat_wiring: bool,
+              routing_authority: bool,
+              persistence_authority: bool,
+              belief_promotion_authority: bool,
+              ontology_promotion_authority: bool,
+              tool_selection_authority: bool,
+              action_authority: bool,
+              gate_passed: bool,
+          }
+
+          fn controls() -> [PolicyVariant; 5] {
+              [
+                  PolicyVariant::NeutralDefault,
+                  PolicyVariant::RecencyOnly,
+                  PolicyVariant::MajorityPrior,
+                  PolicyVariant::ContextOnly,
+                  PolicyVariant::ScrambledScope,
+              ]
+          }
+
+          fn passing_gates() -> ComparisonGates {
+              ComparisonGates {
+                  resolved_evidence_sufficient: true,
+                  direct_evidence_sufficient: true,
+                  pairwise_evidence_sufficient: true,
+                  brier_improvement_passed: true,
+                  calibration_non_regression_passed: true,
+                  pairwise_margin_passed: true,
+                  correction_non_regression_passed: true,
+                  clarification_non_regression_passed: true,
+                  completion_non_regression_passed: true,
+                  abandonment_non_regression_passed: true,
+                  abstention_non_regression_passed: true,
+                  compute_overhead_passed: true,
+              }
+          }
+
+          fn passing_report() -> PolicyEvaluationReport {
+              let mut holdout_comparisons = Vec::new();
+              for split in [
+                  EvaluationSplit::OpaqueSubjectHoldout,
+                  EvaluationSplit::TemporalHoldout,
+              ] {
+                  for control in controls() {
+                      holdout_comparisons.push(CandidateControlComparison {
+                          split,
+                          control,
+                          candidate_resolved: 8,
+                          control_resolved: 8,
+                          candidate_direct_outcomes: 4,
+                          control_direct_outcomes: 4,
+                          pairwise: CandidatePairwiseMetrics {
+                              candidate_wins: 6,
+                              control_wins: 2,
+                              ties: 0,
+                              total: 8,
+                              candidate_win_margin_bps: Some(5_000),
+                          },
+                          brier_improvement_ppm: Some(20_000),
+                          calibration_regression_bps: Some(0),
+                          correction_regression_bps: Some(0),
+                          clarification_regression_bps: Some(0),
+                          completion_regression_bps: Some(0),
+                          abandonment_regression_bps: Some(0),
+                          abstention_regression_bps: Some(0),
+                          compute_overhead_bps: Some(500),
+                          gates: passing_gates(),
+                      });
+                  }
+              }
+              PolicyEvaluationReport {
+                  splits: vec![SplitEvaluationReport {
+                      split: EvaluationSplit::Development,
+                      arms: Default::default(),
+                      candidate_pairwise: Default::default(),
+                  }],
+                  holdout_comparisons,
+                  verdict: PolicyEvaluationVerdict::Pass,
+                  development_excluded_from_verdict: true,
+                  promotion_eligible: true,
+                  live_response_influence: false,
+                  routing_authority: false,
+                  belief_promotion_authority: false,
+                  action_authority: false,
+              }
+          }
+
+          fn claim(key: String, value: String, observed_at_ms: u64) -> ClaimInput {
+              ClaimInput {
+                  key,
+                  value,
+                  source: ClaimSource::UserStatement,
+                  confidence_bps: 9_200,
+                  sensitivity: Sensitivity::Personal,
+                  retention: Retention::Durable,
+                  observed_at_ms,
+              }
+          }
+
+          fn deterministic_state(version: u64, alternate_policy: bool) -> CompanionState {
+              assert!(version >= 2);
+              let mut state = CompanionState::new();
+              for index in 0..version {
+                  let (key, value) = match index {
+                      0 if alternate_policy => (
+                          "preference.detail.general".to_owned(),
+                          "yes".to_owned(),
+                      ),
+                      0 => (
+                          "preference.brevity.general".to_owned(),
+                          "yes".to_owned(),
+                      ),
+                      1 => (
+                          "knowledge.strong_domain.rust".to_owned(),
+                          "rust".to_owned(),
+                      ),
+                      _ => (
+                          format!("custom.padding.{index}"),
+                          format!("value-{index}"),
+                      ),
+                  };
+                  state
+                      .record_claim(state.version, claim(key, value, 100 + index))
+                      .unwrap();
+              }
+              assert_eq!(state.version, version);
+              state
+          }
+
+          fn policy_context(
+              context_digest: u64,
+              subject_scope_digest: u64,
+              issued_at_ms: u64,
+              expires_at_ms: u64,
+          ) -> PolicyContext {
+              PolicyContext {
+                  context_digest,
+                  subject_scope_digest,
+                  domain: Some("rust".to_owned()),
+                  technical_context: true,
+                  asks_for_explanation: true,
+                  emotional_signal: false,
+                  issued_at_ms,
+                  not_before_ms: issued_at_ms + 1,
+                  expires_at_ms,
+              }
+          }
+
+          fn batch(
+              version: u64,
+              context_digest: u64,
+              subject: u64,
+              issued_at_ms: u64,
+          ) -> ShadowPolicyBatch {
+              ShadowPolicyPlanner::default()
+                  .plan(
+                      &deterministic_state(version, false),
+                      policy_context(context_digest, subject, issued_at_ms, issued_at_ms + 500),
+                  )
+                  .unwrap()
+          }
+
+          fn companion_proposal(version: u64, context_digest: u64) -> ShadowPolicyProposal {
+              batch(version, context_digest, SUBJECT, 900)
+                  .proposal(PolicyVariant::CompanionDerived)
+                  .unwrap()
+                  .clone()
+          }
+
+          fn turn(
+              turn_digest: u64,
+              context_digest: u64,
+              version: u64,
+              prepared_at_ms: u64,
+              sensitive: bool,
+          ) -> RuntimeCanaryTurnContext {
+              RuntimeCanaryTurnContext {
+                  session_scope_digest: SESSION,
+                  subject_scope_digest: SUBJECT,
+                  turn_digest,
+                  context_digest,
+                  current_companion_version: version,
+                  prepared_at_ms,
+                  sensitive_context: sensitive,
+              }
+          }
+
+          fn baseline(intent: ResponseIntent) -> (Response, RerankConfig) {
+              (
+                  Response::with_body(
+                      intent,
+                      "S6-C baseline body must remain hidden until a matching S5-B trial is bound.",
+                  ),
+                  RerankConfig {
+                      max_chars: Some(280),
+                      temperature: 0.7,
+                      top_k: 20,
+                      deterministic: true,
+                      seed: Some(42),
+                  },
+              )
+          }
+
+          #[derive(Debug, Clone, Copy, Default)]
+          struct TrialOverrides {
+              subject_scope_digest: Option<u64>,
+              context_digest: Option<u64>,
+              source_companion_version: Option<u64>,
+              issued_at_ms: Option<u64>,
+              expires_at_ms: Option<u64>,
+              alternate_policy: bool,
+          }
+
+          fn trial_with_overrides(
+              id: InteractionTrialId,
+              requirement: CanaryRegistrationRequirement,
+              delivered_variant: PolicyVariant,
+              overrides: TrialOverrides,
+          ) -> ValidatedRegisteredInteractionTrial {
+              assert!(id > 0);
+              let source_version = overrides
+                  .source_companion_version
+                  .unwrap_or(requirement.source_companion_version);
+              let subject = overrides
+                  .subject_scope_digest
+                  .unwrap_or(requirement.subject_scope_digest);
+              let context_digest = overrides
+                  .context_digest
+                  .unwrap_or(requirement.context_digest);
+              let issued_at_ms = overrides
+                  .issued_at_ms
+                  .unwrap_or(requirement.prepared_at_ms.saturating_sub(10));
+              let expires_at_ms = overrides
+                  .expires_at_ms
+                  .unwrap_or(requirement.prepared_at_ms + 500);
+              let state = deterministic_state(source_version, overrides.alternate_policy);
+              let planner = ShadowPolicyPlanner::default();
+              let mut predictions = PredictionLedger::new();
+              let mut outcomes = InteractionOutcomeLedger::new(&predictions);
+
+              for dummy_id in 1..id {
+                  let dummy_issued = 10 + dummy_id;
+                  let enrollment = planner
+                      .enroll(
+                          &state,
+                          &mut predictions,
+                          predictions.version,
+                          policy_context(
+                              0xD000 + id * 0x100 + dummy_id,
+                              subject,
+                              dummy_issued,
+                              dummy_issued + 500,
+                          ),
+                      )
+                      .unwrap();
+                  outcomes
+                      .register_enrollment(
+                          outcomes.version,
+                          &predictions,
+                          &enrollment,
+                          Some(PolicyVariant::NeutralDefault),
+                      )
+                      .unwrap();
+              }
+
+              let enrollment = planner
+                  .enroll(
+                      &state,
+                      &mut predictions,
+                      predictions.version,
+                      policy_context(context_digest, subject, issued_at_ms, expires_at_ms),
+                  )
+                  .unwrap();
+              let transition = outcomes
+                  .register_enrollment(
+                      outcomes.version,
+                      &predictions,
+                      &enrollment,
+                      Some(delivered_variant),
+                  )
+                  .unwrap();
+              assert_eq!(transition.trial_id, id);
+              ValidatedRegisteredInteractionTrial::validate(&outcomes, id).unwrap()
+          }
+
+          fn trial(
+              id: InteractionTrialId,
+              requirement: CanaryRegistrationRequirement,
+              delivered_variant: PolicyVariant,
+          ) -> ValidatedRegisteredInteractionTrial {
+              trial_with_overrides(id, requirement, delivered_variant, TrialOverrides::default())
+          }
+
+          '''
+          probe = prefix + main
+
+          probe = replace_once(
+              probe,
+              '''    let mut wrong_subject_trial = trial(
+                  2,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+              );
+              wrong_subject_trial.subject_scope_digest ^= 1;
+          ''',
+              '''    let wrong_subject_trial = trial_with_overrides(
+                  2,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+                  TrialOverrides {
+                      subject_scope_digest: Some(SUBJECT ^ 1),
+                      ..TrialOverrides::default()
+                  },
+              );
+          ''',
+              "wrong subject fixture",
+          )
+          probe = replace_once(
+              probe,
+              '''    let mut wrong_context_trial = trial(
+                  3,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+              );
+              wrong_context_trial.context_digest ^= 1;
+          ''',
+              '''    let wrong_context_trial = trial_with_overrides(
+                  3,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+                  TrialOverrides {
+                      context_digest: Some(0x203 ^ 1),
+                      ..TrialOverrides::default()
+                  },
+              );
+          ''',
+              "wrong context fixture",
+          )
+          probe = replace_once(
+              probe,
+              '''    let mut wrong_version_trial = trial(
+                  4,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+              );
+              wrong_version_trial.source_companion_version = 8;
+          ''',
+              '''    let wrong_version_trial = trial_with_overrides(
+                  4,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+                  TrialOverrides {
+                      source_companion_version: Some(8),
+                      ..TrialOverrides::default()
+                  },
+              );
+          ''',
+              "wrong version fixture",
+          )
+          probe = replace_once(
+              probe,
+              '''    let mut wrong_policy_trial = trial(
+                  5,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+              );
+              wrong_policy_trial
+                  .arms
+                  .iter_mut()
+                  .find(|arm| arm.variant == PolicyVariant::CompanionDerived)
+                  .unwrap()
+                  .policy_digest_fnv1a64 ^= 1;
+          ''',
+              '''    let wrong_policy_trial = trial_with_overrides(
+                  5,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+                  TrialOverrides {
+                      alternate_policy: true,
+                      ..TrialOverrides::default()
+                  },
+              );
+          ''',
+              "wrong policy fixture",
+          )
+          probe = replace_once(
+              probe,
+              '''    let mut expired_trial = trial(
+                  6,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+              );
+              expired_trial.expires_at_ms = pending.registration_requirement().prepared_at_ms;
+          ''',
+              '''    let expired_trial = trial_with_overrides(
+                  6,
+                  pending.registration_requirement(),
+                  PolicyVariant::CompanionDerived,
+                  TrialOverrides {
+                      expires_at_ms: Some(pending.registration_requirement().prepared_at_ms),
+                      ..TrialOverrides::default()
+                  },
+              );
+          ''',
+              "expired fixture",
+          )
+
+          old_applied = '''    let committed_applied = canary
+                  .commit_turn(
+                      canary.version,
+                      pending,
+                      &trial(
+                          7,
+                          CanaryRegistrationRequirement {
+                              subject_scope_digest: SUBJECT,
+                              context_digest: 0x201,
+                              source_companion_version: 7,
+                              required_delivered_variant: PolicyVariant::CompanionDerived,
+                              required_policy_digest_fnv1a64: COMPANION_POLICY,
+                              prepared_at_ms: 1_100,
+                          },
+                          PolicyVariant::CompanionDerived,
+                      ),
+                  )
+                  .unwrap();
+          '''
+          new_applied = '''    let applied_requirement = pending.registration_requirement();
+              let applied_trial = trial(7, applied_requirement, PolicyVariant::CompanionDerived);
+              let committed_applied = canary
+                  .commit_turn(canary.version, pending, &applied_trial)
+                  .unwrap();
+          '''
+          probe = replace_once(probe, old_applied, new_applied, "applied registered proof")
+
+          authority_marker = '''    let first_applied_authority_clean = committed_applied.live_response_influence
+                  && !committed_applied.routing_authority
+                  && !committed_applied.persistence_authority
+                  && !committed_applied.belief_promotion_authority
+                  && !committed_applied.ontology_promotion_authority
+                  && !committed_applied.tool_selection_authority
+                  && !committed_applied.action_authority;
+          '''
+          reuse = authority_marker + '''
+              let (reuse_response, reuse_rerank) = baseline(ResponseIntent::Recall);
+              let reuse_pending = canary
+                  .prepare_turn(
+                      canary.version,
+                      turn(0x107, 0x201, 7, 1_150, false),
+                      &batch(7, 0x201, SUBJECT, 1_090),
+                      reuse_response,
+                      reuse_rerank,
+                  )
+                  .unwrap();
+              let before_reused_trial = canary.summary();
+              let reused_trial_rejected_atomically = matches!(
+                  canary.commit_turn(canary.version, reuse_pending, &applied_trial),
+                  Err(RuntimeCanaryError::TrialAlreadyCommitted(id))
+                      if id == applied_trial.trial_id()
+              ) && canary.summary() == before_reused_trial;
+          '''
+          probe = replace_once(probe, authority_marker, reuse, "reused trial control")
+
+          old_replay = '''    let replay_deterministic = replay_a == replay_b
+                  && replay_a.summary() == canary.controller_summary()
+                  && serde_json::to_vec(canary.events()).unwrap()
+                      == serde_json::to_vec(canary.events()).unwrap();
+          '''
+          new_replay = '''    let serialized_events = serde_json::to_vec(canary.events()).unwrap();
+              let replay_events: Vec<RuntimeCanaryEvent> =
+                  serde_json::from_slice(&serialized_events).unwrap();
+              let replay_summary = RuntimeCanarySession::replay_summary(&replay_events).unwrap();
+              let canary_event_replay_equal = replay_summary == canary.summary();
+              let replay_deterministic = replay_a == replay_b
+                  && replay_a.summary() == canary.controller_summary()
+                  && canary_event_replay_equal;
+          '''
+          probe = replace_once(probe, old_replay, new_replay, "independent event replay")
+
+          probe = replace_once(
+              probe,
+              '        && expired_trial_rejected_atomically\n        && sensitive_context_exact_neutral\n',
+              '        && expired_trial_rejected_atomically\n        && reused_trial_rejected_atomically\n        && sensitive_context_exact_neutral\n',
+              "reuse gate",
+          )
+          probe = replace_once(
+              probe,
+              '        && revocation_immediate\n        && replay_deterministic\n',
+              '        && revocation_immediate\n        && canary_event_replay_equal\n        && replay_deterministic\n',
+              "event replay gate",
+          )
+          probe = replace_once(
+              probe,
+              '        expired_trial_rejected_atomically,\n        sensitive_context_exact_neutral,\n',
+              '        expired_trial_rejected_atomically,\n        reused_trial_rejected_atomically,\n        sensitive_context_exact_neutral,\n',
+              "reuse report",
+          )
+          probe = replace_once(
+              probe,
+              '        revocation_immediate,\n        replay_deterministic,\n',
+              '        revocation_immediate,\n        canary_event_replay_equal,\n        replay_deterministic,\n',
+              "event replay report",
+          )
+          probe_path.write_text(probe)
+
+          result_path = Path("docs/experiments/S6C_LIMITED_RUNTIME_CANARY_RESULT.md")
+          result = result_path.read_text()
+          result = result.replace(
+              'Status: **PASS**',
+              'Status: **PROVISIONAL — superseded by review hardening**',
+              1,
+          )
+          result = result.replace(
+              '## Terminal result',
+              'The initial mechanics run below exposed two post-run review defects: trial IDs were not yet one-shot and the canary-event replay assertion was not independent. Its artifact remains part of the audit trail but is not the terminal S6-C verdict.\n\n## Superseded initial result',
+              1,
+          )
+          result_path.write_text(result)
+          PY
+
+      - name: Format changed Rust sources
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs
+
+      - name: Compile hardened S6-C
+        run: |
+          cargo check -p star --lib --features companion-runtime-canary --locked
+          cargo check -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked
+
+      - name: Run hardened unit and frozen probes
+        run: |
+          cargo test -p star --lib --features companion-runtime-canary --locked \
+            companion_runtime_canary:: -- --test-threads=1
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-runtime-canary --locked
+          cargo run -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-runtime-canary --locked
+          cargo run -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked
+
+      - name: Commit hardened implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs \
+            docs/experiments/S6C_LIMITED_RUNTIME_CANARY_RESULT.md
+          git commit -m "fix(companion): harden S6-C trial binding and replay"
+          git push origin HEAD:experiment/s6c-limited-runtime-canary
