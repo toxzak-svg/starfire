@@ -9,6 +9,36 @@ description.workspace = true
 [lib]
 path = "lib.rs"
 
+[[example]]
+name = "s3_companion_observer_false_positive_probe"
+path = "examples/s3_companion_observer_false_positive_probe.rs"
+required-features = ["companion-observer"]
+
+[[example]]
+name = "s4_companion_prediction_ledger_probe"
+path = "examples/s4_companion_prediction_ledger_probe.rs"
+required-features = ["companion-prediction-ledger"]
+
+[[example]]
+name = "h_infant_typed_pressure_routing_probe"
+path = "examples/h_infant_typed_pressure_routing_probe.rs"
+required-features = ["developmental-evidence"]
+
+[[example]]
+name = "h_infant_multi_pressure_priority_probe"
+path = "examples/h_infant_multi_pressure_priority_probe.rs"
+required-features = ["developmental-evidence"]
+
+[[example]]
+name = "h_infant_residual_revision_probe"
+path = "examples/h_infant_residual_revision_probe.rs"
+required-features = ["developmental-evidence"]
+
+[[example]]
+name = "r1_relational_residual_bridge"
+path = "examples/r1_relational_residual_bridge.rs"
+required-features = ["relational-evidence"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
