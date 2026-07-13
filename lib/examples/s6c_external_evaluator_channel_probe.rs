@@ -2,18 +2,14 @@ use serde::Serialize;
 use star::companion_interaction_outcomes::{
     InteractionOutcomeError, InteractionOutcomeLedger, ObservedSignal,
 };
-use star::companion_interaction_policy::{
-    PolicyContext, PolicyVariant, ShadowPolicyPlanner,
-};
+use star::companion_interaction_policy::{PolicyContext, PolicyVariant, ShadowPolicyPlanner};
 use star::companion_policy_evaluation::EvaluationSplitPolicy;
 use star::companion_prediction_ledger::{PredictionLedger, WitnessSource};
 use star::companion_real_interaction_canary::{
     CanaryEvidenceError, CanaryEvidenceLedger, CanaryEvidenceOrigin, CanaryStudyConfig,
     DirectCanaryAttestation,
 };
-use star::companion_state::{
-    ClaimInput, ClaimSource, CompanionState, Retention, Sensitivity,
-};
+use star::companion_state::{ClaimInput, ClaimSource, CompanionState, Retention, Sensitivity};
 
 #[derive(Debug, Serialize)]
 struct ExternalEvaluatorChannelReport {
