@@ -1,0 +1,91 @@
+name: Companion Bounded Live Policy S6-A CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_bounded_live_policy.rs"
+      - "lib/examples/s6a_bounded_live_policy_probe.rs"
+      - "lib/companion_policy_evaluation.rs"
+      - "lib/companion_interaction_policy.rs"
+      - "lib/language_model/intent_reranker.rs"
+      - "lib/runtime/response_intent.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S6A_BOUNDED_LIVE_POLICY.md"
+      - "docs/experiments/S6A_BOUNDED_LIVE_POLICY_RESULT.md"
+      - ".github/workflows/companion-bounded-live-policy-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s6a-bounded-live-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check S6-A formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/companion_bounded_live_policy.rs \
+            lib/examples/s6a_bounded_live_policy_probe.rs
+
+      - name: Compile S6-A controller and probe
+        run: |
+          cargo check -p star --lib --features companion-bounded-live-policy --locked
+          cargo check -p star --example s6a_bounded_live_policy_probe \
+            --features companion-bounded-live-policy --locked
+
+      - name: Lint S6-A sources without inheriting legacy warnings
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-bounded-live-policy --locked \
+              --message-format=short
+            cargo clippy -p star --example s6a_bounded_live_policy_probe \
+              --features companion-bounded-live-policy --locked --message-format=short
+          } 2>&1 | tee s6a-clippy.log
+          if grep -E \
+            'lib/companion_bounded_live_policy\.rs:|lib/examples/s6a_bounded_live_policy_probe\.rs:' \
+            s6a-clippy.log; then
+            echo "S6-A scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Test S6-A contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-bounded-live-policy --locked
+          companion_bounded_live_policy:: -- --test-threads=1
+
+      - name: Run frozen S6-A bounded-live-policy probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-bounded-live-policy --locked \
+            | tee s6a-bounded-live-policy-report.json
+
+      - name: Preserve S6-A report and lint findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6a-bounded-live-policy-report
+          path: |
+            s6a-bounded-live-policy-report.json
+            s6a-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
