@@ -44,11 +44,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check committed formatting
+      - name: Format probe and preserve exact patch
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/structural_transfer.rs \
             lib/examples/h13c_structural_role_transfer_stress.rs
+          git diff --check
+          git diff -- \
+            lib/structural_transfer.rs \
+            lib/examples/h13c_structural_role_transfer_stress.rs \
+            | tee h13c-rustfmt.patch
 
       - name: Compile H13-C probe
         run: |
@@ -81,6 +86,7 @@ jobs:
         with:
           name: h13c-structural-role-transfer-stress
           path: |
+            h13c-rustfmt.patch
             h13c-structural-transfer-tests.log
             h13c-structural-role-transfer-report.json
             target/h13c-structural-role-transfer-report.json
