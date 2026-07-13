@@ -1,0 +1,76 @@
+name: H12 Strict Random-Partition Conformance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/examples/h12_strict_random_partition_conformance.rs"
+      - "docs/experiments/H12_STRICT_RANDOM_PARTITION_CONFORMANCE.md"
+      - "docs/experiments/H12_STRICT_RANDOM_PARTITION_CONFORMANCE_RESULT.md"
+      - ".github/workflows/h12-strict-random-control-conformance.yml"
+      - "lib/commitment_state.rs"
+      - "lib/rule_induction.rs"
+      - "lib/graph_discovery.rs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h12-strict-random-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    name: h12-strict-random-conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check committed formatting
+        run: |
+          rustfmt --edition 2021 --check lib/examples/h12_strict_random_partition_conformance.rs
+
+      - name: Compile H12 conformance probe
+        run: |
+          cargo check -p star --example h12_strict_random_partition_conformance --locked
+
+      - name: Re-run H9-H11 substrate tests
+        run: |
+          set -o pipefail
+          cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee h12-strict-random-tests.log
+          cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a h12-strict-random-tests.log
+          cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a h12-strict-random-tests.log
+
+      - name: Execute frozen H12 strict random-partition replay
+        run: |
+          set -o pipefail
+          cargo run -p star --example h12_strict_random_partition_conformance --locked \
+            | tee h12-strict-random-partition-conformance-report.json
+
+      - name: Preserve conformance report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h12-strict-random-partition-conformance
+          path: |
+            h12-strict-random-tests.log
+            h12-strict-random-partition-conformance-report.json
+          if-no-files-found: ignore
+          retention-days: 14
