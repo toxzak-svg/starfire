@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/scripts/apply_s6b_hardening.py"
       - ".github/scripts/fix_s6b_legacy_tests.py"
+      - ".github/scripts/fix_s6a_probe_mismatch.py"
       - ".github/workflows/apply-s6b-hardening.yml"
   workflow_dispatch:
 
@@ -35,6 +36,7 @@ jobs:
         run: |
           python3 .github/scripts/apply_s6b_hardening.py
           python3 .github/scripts/fix_s6b_legacy_tests.py
+          python3 .github/scripts/fix_s6a_probe_mismatch.py
 
       - name: Format transformed Rust
         run: |
@@ -73,6 +75,7 @@ jobs:
         run: |
           rm .github/scripts/apply_s6b_hardening.py
           rm .github/scripts/fix_s6b_legacy_tests.py
+          rm .github/scripts/fix_s6a_probe_mismatch.py
           rm .github/workflows/apply-s6b-hardening.yml
 
       - name: Commit hardened S6-B source
