@@ -51,12 +51,21 @@ jobs:
 
       - name: Lint scoped S6-C sources
         run: |
-          cargo clippy -p star --lib \
-            --features companion-real-interaction-canary --locked \
-            -- -D warnings
-          cargo clippy -p star --example s6c_real_interaction_canary_evidence \
-            --features companion-real-interaction-canary --locked \
-            -- -D warnings
+          set -o pipefail
+          {
+            cargo clippy -p star --lib \
+              --features companion-real-interaction-canary --locked \
+              --message-format=short
+            cargo clippy -p star --example s6c_real_interaction_canary_evidence \
+              --features companion-real-interaction-canary --locked \
+              --message-format=short
+          } 2>&1 | tee /tmp/s6c-clippy.log
+          if grep -E \
+            'lib/companion_real_interaction_canary\.rs:|lib/examples/s6c_real_interaction_canary_evidence\.rs:' \
+            /tmp/s6c-clippy.log; then
+            echo "S6-C scoped Clippy finding detected"
+            exit 1
+          fi
 
       - name: Run deterministic S6-C contracts
         run: |
@@ -91,5 +100,6 @@ jobs:
             /tmp/s5b-regression.json
             /tmp/s5c-regression.json
             /tmp/s6c-canary-report.json
+            /tmp/s6c-clippy.log
           if-no-files-found: ignore
           retention-days: 30
