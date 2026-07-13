@@ -1,0 +1,86 @@
+name: STLM Semantic Program L0 CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - research/state-transition-language-model-plan
+    paths:
+      - "lib/semantic_response/**"
+      - "lib/examples/stlm_l0_semantic_program_probe.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "docs/experiments/STLM_L0_SEMANTIC_PROGRAM.md"
+      - "docs/experiments/STLM_L0_SEMANTIC_PROGRAM_RESULT.md"
+      - ".github/workflows/stlm-semantic-program-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stlm-l0-semantic-program:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check canonical formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/semantic_response/mod.rs \
+            lib/examples/stlm_l0_semantic_program_probe.rs
+
+      - name: Compile semantic boundary and probe
+        run: |
+          cargo check -p star --lib --features semantic-response-program --locked
+          cargo check -p star --example stlm_l0_semantic_program_probe \
+            --features semantic-response-program --locked
+
+      - name: Lint scoped STLM L0 sources
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features semantic-response-program --locked \
+              --message-format=short
+            cargo clippy -p star --example stlm_l0_semantic_program_probe \
+              --features semantic-response-program --locked --message-format=short
+          } 2>&1 | tee stlm-l0-clippy.log
+          if grep -E \
+            'lib/semantic_response/|lib/examples/stlm_l0_semantic_program_probe\.rs:' \
+            stlm-l0-clippy.log; then
+            echo "STLM L0 scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run deterministic semantic-program contracts
+        run: >-
+          cargo test -p star --lib --features semantic-response-program --locked
+          semantic_response:: -- --test-threads=1
+
+      - name: Run frozen STLM L0 probe
+        run: |
+          cargo run -p star --example stlm_l0_semantic_program_probe \
+            --features semantic-response-program --locked \
+            | tee stlm-l0-semantic-program-report.json
+
+      - name: Preserve report and lint output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l0-semantic-program-report
+          path: |
+            stlm-l0-semantic-program-report.json
+            stlm-l0-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
