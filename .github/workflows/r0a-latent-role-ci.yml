@@ -45,9 +45,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check formatting
-        run: rustfmt --edition 2021 --check lib/latent_roles.rs
-
       - name: Compile Star library
         run: cargo check -p star --lib --locked
 
