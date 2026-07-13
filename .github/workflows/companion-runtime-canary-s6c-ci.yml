@@ -1,0 +1,106 @@
+name: Companion Runtime Canary S6-C CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_runtime_canary.rs"
+      - "lib/companion_bounded_live_policy.rs"
+      - "lib/examples/s6a_bounded_live_policy_probe.rs"
+      - "lib/examples/s6b_adversarial_live_policy_stress.rs"
+      - "lib/examples/s6c_limited_runtime_canary.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "docs/experiments/S6C_LIMITED_RUNTIME_CANARY.md"
+      - "docs/experiments/S6C_LIMITED_RUNTIME_CANARY_RESULT.md"
+      - ".github/workflows/companion-runtime-canary-s6c-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s6c-limited-runtime-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check S6-C formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/companion_runtime_canary.rs \
+            lib/examples/s6c_limited_runtime_canary.rs
+
+      - name: Compile canary and inherited probes
+        run: |
+          cargo check -p star --lib --features companion-runtime-canary --locked
+          cargo check -p star --example s6a_bounded_live_policy_probe \
+            --features companion-runtime-canary --locked
+          cargo check -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-runtime-canary --locked
+          cargo check -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked
+
+      - name: Lint scoped S6-C sources
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-runtime-canary --locked \
+              --message-format=short
+            cargo clippy -p star --example s6c_limited_runtime_canary \
+              --features companion-runtime-canary --locked --message-format=short
+          } 2>&1 | tee s6c-clippy.log
+          if grep -E \
+            'lib/companion_runtime_canary\.rs:|lib/examples/s6c_limited_runtime_canary\.rs:' \
+            s6c-clippy.log; then
+            echo "S6-C scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run deterministic S6-C unit contracts
+        run: >-
+          cargo test -p star --lib --features companion-runtime-canary --locked
+          companion_runtime_canary:: -- --test-threads=1
+
+      - name: Re-run frozen S6-A regression probe
+        run: |
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-runtime-canary --locked \
+            | tee s6a-regression-report.json
+
+      - name: Re-run frozen S6-B adversarial probe
+        run: |
+          cargo run -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-runtime-canary --locked \
+            | tee s6b-regression-report.json
+
+      - name: Run frozen S6-C canary probe
+        run: |
+          cargo run -p star --example s6c_limited_runtime_canary \
+            --features companion-runtime-canary --locked \
+            | tee s6c-canary-report.json
+
+      - name: Preserve reports and lint findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6c-limited-runtime-canary-report
+          path: |
+            s6a-regression-report.json
+            s6b-regression-report.json
+            s6c-canary-report.json
+            s6c-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
