@@ -166,11 +166,12 @@ fn main() {
         }
     });
 
+    let expected_prediction_version = predictions.version;
     let shadow_enrollment = planner
         .enroll(
             &state,
             &mut predictions,
-            predictions.version,
+            expected_prediction_version,
             context(2, 3_000),
         )
         .unwrap();
