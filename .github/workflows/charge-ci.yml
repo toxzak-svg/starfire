@@ -50,14 +50,16 @@ jobs:
             lib/persistence/mod.rs \
             lib/charge/mod.rs \
             lib/user_model/companion_projection.rs \
-            lib/user_model/mod.rs
+            lib/user_model/mod.rs \
+            lib/latent_roles.rs
           git diff --exit-code -- \
             lib/persistence/companion.rs \
             lib/persistence/store.rs \
             lib/persistence/mod.rs \
             lib/charge/mod.rs \
             lib/user_model/companion_projection.rs \
-            lib/user_model/mod.rs
+            lib/user_model/mod.rs \
+            lib/latent_roles.rs
 
       - name: Compile Star library and A1 probe
         run: |
@@ -79,6 +81,7 @@ jobs:
           cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star latent_roles:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star representation_transport_orbit:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
 
