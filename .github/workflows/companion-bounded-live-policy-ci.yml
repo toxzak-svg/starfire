@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   s6a-bounded-live-policy:
@@ -28,10 +28,8 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Check out pull-request branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,149 +39,9 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Harden duplicate-turn audit contract
+      - name: Check S6-A formatting
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          module = Path("lib/companion_bounded_live_policy.rs")
-          lines = module.read_text().splitlines()
-          if not any("InvalidDuplicateFallback" in line for line in lines):
-              apply_start = next(i for i, line in enumerate(lines) if "fn apply_event" in line)
-              event_start = next(
-                  i for i in range(apply_start, len(lines))
-                  if lines[i].strip() == "LivePolicyEvent::TurnPlanned {"
-              )
-              disposition = next(
-                  i for i in range(event_start, event_start + 12)
-                  if lines[i].strip() == "disposition,"
-              )
-              lines.insert(disposition + 1, "                fallback_reason,")
-              duplicate_if = next(
-                  i for i in range(event_start, event_start + 20)
-                  if "if !self.seen_turns.insert(*turn_digest)" in lines[i]
-              )
-              lines[duplicate_if:duplicate_if + 3] = [
-                  "                let duplicate_fallback = *disposition == LivePlanDisposition::NeutralFallback",
-                  "                    && *fallback_reason == Some(NeutralFallbackReason::DuplicateTurn);",
-                  "                if duplicate_fallback {",
-                  "                    if !self.seen_turns.contains(turn_digest) {",
-                  "                        return Err(LivePolicyError::InvalidDuplicateFallback(*turn_digest));",
-                  "                    }",
-                  "                } else if !self.seen_turns.insert(*turn_digest) {",
-                  "                    return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));",
-                  "                }",
-              ]
-
-              error_line = next(
-                  i for i, line in enumerate(lines)
-                  if line.strip() == '#[error("audit contains duplicate turn digest {0}")]'
-              )
-              lines[error_line] = (
-                  '    #[error("audit contains duplicate turn digest {0} without duplicate fallback")]'
-              )
-              lines[error_line + 2:error_line + 2] = [
-                  '    #[error("duplicate fallback references unseen turn digest {0}")]',
-                  "    InvalidDuplicateFallback(u64),",
-              ]
-
-              replay_fn = next(
-                  i for i, line in enumerate(lines)
-                  if line.strip() == "fn replay_is_exact() {"
-              )
-              test_start = replay_fn - 1
-              duplicate_test = [
-                  "    #[test]",
-                  "    fn duplicate_turn_is_audited_neutral_fallback_without_consuming_budget() {",
-                  "        let config = LivePolicyControllerConfig {",
-                  "            allow_simulated_activation: true,",
-                  "            ..LivePolicyControllerConfig::default()",
-                  "        };",
-                  "        let gate = ValidatedPromotionGate::validate(",
-                  "            &passing_report(),",
-                  "            EvaluationEvidenceClass::FrozenSimulation,",
-                  "            1,",
-                  "        )",
-                  "        .unwrap();",
-                  "        let mut controller = BoundedLivePolicyController::new(config).unwrap();",
-                  "        controller",
-                  "            .activate(0, &gate, &proposal(), activation())",
-                  "            .unwrap();",
-                  "        let (response, rerank) = baseline();",
-                  "        controller",
-                  "            .plan_response(controller.version, context(1, false), response, rerank)",
-                  "            .unwrap();",
-                  "        let (duplicate_response, duplicate_rerank) = baseline();",
-                  "        let duplicate = controller",
-                  "            .plan_response(",
-                  "                controller.version,",
-                  "                context(1, false),",
-                  "                duplicate_response,",
-                  "                duplicate_rerank,",
-                  "            )",
-                  "            .unwrap();",
-                  "        assert_eq!(duplicate.disposition, LivePlanDisposition::NeutralFallback);",
-                  "        assert_eq!(",
-                  "            duplicate.fallback_reason,",
-                  "            Some(NeutralFallbackReason::DuplicateTurn)",
-                  "        );",
-                  "        assert_eq!(duplicate.remaining_turns, 1);",
-                  "        let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();",
-                  "        assert_eq!(replayed, controller);",
-                  "    }",
-                  "",
-              ]
-              lines[test_start:test_start] = duplicate_test
-              module.write_text("\n".join(lines) + "\n")
-
-          probe = Path("lib/examples/s6a_bounded_live_policy_probe.rs")
-          lines = probe.read_text().splitlines()
-          if not any("duplicate_turn_used_neutral_fallback" in line for line in lines):
-              field = next(
-                  i for i, line in enumerate(lines)
-                  if line.strip() == "sensitive_context_used_exact_neutral_fallback: bool,"
-              )
-              lines.insert(field + 1, "    duplicate_turn_used_neutral_fallback: bool,")
-
-              sensitive_setup = next(
-                  i for i, line in enumerate(lines)
-                  if "let (sensitive_response, sensitive_config)" in line
-              )
-              duplicate_probe = [
-                  "    let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);",
-                  "    let duplicate = controller",
-                  "        .plan_response(",
-                  "            controller.version,",
-                  "            context(1, false),",
-                  "            duplicate_response,",
-                  "            duplicate_config,",
-                  "        )",
-                  "        .unwrap();",
-                  "    let duplicate_turn_used_neutral_fallback = duplicate.disposition",
-                  "        == LivePlanDisposition::NeutralFallback",
-                  "        && duplicate.fallback_reason == Some(NeutralFallbackReason::DuplicateTurn)",
-                  "        && duplicate.remaining_turns == 1;",
-                  "",
-              ]
-              lines[sensitive_setup:sensitive_setup] = duplicate_probe
-
-              gate_line = next(
-                  i for i, line in enumerate(lines)
-                  if line.strip() == "&& sensitive_context_used_exact_neutral_fallback"
-              )
-              lines.insert(gate_line + 1, "        && duplicate_turn_used_neutral_fallback")
-
-              result_field = next(
-                  i for i, line in enumerate(lines)
-                  if line.strip() == "sensitive_context_used_exact_neutral_fallback,"
-              )
-              lines.insert(result_field + 1, "        duplicate_turn_used_neutral_fallback,")
-              probe.write_text("\n".join(lines) + "\n")
-          PY
-
-      - name: Format S6-A sources canonically
-        run: |
-          rustfmt --edition 2021 \
+          rustfmt --edition 2021 --check \
             lib/companion_bounded_live_policy.rs \
             lib/examples/s6a_bounded_live_policy_probe.rs
 
@@ -221,18 +79,7 @@ jobs:
             --features companion-bounded-live-policy --locked \
             | tee s6a-bounded-live-policy-report.json
 
-      - name: Commit verified canonical sources
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/companion_bounded_live_policy.rs \
-            lib/examples/s6a_bounded_live_policy_probe.rs
-          if ! git diff --cached --quiet; then
-            git commit -m "fix(companion): harden S6-A duplicate-turn replay"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
-
-      - name: Preserve S6-A report, lint, and formatted sources
+      - name: Preserve S6-A report and lint findings
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -240,7 +87,5 @@ jobs:
           path: |
             s6a-bounded-live-policy-report.json
             s6a-clippy.log
-            lib/companion_bounded_live_policy.rs
-            lib/examples/s6a_bounded_live_policy_probe.rs
           if-no-files-found: ignore
           retention-days: 30
