@@ -37,22 +37,22 @@ jobs:
           text = path.read_text()
           old = '''            mean_brier_score_ppm: (resolved > 0)
                           .then_some((total_brier_score_ppm / resolved) as u32),'''
+          old = old.replace("                          .then", "                .then")
           new = '''            mean_brier_score_ppm: if resolved > 0 {
-                          Some((total_brier_score_ppm / resolved) as u32)
-                      } else {
-                          None
-                      },'''
-          if old in text:
-              path.write_text(text.replace(old, new, 1))
+                Some((total_brier_score_ppm / resolved) as u32)
+            } else {
+                None
+            },'''
+          if old not in text:
+              raise SystemExit("expected empty-summary expression was not found")
+          path.write_text(text.replace(old, new, 1))
           PY
           rustfmt --edition 2021 lib/companion_prediction_ledger.rs
-          if ! git diff --quiet -- lib/companion_prediction_ledger.rs; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lib/companion_prediction_ledger.rs
-            git commit -m "fix(companion): avoid empty-summary division"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/companion_prediction_ledger.rs
+          git commit -m "fix(companion): avoid empty-summary division"
+          git push origin HEAD:${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
