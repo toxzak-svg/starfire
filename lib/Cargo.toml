@@ -55,6 +55,11 @@ path = "examples/stlm_l0c_deterministic_renderer_probe.rs"
 required-features = ["deterministic-language-renderer"]
 
 [[example]]
+name = "stlm_l1_independent_language_verifier_probe"
+path = "examples/stlm_l1_independent_language_verifier_probe.rs"
+required-features = ["independent-language-verifier"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -111,5 +116,6 @@ companion-bounded-live-policy = ["companion-policy-evaluation"]  # S6-A opt-in b
 companion-live-policy-stress = ["companion-bounded-live-policy"]  # S6-B adversarial audit/replay stress; no new authority
 semantic-response-program = []  # STLM L0-B typed semantic authorization and replay; no Runtime::chat() wiring
 deterministic-language-renderer = ["semantic-response-program"]  # STLM L0-C bounded reference realization; no live influence
+independent-language-verifier = ["deterministic-language-renderer"]  # STLM L1 verifier-ready v2 surface plus inverse verifier; offline only
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
