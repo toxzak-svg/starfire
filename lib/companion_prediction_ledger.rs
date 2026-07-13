@@ -331,8 +331,11 @@ impl PredictionLedger {
             expired,
             abstentions: self.abstentions.len() as u64,
             total_brier_score_ppm,
-            mean_brier_score_ppm: (resolved > 0)
-                .then_some((total_brier_score_ppm / resolved) as u32),
+            mean_brier_score_ppm: if resolved > 0 {
+                Some((total_brier_score_ppm / resolved) as u32)
+            } else {
+                None
+            },
         }
     }
 
@@ -491,9 +494,12 @@ pub fn score_outcome(
     observed_label: &str,
 ) -> Result<BrierScore, PredictionLedgerError> {
     let outcomes = validate_outcomes(outcomes.to_vec())?;
-    let observed_label = canonical_label(observed_label)
-        .ok_or(PredictionLedgerError::EmptyWitnessLabel)?;
-    if !outcomes.iter().any(|outcome| outcome.label == observed_label) {
+    let observed_label =
+        canonical_label(observed_label).ok_or(PredictionLedgerError::EmptyWitnessLabel)?;
+    if !outcomes
+        .iter()
+        .any(|outcome| outcome.label == observed_label)
+    {
         return Err(PredictionLedgerError::UnknownOutcomeLabel(observed_label));
     }
 
@@ -521,8 +527,8 @@ fn prepare_prediction(
     id: PredictionId,
     input: PredictionInput,
 ) -> Result<PredictionRecord, PredictionLedgerError> {
-    let subject_scope = normalize_text(&input.subject_scope)
-        .ok_or(PredictionLedgerError::EmptySubjectScope)?;
+    let subject_scope =
+        normalize_text(&input.subject_scope).ok_or(PredictionLedgerError::EmptySubjectScope)?;
     let producer = validate_producer(input.producer)?;
     let outcomes = validate_outcomes(input.outcomes)?;
     if input.not_before_ms < input.issued_at_ms {
@@ -549,10 +555,11 @@ fn prepare_abstention(
     id: AbstentionId,
     input: AbstentionInput,
 ) -> Result<AbstentionRecord, PredictionLedgerError> {
-    let subject_scope = normalize_text(&input.subject_scope)
-        .ok_or(PredictionLedgerError::EmptySubjectScope)?;
+    let subject_scope =
+        normalize_text(&input.subject_scope).ok_or(PredictionLedgerError::EmptySubjectScope)?;
     let producer = validate_producer(input.producer)?;
-    let reason = normalize_text(&input.reason).ok_or(PredictionLedgerError::EmptyAbstentionReason)?;
+    let reason =
+        normalize_text(&input.reason).ok_or(PredictionLedgerError::EmptyAbstentionReason)?;
     Ok(AbstentionRecord {
         id,
         subject_scope,
@@ -595,9 +602,7 @@ fn prepare_witness(
     Ok(OutcomeWitness { label, ..witness })
 }
 
-fn validate_prediction_record(
-    prediction: &PredictionRecord,
-) -> Result<(), PredictionLedgerError> {
+fn validate_prediction_record(prediction: &PredictionRecord) -> Result<(), PredictionLedgerError> {
     if prediction.id == 0 {
         return Err(PredictionLedgerError::UnexpectedPredictionId {
             expected: 1,
@@ -620,14 +625,14 @@ fn validate_prediction_record(
         },
     )?;
     if rebuilt != *prediction {
-        return Err(PredictionLedgerError::ReplayPredictionMismatch(prediction.id));
+        return Err(PredictionLedgerError::ReplayPredictionMismatch(
+            prediction.id,
+        ));
     }
     Ok(())
 }
 
-fn validate_abstention_record(
-    abstention: &AbstentionRecord,
-) -> Result<(), PredictionLedgerError> {
+fn validate_abstention_record(abstention: &AbstentionRecord) -> Result<(), PredictionLedgerError> {
     if abstention.id == 0 {
         return Err(PredictionLedgerError::UnexpectedAbstentionId {
             expected: 1,
@@ -645,7 +650,9 @@ fn validate_abstention_record(
         },
     )?;
     if rebuilt != *abstention {
-        return Err(PredictionLedgerError::ReplayAbstentionMismatch(abstention.id));
+        return Err(PredictionLedgerError::ReplayAbstentionMismatch(
+            abstention.id,
+        ));
     }
     Ok(())
 }
@@ -668,8 +675,8 @@ fn validate_outcomes(
     let mut normalized = Vec::with_capacity(outcomes.len());
 
     for outcome in outcomes {
-        let label = canonical_label(&outcome.label)
-            .ok_or(PredictionLedgerError::EmptyOutcomeLabel)?;
+        let label =
+            canonical_label(&outcome.label).ok_or(PredictionLedgerError::EmptyOutcomeLabel)?;
         if !labels.insert(label.clone()) {
             return Err(PredictionLedgerError::DuplicateOutcomeLabel(label));
         }
@@ -696,7 +703,9 @@ fn validate_outcomes(
 
 fn require_pending(prediction: &PredictionRecord) -> Result<(), PredictionLedgerError> {
     if !matches!(prediction.status, PredictionStatus::Pending) {
-        return Err(PredictionLedgerError::PredictionAlreadyFinalized(prediction.id));
+        return Err(PredictionLedgerError::PredictionAlreadyFinalized(
+            prediction.id,
+        ));
     }
     Ok(())
 }
@@ -740,10 +749,7 @@ pub enum PredictionLedgerError {
     #[error("duplicate outcome label: {0}")]
     DuplicateOutcomeLabel(String),
     #[error("probability for {label} is outside 0..=10000 bps: {probability_bps}")]
-    ProbabilityOutOfRange {
-        label: String,
-        probability_bps: u16,
-    },
+    ProbabilityOutOfRange { label: String, probability_bps: u16 },
     #[error("probability mass must equal 10000 bps, got {actual_bps}")]
     InvalidProbabilityMass { actual_bps: u32 },
     #[error("outcome window begins before prediction issue time")]
