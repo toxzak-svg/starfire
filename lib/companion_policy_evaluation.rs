@@ -10,12 +10,18 @@ use crate::companion_interaction_outcomes::{
     ObservedSignal, PairwisePreference,
 };
 use crate::companion_interaction_policy::PolicyVariant;
-use crate::companion_prediction_ledger::PredictionStatus;
+use crate::companion_prediction_ledger::{OutcomeProbability, PredictionStatus};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 const BASIS_POINTS: u64 = 10_000;
+
+type ArmMetricsByVariant = BTreeMap<PolicyVariant, ArmEvaluationMetrics>;
+type ArmMetricsBySplit = BTreeMap<EvaluationSplit, ArmMetricsByVariant>;
+type PairwiseByControl = BTreeMap<PolicyVariant, CandidatePairwiseMetrics>;
+type PairwiseBySplit = BTreeMap<EvaluationSplit, PairwiseByControl>;
+type ComputeByArm = BTreeMap<(InteractionTrialId, PolicyVariant), u64>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EvaluationSplit {
@@ -57,14 +63,14 @@ impl EvaluationSplitPolicy {
     ) -> Result<EvaluationSplit, PolicyEvaluationError> {
         self.validate()?;
         if trial.issued_at_ms >= self.temporal_holdout_start_ms {
-            return Ok(EvaluationSplit::TemporalHoldout);
-        }
-        if trial.subject_scope_digest % self.opaque_subject_modulus
+            Ok(EvaluationSplit::TemporalHoldout)
+        } else if trial.subject_scope_digest % self.opaque_subject_modulus
             == self.opaque_subject_remainder
         {
-            return Ok(EvaluationSplit::OpaqueSubjectHoldout);
+            Ok(EvaluationSplit::OpaqueSubjectHoldout)
+        } else {
+            Ok(EvaluationSplit::Development)
         }
-        Ok(EvaluationSplit::Development)
     }
 }
 
@@ -153,12 +159,18 @@ pub struct ArmEvaluationMetrics {
 
 impl ArmEvaluationMetrics {
     fn finalize(&mut self) {
-        self.mean_brier_score_ppm = mean_u32(self.total_brier_score_ppm, self.resolved_predictions);
+        self.mean_brier_score_ppm = mean_u32(
+            self.total_brier_score_ppm,
+            self.resolved_predictions,
+        );
         self.mean_top_label_calibration_error_bps = mean_u16(
             self.total_top_label_calibration_error_bps,
             self.resolved_predictions,
         );
-        self.mean_compute_micros = mean_u64(self.total_compute_micros, self.compute_observations);
+        self.mean_compute_micros = mean_u64(
+            self.total_compute_micros,
+            self.compute_observations,
+        );
         self.correction_rate_bps = rate_bps(self.corrections, self.direct_outcomes);
         self.clarification_rate_bps = rate_bps(self.clarification_requests, self.direct_outcomes);
         self.completion_rate_bps = rate_bps(self.completions, self.direct_outcomes);
@@ -179,8 +191,11 @@ pub struct CandidatePairwiseMetrics {
 impl CandidatePairwiseMetrics {
     fn finalize(&mut self) {
         self.total = self.candidate_wins + self.control_wins + self.ties;
-        self.candidate_win_margin_bps =
-            signed_rate_delta_bps(self.candidate_wins, self.control_wins, self.total);
+        self.candidate_win_margin_bps = signed_rate_delta_bps(
+            self.candidate_wins,
+            self.control_wins,
+            self.total,
+        );
     }
 }
 
@@ -279,166 +294,11 @@ pub fn evaluate_shadow_policies(
     let mut split_metrics = empty_split_metrics();
     let mut pairwise = empty_pairwise_metrics();
 
-    for trial in outcomes.trials().values() {
-        let split = config.split_policy.classify(trial)?;
-        let arms = split_metrics
-            .get_mut(&split)
-            .expect("all evaluation splits are initialized");
-        for arm in &trial.arms {
-            let metrics = arms
-                .get_mut(&arm.variant)
-                .expect("all policy variants are initialized");
-            metrics.trials += 1;
-            let cost = costs
-                .get(&(trial.id, arm.variant))
-                .copied()
-                .ok_or(PolicyEvaluationError::MissingComputeObservation {
-                    trial_id: trial.id,
-                    variant: arm.variant,
-                })?;
-            metrics.compute_observations += 1;
-            metrics.total_compute_micros = metrics
-                .total_compute_micros
-                .checked_add(cost)
-                .ok_or(PolicyEvaluationError::MetricOverflow)?;
+    accumulate_trial_metrics(outcomes, &costs, config, &mut split_metrics)?;
+    accumulate_event_metrics(outcomes, config, &mut split_metrics, &mut pairwise)?;
 
-            if let Some(prediction_id) = arm.prediction_id {
-                metrics.predictions += 1;
-                let prediction = outcomes
-                    .mirrored_prediction_ledger()
-                    .prediction(prediction_id)
-                    .ok_or(PolicyEvaluationError::MissingPrediction(prediction_id))?;
-                match &prediction.status {
-                    PredictionStatus::Pending => metrics.pending_predictions += 1,
-                    PredictionStatus::Expired { .. } => metrics.expired_predictions += 1,
-                    PredictionStatus::Resolved { witness, score } => {
-                        metrics.resolved_predictions += 1;
-                        metrics.total_brier_score_ppm = metrics
-                            .total_brier_score_ppm
-                            .checked_add(u64::from(score.score_ppm))
-                            .ok_or(PolicyEvaluationError::MetricOverflow)?;
-                        metrics.total_top_label_calibration_error_bps = metrics
-                            .total_top_label_calibration_error_bps
-                            .checked_add(u64::from(top_label_calibration_error_bps(
-                                &prediction.outcomes,
-                                &witness.label,
-                            )?))
-                            .ok_or(PolicyEvaluationError::MetricOverflow)?;
-                    }
-                }
-            } else if arm.abstention_id.is_some() {
-                metrics.abstentions += 1;
-            } else {
-                return Err(PolicyEvaluationError::MalformedTrialArm {
-                    trial_id: trial.id,
-                    variant: arm.variant,
-                });
-            }
-        }
-    }
-
-    for event in outcomes.events() {
-        match event {
-            InteractionOutcomeEvent::TrialRegistered { .. } => {}
-            InteractionOutcomeEvent::ObservedSignalRecorded {
-                trial_id,
-                delivered_variant,
-                evidence,
-                ..
-            } => {
-                let trial = outcomes
-                    .trials()
-                    .get(trial_id)
-                    .ok_or(PolicyEvaluationError::UnknownTrial(*trial_id))?;
-                let split = config.split_policy.classify(trial)?;
-                let metrics = split_metrics
-                    .get_mut(&split)
-                    .and_then(|arms| arms.get_mut(delivered_variant))
-                    .expect("all splits and variants are initialized");
-                metrics.direct_events += 1;
-                if evidence.signal.outcome_label().is_some() {
-                    metrics.direct_outcomes += 1;
-                }
-                match evidence.signal {
-                    ObservedSignal::ExplicitPositiveRating => {
-                        metrics.positive_direct_outcomes += 1;
-                    }
-                    ObservedSignal::TaskCompleted => {
-                        metrics.positive_direct_outcomes += 1;
-                        metrics.completions += 1;
-                    }
-                    ObservedSignal::UserCorrection => metrics.corrections += 1,
-                    ObservedSignal::ClarificationRequest => {
-                        metrics.clarification_requests += 1;
-                    }
-                    ObservedSignal::Abandoned => metrics.abandonments += 1,
-                    ObservedSignal::ExplicitNegativeRating | ObservedSignal::NeutralFollowUp => {}
-                }
-            }
-            InteractionOutcomeEvent::PairedEvaluationRecorded {
-                trial_id, evidence, ..
-            } => {
-                let trial = outcomes
-                    .trials()
-                    .get(trial_id)
-                    .ok_or(PolicyEvaluationError::UnknownTrial(*trial_id))?;
-                let split = config.split_policy.classify(trial)?;
-                record_pairwise_arm_metrics(
-                    split_metrics
-                        .get_mut(&split)
-                        .expect("all splits are initialized"),
-                    evidence.left_variant,
-                    evidence.right_variant,
-                    evidence.preference,
-                );
-                record_candidate_pairwise(
-                    pairwise
-                        .get_mut(&split)
-                        .expect("all splits are initialized"),
-                    evidence.left_variant,
-                    evidence.right_variant,
-                    evidence.preference,
-                );
-            }
-        }
-    }
-
-    let mut splits = Vec::new();
-    for split in [
-        EvaluationSplit::Development,
-        EvaluationSplit::OpaqueSubjectHoldout,
-        EvaluationSplit::TemporalHoldout,
-    ] {
-        let mut arms = split_metrics
-            .remove(&split)
-            .expect("all splits are initialized");
-        for metrics in arms.values_mut() {
-            metrics.finalize();
-        }
-        let mut candidate_pairwise = pairwise
-            .remove(&split)
-            .expect("all splits are initialized");
-        for metrics in candidate_pairwise.values_mut() {
-            metrics.finalize();
-        }
-        splits.push(SplitEvaluationReport {
-            split,
-            arms,
-            candidate_pairwise,
-        });
-    }
-
-    let mut holdout_comparisons = Vec::new();
-    for split_report in splits.iter().filter(|report| report.split.is_holdout()) {
-        for control in control_variants() {
-            holdout_comparisons.push(compare_candidate_to_control(
-                split_report,
-                control,
-                config,
-            ));
-        }
-    }
-
+    let splits = finalize_splits(split_metrics, pairwise);
+    let holdout_comparisons = build_holdout_comparisons(&splits, config);
     let evidence_sufficient = holdout_comparisons
         .iter()
         .all(|comparison| comparison.gates.evidence_sufficient());
@@ -466,52 +326,229 @@ pub fn evaluate_shadow_policies(
     })
 }
 
-fn empty_split_metrics(
-) -> BTreeMap<EvaluationSplit, BTreeMap<PolicyVariant, ArmEvaluationMetrics>> {
-    [
-        EvaluationSplit::Development,
-        EvaluationSplit::OpaqueSubjectHoldout,
-        EvaluationSplit::TemporalHoldout,
-    ]
-    .into_iter()
-    .map(|split| {
-        let arms = PolicyVariant::all()
-            .into_iter()
-            .map(|variant| (variant, ArmEvaluationMetrics::default()))
-            .collect();
-        (split, arms)
-    })
-    .collect()
+fn accumulate_trial_metrics(
+    outcomes: &InteractionOutcomeLedger,
+    costs: &ComputeByArm,
+    config: PolicyEvaluationConfig,
+    split_metrics: &mut ArmMetricsBySplit,
+) -> Result<(), PolicyEvaluationError> {
+    for trial in outcomes.trials().values() {
+        let split = config.split_policy.classify(trial)?;
+        let arms = split_metrics
+            .get_mut(&split)
+            .expect("all evaluation splits are initialized");
+        for arm in &trial.arms {
+            let metrics = arms
+                .get_mut(&arm.variant)
+                .expect("all policy variants are initialized");
+            metrics.trials += 1;
+            let cost = costs
+                .get(&(trial.id, arm.variant))
+                .copied()
+                .ok_or(PolicyEvaluationError::MissingComputeObservation {
+                    trial_id: trial.id,
+                    variant: arm.variant,
+                })?;
+            metrics.compute_observations += 1;
+            metrics.total_compute_micros = metrics
+                .total_compute_micros
+                .checked_add(cost)
+                .ok_or(PolicyEvaluationError::MetricOverflow)?;
+
+            match (arm.prediction_id, arm.abstention_id) {
+                (Some(prediction_id), None) => {
+                    metrics.predictions += 1;
+                    let prediction = outcomes
+                        .mirrored_prediction_ledger()
+                        .prediction(prediction_id)
+                        .ok_or(PolicyEvaluationError::MissingPrediction(prediction_id))?;
+                    match &prediction.status {
+                        PredictionStatus::Pending => metrics.pending_predictions += 1,
+                        PredictionStatus::Expired { .. } => metrics.expired_predictions += 1,
+                        PredictionStatus::Resolved { witness, score } => {
+                            metrics.resolved_predictions += 1;
+                            metrics.total_brier_score_ppm = metrics
+                                .total_brier_score_ppm
+                                .checked_add(u64::from(score.score_ppm))
+                                .ok_or(PolicyEvaluationError::MetricOverflow)?;
+                            let calibration_error = top_label_calibration_error_bps(
+                                &prediction.outcomes,
+                                &witness.label,
+                            )?;
+                            metrics.total_top_label_calibration_error_bps = metrics
+                                .total_top_label_calibration_error_bps
+                                .checked_add(u64::from(calibration_error))
+                                .ok_or(PolicyEvaluationError::MetricOverflow)?;
+                        }
+                    }
+                }
+                (None, Some(_)) => metrics.abstentions += 1,
+                _ => {
+                    return Err(PolicyEvaluationError::MalformedTrialArm {
+                        trial_id: trial.id,
+                        variant: arm.variant,
+                    });
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
-fn empty_pairwise_metrics(
-) -> BTreeMap<EvaluationSplit, BTreeMap<PolicyVariant, CandidatePairwiseMetrics>> {
-    [
-        EvaluationSplit::Development,
-        EvaluationSplit::OpaqueSubjectHoldout,
-        EvaluationSplit::TemporalHoldout,
-    ]
-    .into_iter()
-    .map(|split| {
-        let controls = control_variants()
-            .into_iter()
-            .map(|variant| (variant, CandidatePairwiseMetrics::default()))
-            .collect();
-        (split, controls)
-    })
-    .collect()
+fn accumulate_event_metrics(
+    outcomes: &InteractionOutcomeLedger,
+    config: PolicyEvaluationConfig,
+    split_metrics: &mut ArmMetricsBySplit,
+    pairwise: &mut PairwiseBySplit,
+) -> Result<(), PolicyEvaluationError> {
+    for event in outcomes.events() {
+        match event {
+            InteractionOutcomeEvent::TrialRegistered { .. } => {}
+            InteractionOutcomeEvent::ObservedSignalRecorded {
+                trial_id,
+                delivered_variant,
+                evidence,
+                ..
+            } => {
+                let trial = outcomes
+                    .trials()
+                    .get(trial_id)
+                    .ok_or(PolicyEvaluationError::UnknownTrial(*trial_id))?;
+                let split = config.split_policy.classify(trial)?;
+                let metrics = split_metrics
+                    .get_mut(&split)
+                    .and_then(|arms| arms.get_mut(delivered_variant))
+                    .expect("all splits and policy variants are initialized");
+                record_direct_signal(metrics, evidence.signal);
+            }
+            InteractionOutcomeEvent::PairedEvaluationRecorded {
+                trial_id,
+                evidence,
+                ..
+            } => {
+                let trial = outcomes
+                    .trials()
+                    .get(trial_id)
+                    .ok_or(PolicyEvaluationError::UnknownTrial(*trial_id))?;
+                let split = config.split_policy.classify(trial)?;
+                record_pairwise_arm_metrics(
+                    split_metrics
+                        .get_mut(&split)
+                        .expect("all evaluation splits are initialized"),
+                    evidence.left_variant,
+                    evidence.right_variant,
+                    evidence.preference,
+                );
+                record_candidate_pairwise(
+                    pairwise
+                        .get_mut(&split)
+                        .expect("all evaluation splits are initialized"),
+                    evidence.left_variant,
+                    evidence.right_variant,
+                    evidence.preference,
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+fn record_direct_signal(metrics: &mut ArmEvaluationMetrics, signal: ObservedSignal) {
+    metrics.direct_events += 1;
+    if signal.outcome_label().is_some() {
+        metrics.direct_outcomes += 1;
+    }
+    match signal {
+        ObservedSignal::ExplicitPositiveRating => metrics.positive_direct_outcomes += 1,
+        ObservedSignal::TaskCompleted => {
+            metrics.positive_direct_outcomes += 1;
+            metrics.completions += 1;
+        }
+        ObservedSignal::UserCorrection => metrics.corrections += 1,
+        ObservedSignal::ClarificationRequest => metrics.clarification_requests += 1,
+        ObservedSignal::Abandoned => metrics.abandonments += 1,
+        ObservedSignal::ExplicitNegativeRating | ObservedSignal::NeutralFollowUp => {}
+    }
+}
+
+fn finalize_splits(
+    mut split_metrics: ArmMetricsBySplit,
+    mut pairwise: PairwiseBySplit,
+) -> Vec<SplitEvaluationReport> {
+    evaluation_splits()
+        .into_iter()
+        .map(|split| {
+            let mut arms = split_metrics
+                .remove(&split)
+                .expect("all evaluation splits are initialized");
+            for metrics in arms.values_mut() {
+                metrics.finalize();
+            }
+            let mut candidate_pairwise = pairwise
+                .remove(&split)
+                .expect("all evaluation splits are initialized");
+            for metrics in candidate_pairwise.values_mut() {
+                metrics.finalize();
+            }
+            SplitEvaluationReport {
+                split,
+                arms,
+                candidate_pairwise,
+            }
+        })
+        .collect()
+}
+
+fn build_holdout_comparisons(
+    splits: &[SplitEvaluationReport],
+    config: PolicyEvaluationConfig,
+) -> Vec<CandidateControlComparison> {
+    let mut comparisons = Vec::new();
+    for split in splits.iter().filter(|report| report.split.is_holdout()) {
+        for control in control_variants() {
+            comparisons.push(compare_candidate_to_control(split, control, config));
+        }
+    }
+    comparisons
+}
+
+fn empty_split_metrics() -> ArmMetricsBySplit {
+    evaluation_splits()
+        .into_iter()
+        .map(|split| {
+            let arms = PolicyVariant::all()
+                .into_iter()
+                .map(|variant| (variant, ArmEvaluationMetrics::default()))
+                .collect();
+            (split, arms)
+        })
+        .collect()
+}
+
+fn empty_pairwise_metrics() -> PairwiseBySplit {
+    evaluation_splits()
+        .into_iter()
+        .map(|split| {
+            let controls = control_variants()
+                .into_iter()
+                .map(|variant| (variant, CandidatePairwiseMetrics::default()))
+                .collect();
+            (split, controls)
+        })
+        .collect()
 }
 
 fn validate_compute_observations(
     outcomes: &InteractionOutcomeLedger,
     compute: &[ArmComputeObservation],
-) -> Result<BTreeMap<(InteractionTrialId, PolicyVariant), u64>, PolicyEvaluationError> {
+) -> Result<ComputeByArm, PolicyEvaluationError> {
     let expected = outcomes
         .trials()
         .values()
         .flat_map(|trial| trial.arms.iter().map(move |arm| (trial.id, arm.variant)))
         .collect::<BTreeSet<_>>();
     let mut costs = BTreeMap::new();
+
     for observation in compute {
         let key = (observation.trial_id, observation.variant);
         if !expected.contains(&key) {
@@ -533,6 +570,7 @@ fn validate_compute_observations(
             });
         }
     }
+
     for (trial_id, variant) in expected {
         if !costs.contains_key(&(trial_id, variant)) {
             return Err(PolicyEvaluationError::MissingComputeObservation { trial_id, variant });
@@ -542,47 +580,47 @@ fn validate_compute_observations(
 }
 
 fn record_pairwise_arm_metrics(
-    arms: &mut BTreeMap<PolicyVariant, ArmEvaluationMetrics>,
+    arms: &mut ArmMetricsByVariant,
     left: PolicyVariant,
     right: PolicyVariant,
     preference: PairwisePreference,
 ) {
     match preference {
         PairwisePreference::Left => {
-            arms.get_mut(&left).expect("variant exists").pairwise_wins += 1;
-            arms.get_mut(&right).expect("variant exists").pairwise_losses += 1;
+            arms.get_mut(&left).expect("left policy variant exists").pairwise_wins += 1;
+            arms.get_mut(&right).expect("right policy variant exists").pairwise_losses += 1;
         }
         PairwisePreference::Right => {
-            arms.get_mut(&right).expect("variant exists").pairwise_wins += 1;
-            arms.get_mut(&left).expect("variant exists").pairwise_losses += 1;
+            arms.get_mut(&right).expect("right policy variant exists").pairwise_wins += 1;
+            arms.get_mut(&left).expect("left policy variant exists").pairwise_losses += 1;
         }
         PairwisePreference::Tie => {
-            arms.get_mut(&left).expect("variant exists").pairwise_ties += 1;
-            arms.get_mut(&right).expect("variant exists").pairwise_ties += 1;
+            arms.get_mut(&left).expect("left policy variant exists").pairwise_ties += 1;
+            arms.get_mut(&right).expect("right policy variant exists").pairwise_ties += 1;
         }
     }
 }
 
 fn record_candidate_pairwise(
-    controls: &mut BTreeMap<PolicyVariant, CandidatePairwiseMetrics>,
+    controls: &mut PairwiseByControl,
     left: PolicyVariant,
     right: PolicyVariant,
     preference: PairwisePreference,
 ) {
     let candidate = PolicyVariant::CompanionDerived;
-    let control = if left == candidate && right != candidate {
+    let candidate_position = if left == candidate && right != candidate {
         Some((right, true))
     } else if right == candidate && left != candidate {
         Some((left, false))
     } else {
         None
     };
-    let Some((control, candidate_is_left)) = control else {
+    let Some((control, candidate_is_left)) = candidate_position else {
         return;
     };
     let metrics = controls
         .get_mut(&control)
-        .expect("all control variants are initialized");
+        .expect("all control policy variants are initialized");
     match preference {
         PairwisePreference::Tie => metrics.ties += 1,
         PairwisePreference::Left if candidate_is_left => metrics.candidate_wins += 1,
@@ -592,29 +630,26 @@ fn record_candidate_pairwise(
 }
 
 fn compare_candidate_to_control(
-    split_report: &SplitEvaluationReport,
+    split: &SplitEvaluationReport,
     control: PolicyVariant,
     config: PolicyEvaluationConfig,
 ) -> CandidateControlComparison {
-    let candidate = split_report
+    let candidate = split
         .arms
         .get(&PolicyVariant::CompanionDerived)
         .expect("candidate metrics exist");
-    let control_metrics = split_report
-        .arms
-        .get(&control)
-        .expect("control metrics exist");
-    let pairwise = split_report
+    let control_metrics = split.arms.get(&control).expect("control metrics exist");
+    let pairwise = split
         .candidate_pairwise
         .get(&control)
         .cloned()
-        .expect("pairwise metrics exist");
+        .expect("candidate-control pairwise metrics exist");
 
-    let brier_improvement_ppm = signed_option_delta(
+    let brier_improvement_ppm = option_delta_i64(
         control_metrics.mean_brier_score_ppm.map(i64::from),
         candidate.mean_brier_score_ppm.map(i64::from),
     );
-    let calibration_regression_bps = signed_option_delta_i32(
+    let calibration_regression_bps = option_delta_i32(
         candidate
             .mean_top_label_calibration_error_bps
             .map(i32::from),
@@ -679,7 +714,7 @@ fn compare_candidate_to_control(
     };
 
     CandidateControlComparison {
-        split: split_report.split,
+        split: split.split,
         control,
         candidate_resolved: candidate.resolved_predictions,
         control_resolved: control_metrics.resolved_predictions,
@@ -698,6 +733,14 @@ fn compare_candidate_to_control(
     }
 }
 
+fn evaluation_splits() -> [EvaluationSplit; 3] {
+    [
+        EvaluationSplit::Development,
+        EvaluationSplit::OpaqueSubjectHoldout,
+        EvaluationSplit::TemporalHoldout,
+    ]
+}
+
 fn control_variants() -> [PolicyVariant; 5] {
     [
         PolicyVariant::NeutralDefault,
@@ -709,34 +752,47 @@ fn control_variants() -> [PolicyVariant; 5] {
 }
 
 fn top_label_calibration_error_bps(
-    outcomes: &[crate::companion_prediction_ledger::OutcomeProbability],
+    outcomes: &[OutcomeProbability],
     observed_label: &str,
 ) -> Result<u16, PolicyEvaluationError> {
     let top = outcomes
         .iter()
         .max_by_key(|outcome| outcome.probability_bps)
         .ok_or(PolicyEvaluationError::EmptyPredictionOutcomes)?;
-    let observed = if top.label == observed_label { 10_000 } else { 0 };
-    Ok(top.probability_bps.abs_diff(observed))
+    let observed_bps = if top.label == observed_label { 10_000 } else { 0 };
+    Ok(top.probability_bps.abs_diff(observed_bps))
 }
 
 fn mean_u64(total: u64, count: u64) -> Option<u64> {
-    (count > 0).then_some(total / count)
+    if count == 0 {
+        None
+    } else {
+        Some(total / count)
+    }
 }
 
 fn mean_u32(total: u64, count: u64) -> Option<u32> {
-    (count > 0).then_some((total / count) as u32)
+    if count == 0 {
+        None
+    } else {
+        Some((total / count) as u32)
+    }
 }
 
 fn mean_u16(total: u64, count: u64) -> Option<u16> {
-    (count > 0).then_some((total / count) as u16)
+    if count == 0 {
+        None
+    } else {
+        Some((total / count) as u16)
+    }
 }
 
 fn rate_bps(numerator: u64, denominator: u64) -> Option<u16> {
     if denominator == 0 {
-        return None;
+        None
+    } else {
+        Some(((numerator.saturating_mul(BASIS_POINTS)) / denominator) as u16)
     }
-    Some(((numerator.saturating_mul(BASIS_POINTS)) / denominator) as u16)
 }
 
 fn signed_rate_delta_bps(left: u64, right: u64, denominator: u64) -> Option<i32> {
@@ -748,14 +804,14 @@ fn signed_rate_delta_bps(left: u64, right: u64, denominator: u64) -> Option<i32>
 }
 
 fn rate_regression(candidate: Option<u16>, control: Option<u16>) -> Option<i32> {
-    signed_option_delta_i32(candidate.map(i32::from), control.map(i32::from))
+    option_delta_i32(candidate.map(i32::from), control.map(i32::from))
 }
 
-fn signed_option_delta(left: Option<i64>, right: Option<i64>) -> Option<i64> {
+fn option_delta_i64(left: Option<i64>, right: Option<i64>) -> Option<i64> {
     Some(left? - right?)
 }
 
-fn signed_option_delta_i32(left: Option<i32>, right: Option<i32>) -> Option<i32> {
+fn option_delta_i32(left: Option<i32>, right: Option<i32>) -> Option<i32> {
     Some(left? - right?)
 }
 
@@ -891,5 +947,13 @@ mod tests {
         neutral.finalize();
         assert_eq!(neutral.candidate_wins, 1);
         assert_eq!(neutral.candidate_win_margin_bps, Some(10_000));
+    }
+
+    #[test]
+    fn empty_means_are_none_without_division() {
+        assert_eq!(mean_u64(0, 0), None);
+        assert_eq!(mean_u32(0, 0), None);
+        assert_eq!(mean_u16(0, 0), None);
+        assert_eq!(rate_bps(0, 0), None);
     }
 }
