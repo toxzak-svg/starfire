@@ -9,6 +9,11 @@ description.workspace = true
 [lib]
 path = "lib.rs"
 
+[[example]]
+name = "h_infant_typed_pressure_routing_probe"
+path = "examples/h_infant_typed_pressure_routing_probe.rs"
+required-features = ["developmental-evidence"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
