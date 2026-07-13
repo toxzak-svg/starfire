@@ -35,6 +35,11 @@ path = "examples/s5c_comparative_policy_evaluation_probe.rs"
 required-features = ["companion-policy-evaluation"]
 
 [[example]]
+name = "s6a_bounded_live_policy_probe"
+path = "examples/s6a_bounded_live_policy_probe.rs"
+required-features = ["companion-bounded-live-policy"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -87,5 +92,6 @@ companion-prediction-ledger = []  # S4 unresolved commitments and independent sc
 companion-interaction-policy = ["companion-prediction-ledger"]  # S5-A shadow proposals and controls
 companion-interaction-outcomes = ["companion-interaction-policy"]  # S5-B independent witnesses and replay
 companion-policy-evaluation = ["companion-interaction-outcomes"]  # S5-C held-out comparative evaluation; no live influence
-developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
+companion-bounded-live-policy = ["companion-policy-evaluation"]  # S6-A opt-in bounded response-planning metadata
+ developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
