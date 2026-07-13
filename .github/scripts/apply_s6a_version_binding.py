@@ -1,0 +1,376 @@
+from pathlib import Path
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one match, found {count}")
+    return text.replace(old, new, 1)
+
+
+def add_validate_argument(text: str, value: str) -> str:
+    needle = "ValidatedPromotionGate::validate("
+    cursor = 0
+    edits: list[tuple[int, str]] = []
+    while True:
+        start = text.find(needle, cursor)
+        if start < 0:
+            break
+        open_paren = text.find("(", start)
+        depth = 0
+        close = None
+        in_string = False
+        escape = False
+        for index in range(open_paren, len(text)):
+            char = text[index]
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    close = index
+                    break
+        if close is None:
+            raise SystemExit("unterminated ValidatedPromotionGate::validate call")
+        body = text[open_paren + 1 : close]
+        top_level_commas = 0
+        inner_depth = 0
+        in_string = False
+        escape = False
+        for char in body:
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char in "([{":
+                inner_depth += 1
+            elif char in ")]}":
+                inner_depth -= 1
+            elif char == "," and inner_depth == 0:
+                top_level_commas += 1
+        if top_level_commas == 3:
+            line_start = text.rfind("\n", 0, close) + 1
+            closing_indent = text[line_start:close]
+            if closing_indent.strip():
+                raise SystemExit("validate closing parenthesis is not on its own line")
+            edits.append((line_start, f"{closing_indent}    {value},\n"))
+        elif top_level_commas != 4:
+            raise SystemExit(f"unexpected validate arity marker: {top_level_commas}")
+        cursor = close + 1
+    for position, insertion in reversed(edits):
+        text = text[:position] + insertion + text[position:]
+    return text
+
+
+module_path = Path("lib/companion_bounded_live_policy.rs")
+module = module_path.read_text()
+module = replace_once(
+    module,
+    "pub struct ValidatedPromotionGate {\n    digest_fnv1a64: u64,\n    evidence_class: EvaluationEvidenceClass,\n}",
+    "pub struct ValidatedPromotionGate {\n    digest_fnv1a64: u64,\n    evidence_class: EvaluationEvidenceClass,\n    authorized_companion_version: u64,\n}",
+    "gate field",
+)
+module = replace_once(
+    module,
+    "        evaluation_artifact_digest: u64,\n    ) -> Result<Self, LivePolicyError> {\n        if evaluation_artifact_digest == 0 {\n            return Err(LivePolicyError::EmptyEvaluationArtifactDigest);\n        }",
+    "        evaluation_artifact_digest: u64,\n        authorized_companion_version: u64,\n    ) -> Result<Self, LivePolicyError> {\n        if evaluation_artifact_digest == 0 {\n            return Err(LivePolicyError::EmptyEvaluationArtifactDigest);\n        }\n        if authorized_companion_version == 0 {\n            return Err(LivePolicyError::EmptyAuthorizedCompanionVersion);\n        }",
+    "gate signature",
+)
+module = replace_once(
+    module,
+    "        digest = mix_u64(digest, evidence_class as u64);\n        for (split, control) in observed {",
+    "        digest = mix_u64(digest, evidence_class as u64);\n        digest = mix_u64(digest, authorized_companion_version);\n        for (split, control) in observed {",
+    "gate digest",
+)
+module = replace_once(
+    module,
+    "        Ok(Self {\n            digest_fnv1a64: digest,\n            evidence_class,\n        })",
+    "        Ok(Self {\n            digest_fnv1a64: digest,\n            evidence_class,\n            authorized_companion_version,\n        })",
+    "gate construction",
+)
+module = replace_once(
+    module,
+    "    pub const fn evidence_class(&self) -> EvaluationEvidenceClass {\n        self.evidence_class\n    }\n}",
+    "    pub const fn evidence_class(&self) -> EvaluationEvidenceClass {\n        self.evidence_class\n    }\n\n    #[must_use]\n    pub const fn authorized_companion_version(&self) -> u64 {\n        self.authorized_companion_version\n    }\n}",
+    "gate getter",
+)
+module = replace_once(
+    module,
+    "        validate_proposal(proposal, self.config.min_confidence_bps)?;",
+    "        if proposal.source_companion_version != gate.authorized_companion_version {\n            return Err(LivePolicyError::PromotionSourceVersionMismatch {\n                authorized: gate.authorized_companion_version,\n                actual: proposal.source_companion_version,\n            });\n        }\n        validate_proposal(proposal, self.config.min_confidence_bps)?;",
+    "activation version gate",
+)
+module = replace_once(
+    module,
+    "pub enum NeutralFallbackReason {\n    Disabled,",
+    "pub enum NeutralFallbackReason {\n    Disabled,\n    SourceVersionMismatch,",
+    "fallback enum",
+)
+module = replace_once(
+    module,
+    "        planned_at_ms: u64,\n        intent_label: String,",
+    "        planned_at_ms: u64,\n        current_companion_version: u64,\n        intent_label: String,",
+    "turn audit version",
+)
+module = replace_once(
+    module,
+    "pub struct LivePolicyPlanningContext {\n    pub subject_scope_digest: u64,\n    pub turn_digest: u64,\n    pub context_digest: u64,\n    pub planned_at_ms: u64,",
+    "pub struct LivePolicyPlanningContext {\n    pub subject_scope_digest: u64,\n    pub turn_digest: u64,\n    pub context_digest: u64,\n    pub current_companion_version: u64,\n    pub planned_at_ms: u64,",
+    "planning context version",
+)
+module = replace_once(
+    module,
+    "        if context.turn_digest == 0 || context.context_digest == 0 {\n            return Err(LivePolicyError::EmptyPlanningDigest);\n        }",
+    "        if context.turn_digest == 0 || context.context_digest == 0 {\n            return Err(LivePolicyError::EmptyPlanningDigest);\n        }\n        if context.current_companion_version == 0 {\n            return Err(LivePolicyError::EmptyCurrentCompanionVersion);\n        }",
+    "planning version validation",
+)
+module = replace_once(
+    module,
+    "            planned_at_ms: context.planned_at_ms,\n            intent_label: response.intent.label().to_owned(),",
+    "            planned_at_ms: context.planned_at_ms,\n            current_companion_version: context.current_companion_version,\n            intent_label: response.intent.label().to_owned(),",
+    "turn event version",
+)
+module = replace_once(
+    module,
+    "        if self.seen_turns.contains(&context.turn_digest) {\n            return Some(NeutralFallbackReason::DuplicateTurn);\n        }\n        if context.planned_at_ms < lease.valid_from_ms {",
+    "        if self.seen_turns.contains(&context.turn_digest) {\n            return Some(NeutralFallbackReason::DuplicateTurn);\n        }\n        if context.current_companion_version != lease.source_companion_version {\n            return Some(NeutralFallbackReason::SourceVersionMismatch);\n        }\n        if context.planned_at_ms < lease.valid_from_ms {",
+    "stale fallback",
+)
+module = replace_once(
+    module,
+    "    #[error(\"evaluation artifact digest must be non-zero\")]\n    EmptyEvaluationArtifactDigest,",
+    "    #[error(\"evaluation artifact digest must be non-zero\")]\n    EmptyEvaluationArtifactDigest,\n    #[error(\"authorized companion version must be non-zero\")]\n    EmptyAuthorizedCompanionVersion,",
+    "authorized version error",
+)
+module = replace_once(
+    module,
+    "    #[error(\"companion proposal is not an eligible non-abstaining candidate\")]\n    InvalidCompanionProposal,",
+    "    #[error(\"companion proposal is not an eligible non-abstaining candidate\")]\n    InvalidCompanionProposal,\n    #[error(\"promotion gate authorizes companion version {authorized}, proposal uses {actual}\")]\n    PromotionSourceVersionMismatch { authorized: u64, actual: u64 },",
+    "activation mismatch error",
+)
+module = replace_once(
+    module,
+    "    #[error(\"planning digests must be non-zero\")]\n    EmptyPlanningDigest,",
+    "    #[error(\"planning digests must be non-zero\")]\n    EmptyPlanningDigest,\n    #[error(\"current companion version must be non-zero\")]\n    EmptyCurrentCompanionVersion,",
+    "planning version error",
+)
+module = replace_once(
+    module,
+    "            context_digest: 500 + turn,\n            planned_at_ms: 1_100,",
+    "            context_digest: 500 + turn,\n            current_companion_version: 3,\n            planned_at_ms: 1_100,",
+    "unit context helper",
+)
+module = add_validate_argument(module, "3")
+insert_before = "    #[test]\n    fn applied_plan_changes_only_bounded_metadata() {"
+new_tests = '''    #[test]
+    fn activation_rejects_a_proposal_from_an_unauthorized_companion_version() {
+        let config = LivePolicyControllerConfig {
+            allow_simulated_activation: true,
+            ..LivePolicyControllerConfig::default()
+        };
+        let gate = ValidatedPromotionGate::validate(
+            &passing_report(),
+            EvaluationEvidenceClass::FrozenSimulation,
+            1,
+            3,
+        )
+        .unwrap();
+        let mut stale_proposal = proposal();
+        stale_proposal.source_companion_version = 4;
+        let mut controller = BoundedLivePolicyController::new(config).unwrap();
+        assert_eq!(
+            controller.activate(0, &gate, &stale_proposal, activation()),
+            Err(LivePolicyError::PromotionSourceVersionMismatch {
+                authorized: 3,
+                actual: 4,
+            })
+        );
+    }
+
+    #[test]
+    fn companion_version_drift_uses_exact_neutral_fallback_without_consuming_budget() {
+        let config = LivePolicyControllerConfig {
+            allow_simulated_activation: true,
+            ..LivePolicyControllerConfig::default()
+        };
+        let gate = ValidatedPromotionGate::validate(
+            &passing_report(),
+            EvaluationEvidenceClass::FrozenSimulation,
+            1,
+            3,
+        )
+        .unwrap();
+        let mut controller = BoundedLivePolicyController::new(config).unwrap();
+        controller
+            .activate(0, &gate, &proposal(), activation())
+            .unwrap();
+        let (response, rerank) = baseline();
+        let body = response.body.clone();
+        let max_chars = rerank.max_chars;
+        let mut stale_context = context(1, false);
+        stale_context.current_companion_version = 4;
+        let decision = controller
+            .plan_response(controller.version, stale_context, response, rerank)
+            .unwrap();
+        assert_eq!(decision.disposition, LivePlanDisposition::NeutralFallback);
+        assert_eq!(
+            decision.fallback_reason,
+            Some(NeutralFallbackReason::SourceVersionMismatch)
+        );
+        assert_eq!(decision.response.body, body);
+        assert_eq!(decision.rerank_config.max_chars, max_chars);
+        assert_eq!(decision.remaining_turns, 2);
+    }
+
+'''
+module = replace_once(module, insert_before, new_tests + insert_before, "unit tests insertion")
+module_path.write_text(module)
+
+probe_path = Path("lib/examples/s6a_bounded_live_policy_probe.rs")
+probe = probe_path.read_text()
+probe = replace_once(
+    probe,
+    "    NeutralFallbackReason, ValidatedPromotionGate,",
+    "    LivePolicyError, NeutralFallbackReason, ValidatedPromotionGate,",
+    "probe error import",
+)
+probe = replace_once(
+    probe,
+    "    explicit_simulation_override_required: bool,\n    applied_plan_changed_metadata_only: bool,",
+    "    explicit_simulation_override_required: bool,\n    activation_version_mismatch_rejected: bool,\n    stale_companion_version_used_exact_neutral_fallback: bool,\n    applied_plan_changed_metadata_only: bool,",
+    "probe fields",
+)
+probe = replace_once(
+    probe,
+    "        context_digest: 0x200 + turn,\n        planned_at_ms: 1_100 + turn,",
+    "        context_digest: 0x200 + turn,\n        current_companion_version: 7,\n        planned_at_ms: 1_100 + turn,",
+    "probe context version",
+)
+probe = add_validate_argument(probe, "7")
+activation_marker = "    let config = LivePolicyControllerConfig {\n        max_activation_turns: 3,"
+activation_test = '''    let mismatch_config = LivePolicyControllerConfig {
+        max_activation_turns: 3,
+        allow_simulated_activation: true,
+        ..LivePolicyControllerConfig::default()
+    };
+    let mut mismatch_controller = BoundedLivePolicyController::new(mismatch_config).unwrap();
+    let mut mismatched_proposal = proposal();
+    mismatched_proposal.source_companion_version = 8;
+    let activation_version_mismatch_rejected = matches!(
+        mismatch_controller.activate(
+            0,
+            &gate,
+            &mismatched_proposal,
+            LivePolicyActivationRequest {
+                subject_scope_digest: 0xAA,
+                valid_from_ms: 1_000,
+                expires_at_ms: 2_000,
+                max_turns: 2,
+                operator_approval_digest: 0xABCD,
+            },
+        ),
+        Err(LivePolicyError::PromotionSourceVersionMismatch {
+            authorized: 7,
+            actual: 8,
+        })
+    );
+
+'''
+probe = replace_once(probe, activation_marker, activation_test + activation_marker, "probe activation mismatch")
+stale_marker = "    let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);"
+stale_test = '''    let (stale_response, stale_config) = baseline(ResponseIntent::Recall);
+    let stale_body = stale_response.body.clone();
+    let stale_max = stale_config.max_chars;
+    let mut stale_context = context(6, false);
+    stale_context.current_companion_version = 8;
+    let stale = controller
+        .plan_response(
+            controller.version,
+            stale_context,
+            stale_response,
+            stale_config,
+        )
+        .unwrap();
+    let stale_companion_version_used_exact_neutral_fallback = stale.disposition
+        == LivePlanDisposition::NeutralFallback
+        && stale.fallback_reason == Some(NeutralFallbackReason::SourceVersionMismatch)
+        && stale.response.body == stale_body
+        && stale.rerank_config.max_chars == stale_max
+        && stale.remaining_turns == 1;
+
+'''
+probe = replace_once(probe, stale_marker, stale_test + stale_marker, "probe stale fallback")
+probe = replace_once(
+    probe,
+    "        && explicit_simulation_override_required\n        && applied_plan_changed_metadata_only",
+    "        && explicit_simulation_override_required\n        && activation_version_mismatch_rejected\n        && stale_companion_version_used_exact_neutral_fallback\n        && applied_plan_changed_metadata_only",
+    "probe gate",
+)
+probe = replace_once(
+    probe,
+    "        explicit_simulation_override_required,\n        applied_plan_changed_metadata_only,",
+    "        explicit_simulation_override_required,\n        activation_version_mismatch_rejected,\n        stale_companion_version_used_exact_neutral_fallback,\n        applied_plan_changed_metadata_only,",
+    "probe output",
+)
+probe_path.write_text(probe)
+
+contract_path = Path("docs/experiments/S6A_BOUNDED_LIVE_POLICY.md")
+contract = contract_path.read_text()
+contract = replace_once(
+    contract,
+    "- an evaluation artifact digest;\n- an explicit operator-approval digest;",
+    "- an evaluation artifact digest;\n- the exact positive companion-state version evaluated by that artifact;\n- an explicit operator-approval digest;",
+    "contract activation version",
+)
+contract = replace_once(
+    contract,
+    "Synthetic evaluator conformance is rejected by the production-default controller.",
+    "The promotion gate is non-serializable, and activation rejects any proposal whose source companion version differs from the evaluated version. Synthetic evaluator conformance is rejected by the production-default controller.",
+    "contract gate statement",
+)
+contract = replace_once(
+    contract,
+    "Only applied turns consume the turn budget. Neutral fallbacks do not. Revocation is immediate and replayable.",
+    "Only applied turns consume the turn budget. Neutral fallbacks do not. Any later companion-state version change immediately forces exact neutral fallback without consuming budget. Revocation is immediate and replayable.",
+    "contract stale fallback",
+)
+contract = replace_once(
+    contract,
+    "- production-default rejection of simulated evidence;",
+    "- production-default rejection of simulated evidence;\n- rejection of activation from a mismatched companion version;\n- exact neutral fallback after companion-version drift;",
+    "contract probe gates",
+)
+contract_path.write_text(contract)
+
+result_path = Path("docs/experiments/S6A_BOUNDED_LIVE_POLICY_RESULT.md")
+result = result_path.read_text()
+result += '''
+
+## Companion-version binding hardening
+
+Status: **PENDING**
+
+The follow-up hardening binds every validated promotion gate to the exact positive
+companion-state version evaluated by its artifact. Activation must use a proposal
+from that same version, and every planned turn must present the current companion
+version. Any drift returns the exact neutral response plan without consuming the
+lease budget. The frozen probe now requires both activation-time mismatch
+rejection and post-activation drift fallback.
+'''
+result_path.write_text(result)
