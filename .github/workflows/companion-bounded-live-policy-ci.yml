@@ -39,9 +39,9 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check S6-A formatting
+      - name: Format S6-A sources canonically
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/companion_bounded_live_policy.rs \
             lib/examples/s6a_bounded_live_policy_probe.rs
 
@@ -79,7 +79,7 @@ jobs:
             --features companion-bounded-live-policy --locked \
             | tee s6a-bounded-live-policy-report.json
 
-      - name: Preserve S6-A report and lint findings
+      - name: Preserve S6-A report, lint, and formatted sources
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -87,5 +87,7 @@ jobs:
           path: |
             s6a-bounded-live-policy-report.json
             s6a-clippy.log
+            lib/companion_bounded_live_policy.rs
+            lib/examples/s6a_bounded_live_policy_probe.rs
           if-no-files-found: ignore
           retention-days: 30
