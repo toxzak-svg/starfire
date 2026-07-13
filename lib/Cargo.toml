@@ -83,5 +83,5 @@ companion-prediction-ledger = []  # S4 unresolved commitments and independent sc
 companion-interaction-policy = ["companion-prediction-ledger"]  # S5-A shadow proposals and controls
 companion-interaction-outcomes = ["companion-interaction-policy"]  # S5-B independent witnesses and replay
 companion-policy-evaluation = ["companion-interaction-outcomes"]  # S5-C held-out comparative evaluation; no live influence
- developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
+developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
