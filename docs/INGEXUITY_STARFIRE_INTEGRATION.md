@@ -63,7 +63,7 @@ Merged in Starfire PR #47:
 
 ### S2 — legacy user-model bridge
 
-Implemented in the current PR:
+Merged in Starfire PR #48:
 
 - deterministic read-only projection from `CompanionState` to `UserCognitionModel`;
 - explicit confidence, sensitivity, and session-retention policy;
@@ -74,15 +74,38 @@ Implemented in the current PR:
 - no reverse mutation from the legacy model into companion state;
 - no `Runtime::chat()` or response-routing integration.
 
-## Next slices
+### S3 — bounded shadow observation
 
-### S3 — shadow runtime observation
+PR #49 introduced the explicit-statement observer. The completion gate adds:
 
-Add a shadow-only conversation observer that proposes typed claim events. It may emit contested claims and CHARGE, but it cannot alter response generation or action selection.
+- a default-off `companion-observer` feature;
+- actual library export and compilation of the observer;
+- sentence-boundary eligibility rather than substring extraction;
+- matched controls for explicit, negated, quoted, third-person, hypothetical, and adversarial language;
+- a frozen executable probe requiring zero false positives and zero false negatives on the checked-in corpus;
+- dedicated formatting, compilation, Clippy, unit-test, and probe execution in Companion State CI;
+- no state mutation, persistence authority, response routing, `Runtime::chat()` wiring, or action authority.
+
+S3 produces inert `ClaimInput` proposals only. A separate reviewed boundary must decide whether any proposal becomes a companion-state event.
+
+## Current slice
 
 ### S4 — falsifiable prediction ledger
 
-Represent companion predictions as unresolved commitments. Resolve them only against later observations, with calibration, abstention, and replayable scoring.
+Represent companion predictions as unresolved commitments recorded before the associated response or intervention. S4 must provide:
+
+- typed prediction IDs, producer provenance, subject scope, outcome labels, probability distributions, issue time, horizon, and expiration;
+- explicit abstention rather than forced prediction;
+- delayed outcome witnesses that cannot be supplied by the response generator;
+- single-resolution semantics with typed rejection of self-grading, premature evidence, label mismatch, and duplicate resolution;
+- proper scoring, including multiclass Brier score and calibration aggregates;
+- deterministic event replay and versioned state transitions;
+- temporal-split evaluation against recency, majority, context-only, scrambled-scope, and oracle controls;
+- no response-policy influence, routing authority, belief promotion, or autonomous side effects.
+
+S4 is complete only when a frozen replay fixture demonstrates that issued predictions remain unresolved until independently witnessed later evidence arrives and that the real ledger is not outperformed by trivial matched-budget controls.
+
+## Later slices
 
 ### S5 — interaction-policy evaluation
 
