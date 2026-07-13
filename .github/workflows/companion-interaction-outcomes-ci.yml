@@ -43,28 +43,10 @@ jobs:
             lib/examples/s5b_independent_interaction_outcomes_probe.rs
 
       - name: Compile S5-B collector and probe
-        id: compile
-        continue-on-error: true
         run: |
-          set -o pipefail
-          {
-            cargo check -p star --lib --features companion-interaction-outcomes --locked
-            cargo check -p star --example s5b_independent_interaction_outcomes_probe \
-              --features companion-interaction-outcomes --locked
-          } 2>&1 | tee s5b-compile.log
-
-      - name: Preserve S5-B compiler diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: s5b-compiler-diagnostics
-          path: s5b-compile.log
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Enforce compile gate
-        if: always()
-        run: test "${{ steps.compile.outcome }}" = "success"
+          cargo check -p star --lib --features companion-interaction-outcomes --locked
+          cargo check -p star --example s5b_independent_interaction_outcomes_probe \
+            --features companion-interaction-outcomes --locked
 
       - name: Lint S5-B feature path
         run: cargo clippy -p star --lib --features companion-interaction-outcomes --locked
