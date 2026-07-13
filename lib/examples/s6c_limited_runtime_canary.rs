@@ -339,10 +339,12 @@ fn main() {
     let prepare_left_live_state_unchanged = canary.summary() == summary_before_prepare
         && canary.controller_audit_records() == audit_before_prepare;
     let pending_debug = format!("{pending:?}");
-    let pending_debug_redacted_response = !pending_debug.contains("baseline body")
-        && !pending_debug.contains("matching S5-B trial");
+    let pending_debug_redacted_response =
+        !pending_debug.contains("baseline body") && !pending_debug.contains("matching S5-B trial");
     let applied_requires_companion_arm = pending.disposition() == LivePlanDisposition::Applied
-        && pending.registration_requirement().required_delivered_variant
+        && pending
+            .registration_requirement()
+            .required_delivered_variant
             == PolicyVariant::CompanionDerived;
 
     let before_wrong_arm = canary.summary();
@@ -535,7 +537,9 @@ fn main() {
             sensitive_rerank,
         )
         .unwrap();
-    let neutral_requires_neutral_arm = sensitive_pending.registration_requirement().required_delivered_variant
+    let neutral_requires_neutral_arm = sensitive_pending
+        .registration_requirement()
+        .required_delivered_variant
         == PolicyVariant::NeutralDefault;
     let sensitive_requirement = sensitive_pending.registration_requirement();
     let sensitive_committed = canary
@@ -737,9 +741,7 @@ fn main() {
             == serde_json::to_vec(canary.events()).unwrap();
 
     let summary = canary.summary();
-    let unauthorized_applied_turns = summary
-        .companion_applied_turns
-        .saturating_sub(2);
+    let unauthorized_applied_turns = summary.companion_applied_turns.saturating_sub(2);
     let authority_clean = first_applied_authority_clean
         && !revoked_committed.routing_authority
         && !revoked_committed.persistence_authority
@@ -810,5 +812,8 @@ fn main() {
     };
 
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
-    assert!(report.gate_passed, "S6-C limited runtime canary gate failed");
+    assert!(
+        report.gate_passed,
+        "S6-C limited runtime canary gate failed"
+    );
 }
