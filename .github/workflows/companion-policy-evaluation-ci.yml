@@ -50,20 +50,22 @@ jobs:
           cargo check -p star --example s5c_comparative_policy_evaluation_probe \
             --features companion-policy-evaluation --locked
 
-      - name: Capture scoped S5-C lint findings
-        continue-on-error: true
+      - name: Lint S5-C sources without inheriting legacy warnings
         run: |
           set -o pipefail
           {
             cargo clippy -p star --lib --features companion-policy-evaluation --locked \
-              --message-format=short -- -A clippy::manual_checked_div
+              --message-format=short
             cargo clippy -p star --example s5c_comparative_policy_evaluation_probe \
-              --features companion-policy-evaluation --locked --message-format=short \
-              -- -A clippy::manual_checked_div
+              --features companion-policy-evaluation --locked --message-format=short
           } 2>&1 | tee s5c-clippy.log
-          if grep -E \
+          grep -E \
             'lib/companion_policy_evaluation\.rs:|lib/examples/s5c_comparative_policy_evaluation_probe\.rs:' \
-            s5c-clippy.log; then
+            s5c-clippy.log \
+            | grep -v 'manual checked division' \
+            > s5c-scoped-findings.log || true
+          if test -s s5c-scoped-findings.log; then
+            cat s5c-scoped-findings.log
             echo "S5-C scoped Clippy finding detected"
             exit 1
           fi
@@ -80,13 +82,11 @@ jobs:
             --features companion-policy-evaluation --locked \
             | tee s5c-comparative-policy-evaluation-report.json
 
-      - name: Preserve S5-C report and lint findings
+      - name: Preserve S5-C report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s5c-comparative-policy-evaluation-report
-          path: |
-            s5c-comparative-policy-evaluation-report.json
-            s5c-clippy.log
+          path: s5c-comparative-policy-evaluation-report.json
           if-no-files-found: ignore
           retention-days: 30
