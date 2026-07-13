@@ -6,7 +6,9 @@ on:
       - main
     paths:
       - "lib/relational/**"
+      - "lib/companion_observer.rs"
       - "lib/examples/r1_relational_residual_bridge.rs"
+      - "lib/examples/s3_companion_observer_false_positive_probe.rs"
       - "lib/lib.rs"
       - "lib/Cargo.toml"
       - "docs/experiments/R1_RELATIONAL_RESIDUAL_BRIDGE.md"
@@ -60,5 +62,58 @@ jobs:
         with:
           name: r1-relational-residual-report
           path: r1-relational-residual-report.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  s3-observer-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check S3 formatting
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/lib.rs
+          lib/companion_observer.rs
+          lib/examples/s3_companion_observer_false_positive_probe.rs
+
+      - name: Compile S3 observer and probe
+        run: |
+          cargo check -p star --lib --features companion-observer --locked
+          cargo check -p star --example s3_companion_observer_false_positive_probe \
+            --features companion-observer --locked
+
+      - name: Lint S3 observer
+        run: cargo clippy -p star --lib --features companion-observer --locked -- -D warnings
+
+      - name: Test S3 contracts deterministically
+        run: >-
+          cargo test -p star --features companion-observer --locked companion_observer::
+          -- --test-threads=1
+
+      - name: Run S3 matched-control probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s3_companion_observer_false_positive_probe \
+            --features companion-observer --locked \
+            | tee s3-companion-observer-report.json
+
+      - name: Preserve S3 report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s3-companion-observer-report
+          path: s3-companion-observer-report.json
           if-no-files-found: ignore
           retention-days: 30
