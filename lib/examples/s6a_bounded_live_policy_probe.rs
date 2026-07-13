@@ -181,12 +181,13 @@ fn main() {
     )
     .unwrap();
     let promotion_gate_validated = gate.digest_fnv1a64() != 0;
+    let authorization = gate.authorize_proposal(&proposal()).unwrap();
 
     let mut production = BoundedLivePolicyController::default();
     let production_default_rejected_simulation = production
         .activate(
             0,
-            &gate,
+            &authorization,
             &proposal(),
             LivePolicyActivationRequest {
                 subject_scope_digest: 0xAA,
@@ -209,7 +210,7 @@ fn main() {
     let activation_version_mismatch_rejected = matches!(
         mismatch_controller.activate(
             0,
-            &gate,
+            &authorization,
             &mismatched_proposal,
             LivePolicyActivationRequest {
                 subject_scope_digest: 0xAA,
@@ -219,10 +220,7 @@ fn main() {
                 operator_approval_digest: 0xABCD,
             },
         ),
-        Err(LivePolicyError::PromotionSourceVersionMismatch {
-            authorized: 7,
-            actual: 8,
-        })
+        Err(LivePolicyError::AuthorizationProposalMismatch)
     );
 
     let config = LivePolicyControllerConfig {
@@ -234,7 +232,7 @@ fn main() {
     controller
         .activate(
             0,
-            &gate,
+            &authorization,
             &proposal(),
             LivePolicyActivationRequest {
                 subject_scope_digest: 0xAA,
@@ -364,7 +362,12 @@ fn main() {
 
     controller.revoke(controller.version, 1_500, 0x999).unwrap();
     let revocation_immediate = controller.active_lease().is_none();
-    let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();
+    let replayed = BoundedLivePolicyController::replay(
+        config,
+        std::slice::from_ref(&authorization),
+        &controller.audit_records(),
+    )
+    .unwrap();
     let replay_equal = replayed == controller;
     let summary = controller.summary();
 

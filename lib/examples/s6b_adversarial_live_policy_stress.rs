@@ -436,19 +436,13 @@ fn main() {
     );
 
     let records = controller.audit_records();
-    let replayed = BoundedLivePolicyController::replay(
-        config,
-        std::slice::from_ref(&authorization),
-        &records,
-    )
-    .unwrap();
+    let replayed =
+        BoundedLivePolicyController::replay(config, std::slice::from_ref(&authorization), &records)
+            .unwrap();
     let trusted_replay_exact = replayed == controller;
-    let replayed_again = BoundedLivePolicyController::replay(
-        config,
-        std::slice::from_ref(&authorization),
-        &records,
-    )
-    .unwrap();
+    let replayed_again =
+        BoundedLivePolicyController::replay(config, std::slice::from_ref(&authorization), &records)
+            .unwrap();
     let replay_deterministic = replayed_again == replayed;
 
     let replay_without_authorization_rejected = matches!(
