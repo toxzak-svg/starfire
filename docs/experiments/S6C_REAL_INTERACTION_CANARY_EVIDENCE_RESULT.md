@@ -12,6 +12,12 @@ implementation at:
 469654d1ce2008888e6804d407d17d37379a88f1
 ```
 
+A post-freeze review found that the original prose mistakenly included
+`ExternalEvaluator` as an allowed direct witness, which conflicts with the already-frozen
+S5-B channel contract. The recorded erratum narrows direct intake to `UserObservation` and
+channel-compatible `Environment` evidence. External evaluators remain pairwise-only.
+This correction is restrictive and changes no threshold or authority boundary.
+
 ## Authoritative verification
 
 The source-producing workflow transformed, formatted, compiled, linted, tested, ran the
@@ -32,6 +38,11 @@ workflows. The S6-C permanent workflow on that pre-transformation head stopped a
 expected formatting gate; the source-producing workflow then formatted and verified the
 transformed source before committing it.
 
+After the verified source commit, GitHub Actions began rejecting every repository workflow
+before the first setup step, including unrelated CHARGE, Render, S4-S6, STLM, H13-C,
+relational, infant, and Omega jobs. Those zero-step failures contain no compiler or test
+result and are recorded as an Actions execution outage rather than experiment evidence.
+
 ## Frozen probe outcome
 
 ```text
@@ -51,7 +62,7 @@ underlying_s5c_promotion_eligible: true
 s6c_canary_promotion_eligible:     false
 ```
 
-Every preregistered adversarial control passed:
+Every original preregistered adversarial control passed:
 
 - production-default synthetic-evidence rejection;
 - duplicate-seal rejection;
@@ -66,6 +77,12 @@ Every preregistered adversarial control passed:
 
 All rejected operations preserved the canary, S5-B, and S4 ledgers exactly.
 
+The channel erratum relies on the existing verified S5-B rule that rejects
+`WitnessSource::ExternalEvaluator` on direct observed evidence as `WrongEvidenceChannel`.
+A dedicated S6-C executable regression was added to assert that this rejection preserves
+all three ledgers atomically. It changes no production implementation path; it exercises
+the already-existing S5-B enforcement through S6-C's copy-on-write import boundary.
+
 ## What passed
 
 S6-C now provides a typed, privacy-minimized intake boundary that:
@@ -77,6 +94,7 @@ S6-C now provides a typed, privacy-minimized intake boundary that:
 - distinguishes `RealInteraction` from `SyntheticFixture` in the type system;
 - rejects synthetic fixtures in production-default mode;
 - prevents synthetic evidence from granting S6-C promotion eligibility;
+- keeps external evaluators on the S5-B pairwise-only channel;
 - replays deterministically;
 - retains no response, routing, belief, persistence, tool, or action authority.
 
