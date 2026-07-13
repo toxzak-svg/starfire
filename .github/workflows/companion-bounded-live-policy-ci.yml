@@ -45,86 +45,99 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           module = Path("lib/companion_bounded_live_policy.rs")
           text = module.read_text()
           if "InvalidDuplicateFallback" not in text:
-              pattern = re.compile(
-                  r"LivePolicyEvent::TurnPlanned \{\s*turn_digest,\s*disposition,\s*remaining_turns_after,\s*\.\.,\s*\} => \{\s*if !self\.seen_turns\.insert\(\*turn_digest\) \{\s*return Err\(LivePolicyError::DuplicateAuditTurn\(\*turn_digest\)\);\s*\}",
-                  re.MULTILINE,
-              )
-              replacement = '''LivePolicyEvent::TurnPlanned {
-                          turn_digest,
-                          disposition,
-                          fallback_reason,
-                          remaining_turns_after,
-                          ..
-                      } => {
-                          let duplicate_fallback = *disposition == LivePlanDisposition::NeutralFallback
-                              && *fallback_reason == Some(NeutralFallbackReason::DuplicateTurn);
-                          if duplicate_fallback {
-                              if !self.seen_turns.contains(turn_digest) {
-                                  return Err(LivePolicyError::InvalidDuplicateFallback(*turn_digest));
-                              }
-                          } else if !self.seen_turns.insert(*turn_digest) {
-                              return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));
-                          }'''
-              text, count = pattern.subn(replacement, text, count=1)
-              assert count == 1, "duplicate-turn event pattern not found"
-              text = text.replace(
-                  '''    #[error("audit contains duplicate turn digest {0}")]
-              DuplicateAuditTurn(u64),
-              #[error("audit budget does not match deterministic transition")]''',
-                  '''    #[error("audit contains duplicate turn digest {0} without duplicate fallback")]
-              DuplicateAuditTurn(u64),
-              #[error("duplicate fallback references unseen turn digest {0}")]
-              InvalidDuplicateFallback(u64),
-              #[error("audit budget does not match deterministic transition")]''',
-                  1,
-              )
-              marker = '''    #[test]
-              fn replay_is_exact() {'''
-              test = '''    #[test]
-              fn duplicate_turn_is_audited_neutral_fallback_without_consuming_budget() {
-                  let config = LivePolicyControllerConfig {
-                      allow_simulated_activation: true,
-                      ..LivePolicyControllerConfig::default()
-                  };
-                  let gate = ValidatedPromotionGate::validate(
-                      &passing_report(),
-                      EvaluationEvidenceClass::FrozenSimulation,
-                      1,
-                  )
-                  .unwrap();
-                  let mut controller = BoundedLivePolicyController::new(config).unwrap();
-                  controller
-                      .activate(0, &gate, &proposal(), activation())
-                      .unwrap();
-                  let (response, rerank) = baseline();
-                  controller
-                      .plan_response(controller.version, context(1, false), response, rerank)
-                      .unwrap();
-                  let (duplicate_response, duplicate_rerank) = baseline();
-                  let duplicate = controller
-                      .plan_response(
-                          controller.version,
-                          context(1, false),
-                          duplicate_response,
-                          duplicate_rerank,
-                      )
-                      .unwrap();
-                  assert_eq!(duplicate.disposition, LivePlanDisposition::NeutralFallback);
-                  assert_eq!(
-                      duplicate.fallback_reason,
-                      Some(NeutralFallbackReason::DuplicateTurn)
-                  );
-                  assert_eq!(duplicate.remaining_turns, 1);
-                  let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();
-                  assert_eq!(replayed, controller);
-              }
+              old_event = "\n".join([
+                  "            LivePolicyEvent::TurnPlanned {",
+                  "                turn_digest,",
+                  "                disposition,",
+                  "                remaining_turns_after,",
+                  "                ..",
+                  "            } => {",
+                  "                if !self.seen_turns.insert(*turn_digest) {",
+                  "                    return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));",
+                  "                }",
+              ])
+              new_event = "\n".join([
+                  "            LivePolicyEvent::TurnPlanned {",
+                  "                turn_digest,",
+                  "                disposition,",
+                  "                fallback_reason,",
+                  "                remaining_turns_after,",
+                  "                ..",
+                  "            } => {",
+                  "                let duplicate_fallback = *disposition == LivePlanDisposition::NeutralFallback",
+                  "                    && *fallback_reason == Some(NeutralFallbackReason::DuplicateTurn);",
+                  "                if duplicate_fallback {",
+                  "                    if !self.seen_turns.contains(turn_digest) {",
+                  "                        return Err(LivePolicyError::InvalidDuplicateFallback(*turn_digest));",
+                  "                    }",
+                  "                } else if !self.seen_turns.insert(*turn_digest) {",
+                  "                    return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));",
+                  "                }",
+              ])
+              assert old_event in text, "duplicate-turn event pattern not found"
+              text = text.replace(old_event, new_event, 1)
 
-          '''
+              old_error = "\n".join([
+                  "    #[error(\"audit contains duplicate turn digest {0}\\")]".replace("\\\"", "\""),
+                  "    DuplicateAuditTurn(u64),",
+                  "    #[error(\"audit budget does not match deterministic transition\")]",
+              ])
+              new_error = "\n".join([
+                  "    #[error(\"audit contains duplicate turn digest {0} without duplicate fallback\")]",
+                  "    DuplicateAuditTurn(u64),",
+                  "    #[error(\"duplicate fallback references unseen turn digest {0}\")]",
+                  "    InvalidDuplicateFallback(u64),",
+                  "    #[error(\"audit budget does not match deterministic transition\")]",
+              ])
+              assert old_error in text, "duplicate-turn error pattern not found"
+              text = text.replace(old_error, new_error, 1)
+
+              marker = "    #[test]\n    fn replay_is_exact() {"
+              test = "\n".join([
+                  "    #[test]",
+                  "    fn duplicate_turn_is_audited_neutral_fallback_without_consuming_budget() {",
+                  "        let config = LivePolicyControllerConfig {",
+                  "            allow_simulated_activation: true,",
+                  "            ..LivePolicyControllerConfig::default()",
+                  "        };",
+                  "        let gate = ValidatedPromotionGate::validate(",
+                  "            &passing_report(),",
+                  "            EvaluationEvidenceClass::FrozenSimulation,",
+                  "            1,",
+                  "        )",
+                  "        .unwrap();",
+                  "        let mut controller = BoundedLivePolicyController::new(config).unwrap();",
+                  "        controller",
+                  "            .activate(0, &gate, &proposal(), activation())",
+                  "            .unwrap();",
+                  "        let (response, rerank) = baseline();",
+                  "        controller",
+                  "            .plan_response(controller.version, context(1, false), response, rerank)",
+                  "            .unwrap();",
+                  "        let (duplicate_response, duplicate_rerank) = baseline();",
+                  "        let duplicate = controller",
+                  "            .plan_response(",
+                  "                controller.version,",
+                  "                context(1, false),",
+                  "                duplicate_response,",
+                  "                duplicate_rerank,",
+                  "            )",
+                  "            .unwrap();",
+                  "        assert_eq!(duplicate.disposition, LivePlanDisposition::NeutralFallback);",
+                  "        assert_eq!(",
+                  "            duplicate.fallback_reason,",
+                  "            Some(NeutralFallbackReason::DuplicateTurn)",
+                  "        );",
+                  "        assert_eq!(duplicate.remaining_turns, 1);",
+                  "        let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();",
+                  "        assert_eq!(replayed, controller);",
+                  "    }",
+                  "",
+              ])
               assert marker in text, "replay test marker not found"
               text = text.replace(marker, test + marker, 1)
               module.write_text(text)
@@ -132,52 +145,68 @@ jobs:
           probe = Path("lib/examples/s6a_bounded_live_policy_probe.rs")
           text = probe.read_text()
           if "duplicate_turn_used_neutral_fallback" not in text:
-              text = text.replace(
-                  '''    sensitive_context_used_exact_neutral_fallback: bool,
-              disallowed_intent_used_neutral_fallback: bool,''',
-                  '''    sensitive_context_used_exact_neutral_fallback: bool,
-              duplicate_turn_used_neutral_fallback: bool,
-              disallowed_intent_used_neutral_fallback: bool,''',
-                  1,
-              )
-              marker = '''    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
+              old_fields = "\n".join([
+                  "    sensitive_context_used_exact_neutral_fallback: bool,",
+                  "    disallowed_intent_used_neutral_fallback: bool,",
+              ])
+              new_fields = "\n".join([
+                  "    sensitive_context_used_exact_neutral_fallback: bool,",
+                  "    duplicate_turn_used_neutral_fallback: bool,",
+                  "    disallowed_intent_used_neutral_fallback: bool,",
+              ])
+              assert old_fields in text, "probe report fields not found"
+              text = text.replace(old_fields, new_fields, 1)
 
-              let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);'''
-              insertion = '''    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
-
-              let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);
-              let duplicate = controller
-                  .plan_response(
-                      controller.version,
-                      context(1, false),
-                      duplicate_response,
-                      duplicate_config,
-                  )
-                  .unwrap();
-              let duplicate_turn_used_neutral_fallback = duplicate.disposition
-                  == LivePlanDisposition::NeutralFallback
-                  && duplicate.fallback_reason == Some(NeutralFallbackReason::DuplicateTurn)
-                  && duplicate.remaining_turns == 1;
-
-              let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);'''
-              assert marker in text, "probe insertion marker not found"
+              marker = "\n".join([
+                  "    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;",
+                  "",
+                  "    let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);",
+              ])
+              insertion = "\n".join([
+                  "    let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;",
+                  "",
+                  "    let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);",
+                  "    let duplicate = controller",
+                  "        .plan_response(",
+                  "            controller.version,",
+                  "            context(1, false),",
+                  "            duplicate_response,",
+                  "            duplicate_config,",
+                  "        )",
+                  "        .unwrap();",
+                  "    let duplicate_turn_used_neutral_fallback = duplicate.disposition",
+                  "        == LivePlanDisposition::NeutralFallback",
+                  "        && duplicate.fallback_reason == Some(NeutralFallbackReason::DuplicateTurn)",
+                  "        && duplicate.remaining_turns == 1;",
+                  "",
+                  "    let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);",
+              ])
+              assert marker in text, "probe duplicate insertion marker not found"
               text = text.replace(marker, insertion, 1)
-              text = text.replace(
-                  '''        && sensitive_context_used_exact_neutral_fallback
-                      && disallowed_intent_used_neutral_fallback''',
-                  '''        && sensitive_context_used_exact_neutral_fallback
-                      && duplicate_turn_used_neutral_fallback
-                      && disallowed_intent_used_neutral_fallback''',
-                  1,
-              )
-              text = text.replace(
-                  '''        sensitive_context_used_exact_neutral_fallback,
-                  disallowed_intent_used_neutral_fallback,''',
-                  '''        sensitive_context_used_exact_neutral_fallback,
-                  duplicate_turn_used_neutral_fallback,
-                  disallowed_intent_used_neutral_fallback,''',
-                  1,
-              )
+
+              old_gate = "\n".join([
+                  "        && sensitive_context_used_exact_neutral_fallback",
+                  "        && disallowed_intent_used_neutral_fallback",
+              ])
+              new_gate = "\n".join([
+                  "        && sensitive_context_used_exact_neutral_fallback",
+                  "        && duplicate_turn_used_neutral_fallback",
+                  "        && disallowed_intent_used_neutral_fallback",
+              ])
+              assert old_gate in text, "probe gate fields not found"
+              text = text.replace(old_gate, new_gate, 1)
+
+              old_result = "\n".join([
+                  "        sensitive_context_used_exact_neutral_fallback,",
+                  "        disallowed_intent_used_neutral_fallback,",
+              ])
+              new_result = "\n".join([
+                  "        sensitive_context_used_exact_neutral_fallback,",
+                  "        duplicate_turn_used_neutral_fallback,",
+                  "        disallowed_intent_used_neutral_fallback,",
+              ])
+              assert old_result in text, "probe result fields not found"
+              text = text.replace(old_result, new_result, 1)
               probe.write_text(text)
           PY
 
