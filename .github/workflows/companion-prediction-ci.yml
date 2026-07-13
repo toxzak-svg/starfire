@@ -31,21 +31,24 @@ jobs:
       - name: Apply empty-summary correction
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path("lib/companion_prediction_ledger.rs")
           text = path.read_text()
-          old = '''            mean_brier_score_ppm: (resolved > 0)
-                          .then_some((total_brier_score_ppm / resolved) as u32),'''
-          old = old.replace("                          .then", "                .then")
-          new = '''            mean_brier_score_ppm: if resolved > 0 {
+          pattern = re.compile(
+              r"mean_brier_score_ppm:\s*\(resolved > 0\)\s*"
+              r"\.then_some\(\(total_brier_score_ppm / resolved\) as u32\),"
+          )
+          replacement = '''mean_brier_score_ppm: if resolved > 0 {
                 Some((total_brier_score_ppm / resolved) as u32)
             } else {
                 None
             },'''
-          if old not in text:
-              raise SystemExit("expected empty-summary expression was not found")
-          path.write_text(text.replace(old, new, 1))
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"expected one empty-summary expression, replaced {count}")
+          path.write_text(text)
           PY
           rustfmt --edition 2021 lib/companion_prediction_ledger.rs
           git config user.name "github-actions[bot]"
