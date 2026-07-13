@@ -26,8 +26,10 @@ promotion authorization must be derived from an S5-C report that:
 - passes every evidence and performance gate;
 - claims no live, routing, belief-promotion, or action authority.
 
-A synthetically conformant report may be installed for audit testing, but it can
-never authorize live influence. Live influence requires an explicit
+`PromotionAuthorization` is a non-serializable capability token with private
+fields; callers cannot reconstruct or deserialize one around the validated
+constructor. A synthetically conformant report may be installed for audit
+testing, but it can never authorize live influence. Live influence requires an explicit
 `RealHeldOut` evidence attestation and a canonical `sha256:` artifact digest.
 
 ## Frozen decision order
