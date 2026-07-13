@@ -31,24 +31,29 @@ jobs:
       - name: Apply empty-summary correction
         run: |
           python - <<'PY'
-          import re
           from pathlib import Path
 
           path = Path("lib/companion_prediction_ledger.rs")
-          text = path.read_text()
-          pattern = re.compile(
-              r"mean_brier_score_ppm:\s*\(resolved > 0\)\s*"
-              r"\.then_some\(\(total_brier_score_ppm / resolved\) as u32\),"
-          )
-          replacement = '''mean_brier_score_ppm: if resolved > 0 {
-                Some((total_brier_score_ppm / resolved) as u32)
-            } else {
-                None
-            },'''
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f"expected one empty-summary expression, replaced {count}")
-          path.write_text(text)
+          lines = path.read_text().splitlines()
+          matches = [
+              index
+              for index, line in enumerate(lines)
+              if "mean_brier_score_ppm: (resolved > 0)" in line
+          ]
+          if len(matches) != 1:
+              raise SystemExit(f"expected one summary line, found {len(matches)}")
+          index = matches[0]
+          if index + 1 >= len(lines) or ".then_some(" not in lines[index + 1]:
+              raise SystemExit("expected eager then_some line after summary condition")
+          indent = lines[index].split("mean_brier_score_ppm", 1)[0]
+          lines[index:index + 2] = [
+              f"{indent}mean_brier_score_ppm: if resolved > 0 {{",
+              f"{indent}    Some((total_brier_score_ppm / resolved) as u32)",
+              f"{indent}}} else {{",
+              f"{indent}    None",
+              f"{indent}}},",
+          ]
+          path.write_text("\n".join(lines) + "\n")
           PY
           rustfmt --edition 2021 lib/companion_prediction_ledger.rs
           git config user.name "github-actions[bot]"
