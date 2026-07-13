@@ -50,16 +50,14 @@ jobs:
             lib/persistence/mod.rs \
             lib/charge/mod.rs \
             lib/user_model/companion_projection.rs \
-            lib/user_model/mod.rs \
-            lib/latent_roles.rs
+            lib/user_model/mod.rs
           git diff --exit-code -- \
             lib/persistence/companion.rs \
             lib/persistence/store.rs \
             lib/persistence/mod.rs \
             lib/charge/mod.rs \
             lib/user_model/companion_projection.rs \
-            lib/user_model/mod.rs \
-            lib/latent_roles.rs
+            lib/user_model/mod.rs
 
       - name: Compile Star library and A1 probe
         run: |
