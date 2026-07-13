@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   s4-prediction-ledger:
@@ -23,44 +23,8 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Check out source branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-
-      - name: Apply empty-summary correction
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("lib/companion_prediction_ledger.rs")
-          lines = path.read_text().splitlines()
-          matches = [
-              index
-              for index, line in enumerate(lines)
-              if "mean_brier_score_ppm: (resolved > 0)" in line
-          ]
-          if len(matches) != 1:
-              raise SystemExit(f"expected one summary line, found {len(matches)}")
-          index = matches[0]
-          if index + 1 >= len(lines) or ".then_some(" not in lines[index + 1]:
-              raise SystemExit("expected eager then_some line after summary condition")
-          indent = lines[index].split("mean_brier_score_ppm", 1)[0]
-          lines[index:index + 2] = [
-              f"{indent}mean_brier_score_ppm: if resolved > 0 {{",
-              f"{indent}    Some((total_brier_score_ppm / resolved) as u32)",
-              f"{indent}}} else {{",
-              f"{indent}    None",
-              f"{indent}}},",
-          ]
-          path.write_text("\n".join(lines) + "\n")
-          PY
-          rustfmt --edition 2021 lib/companion_prediction_ledger.rs
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/companion_prediction_ledger.rs
-          git commit -m "fix(companion): avoid empty-summary division"
-          git push origin HEAD:${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
