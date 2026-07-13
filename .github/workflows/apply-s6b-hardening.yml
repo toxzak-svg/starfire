@@ -1,0 +1,72 @@
+name: Apply S6-B live-policy hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/scripts/apply_s6b_hardening.py"
+      - ".github/workflows/apply-s6b-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-s6b-hardening:
+    if: github.head_ref == 'experiment/s6b-adversarial-live-policy-stress'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out S6-B branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/s6b-adversarial-live-policy-stress
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Apply reviewed hardening transformation
+        run: python3 .github/scripts/apply_s6b_hardening.py
+
+      - name: Format transformed Rust
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_bounded_live_policy.rs \
+            lib/examples/s6a_bounded_live_policy_probe.rs \
+            lib/examples/s6b_adversarial_live_policy_stress.rs
+
+      - name: Verify transformed S6 implementation
+        run: |
+          cargo check -p star --lib --features companion-live-policy-stress --locked
+          cargo check -p star --example s6a_bounded_live_policy_probe \
+            --features companion-live-policy-stress --locked
+          cargo check -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-live-policy-stress --locked
+          cargo test -p star --lib --features companion-live-policy-stress --locked \
+            companion_bounded_live_policy:: -- --test-threads=1
+          cargo run -p star --example s6a_bounded_live_policy_probe \
+            --features companion-live-policy-stress --locked
+          cargo run -p star --example s6b_adversarial_live_policy_stress \
+            --features companion-live-policy-stress --locked
+
+      - name: Remove one-shot machinery
+        run: |
+          rm .github/scripts/apply_s6b_hardening.py
+          rm .github/workflows/apply-s6b-hardening.yml
+
+      - name: Commit hardened S6-B source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 1
+          fi
+          git commit -m "feat(companion): harden S6-B audit and replay boundary"
+          git push origin HEAD:experiment/s6b-adversarial-live-policy-stress
