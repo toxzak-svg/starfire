@@ -99,6 +99,12 @@ pub mod companion_policy_evaluation;
 #[cfg(feature = "companion-bounded-live-policy")]
 pub mod companion_bounded_live_policy;
 
+// S6-C: session-scoped two-phase runtime canary. Preparation occurs against a
+// cloned S6 controller and the response remains opaque until a matching S5-B
+// delivered arm is registered. Disabled and not attached to Runtime::chat().
+#[cfg(feature = "companion-runtime-canary")]
+pub mod companion_runtime_canary;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
