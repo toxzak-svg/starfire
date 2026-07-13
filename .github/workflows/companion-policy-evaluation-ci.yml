@@ -50,12 +50,8 @@ jobs:
           cargo check -p star --example s5c_comparative_policy_evaluation_probe \
             --features companion-policy-evaluation --locked
 
-      - name: Capture scoped S5-C lint findings
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          cargo clippy -p star --lib --features companion-policy-evaluation --locked \
-            --message-format=short 2>&1 | tee s5c-clippy.log
+      - name: Lint S5-C feature path
+        run: cargo clippy -p star --lib --features companion-policy-evaluation --locked
 
       - name: Test S5-C contracts deterministically
         run: >-
@@ -69,13 +65,11 @@ jobs:
             --features companion-policy-evaluation --locked \
             | tee s5c-comparative-policy-evaluation-report.json
 
-      - name: Preserve S5-C report and lint findings
+      - name: Preserve S5-C report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s5c-comparative-policy-evaluation-report
-          path: |
-            s5c-comparative-policy-evaluation-report.json
-            s5c-clippy.log
+          path: s5c-comparative-policy-evaluation-report.json
           if-no-files-found: ignore
           retention-days: 30
