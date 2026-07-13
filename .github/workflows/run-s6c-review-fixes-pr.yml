@@ -40,6 +40,45 @@ jobs:
           exec(compile(script, 'apply-s6c-review-fixes.py', 'exec'))
           PY
 
+      - name: Fix prediction-ledger borrow ordering
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/examples/s6c_limited_runtime_canary.rs')
+          text = path.read_text()
+          old_loop = '''        let enrollment = planner
+              .enroll(
+                  &state,
+                  &mut predictions,
+                  predictions.version,
+          '''
+          new_loop = '''        let expected_prediction_version = predictions.version;
+              let enrollment = planner
+              .enroll(
+                  &state,
+                  &mut predictions,
+                  expected_prediction_version,
+          '''
+          old_target = '''    let enrollment = planner
+              .enroll(
+                  &state,
+                  &mut predictions,
+                  predictions.version,
+          '''
+          new_target = '''    let expected_prediction_version = predictions.version;
+              let enrollment = planner
+              .enroll(
+                  &state,
+                  &mut predictions,
+                  expected_prediction_version,
+          '''
+          if text.count(old_loop) != 1 or text.count(old_target) != 1:
+              raise SystemExit('unexpected S6-C enrollment source shape')
+          text = text.replace(old_loop, new_loop, 1)
+          text = text.replace(old_target, new_target, 1)
+          path.write_text(text)
+          PY
+
       - name: Format hardened sources
         run: |
           rustfmt --edition 2021 \
