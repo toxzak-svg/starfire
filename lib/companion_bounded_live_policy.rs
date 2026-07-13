@@ -77,7 +77,12 @@ impl ValidatedPromotionGate {
             EvaluationSplit::TemporalHoldout,
         ]
         .into_iter()
-        .flat_map(|split| controls.iter().copied().map(move |control| (split, control)))
+        .flat_map(|split| {
+            controls
+                .iter()
+                .copied()
+                .map(move |control| (split, control))
+        })
         .collect::<BTreeSet<_>>();
         if observed != expected {
             return Err(LivePolicyError::MalformedPromotionEvidence);
@@ -343,7 +348,10 @@ impl BoundedLivePolicyController {
             .map_or(0, |lease| lease.remaining_turns);
 
         if fallback.is_none() {
-            let lease = self.active_lease.as_ref().expect("eligible plan has an active lease");
+            let lease = self
+                .active_lease
+                .as_ref()
+                .expect("eligible plan has an active lease");
             apply_policy(
                 lease.policy,
                 &mut response,
@@ -356,7 +364,11 @@ impl BoundedLivePolicyController {
         }
 
         let planned_digest = response_plan_digest(&response, &rerank_config);
-        let style_after = response.style_hint.as_ref().map(style_label).map(str::to_owned);
+        let style_after = response
+            .style_hint
+            .as_ref()
+            .map(style_label)
+            .map(str::to_owned);
         let event = LivePolicyEvent::TurnPlanned {
             turn_digest: context.turn_digest,
             context_digest: context.context_digest,
@@ -452,7 +464,10 @@ impl BoundedLivePolicyController {
         LivePolicySummary {
             version: self.version,
             active: self.active_lease.is_some(),
-            remaining_turns: self.active_lease.as_ref().map_or(0, |lease| lease.remaining_turns),
+            remaining_turns: self
+                .active_lease
+                .as_ref()
+                .map_or(0, |lease| lease.remaining_turns),
             applied_turns,
             neutral_fallbacks,
             revocations,
@@ -501,7 +516,10 @@ impl BoundedLivePolicyController {
         Ok(())
     }
 
-    fn apply_event(&mut self, event: LivePolicyEvent) -> Result<LivePolicyTransition, LivePolicyError> {
+    fn apply_event(
+        &mut self,
+        event: LivePolicyEvent,
+    ) -> Result<LivePolicyTransition, LivePolicyError> {
         match &event {
             LivePolicyEvent::Activated { lease } => {
                 if self.active_lease.is_some() {
@@ -513,10 +531,17 @@ impl BoundedLivePolicyController {
             LivePolicyEvent::TurnPlanned {
                 turn_digest,
                 disposition,
+                fallback_reason,
                 remaining_turns_after,
                 ..
             } => {
-                if !self.seen_turns.insert(*turn_digest) {
+                let duplicate_fallback = *disposition == LivePlanDisposition::NeutralFallback
+                    && *fallback_reason == Some(NeutralFallbackReason::DuplicateTurn);
+                if duplicate_fallback {
+                    if !self.seen_turns.contains(turn_digest) {
+                        return Err(LivePolicyError::InvalidDuplicateFallback(*turn_digest));
+                    }
+                } else if !self.seen_turns.insert(*turn_digest) {
                     return Err(LivePolicyError::DuplicateAuditTurn(*turn_digest));
                 }
                 match (disposition, self.active_lease.as_mut()) {
@@ -548,7 +573,10 @@ impl BoundedLivePolicyController {
                 }
             }
         }
-        self.version = self.version.checked_add(1).ok_or(LivePolicyError::VersionOverflow)?;
+        self.version = self
+            .version
+            .checked_add(1)
+            .ok_or(LivePolicyError::VersionOverflow)?;
         self.events.push(event.clone());
         Ok(LivePolicyTransition {
             version: self.version,
@@ -630,7 +658,9 @@ fn apply_policy(
             .or_else(|| response.intent.default_style_hint()),
     };
 
-    let baseline_max = rerank_config.max_chars.unwrap_or(DEFAULT_STANDARD_MAX_CHARS);
+    let baseline_max = rerank_config
+        .max_chars
+        .unwrap_or(DEFAULT_STANDARD_MAX_CHARS);
     let planned_max = match policy.detail {
         DetailLevel::Brief => baseline_max.min(DEFAULT_BRIEF_MAX_CHARS),
         DetailLevel::Standard => baseline_max.min(max_output_chars),
@@ -646,7 +676,11 @@ fn apply_policy(
         "companion.explanation_style",
         explanation_label(policy.explanation_style),
     );
-    set_slot(response, "companion.dialogue", dialogue_label(policy.dialogue));
+    set_slot(
+        response,
+        "companion.dialogue",
+        dialogue_label(policy.dialogue),
+    );
     set_slot(
         response,
         "companion.vocabulary",
@@ -671,7 +705,11 @@ fn response_plan_digest(response: &Response, config: &RerankConfig) -> u64 {
     digest = mix_u64(digest, config.max_chars.unwrap_or(0) as u64);
     digest = mix_bytes(
         digest,
-        response.style_hint.as_ref().map_or("none", style_label).as_bytes(),
+        response
+            .style_hint
+            .as_ref()
+            .map_or("none", style_label)
+            .as_bytes(),
     );
     for (key, value) in &response.slots {
         digest = mix_bytes(digest, key.as_bytes());
@@ -791,8 +829,10 @@ pub enum LivePolicyError {
     EmptyRevocationEvidence,
     #[error("version conflict: expected {expected}, actual {actual}")]
     VersionConflict { expected: u64, actual: u64 },
-    #[error("audit contains duplicate turn digest {0}")]
+    #[error("audit contains duplicate turn digest {0} without duplicate fallback")]
     DuplicateAuditTurn(u64),
+    #[error("duplicate fallback references unseen turn digest {0}")]
+    InvalidDuplicateFallback(u64),
     #[error("audit budget does not match deterministic transition")]
     AuditBudgetMismatch,
     #[error("audit applies a policy without an active lease")]
@@ -925,7 +965,10 @@ mod tests {
 
     fn baseline() -> (Response, RerankConfig) {
         (
-            Response::with_body(ResponseIntent::Recall, "A sufficiently long baseline response."),
+            Response::with_body(
+                ResponseIntent::Recall,
+                "A sufficiently long baseline response.",
+            ),
             RerankConfig {
                 max_chars: Some(280),
                 temperature: 0.7,
@@ -1018,10 +1061,52 @@ mod tests {
             .plan_response(controller.version, context(1, true), response, rerank)
             .unwrap();
         assert_eq!(decision.disposition, LivePlanDisposition::NeutralFallback);
-        assert_eq!(decision.fallback_reason, Some(NeutralFallbackReason::SensitiveContext));
+        assert_eq!(
+            decision.fallback_reason,
+            Some(NeutralFallbackReason::SensitiveContext)
+        );
         assert_eq!(decision.response.body, body);
         assert_eq!(decision.rerank_config.max_chars, max_chars);
         assert_eq!(decision.remaining_turns, 2);
+    }
+
+    #[test]
+    fn duplicate_turn_is_audited_neutral_fallback_without_consuming_budget() {
+        let config = LivePolicyControllerConfig {
+            allow_simulated_activation: true,
+            ..LivePolicyControllerConfig::default()
+        };
+        let gate = ValidatedPromotionGate::validate(
+            &passing_report(),
+            EvaluationEvidenceClass::FrozenSimulation,
+            1,
+        )
+        .unwrap();
+        let mut controller = BoundedLivePolicyController::new(config).unwrap();
+        controller
+            .activate(0, &gate, &proposal(), activation())
+            .unwrap();
+        let (response, rerank) = baseline();
+        controller
+            .plan_response(controller.version, context(1, false), response, rerank)
+            .unwrap();
+        let (duplicate_response, duplicate_rerank) = baseline();
+        let duplicate = controller
+            .plan_response(
+                controller.version,
+                context(1, false),
+                duplicate_response,
+                duplicate_rerank,
+            )
+            .unwrap();
+        assert_eq!(duplicate.disposition, LivePlanDisposition::NeutralFallback);
+        assert_eq!(
+            duplicate.fallback_reason,
+            Some(NeutralFallbackReason::DuplicateTurn)
+        );
+        assert_eq!(duplicate.remaining_turns, 1);
+        let replayed = BoundedLivePolicyController::replay(config, controller.events()).unwrap();
+        assert_eq!(replayed, controller);
     }
 
     #[test]

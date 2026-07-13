@@ -25,6 +25,7 @@ struct S6AReport {
     applied_plan_changed_metadata_only: bool,
     reranked_output_respected_brief_budget: bool,
     sensitive_context_used_exact_neutral_fallback: bool,
+    duplicate_turn_used_neutral_fallback: bool,
     disallowed_intent_used_neutral_fallback: bool,
     turn_budget_enforced: bool,
     revocation_immediate: bool,
@@ -218,7 +219,12 @@ fn main() {
     let (response, rerank_config) = baseline(ResponseIntent::Recall);
     let original_body = response.body.clone();
     let applied = controller
-        .plan_response(controller.version, context(1, false), response, rerank_config)
+        .plan_response(
+            controller.version,
+            context(1, false),
+            response,
+            rerank_config,
+        )
         .unwrap();
     let applied_plan_changed_metadata_only = applied.disposition == LivePlanDisposition::Applied
         && applied.response.body == original_body
@@ -235,6 +241,20 @@ fn main() {
         &applied.rerank_config,
     );
     let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
+
+    let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);
+    let duplicate = controller
+        .plan_response(
+            controller.version,
+            context(1, false),
+            duplicate_response,
+            duplicate_config,
+        )
+        .unwrap();
+    let duplicate_turn_used_neutral_fallback = duplicate.disposition
+        == LivePlanDisposition::NeutralFallback
+        && duplicate.fallback_reason == Some(NeutralFallbackReason::DuplicateTurn)
+        && duplicate.remaining_turns == 1;
 
     let (sensitive_response, sensitive_config) = baseline(ResponseIntent::Recall);
     let sensitive_body = sensitive_response.body.clone();
@@ -303,6 +323,7 @@ fn main() {
         && applied_plan_changed_metadata_only
         && reranked_output_respected_brief_budget
         && sensitive_context_used_exact_neutral_fallback
+        && duplicate_turn_used_neutral_fallback
         && disallowed_intent_used_neutral_fallback
         && turn_budget_enforced
         && revocation_immediate
@@ -315,6 +336,7 @@ fn main() {
         applied_plan_changed_metadata_only,
         reranked_output_respected_brief_budget,
         sensitive_context_used_exact_neutral_fallback,
+        duplicate_turn_used_neutral_fallback,
         disallowed_intent_used_neutral_fallback,
         turn_budget_enforced,
         revocation_immediate,
