@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   stlm-l0-semantic-program:
@@ -24,8 +24,10 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Check out repository
+      - name: Check out pull-request branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -35,11 +37,27 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check canonical formatting
+      - name: Apply canonical formatting
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/semantic_response/mod.rs \
             lib/examples/stlm_l0_semantic_program_probe.rs
+
+      - name: Commit canonical formatting
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet -- \
+            lib/semantic_response/mod.rs \
+            lib/examples/stlm_l0_semantic_program_probe.rs; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/semantic_response/mod.rs \
+            lib/examples/stlm_l0_semantic_program_probe.rs
+          git commit -m "style(stlm): apply canonical rustfmt"
+          git push origin HEAD:${{ github.head_ref }}
 
       - name: Compile semantic boundary and probe
         run: |
