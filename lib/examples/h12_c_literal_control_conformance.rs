@@ -215,7 +215,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         totals.invariants_hold += result.invariants_hold as usize;
     }
 
-    let mut gates = BTreeMap::new();
+    let mut gates: BTreeMap<String, bool> = BTreeMap::new();
     gates.insert("cohort_exact".into(), roots.len() == 56);
     gates.insert(
         "primary_training".into(),
