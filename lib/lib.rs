@@ -111,6 +111,14 @@ pub mod semantic_response;
 #[cfg(feature = "deterministic-language-renderer")]
 pub mod language_realization;
 
+// STLM L1: verifier-ready grammar-v2 realization plus an independent inverse
+// verifier. Both are disabled by default, offline-only, and have no live chat,
+// memory, persistence, routing, mutation, tool, or action authority.
+#[cfg(feature = "independent-language-verifier")]
+pub mod verifier_ready_realization;
+#[cfg(feature = "independent-language-verifier")]
+pub mod language_verification;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
