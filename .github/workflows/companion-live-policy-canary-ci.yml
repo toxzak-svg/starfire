@@ -1,0 +1,114 @@
+name: Companion Live Policy Canary S6-A CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_live_policy_canary.rs"
+      - "lib/examples/s6a_reversible_live_policy_canary_probe.rs"
+      - "lib/companion_policy_evaluation.rs"
+      - "lib/companion_interaction_policy.rs"
+      - "lib/companion_state.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S6A_REVERSIBLE_LIVE_POLICY_CANARY.md"
+      - "docs/experiments/S6A_REVERSIBLE_LIVE_POLICY_CANARY_RESULT.md"
+      - ".github/workflows/companion-live-policy-canary-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s6a-reversible-live-policy-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format S6-A sources for verification
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_live_policy_canary.rs \
+            lib/examples/s6a_reversible_live_policy_canary_probe.rs
+
+      - name: Compile S6-A canary and probe
+        run: |
+          cargo check -p star --lib --features companion-live-policy-canary --locked
+          cargo check -p star --example s6a_reversible_live_policy_canary_probe \
+            --features companion-live-policy-canary --locked
+
+      - name: Lint S6-A sources without inheriting legacy warnings
+        run: |
+          set -o pipefail
+          {
+            cargo clippy -p star --lib --features companion-live-policy-canary --locked \
+              --message-format=short
+            cargo clippy -p star --example s6a_reversible_live_policy_canary_probe \
+              --features companion-live-policy-canary --locked --message-format=short
+          } 2>&1 | tee s6a-clippy.log
+          grep -E \
+            'lib/companion_live_policy_canary\.rs:|lib/examples/s6a_reversible_live_policy_canary_probe\.rs:' \
+            s6a-clippy.log > s6a-scoped-findings.log || true
+          if test -s s6a-scoped-findings.log; then
+            cat s6a-scoped-findings.log
+            echo "S6-A scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Test S6-A contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-live-policy-canary --locked
+          companion_live_policy_canary:: -- --test-threads=1
+
+      - name: Run frozen S6-A reversible canary probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s6a_reversible_live_policy_canary_probe \
+            --features companion-live-policy-canary --locked \
+            | tee s6a-reversible-live-policy-canary-report.json
+
+      - name: Validate terminal classification and authority boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("s6a-reversible-live-policy-canary-report.json").read_text())
+          assert report["terminal_classification"] == "EXPERIMENT_READY"
+          assert report["gate_passed"] is True
+          for field in (
+              "runtime_chat_wiring",
+              "generated_text_mutation",
+              "routing_authority",
+              "belief_promotion_authority",
+              "ontology_promotion_authority",
+              "persistence_authority",
+              "action_authority",
+          ):
+              assert report[field] is False, field
+          PY
+
+      - name: Preserve S6-A report and formatted sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6a-reversible-live-policy-canary-report
+          path: |
+            s6a-reversible-live-policy-canary-report.json
+            lib/companion_live_policy_canary.rs
+            lib/examples/s6a_reversible_live_policy_canary_probe.rs
+          if-no-files-found: ignore
+          retention-days: 30
