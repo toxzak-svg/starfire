@@ -295,17 +295,16 @@ fn run_experiment() -> Result<Report, Box<dyn Error>> {
     let tampered_proof_rejected = tampered_proof_control(&prepared);
     let delayed_admission_rejected = delayed_admission_control(&holdout_cases[0], &prepared)?;
 
-    prepared.registry.mark_transfer_validated(&prepared.certificate)?;
-    let shadow_authority_invariants = prepared
+    prepared
         .registry
-        .entries()
-        .all(|entry| {
-            matches!(
-                entry.status,
-                star::structural_transfer::TransportStatus::ValidatedShadow
-                    | star::structural_transfer::TransportStatus::TransferValidated
-            )
-        }) && prepared.registry.entries().count() == 1;
+        .mark_transfer_validated(&prepared.certificate)?;
+    let shadow_authority_invariants = prepared.registry.entries().all(|entry| {
+        matches!(
+            entry.status,
+            star::structural_transfer::TransportStatus::ValidatedShadow
+                | star::structural_transfer::TransportStatus::TransferValidated
+        )
+    }) && prepared.registry.entries().count() == 1;
     let source_corpus_immutable = source_snapshot == prepared.development;
 
     let mut gates = BTreeMap::new();
@@ -715,15 +714,12 @@ fn add_budget(totals: &mut BudgetTotals, budget: &TransportBudget, passed: bool)
         .candidate_matches
         .saturating_add(budget.candidate_matches);
     totals.graph_budget_checks = totals.graph_budget_checks.saturating_add(1);
-    totals.graph_budget_passes = totals.graph_budget_passes.saturating_add(usize::from(passed));
+    totals.graph_budget_passes = totals
+        .graph_budget_passes
+        .saturating_add(usize::from(passed));
 }
 
-fn build_case(
-    graph_id: u64,
-    prefix: &str,
-    transform: Transform,
-    seed: u64,
-) -> GraphCase {
+fn build_case(graph_id: u64, prefix: &str, transform: Transform, seed: u64) -> GraphCase {
     let mut draft = GraphDraft::default();
     let opaque_prefix = if transform.vocabulary_permutation() {
         format!("q{:016x}", splitmix64(seed ^ 0xa5a5_a5a5_a5a5_a5a5))
@@ -792,7 +788,11 @@ fn build_case(
         draft.add_edge(&y, &z);
     }
 
-    let target_degree = if transform.local_degree_change() { 3 } else { 2 };
+    let target_degree = if transform.local_degree_change() {
+        3
+    } else {
+        2
+    };
     let local_degree_decoy = add_bypass_decoy(
         &mut draft,
         &opaque_prefix,
@@ -883,13 +883,16 @@ fn rewired_control(case: &GraphCase, graph_id: u64) -> StructuralGraph {
         });
     }
     graph.nodes.sort();
-    graph.edges.sort_by(|left, right| {
-        (&left.from, &left.to).cmp(&(&right.from, &right.to))
-    });
+    graph
+        .edges
+        .sort_by(|left, right| (&left.from, &left.to).cmp(&(&right.from, &right.to)));
     graph
 }
 
-fn relabel_graph(case: &GraphCase, graph_id: u64) -> Result<(StructuralGraph, Atom), Box<dyn Error>> {
+fn relabel_graph(
+    case: &GraphCase,
+    graph_id: u64,
+) -> Result<(StructuralGraph, Atom), Box<dyn Error>> {
     let mut nodes = case.graph.nodes.clone();
     nodes.sort();
     let mapping = nodes
@@ -915,10 +918,7 @@ fn relabel_graph(case: &GraphCase, graph_id: u64) -> Result<(StructuralGraph, At
             to: mapping.get(&edge.to).expect("complete mapping").clone(),
         })
         .collect();
-    let target = mapping
-        .get(&case.target)
-        .expect("target mapping")
-        .clone();
+    let target = mapping.get(&case.target).expect("target mapping").clone();
     Ok((
         StructuralGraph {
             graph_id,

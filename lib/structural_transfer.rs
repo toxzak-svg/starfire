@@ -151,12 +151,9 @@ impl ShadowTransportRegistry {
         certificate: &ValidatedTransportRoleCertificate,
     ) -> Result<(), TransportError> {
         self.require_scope(certificate.development_scope_digest)?;
-        let entry = self
-            .entries
-            .get_mut(&certificate.transport_role_id)
-            .ok_or(TransportError::UnregisteredRole(
-                certificate.transport_role_id,
-            ))?;
+        let entry = self.entries.get_mut(&certificate.transport_role_id).ok_or(
+            TransportError::UnregisteredRole(certificate.transport_role_id),
+        )?;
         if entry.proof_id != certificate.proof_id {
             return Err(TransportError::RegistryProofMismatch(
                 certificate.transport_role_id,
@@ -179,7 +176,9 @@ impl ShadowTransportRegistry {
     }
 
     pub fn status(&self, transport_role_id: u64) -> Option<TransportStatus> {
-        self.entries.get(&transport_role_id).map(|entry| entry.status)
+        self.entries
+            .get(&transport_role_id)
+            .map(|entry| entry.status)
     }
 
     pub fn entries(&self) -> impl Iterator<Item = &TransportRegistryEntry> {
@@ -201,12 +200,9 @@ impl ShadowTransportRegistry {
         certificate: &ValidatedTransportRoleCertificate,
     ) -> Result<(), TransportError> {
         self.require_scope(certificate.development_scope_digest)?;
-        let entry = self
-            .entries
-            .get(&certificate.transport_role_id)
-            .ok_or(TransportError::UnregisteredRole(
-                certificate.transport_role_id,
-            ))?;
+        let entry = self.entries.get(&certificate.transport_role_id).ok_or(
+            TransportError::UnregisteredRole(certificate.transport_role_id),
+        )?;
         if entry.proof_id != certificate.proof_id {
             return Err(TransportError::RegistryProofMismatch(
                 certificate.transport_role_id,
@@ -402,7 +398,8 @@ fn derive_transport_proof(
 
     let development_scope_digest = source_certificate.discovery_scope_digest();
     let source_role_id = source_certificate.role_id();
-    let transport_role_id = transport_role_digest(development_scope_digest, source_role_id, signature);
+    let transport_role_id =
+        transport_role_digest(development_scope_digest, source_role_id, signature);
     let proof_id = transport_proof_digest(
         development_scope_digest,
         source_role_id,
@@ -770,13 +767,9 @@ mod tests {
 
         let (future, target) = graph(100, true);
         let mut recognition_budget = TransportBudget::default();
-        let members = recognize_transport_members(
-            &future,
-            &certificate,
-            &registry,
-            &mut recognition_budget,
-        )
-        .unwrap();
+        let members =
+            recognize_transport_members(&future, &certificate, &registry, &mut recognition_budget)
+                .unwrap();
         assert_eq!(members, vec![target]);
     }
 
