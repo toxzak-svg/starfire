@@ -42,17 +42,29 @@ jobs:
 
       - name: Verify transformed S6 implementation
         run: |
-          cargo check -p star --lib --features companion-live-policy-stress --locked
-          cargo check -p star --example s6a_bounded_live_policy_probe \
-            --features companion-live-policy-stress --locked
-          cargo check -p star --example s6b_adversarial_live_policy_stress \
-            --features companion-live-policy-stress --locked
-          cargo test -p star --lib --features companion-live-policy-stress --locked \
-            companion_bounded_live_policy:: -- --test-threads=1
-          cargo run -p star --example s6a_bounded_live_policy_probe \
-            --features companion-live-policy-stress --locked
-          cargo run -p star --example s6b_adversarial_live_policy_stress \
-            --features companion-live-policy-stress --locked
+          set -o pipefail
+          {
+            cargo check -p star --lib --features companion-live-policy-stress --locked
+            cargo check -p star --example s6a_bounded_live_policy_probe \
+              --features companion-live-policy-stress --locked
+            cargo check -p star --example s6b_adversarial_live_policy_stress \
+              --features companion-live-policy-stress --locked
+            cargo test -p star --lib --features companion-live-policy-stress --locked \
+              companion_bounded_live_policy:: -- --test-threads=1
+            cargo run -p star --example s6a_bounded_live_policy_probe \
+              --features companion-live-policy-stress --locked
+            cargo run -p star --example s6b_adversarial_live_policy_stress \
+              --features companion-live-policy-stress --locked
+          } 2>&1 | tee s6b-transform-verification.log
+
+      - name: Preserve transformation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s6b-transform-verification
+          path: s6b-transform-verification.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Remove one-shot machinery
         run: |
