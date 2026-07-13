@@ -65,9 +65,11 @@ jobs:
           fi
 
       - name: Run verifier-ready and inverse-verifier contracts
-        run: >-
-          cargo test -p star --lib --features independent-language-verifier --locked
-          language_verification:: verifier_ready_realization:: -- --test-threads=1
+        run: |
+          cargo test -p star --lib --features independent-language-verifier --locked \
+            verifier_ready_realization:: -- --test-threads=1
+          cargo test -p star --lib --features independent-language-verifier --locked \
+            language_verification:: -- --test-threads=1
 
       - name: Run frozen L0-C regression
         run: |
