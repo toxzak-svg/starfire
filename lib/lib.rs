@@ -59,6 +59,12 @@ pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
 
+// S3: explicit-statement companion observation. Disabled by default and
+// intentionally proposal-only: no state mutation, persistence, Runtime::chat()
+// wiring, response routing, belief promotion, or action authority.
+#[cfg(feature = "companion-observer")]
+pub mod companion_observer;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
