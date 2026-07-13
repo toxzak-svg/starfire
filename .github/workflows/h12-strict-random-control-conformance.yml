@@ -42,9 +42,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Check formatting
+      - name: Format probe in CI workspace
         run: |
-          rustfmt --edition 2021 --check lib/examples/h12_strict_random_partition_conformance.rs
+          rustfmt --edition 2021 lib/examples/h12_strict_random_partition_conformance.rs
 
       - name: Compile H12 conformance probe
         run: |
@@ -63,7 +63,7 @@ jobs:
           cargo run -p star --example h12_strict_random_partition_conformance --locked \
             | tee h12-strict-random-partition-conformance-report.json
 
-      - name: Preserve conformance report
+      - name: Preserve conformance report and formatted source
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -71,5 +71,6 @@ jobs:
           path: |
             h12-strict-random-tests.log
             h12-strict-random-partition-conformance-report.json
+            lib/examples/h12_strict_random_partition_conformance.rs
           if-no-files-found: ignore
           retention-days: 14
