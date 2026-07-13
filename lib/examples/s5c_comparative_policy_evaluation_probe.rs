@@ -88,8 +88,14 @@ fn register_trial(
     policy_context: PolicyContext,
     delivered_variant: Option<PolicyVariant>,
 ) -> u64 {
+    let expected_prediction_version = predictions.version;
     let enrollment = planner
-        .enroll(state, predictions, predictions.version, policy_context)
+        .enroll(
+            state,
+            predictions,
+            expected_prediction_version,
+            policy_context,
+        )
         .unwrap();
     let trial_id = outcomes
         .register_enrollment(
