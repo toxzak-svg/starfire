@@ -90,6 +90,7 @@ pub mod companion_interaction_outcomes;
 // Development data cannot influence the verdict, and PASS grants no runtime,
 // routing, belief-promotion, persistence, or autonomous action authority.
 #[cfg(feature = "companion-policy-evaluation")]
+#[deny(warnings)]
 pub mod companion_policy_evaluation;
 
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
