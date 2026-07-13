@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   stlm-l0c-deterministic-renderer:
@@ -23,10 +23,8 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Check out pull-request branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -36,216 +34,11 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Apply verifier hardening
+      - name: Check canonical formatting
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          from textwrap import dedent
-
-          module = Path("lib/language_realization/mod.rs")
-          text = module.read_text()
-
-          budget_start = text.index("    validate_alignments(payload, program)?;")
-          budget_end_marker = "    validate_semantic_markers(payload, program, lexical_table)?;"
-          budget_end = text.index(budget_end_marker, budget_start) + len(budget_end_marker)
-          hardened_budget = dedent('''\
-              validate_alignments(payload, program)?;
-              let operation_cost = u32::try_from(payload.alignments.len())
-                  .map_err(|_| RealizationError::BudgetExceeded)?;
-              let claim_cost = u32::try_from(
-                  payload
-                      .alignments
-                      .iter()
-                      .map(|alignment| alignment.claim_ids.len())
-                      .sum::<usize>(),
-              )
-              .map_err(|_| RealizationError::BudgetExceeded)?;
-              let verification_step_cost = operation_cost
-                  .checked_add(claim_cost)
-                  .and_then(|cost| cost.checked_add(operation_cost))
-                  .ok_or(RealizationError::BudgetExceeded)?;
-              let character_cost =
-                  u32::try_from(payload.text.len()).map_err(|_| RealizationError::BudgetExceeded)?;
-              let sentence_count = count_sentences(&payload.text)?;
-              let paragraph_count = if payload.text.is_empty() {
-                  0
-              } else {
-                  u16::try_from(payload.text.split("\\n\\n").count())
-                      .map_err(|_| RealizationError::BudgetExceeded)?
-              };
-              if payload.operation_cost != operation_cost
-                  || payload.claim_cost != claim_cost
-                  || payload.verification_step_cost != verification_step_cost
-                  || payload.character_cost != character_cost
-                  || payload.sentence_count != sentence_count
-                  || payload.paragraph_count != paragraph_count
-              {
-                  return Err(RealizationError::BudgetExceeded);
-              }
-              validate_realization_budgets(
-                  program,
-                  operation_cost,
-                  claim_cost,
-                  verification_step_cost,
-                  character_cost,
-                  sentence_count,
-                  paragraph_count,
-              )?;
-              validate_semantic_markers(payload, program, lexical_table)?;''')
-          text = text[:budget_start] + hardened_budget + text[budget_end:]
-
-          alignment_start = text.index("fn validate_alignments(")
-          alignment_end = text.index("\nfn expected_claim_ids", alignment_start)
-          hardened_alignments = dedent('''\
-          fn validate_alignments(
-              payload: &SurfaceRealizationPayload,
-              program: &SemanticResponseProgram,
-          ) -> Result<(), RealizationError> {
-              if payload.alignments.len() != program.payload.operations.len() {
-                  return Err(RealizationError::OperationCoverageMismatch);
-              }
-              let max_paragraphs = usize::from(program.payload.style.maximum_paragraphs);
-              if max_paragraphs == 0 {
-                  return Err(RealizationError::BudgetExceeded);
-              }
-              let target_paragraphs = match program.payload.style.detail {
-                  DetailLevel::Detailed => payload.alignments.len().min(max_paragraphs),
-                  DetailLevel::Brief | DetailLevel::Standard => 1,
-              }
-              .max(1);
-              let operations_per_paragraph =
-                  payload.alignments.len().div_ceil(target_paragraphs).max(1);
-
-              let mut previous_end = 0_usize;
-              for (index, alignment) in payload.alignments.iter().enumerate() {
-                  let expected_operation = OperationId(index as u64 + 1);
-                  if alignment.operation != expected_operation
-                      || alignment.span.start_byte < previous_end
-                      || alignment.span.start_byte >= alignment.span.end_byte
-                      || alignment.span.end_byte > payload.text.len()
-                      || !payload.text.is_char_boundary(previous_end)
-                      || !payload.text.is_char_boundary(alignment.span.start_byte)
-                      || !payload.text.is_char_boundary(alignment.span.end_byte)
-                  {
-                      return Err(RealizationError::InvalidAlignment);
-                  }
-                  let expected_separator = if index == 0 {
-                      ""
-                  } else if program.payload.style.detail == DetailLevel::Detailed
-                      && index % operations_per_paragraph == 0
-                  {
-                      "\\n\\n"
-                  } else {
-                      " "
-                  };
-                  let expected_start = previous_end
-                      .checked_add(expected_separator.len())
-                      .ok_or(RealizationError::InvalidAlignment)?;
-                  if alignment.span.start_byte != expected_start
-                      || &payload.text[previous_end..alignment.span.start_byte]
-                          != expected_separator
-                  {
-                      return Err(RealizationError::InvalidAlignment);
-                  }
-                  let operation = &program.payload.operations[index];
-                  if operation.id != alignment.operation
-                      || expected_claim_ids(&operation.kind) != alignment.claim_ids
-                      || expected_surface_references(&operation.kind) != alignment.references
-                  {
-                      return Err(RealizationError::OperationCoverageMismatch);
-                  }
-                  previous_end = alignment.span.end_byte;
-              }
-              if previous_end != payload.text.len() {
-                  return Err(RealizationError::InvalidAlignment);
-              }
-              Ok(())
-          }
-          ''')
-          text = text[:alignment_start] + hardened_alignments + text[alignment_end:]
-          module.write_text(text)
-
-          probe = Path("lib/examples/stlm_l0c_deterministic_renderer_probe.rs")
-          probe_text = probe.read_text()
-          old_polarity = '"the renderer owns the cognition",\n        );'
-          new_polarity = '"the renderer does now own the cognition",\n        );'
-          if old_polarity not in probe_text:
-              raise SystemExit("polarity replacement anchor not found")
-          probe_text = probe_text.replace(old_polarity, new_polarity, 1)
-
-          polarity_anchor = probe_text.index("    let polarity_tampering_rejected = {")
-          new_controls = dedent('''\
-              let unaligned_gap_rejected = {
-                  let mut realization = first.clone();
-                  let insertion = " unsupported";
-                  let insertion_point = realization.payload.alignments[0].span.end_byte;
-                  realization.payload.text.insert_str(insertion_point, insertion);
-                  for alignment in realization.payload.alignments.iter_mut().skip(1) {
-                      alignment.span.start_byte += insertion.len();
-                      alignment.span.end_byte += insertion.len();
-                  }
-                  realization.payload.character_cost +=
-                      u32::try_from(insertion.len()).expect("frozen insertion length fits u32");
-                  matches!(
-                      realization.verify_integrity(&detailed_program, &detailed_table),
-                      Err(RealizationError::InvalidAlignment)
-                  )
-              };
-
-              let underreported_costs_rejected = {
-                  let mut realization = first.clone();
-                  realization.payload.character_cost = 1;
-                  matches!(
-                      realization.verify_integrity(&detailed_program, &detailed_table),
-                      Err(RealizationError::BudgetExceeded)
-                  )
-              };
-
-          ''')
-          probe_text = probe_text[:polarity_anchor] + new_controls + probe_text[polarity_anchor:]
-
-          gate_anchor = "        && operation_omission_rejected\n"
-          if gate_anchor not in probe_text:
-              raise SystemExit("gate anchor not found")
-          probe_text = probe_text.replace(
-              gate_anchor,
-              gate_anchor
-              + "        && unaligned_gap_rejected\n"
-              + "        && underreported_costs_rejected\n",
-              1,
-          )
-
-          report_anchor = '        "operation_omission_rejected": operation_omission_rejected,\n'
-          if report_anchor not in probe_text:
-              raise SystemExit("report anchor not found")
-          probe_text = probe_text.replace(
-              report_anchor,
-              report_anchor
-              + '        "unaligned_gap_rejected": unaligned_gap_rejected,\n'
-              + '        "underreported_costs_rejected": underreported_costs_rejected,\n',
-              1,
-          )
-          probe.write_text(probe_text)
-          PY
-          rustfmt --edition 2021 \
+          rustfmt --edition 2021 --check \
             lib/language_realization/mod.rs \
             lib/examples/stlm_l0c_deterministic_renderer_probe.rs
-
-      - name: Commit verifier hardening
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          if git diff --quiet -- \
-            lib/language_realization/mod.rs \
-            lib/examples/stlm_l0c_deterministic_renderer_probe.rs; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            lib/language_realization/mod.rs \
-            lib/examples/stlm_l0c_deterministic_renderer_probe.rs
-          git commit -m "fix(stlm): harden realization verification"
-          git push origin HEAD:${{ github.head_ref }}
 
       - name: Compile renderer and probe
         run: |
