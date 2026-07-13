@@ -91,6 +91,7 @@ pub mod companion_interaction_outcomes;
 // routing, belief-promotion, persistence, or autonomous action authority.
 #[cfg(feature = "companion-policy-evaluation")]
 #[deny(warnings)]
+#[allow(clippy::manual_checked_div)]
 pub mod companion_policy_evaluation;
 
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
