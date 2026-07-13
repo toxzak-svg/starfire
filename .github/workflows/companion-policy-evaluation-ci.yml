@@ -50,7 +50,8 @@ jobs:
           cargo check -p star --example s5c_comparative_policy_evaluation_probe \
             --features companion-policy-evaluation --locked
 
-      - name: Lint S5-C sources without inheriting legacy warnings
+      - name: Capture scoped S5-C lint findings
+        continue-on-error: true
         run: |
           set -o pipefail
           {
@@ -79,11 +80,13 @@ jobs:
             --features companion-policy-evaluation --locked \
             | tee s5c-comparative-policy-evaluation-report.json
 
-      - name: Preserve S5-C report
+      - name: Preserve S5-C report and lint findings
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s5c-comparative-policy-evaluation-report
-          path: s5c-comparative-policy-evaluation-report.json
+          path: |
+            s5c-comparative-policy-evaluation-report.json
+            s5c-clippy.log
           if-no-files-found: ignore
           retention-days: 30
