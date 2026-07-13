@@ -1,0 +1,88 @@
+name: H13-C Structural Role Transfer Stress
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/structural_transfer.rs"
+      - "lib/latent_roles.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "lib/examples/h13c_structural_role_transfer_stress.rs"
+      - "docs/experiments/H13C_STRUCTURAL_ROLE_TRANSFER_STRESS.md"
+      - "docs/experiments/H13C_STRUCTURAL_ROLE_TRANSFER_STRESS_RESULT.md"
+      - ".github/workflows/h13c-structural-transfer-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: h13c-structural-transfer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structural-transfer:
+    name: h13c-structural-transfer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check committed formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/structural_transfer.rs \
+            lib/examples/h13c_structural_role_transfer_stress.rs
+
+      - name: Compile H13-C probe
+        run: |
+          cargo check -p star --lib --locked
+          cargo check -p star --example h13c_structural_role_transfer_stress --locked
+
+      - name: Run structural transfer unit tests
+        run: |
+          set -o pipefail
+          cargo test -p star structural_transfer:: --locked -- --test-threads=1 \
+            2>&1 | tee h13c-structural-transfer-tests.log
+
+      - name: Re-run H12 latent-role substrate tests
+        run: |
+          set -o pipefail
+          cargo test -p star latent_roles:: --locked -- --test-threads=1 \
+            2>&1 | tee -a h13c-structural-transfer-tests.log
+
+      - name: Execute frozen H13-C experiment
+        run: |
+          set -o pipefail
+          cargo run -p star --example h13c_structural_role_transfer_stress --locked \
+            | tee h13c-structural-role-transfer-report.json
+          grep -F '"terminal_classification": "PASS"' \
+            h13c-structural-role-transfer-report.json
+
+      - name: Preserve H13-C evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: h13c-structural-role-transfer-stress
+          path: |
+            h13c-structural-transfer-tests.log
+            h13c-structural-role-transfer-report.json
+            target/h13c-structural-role-transfer-report.json
+          if-no-files-found: ignore
+          retention-days: 14
