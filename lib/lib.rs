@@ -93,6 +93,12 @@ pub mod companion_interaction_outcomes;
 #[cfg(feature = "companion-policy-evaluation")]
 pub mod companion_policy_evaluation;
 
+// S6-A: opt-in, bounded response-planning metadata derived from an explicitly
+// approved companion policy. Neutral fallback is exact; no routing, memory,
+// belief, ontology, persistence, tool, or autonomous-action authority is added.
+#[cfg(feature = "companion-bounded-live-policy")]
+pub mod companion_bounded_live_policy;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
