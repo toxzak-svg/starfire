@@ -133,7 +133,7 @@ Merged in Starfire PR #58:
 
 - typed trial registration over the exact six S5-A arms;
 - one optional declared delivered arm per trial;
-- direct user or environment evidence restricted to that delivered arm;
+- direct user or environment evidence restricted to the delivered arm;
 - pure-shadow trials that reject direct observed evidence;
 - explicit positive, negative, correction, clarification, completion, abandonment, and neutral signals;
 - inconclusive neutral signals without forced S4 resolution;
@@ -149,11 +149,9 @@ The central counterfactual rule is:
 
 > A witness may resolve only the response it actually observed. Unshown arms remain pending unless an external evaluator explicitly compares rendered alternatives.
 
-## Current slice
-
 ### S5-C — comparative policy evaluation
 
-The feature-gated S5-C implementation provides:
+Merged in Starfire PR #61:
 
 - deterministic development, opaque-subject holdout, and temporal-holdout assignment from pre-outcome metadata only;
 - complete per-arm accounting for predictions, resolutions, pending outcomes, expirations, abstentions, Brier score, and calibration error;
@@ -168,13 +166,32 @@ The feature-gated S5-C implementation provides:
 - deterministic repeated evaluation and a frozen synthetic probe;
 - no live response influence, routing, companion-state mutation, belief promotion, persistence authority, or autonomous actions.
 
-A synthetic S5-C `PASS` validates the evaluator and gate composition only. Real promotion eligibility requires frozen real-world held-out evidence under the same preregistered contract.
+The synthetic S5-C `PASS` validates the evaluator and gate composition only. Real promotion eligibility requires frozen real-world held-out evidence under the same preregistered contract.
+
+## Current slice
+
+### S6-A — reversible live policy canary
+
+The feature-gated S6-A implementation provides:
+
+- default-disabled, audit-only, and bounded live-canary modes;
+- explicit promotion authorization tied to one passing S5-C report fingerprint and one canonical artifact digest;
+- structural refusal to treat synthetic evaluator conformance as real live-use evidence;
+- deterministic opaque-subject rollout admission;
+- exact neutral fallback for missing authorization, rollout exclusion, abstention, sensitive evidence, claim-budget failure, compute-budget failure, and rollback;
+- hash-chained authorization, decision, and rollback audit events;
+- source companion version, source claim IDs, context and subject digests, candidate/effective policy digests, delivered arm, compute, and fallback reason in every decision record;
+- rollback latching on failed or inconclusive evaluation;
+- exact-generation, operator-audited rollback clearing;
+- no direct `Runtime::chat()` wiring, generated-text mutation, routing, persistence, belief or ontology promotion, capability invocation, or autonomous action authority.
+
+The frozen S6-A probe has terminal classification `EXPERIMENT_READY`. It validates canary mechanics only. A scientific result requires independently witnessed real interactions and a subsequent frozen S5-C held-out evaluation.
 
 ## Later slices
 
-### S6 — bounded live use
+### S6-B — runtime-owned companion response planning
 
-Permit validated, non-sensitive active claims to influence response planning under explicit budgets, audit logs, neutral fallback, rollback, and adversarial safety checks. Sensitive claims remain excluded unless the calling policy explicitly authorizes them.
+After S6-A receives real held-out support, add one reviewed runtime-owned adapter that loads `CompanionState` through Starfire's existing persistence authority, invokes the canary before response rendering, records the delivered arm through S5-B, and preserves unconditional neutral fallback. No second state loader, database, inference loop, or action authority is permitted.
 
 ## Required invariants
 
@@ -186,3 +203,5 @@ Permit validated, non-sensitive active claims to influence response planning und
 6. Every mutation is versioned and replayable.
 7. No companion component receives autonomous side-effect authority.
 8. Runtime promotion occurs only after shadow evaluation against controls.
+9. Synthetic evaluator conformance never authorizes live response influence.
+10. Every S6 live decision has an exact neutral fallback and auditable rollback path.
