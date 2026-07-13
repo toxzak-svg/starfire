@@ -35,6 +35,7 @@ pub enum EvaluationEvidenceClass {
 pub struct ValidatedPromotionGate {
     digest_fnv1a64: u64,
     evidence_class: EvaluationEvidenceClass,
+    authorized_companion_version: u64,
 }
 
 impl ValidatedPromotionGate {
@@ -42,9 +43,13 @@ impl ValidatedPromotionGate {
         report: &PolicyEvaluationReport,
         evidence_class: EvaluationEvidenceClass,
         evaluation_artifact_digest: u64,
+        authorized_companion_version: u64,
     ) -> Result<Self, LivePolicyError> {
         if evaluation_artifact_digest == 0 {
             return Err(LivePolicyError::EmptyEvaluationArtifactDigest);
+        }
+        if authorized_companion_version == 0 {
+            return Err(LivePolicyError::EmptyAuthorizedCompanionVersion);
         }
         if report.verdict != PolicyEvaluationVerdict::Pass
             || !report.promotion_eligible
@@ -91,6 +96,7 @@ impl ValidatedPromotionGate {
         let mut digest = fnv1a64(b"s6a-promotion-gate-v1");
         digest = mix_u64(digest, evaluation_artifact_digest);
         digest = mix_u64(digest, evidence_class as u64);
+        digest = mix_u64(digest, authorized_companion_version);
         for (split, control) in observed {
             digest = mix_u64(digest, split as u64);
             digest = mix_u64(digest, control as u64);
@@ -98,6 +104,7 @@ impl ValidatedPromotionGate {
         Ok(Self {
             digest_fnv1a64: digest,
             evidence_class,
+            authorized_companion_version,
         })
     }
 
@@ -109,6 +116,11 @@ impl ValidatedPromotionGate {
     #[must_use]
     pub const fn evidence_class(&self) -> EvaluationEvidenceClass {
         self.evidence_class
+    }
+
+    #[must_use]
+    pub const fn authorized_companion_version(&self) -> u64 {
+        self.authorized_companion_version
     }
 }
 
@@ -180,6 +192,7 @@ pub enum LivePlanDisposition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NeutralFallbackReason {
     Disabled,
+    SourceVersionMismatch,
     NotYetValid,
     Expired,
     BudgetExhausted,
@@ -198,6 +211,7 @@ pub enum LivePolicyEvent {
         turn_digest: u64,
         context_digest: u64,
         planned_at_ms: u64,
+        current_companion_version: u64,
         intent_label: String,
         disposition: LivePlanDisposition,
         fallback_reason: Option<NeutralFallbackReason>,
@@ -224,6 +238,7 @@ pub struct LivePolicyPlanningContext {
     pub subject_scope_digest: u64,
     pub turn_digest: u64,
     pub context_digest: u64,
+    pub current_companion_version: u64,
     pub planned_at_ms: u64,
     pub sensitive_context: bool,
 }
@@ -304,6 +319,12 @@ impl BoundedLivePolicyController {
         {
             return Err(LivePolicyError::SimulatedEvidenceRejected);
         }
+        if proposal.source_companion_version != gate.authorized_companion_version {
+            return Err(LivePolicyError::PromotionSourceVersionMismatch {
+                authorized: gate.authorized_companion_version,
+                actual: proposal.source_companion_version,
+            });
+        }
         validate_proposal(proposal, self.config.min_confidence_bps)?;
         validate_activation_request(&request, self.config)?;
 
@@ -334,6 +355,9 @@ impl BoundedLivePolicyController {
         self.require_version(expected_version)?;
         if context.turn_digest == 0 || context.context_digest == 0 {
             return Err(LivePolicyError::EmptyPlanningDigest);
+        }
+        if context.current_companion_version == 0 {
+            return Err(LivePolicyError::EmptyCurrentCompanionVersion);
         }
 
         let baseline_digest = response_plan_digest(&baseline_response, &baseline_rerank_config);
@@ -373,6 +397,7 @@ impl BoundedLivePolicyController {
             turn_digest: context.turn_digest,
             context_digest: context.context_digest,
             planned_at_ms: context.planned_at_ms,
+            current_companion_version: context.current_companion_version,
             intent_label: response.intent.label().to_owned(),
             disposition,
             fallback_reason: reason,
@@ -484,6 +509,9 @@ impl BoundedLivePolicyController {
         };
         if self.seen_turns.contains(&context.turn_digest) {
             return Some(NeutralFallbackReason::DuplicateTurn);
+        }
+        if context.current_companion_version != lease.source_companion_version {
+            return Some(NeutralFallbackReason::SourceVersionMismatch);
         }
         if context.planned_at_ms < lease.valid_from_ms {
             return Some(NeutralFallbackReason::NotYetValid);
@@ -803,6 +831,8 @@ pub enum LivePolicyError {
     MalformedPromotionEvidence,
     #[error("evaluation artifact digest must be non-zero")]
     EmptyEvaluationArtifactDigest,
+    #[error("authorized companion version must be non-zero")]
+    EmptyAuthorizedCompanionVersion,
     #[error("controller configuration is invalid")]
     InvalidControllerConfig,
     #[error("a live policy lease is already active")]
@@ -813,6 +843,8 @@ pub enum LivePolicyError {
     SimulatedEvidenceRejected,
     #[error("companion proposal is not an eligible non-abstaining candidate")]
     InvalidCompanionProposal,
+    #[error("promotion gate authorizes companion version {authorized}, proposal uses {actual}")]
+    PromotionSourceVersionMismatch { authorized: u64, actual: u64 },
     #[error("policy confidence {actual} is below minimum {minimum}")]
     InsufficientPolicyConfidence { minimum: u16, actual: u16 },
     #[error("sensitive companion evidence cannot authorize S6-A")]
@@ -825,6 +857,8 @@ pub enum LivePolicyError {
     InvalidActivationWindow,
     #[error("planning digests must be non-zero")]
     EmptyPlanningDigest,
+    #[error("current companion version must be non-zero")]
+    EmptyCurrentCompanionVersion,
     #[error("revocation evidence must be non-zero")]
     EmptyRevocationEvidence,
     #[error("version conflict: expected {expected}, actual {actual}")]
@@ -958,6 +992,7 @@ mod tests {
             subject_scope_digest: 99,
             turn_digest: turn,
             context_digest: 500 + turn,
+            current_companion_version: 3,
             planned_at_ms: 1_100,
             sensitive_context: sensitive,
         }
@@ -988,6 +1023,7 @@ mod tests {
                 &report,
                 EvaluationEvidenceClass::HeldOutConversationStudy,
                 1,
+                3,
             ),
             Err(LivePolicyError::MalformedPromotionEvidence)
         );
@@ -999,6 +1035,7 @@ mod tests {
             &passing_report(),
             EvaluationEvidenceClass::FrozenSimulation,
             1,
+            3,
         )
         .unwrap();
         let mut controller = BoundedLivePolicyController::default();
@@ -1006,6 +1043,66 @@ mod tests {
             controller.activate(0, &gate, &proposal(), activation()),
             Err(LivePolicyError::SimulatedEvidenceRejected)
         );
+    }
+
+    #[test]
+    fn activation_rejects_a_proposal_from_an_unauthorized_companion_version() {
+        let config = LivePolicyControllerConfig {
+            allow_simulated_activation: true,
+            ..LivePolicyControllerConfig::default()
+        };
+        let gate = ValidatedPromotionGate::validate(
+            &passing_report(),
+            EvaluationEvidenceClass::FrozenSimulation,
+            1,
+            3,
+        )
+        .unwrap();
+        let mut stale_proposal = proposal();
+        stale_proposal.source_companion_version = 4;
+        let mut controller = BoundedLivePolicyController::new(config).unwrap();
+        assert_eq!(
+            controller.activate(0, &gate, &stale_proposal, activation()),
+            Err(LivePolicyError::PromotionSourceVersionMismatch {
+                authorized: 3,
+                actual: 4,
+            })
+        );
+    }
+
+    #[test]
+    fn companion_version_drift_uses_exact_neutral_fallback_without_consuming_budget() {
+        let config = LivePolicyControllerConfig {
+            allow_simulated_activation: true,
+            ..LivePolicyControllerConfig::default()
+        };
+        let gate = ValidatedPromotionGate::validate(
+            &passing_report(),
+            EvaluationEvidenceClass::FrozenSimulation,
+            1,
+            3,
+        )
+        .unwrap();
+        let mut controller = BoundedLivePolicyController::new(config).unwrap();
+        controller
+            .activate(0, &gate, &proposal(), activation())
+            .unwrap();
+        let (response, rerank) = baseline();
+        let body = response.body.clone();
+        let max_chars = rerank.max_chars;
+        let mut stale_context = context(1, false);
+        stale_context.current_companion_version = 4;
+        let decision = controller
+            .plan_response(controller.version, stale_context, response, rerank)
+            .unwrap();
+        assert_eq!(decision.disposition, LivePlanDisposition::NeutralFallback);
+        assert_eq!(
+            decision.fallback_reason,
+            Some(NeutralFallbackReason::SourceVersionMismatch)
+        );
+        assert_eq!(decision.response.body, body);
+        assert_eq!(decision.rerank_config.max_chars, max_chars);
+        assert_eq!(decision.remaining_turns, 2);
     }
 
     #[test]
@@ -1018,6 +1115,7 @@ mod tests {
             &passing_report(),
             EvaluationEvidenceClass::FrozenSimulation,
             1,
+            3,
         )
         .unwrap();
         let mut controller = BoundedLivePolicyController::new(config).unwrap();
@@ -1048,6 +1146,7 @@ mod tests {
             &passing_report(),
             EvaluationEvidenceClass::FrozenSimulation,
             1,
+            3,
         )
         .unwrap();
         let mut controller = BoundedLivePolicyController::new(config).unwrap();
@@ -1080,6 +1179,7 @@ mod tests {
             &passing_report(),
             EvaluationEvidenceClass::FrozenSimulation,
             1,
+            3,
         )
         .unwrap();
         let mut controller = BoundedLivePolicyController::new(config).unwrap();
@@ -1119,6 +1219,7 @@ mod tests {
             &passing_report(),
             EvaluationEvidenceClass::FrozenSimulation,
             1,
+            3,
         )
         .unwrap();
         let mut controller = BoundedLivePolicyController::new(config).unwrap();

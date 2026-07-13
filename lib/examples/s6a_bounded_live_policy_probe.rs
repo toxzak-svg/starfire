@@ -1,8 +1,8 @@
 use serde::Serialize;
 use star::companion_bounded_live_policy::{
     BoundedLivePolicyController, EvaluationEvidenceClass, LivePlanDisposition,
-    LivePolicyActivationRequest, LivePolicyControllerConfig, LivePolicyPlanningContext,
-    NeutralFallbackReason, ValidatedPromotionGate,
+    LivePolicyActivationRequest, LivePolicyControllerConfig, LivePolicyError,
+    LivePolicyPlanningContext, NeutralFallbackReason, ValidatedPromotionGate,
 };
 use star::companion_interaction_policy::{
     AcknowledgmentLevel, DetailLevel, DialogueMode, ExplanationStyle, InteractionPolicy,
@@ -22,6 +22,8 @@ struct S6AReport {
     promotion_gate_validated: bool,
     production_default_rejected_simulation: bool,
     explicit_simulation_override_required: bool,
+    activation_version_mismatch_rejected: bool,
+    stale_companion_version_used_exact_neutral_fallback: bool,
     applied_plan_changed_metadata_only: bool,
     reranked_output_respected_brief_budget: bool,
     sensitive_context_used_exact_neutral_fallback: bool,
@@ -149,6 +151,7 @@ fn context(turn: u64, intent_sensitive: bool) -> LivePolicyPlanningContext {
         subject_scope_digest: 0xAA,
         turn_digest: 0x100 + turn,
         context_digest: 0x200 + turn,
+        current_companion_version: 7,
         planned_at_ms: 1_100 + turn,
         sensitive_context: intent_sensitive,
     }
@@ -174,6 +177,7 @@ fn main() {
         &report,
         EvaluationEvidenceClass::FrozenSimulation,
         0xF00D,
+        7,
     )
     .unwrap();
     let promotion_gate_validated = gate.digest_fnv1a64() != 0;
@@ -193,6 +197,33 @@ fn main() {
             },
         )
         .is_err();
+
+    let mismatch_config = LivePolicyControllerConfig {
+        max_activation_turns: 3,
+        allow_simulated_activation: true,
+        ..LivePolicyControllerConfig::default()
+    };
+    let mut mismatch_controller = BoundedLivePolicyController::new(mismatch_config).unwrap();
+    let mut mismatched_proposal = proposal();
+    mismatched_proposal.source_companion_version = 8;
+    let activation_version_mismatch_rejected = matches!(
+        mismatch_controller.activate(
+            0,
+            &gate,
+            &mismatched_proposal,
+            LivePolicyActivationRequest {
+                subject_scope_digest: 0xAA,
+                valid_from_ms: 1_000,
+                expires_at_ms: 2_000,
+                max_turns: 2,
+                operator_approval_digest: 0xABCD,
+            },
+        ),
+        Err(LivePolicyError::PromotionSourceVersionMismatch {
+            authorized: 7,
+            actual: 8,
+        })
+    );
 
     let config = LivePolicyControllerConfig {
         max_activation_turns: 3,
@@ -241,6 +272,26 @@ fn main() {
         &applied.rerank_config,
     );
     let reranked_output_respected_brief_budget = reranked.chars().count() <= 161;
+
+    let (stale_response, stale_config) = baseline(ResponseIntent::Recall);
+    let stale_body = stale_response.body.clone();
+    let stale_max = stale_config.max_chars;
+    let mut stale_context = context(6, false);
+    stale_context.current_companion_version = 8;
+    let stale = controller
+        .plan_response(
+            controller.version,
+            stale_context,
+            stale_response,
+            stale_config,
+        )
+        .unwrap();
+    let stale_companion_version_used_exact_neutral_fallback = stale.disposition
+        == LivePlanDisposition::NeutralFallback
+        && stale.fallback_reason == Some(NeutralFallbackReason::SourceVersionMismatch)
+        && stale.response.body == stale_body
+        && stale.rerank_config.max_chars == stale_max
+        && stale.remaining_turns == 1;
 
     let (duplicate_response, duplicate_config) = baseline(ResponseIntent::Recall);
     let duplicate = controller
@@ -320,6 +371,8 @@ fn main() {
     let gate_passed = promotion_gate_validated
         && production_default_rejected_simulation
         && explicit_simulation_override_required
+        && activation_version_mismatch_rejected
+        && stale_companion_version_used_exact_neutral_fallback
         && applied_plan_changed_metadata_only
         && reranked_output_respected_brief_budget
         && sensitive_context_used_exact_neutral_fallback
@@ -333,6 +386,8 @@ fn main() {
         promotion_gate_validated,
         production_default_rejected_simulation,
         explicit_simulation_override_required,
+        activation_version_mismatch_rejected,
+        stale_companion_version_used_exact_neutral_fallback,
         applied_plan_changed_metadata_only,
         reranked_output_respected_brief_budget,
         sensitive_context_used_exact_neutral_fallback,
