@@ -49,6 +49,10 @@ name = "r1_relational_residual_bridge"
 path = "examples/r1_relational_residual_bridge.rs"
 required-features = ["relational-evidence"]
 
+[[example]]
+name = "h13c_structural_role_transfer_stress"
+path = "examples/h13c_structural_role_transfer_stress.rs"
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
