@@ -93,6 +93,14 @@ pub mod companion_interaction_outcomes;
 #[cfg(feature = "companion-policy-evaluation")]
 pub mod companion_policy_evaluation;
 
+// S6-A: default-off, bounded, and reversible response-plan influence. A live
+// decision requires explicit real-held-out S5-C authorization, deterministic
+// rollout admission, compute and evidence budgets, hash-chained audit, and a
+// neutral fallback. It has no direct Runtime::chat(), persistence, belief,
+// ontology, routing, or autonomous action authority.
+#[cfg(feature = "companion-live-policy-canary")]
+pub mod companion_live_policy_canary;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
