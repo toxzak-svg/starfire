@@ -187,9 +187,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let unique_exact = all_roots(&training, &holdout, &future, |metrics| {
         metrics.unique_membership
     });
-    let replay_exact = all_roots(&training, &holdout, &future, |metrics| {
-        metrics.replay_exact
-    });
+    let replay_exact = all_roots(&training, &holdout, &future, |metrics| metrics.replay_exact);
     let h11_exact = all_roots(&training, &holdout, &future, |metrics| {
         metrics.h11_accounting_exact
     });
@@ -221,14 +219,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         target_certificates_zero,
     );
     gates.insert("random_cardinality_exact".to_string(), cardinality_exact);
-    gates.insert("random_target_non_target_mix_exact".to_string(), mixing_exact);
+    gates.insert(
+        "random_target_non_target_mix_exact".to_string(),
+        mixing_exact,
+    );
     gates.insert("random_membership_unique".to_string(), unique_exact);
     gates.insert("root_seeded_replay_exact".to_string(), replay_exact);
     gates.insert("h11_accounting_exact".to_string(), h11_exact);
     gates.insert("role_recomputation_exact".to_string(), roles_exact);
     gates.insert("pecs_invariants_hold".to_string(), invariants_hold);
     gates.insert("closure_budget_exact".to_string(), closure_exact);
-    gates.insert("future_family_transfer_exact".to_string(), future_family_exact);
+    gates.insert(
+        "future_family_transfer_exact".to_string(),
+        future_family_exact,
+    );
 
     let terminal_classification = if !h11_exact || !closure_exact {
         "INFRASTRUCTURE_FAILURE"
@@ -301,9 +305,8 @@ fn summarize(outcomes: &[RootOutcome]) -> SplitMetrics {
         metrics.replay_exact += usize::from(outcome.replay_exact);
         metrics.h11_accounting_exact += usize::from(outcome.h11_accounting_exact);
         metrics.role_recomputation_exact += usize::from(outcome.role_recomputation_exact);
-        metrics.invariants_hold += usize::from(
-            outcome.stateful_invariants && outcome.strict_invariants,
-        );
+        metrics.invariants_hold +=
+            usize::from(outcome.stateful_invariants && outcome.strict_invariants);
         metrics.closure_budget_exact += usize::from(
             outcome.stateful_closure_scans == CLOSURE_SCANS
                 && outcome.strict_closure_scans == CLOSURE_SCANS,
@@ -367,16 +370,10 @@ fn evaluate_root(root: &Root) -> Result<RootOutcome, Box<dyn Error>> {
     let stateful_success = stateful.contains_fact(&root.goal);
     let stateful_invariants = stateful.verify_invariants().is_ok();
 
-    let strict_group = strict_random_partition(
-        root.id,
-        &root.evidence,
-        target_projection.evidence.len(),
-    )?;
-    let replay_group = strict_random_partition(
-        root.id,
-        &root.evidence,
-        target_projection.evidence.len(),
-    )?;
+    let strict_group =
+        strict_random_partition(root.id, &root.evidence, target_projection.evidence.len())?;
+    let replay_group =
+        strict_random_partition(root.id, &root.evidence, target_projection.evidence.len())?;
     let strict_group_evidence_ids = strict_group
         .evidence
         .iter()
@@ -406,13 +403,14 @@ fn evaluate_root(root: &Root) -> Result<RootOutcome, Box<dyn Error>> {
 
     let strict_attempt = h11(&strict_group, config);
     h11_accounting_exact &= strict_attempt.exact;
-    let strict_target_certificate = strict_attempt
-        .certificate
-        .as_ref()
-        .is_some_and(|certificate| {
-            certificate.rule().antecedent == root.middle
-                && certificate.rule().consequent == root.goal
-        });
+    let strict_target_certificate =
+        strict_attempt
+            .certificate
+            .as_ref()
+            .is_some_and(|certificate| {
+                certificate.rule().antecedent == root.middle
+                    && certificate.rule().consequent == root.goal
+            });
 
     let mut strict = initial_state(root)?;
     if let Some(certificate) = strict_attempt.certificate.as_ref() {
@@ -460,12 +458,7 @@ fn run_closure(state: &mut EvidenceBoundCommitmentState) -> Result<usize, Box<dy
 fn h11(graph: &MixedEvidenceGraph, config: RuleInductionConfig) -> H11Attempt {
     let mut proposal_frontier = FrontierDiscoveryBudget::default();
     let mut proposal_scoring = ScoringBudget::default();
-    let proof = infer_graph_rule(
-        graph,
-        config,
-        &mut proposal_frontier,
-        &mut proposal_scoring,
-    );
+    let proof = infer_graph_rule(graph, config, &mut proposal_frontier, &mut proposal_scoring);
     let expected_proposal = proposal_frontier
         .discovered_antecedents
         .saturating_mul(proposal_frontier.discovered_consequents)
@@ -526,10 +519,7 @@ fn strict_random_partition(
         .map(|position| (start + position * stride) % count)
         .collect::<Vec<_>>();
     if permutation.iter().copied().collect::<BTreeSet<_>>().len() != count {
-        return Err(format!(
-            "root {root_id} produced a non-bijective cyclic permutation"
-        )
-        .into());
+        return Err(format!("root {root_id} produced a non-bijective cyclic permutation").into());
     }
 
     let minimum_id = canonical
@@ -639,7 +629,9 @@ fn project_evidence(
         .filter(|episode| members.contains(&episode.intervention))
         .cloned()
         .collect::<Vec<_>>();
-    (!projected.is_empty()).then_some(MixedEvidenceGraph { evidence: projected })
+    (!projected.is_empty()).then_some(MixedEvidenceGraph {
+        evidence: projected,
+    })
 }
 
 struct GraphIndex {
@@ -976,13 +968,7 @@ fn evidence_graph(
     MixedEvidenceGraph { evidence }
 }
 
-fn target_motif(
-    graph: &mut Builder,
-    prefix: &str,
-    latent: Atom,
-    fan_in: usize,
-    fan_out: usize,
-) {
+fn target_motif(graph: &mut Builder, prefix: &str, latent: Atom, fan_in: usize, fan_out: usize) {
     let join = atom(format!("{prefix}_join"));
     let split = atom(format!("{prefix}_split"));
     for index in 0..fan_in {
