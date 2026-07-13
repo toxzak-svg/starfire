@@ -12,7 +12,9 @@ use crate::companion_bounded_live_policy::{
     NeutralFallbackReason, ValidatedLivePolicyAuthorization,
 };
 use crate::companion_interaction_outcomes::{InteractionTrial, InteractionTrialId};
-use crate::companion_interaction_policy::{PolicyVariant, ShadowPolicyBatch, ShadowPolicyProposal};
+use crate::companion_interaction_policy::{
+    PolicyVariant, ShadowPolicyBatch, ShadowPolicyProposal,
+};
 use crate::language_model::RerankConfig;
 use crate::runtime::response_intent::Response;
 use serde::{Deserialize, Serialize};
@@ -190,10 +192,7 @@ impl fmt::Debug for PendingRuntimeCanaryTurn {
             .field("turn_digest", &self.turn_digest)
             .field("context_digest", &self.context_digest)
             .field("source_companion_version", &self.source_companion_version)
-            .field(
-                "required_delivered_variant",
-                &self.required_delivered_variant,
-            )
+            .field("required_delivered_variant", &self.required_delivered_variant)
             .field(
                 "required_policy_digest_fnv1a64",
                 &self.required_policy_digest_fnv1a64,
@@ -377,9 +376,10 @@ impl RuntimeCanarySession {
                         companion.policy_digest_fnv1a64,
                     )
                 }
-                LivePlanDisposition::NeutralFallback => {
-                    (PolicyVariant::NeutralDefault, neutral.policy_digest_fnv1a64)
-                }
+                LivePlanDisposition::NeutralFallback => (
+                    PolicyVariant::NeutralDefault,
+                    neutral.policy_digest_fnv1a64,
+                ),
             };
 
         Ok(PendingRuntimeCanaryTurn {
@@ -630,7 +630,8 @@ fn validate_trial_binding(
     if trial.source_companion_version != pending.source_companion_version {
         return Err(RuntimeCanaryError::TrialVersionMismatch);
     }
-    if trial.issued_at_ms > pending.prepared_at_ms || trial.expires_at_ms <= pending.prepared_at_ms
+    if trial.issued_at_ms > pending.prepared_at_ms
+        || trial.expires_at_ms <= pending.prepared_at_ms
     {
         return Err(RuntimeCanaryError::TrialTimingMismatch);
     }
@@ -640,9 +641,11 @@ fn validate_trial_binding(
             actual: trial.delivered_variant,
         });
     }
-    let arm = trial.arm(pending.required_delivered_variant).ok_or(
-        RuntimeCanaryError::MissingTrialArm(pending.required_delivered_variant),
-    )?;
+    let arm = trial
+        .arm(pending.required_delivered_variant)
+        .ok_or(RuntimeCanaryError::MissingTrialArm(
+            pending.required_delivered_variant,
+        ))?;
     if arm.policy_digest_fnv1a64 != pending.required_policy_digest_fnv1a64 {
         return Err(RuntimeCanaryError::TrialPolicyDigestMismatch);
     }
