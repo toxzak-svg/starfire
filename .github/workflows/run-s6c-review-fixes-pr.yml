@@ -45,38 +45,37 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           path = Path('lib/examples/s6c_limited_runtime_canary.rs')
-          text = path.read_text()
-          old_loop = '''        let enrollment = planner
-              .enroll(
-                  &state,
-                  &mut predictions,
-                  predictions.version,
-          '''
-          new_loop = '''        let expected_prediction_version = predictions.version;
-              let enrollment = planner
-              .enroll(
-                  &state,
-                  &mut predictions,
-                  expected_prediction_version,
-          '''
-          old_target = '''    let enrollment = planner
-              .enroll(
-                  &state,
-                  &mut predictions,
-                  predictions.version,
-          '''
-          new_target = '''    let expected_prediction_version = predictions.version;
-              let enrollment = planner
-              .enroll(
-                  &state,
-                  &mut predictions,
-                  expected_prediction_version,
-          '''
-          if text.count(old_loop) != 1 or text.count(old_target) != 1:
-              raise SystemExit('unexpected S6-C enrollment source shape')
-          text = text.replace(old_loop, new_loop, 1)
-          text = text.replace(old_target, new_target, 1)
-          path.write_text(text)
+          lines = path.read_text().splitlines()
+          version_lines = [
+              index for index, line in enumerate(lines)
+              if line.strip() == 'predictions.version,'
+          ]
+          if len(version_lines) != 2:
+              raise SystemExit(
+                  f'expected two prediction-version arguments, found {len(version_lines)}'
+              )
+          for version_index in reversed(version_lines):
+              enrollment_index = None
+              for index in range(version_index - 1, max(-1, version_index - 8), -1):
+                  if lines[index].strip() == 'let enrollment = planner':
+                      enrollment_index = index
+                      break
+              if enrollment_index is None:
+                  raise SystemExit('prediction version is not inside a planner enrollment')
+              indent = lines[enrollment_index][:
+                  len(lines[enrollment_index]) - len(lines[enrollment_index].lstrip())
+              ]
+              lines.insert(
+                  enrollment_index,
+                  f'{indent}let expected_prediction_version = predictions.version;',
+              )
+              if enrollment_index <= version_index:
+                  version_index += 1
+              arg_indent = lines[version_index][:
+                  len(lines[version_index]) - len(lines[version_index].lstrip())
+              ]
+              lines[version_index] = f'{arg_indent}expected_prediction_version,'
+          path.write_text('\n'.join(lines) + '\n')
           PY
 
       - name: Format hardened sources
