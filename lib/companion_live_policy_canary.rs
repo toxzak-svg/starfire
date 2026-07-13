@@ -89,6 +89,7 @@ pub struct PromotionAuthorization {
     evidence_class: PromotionEvidenceClass,
     artifact_digest: String,
     report_fingerprint_fnv1a64: u64,
+    authorized_companion_version: u64,
 }
 
 impl PromotionAuthorization {
@@ -96,8 +97,12 @@ impl PromotionAuthorization {
         report: &PolicyEvaluationReport,
         evidence_class: PromotionEvidenceClass,
         artifact_digest: impl Into<String>,
+        authorized_companion_version: u64,
     ) -> Result<Self, LivePolicyCanaryError> {
         validate_promotion_report(report)?;
+        if authorized_companion_version == 0 {
+            return Err(LivePolicyCanaryError::InvalidAuthorizedCompanionVersion);
+        }
         let artifact_digest = artifact_digest.into();
         validate_sha256_digest(&artifact_digest)?;
         let report_fingerprint_fnv1a64 = fingerprint(report)?;
@@ -105,6 +110,7 @@ impl PromotionAuthorization {
             evidence_class,
             artifact_digest,
             report_fingerprint_fnv1a64,
+            authorized_companion_version,
         })
     }
 
@@ -124,6 +130,11 @@ impl PromotionAuthorization {
     }
 
     #[must_use]
+    pub const fn authorized_companion_version(&self) -> u64 {
+        self.authorized_companion_version
+    }
+
+    #[must_use]
     pub const fn permits_live_use(&self) -> bool {
         matches!(self.evidence_class, PromotionEvidenceClass::RealHeldOut)
     }
@@ -136,6 +147,7 @@ pub enum CanaryFallbackReason {
     RolloutExcluded,
     MissingAuthorization,
     SyntheticEvidenceOnly,
+    SourceVersionMismatch,
     CandidateAbstained,
     SensitiveEvidence,
     SourceClaimBudgetExceeded,
@@ -157,6 +169,7 @@ pub enum CanaryAuditEventKind {
         evidence_class: PromotionEvidenceClass,
         artifact_digest: String,
         report_fingerprint_fnv1a64: u64,
+        authorized_companion_version: u64,
     },
     AuthorizationRemoved {
         verdict: PolicyEvaluationVerdict,
@@ -276,6 +289,7 @@ impl LivePolicyCanary {
             evidence_class: authorization.evidence_class,
             artifact_digest: authorization.artifact_digest,
             report_fingerprint_fnv1a64: authorization.report_fingerprint_fnv1a64,
+            authorized_companion_version: authorization.authorized_companion_version,
         })
     }
 
@@ -284,11 +298,17 @@ impl LivePolicyCanary {
         report: &PolicyEvaluationReport,
         evidence_class: PromotionEvidenceClass,
         artifact_digest: impl Into<String>,
+        authorized_companion_version: u64,
     ) -> Result<CanaryAuditEvent, LivePolicyCanaryError> {
         match report.verdict {
             PolicyEvaluationVerdict::Pass => {
                 let authorization =
-                    PromotionAuthorization::from_report(report, evidence_class, artifact_digest)?;
+                    PromotionAuthorization::from_report(
+                        report,
+                        evidence_class,
+                        artifact_digest,
+                        authorized_companion_version,
+                    )?;
                 self.install_authorization(authorization)
             }
             PolicyEvaluationVerdict::Fail => {
@@ -361,6 +381,7 @@ impl LivePolicyCanary {
             .clone();
 
         let fallback_reason = self.fallback_reason(
+            batch.source_companion_version,
             context.subject_scope_digest,
             &candidate,
             planning_compute_micros,
@@ -409,6 +430,7 @@ impl LivePolicyCanary {
 
     fn fallback_reason(
         &self,
+        source_companion_version: u64,
         subject_scope_digest: u64,
         candidate: &crate::companion_interaction_policy::ShadowPolicyProposal,
         planning_compute_micros: u64,
@@ -429,6 +451,9 @@ impl LivePolicyCanary {
         };
         if !authorization.permits_live_use() {
             return Some(CanaryFallbackReason::SyntheticEvidenceOnly);
+        }
+        if authorization.authorized_companion_version != source_companion_version {
+            return Some(CanaryFallbackReason::SourceVersionMismatch);
         }
         if candidate.is_abstention() {
             return Some(CanaryFallbackReason::CandidateAbstained);
@@ -592,6 +617,8 @@ pub enum LivePolicyCanaryError {
     InvalidPromotionReport(&'static str),
     #[error("artifact digest must be sha256 followed by exactly 64 hexadecimal characters")]
     InvalidArtifactDigest,
+    #[error("authorized companion version must be positive")]
+    InvalidAuthorizedCompanionVersion,
     #[error("rollback is not latched")]
     RollbackNotLatched,
     #[error("rollback generation conflict: expected {expected}, actual {actual}")]
@@ -687,6 +714,7 @@ mod tests {
             &passing_report(),
             PromotionEvidenceClass::SyntheticConformance,
             format!("sha256:{}", "a".repeat(64)),
+            1,
         )
         .unwrap();
         assert!(!authorization.permits_live_use());
@@ -701,6 +729,7 @@ mod tests {
                 &report,
                 PromotionEvidenceClass::RealHeldOut,
                 format!("sha256:{}", "b".repeat(64)),
+                1,
             ),
             Err(LivePolicyCanaryError::InvalidPromotionReport(_))
         ));

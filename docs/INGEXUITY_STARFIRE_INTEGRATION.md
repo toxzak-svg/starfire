@@ -175,10 +175,10 @@ The synthetic S5-C `PASS` validates the evaluator and gate composition only. Rea
 The feature-gated S6-A implementation provides:
 
 - default-disabled, audit-only, and bounded live-canary modes;
-- explicit promotion authorization tied to one passing S5-C report fingerprint and one canonical artifact digest;
+- explicit promotion authorization tied to one passing S5-C report fingerprint, one canonical artifact digest, and the exact evaluated companion-state version;
 - structural refusal to treat synthetic evaluator conformance as real live-use evidence;
 - deterministic opaque-subject rollout admission;
-- exact neutral fallback for missing authorization, rollout exclusion, abstention, sensitive evidence, claim-budget failure, compute-budget failure, and rollback;
+- exact neutral fallback for missing or stale authorization, rollout exclusion, abstention, sensitive evidence, claim-budget failure, compute-budget failure, and rollback;
 - hash-chained authorization, decision, and rollback audit events;
 - source companion version, source claim IDs, context and subject digests, candidate/effective policy digests, delivered arm, compute, and fallback reason in every decision record;
 - rollback latching on failed or inconclusive evaluation;

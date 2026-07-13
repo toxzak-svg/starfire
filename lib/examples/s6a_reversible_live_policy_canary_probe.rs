@@ -20,6 +20,7 @@ struct S6AProbeReport {
     synthetic_authorization_refused: bool,
     real_canary_influence_applied: bool,
     effective_policy_expected: bool,
+    stale_authorization_fallback: bool,
     rollout_fallback: bool,
     compute_fallback: bool,
     contradiction_fallback: bool,
@@ -162,6 +163,7 @@ fn main() {
         &report,
         PromotionEvidenceClass::SyntheticConformance,
         format!("sha256:{}", "a".repeat(64)),
+        state.version,
     )
     .unwrap();
     canary.install_authorization(synthetic).unwrap();
@@ -174,6 +176,7 @@ fn main() {
         &report,
         PromotionEvidenceClass::RealHeldOut,
         format!("sha256:{}", "b".repeat(64)),
+        state.version,
     )
     .unwrap();
     canary.install_authorization(real).unwrap();
@@ -183,6 +186,20 @@ fn main() {
         && live_decision.selected_variant == PolicyVariant::CompanionDerived;
     let effective_policy_expected = live_decision.effective_policy.detail == DetailLevel::Detailed
         && live_decision.effective_policy.vocabulary == VocabularyLevel::Technical;
+
+    let mut changed_state = state.clone();
+    changed_state
+        .record_claim(
+            changed_state.version,
+            claim("preference.questions.general", "yes", 250),
+        )
+        .unwrap();
+    let stale_version_decision = canary
+        .decide(&changed_state, context(12, 0x6007), 100)
+        .unwrap();
+    let stale_authorization_fallback = stale_version_decision.fallback_reason
+        == Some(CanaryFallbackReason::SourceVersionMismatch)
+        && stale_version_decision.selected_variant == PolicyVariant::NeutralDefault;
 
     let rollout_decision = canary.decide(&state, context(5, 0x6003), 100).unwrap();
     let rollout_fallback = rollout_decision.fallback_reason
@@ -201,6 +218,14 @@ fn main() {
             claim("preference.brevity.general", "yes", 300),
         )
         .unwrap();
+    let conflict_authorization = PromotionAuthorization::from_report(
+        &report,
+        PromotionEvidenceClass::RealHeldOut,
+        format!("sha256:{}", "d".repeat(64)),
+        conflict_state.version,
+    )
+    .unwrap();
+    canary.install_authorization(conflict_authorization).unwrap();
     let conflict_decision = canary
         .decide(&conflict_state, context(8, 0x6005), 100)
         .unwrap();
@@ -226,6 +251,7 @@ fn main() {
             &failed_report,
             PromotionEvidenceClass::RealHeldOut,
             format!("sha256:{}", "c".repeat(64)),
+            state.version,
         )
         .unwrap();
     let failed_evaluation_latched_rollback = canary.authorization().is_none()
@@ -242,6 +268,7 @@ fn main() {
     let gate_passed = synthetic_authorization_refused
         && real_canary_influence_applied
         && effective_policy_expected
+        && stale_authorization_fallback
         && rollout_fallback
         && compute_fallback
         && contradiction_fallback
@@ -256,6 +283,7 @@ fn main() {
         synthetic_authorization_refused,
         real_canary_influence_applied,
         effective_policy_expected,
+        stale_authorization_fallback,
         rollout_fallback,
         compute_fallback,
         contradiction_fallback,

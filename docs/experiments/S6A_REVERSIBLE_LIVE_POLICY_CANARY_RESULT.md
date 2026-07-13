@@ -12,6 +12,7 @@ failure path.
 The frozen probe covers:
 
 - rejection of synthetic S5-C authorization for live use;
+- rejection of stale authorization after the companion-state version changes;
 - acceptance of an explicitly attested real-held-out authorization in the
   bounded canary fixture;
 - deterministic opaque-subject rollout exclusion;

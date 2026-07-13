@@ -19,6 +19,7 @@ S6-A depends on the complete S0 through S5-C chain. In particular, an installed
 promotion authorization must be derived from an S5-C report that:
 
 - has verdict `PASS` and `promotion_eligible = true`;
+- is bound to the exact positive `CompanionState` version evaluated;
 - excludes development evidence from its verdict;
 - contains exactly ten candidate-control comparisons: five controls on the
   opaque-subject holdout and the same five on the temporal holdout;
@@ -36,7 +37,7 @@ Every decision is evaluated in this order:
 1. rollback latch;
 2. configured mode (`Disabled`, `AuditOnly`, or `LiveCanary`);
 3. deterministic opaque-subject rollout partition;
-4. installed promotion authorization;
+4. installed promotion authorization bound to the current companion version;
 5. real-held-out evidence class;
 6. S5-A candidate abstention;
 7. sensitive-evidence exclusion;
@@ -50,7 +51,7 @@ policy merge and no best-effort degradation.
 
 The canary records hash-chained typed events for:
 
-- authorization installation and removal;
+- authorization installation and removal, including the authorized companion version;
 - every candidate and effective-policy decision;
 - rollback latching;
 - explicit rollback clearing.
