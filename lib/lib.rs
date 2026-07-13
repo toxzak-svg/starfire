@@ -68,6 +68,12 @@ pub mod representation_transport_descendants;
 #[allow(clippy::derivable_impls)]
 pub mod companion_observer;
 
+// S4: falsifiable companion predictions. Disabled by default and intentionally
+// ledger-only: no Runtime::chat() wiring, response-policy influence, routing,
+// belief promotion, or autonomous side-effect authority.
+#[cfg(feature = "companion-prediction-ledger")]
+pub mod companion_prediction_ledger;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
