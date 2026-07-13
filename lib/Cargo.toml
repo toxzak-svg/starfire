@@ -33,5 +33,6 @@ regex.workspace = true
 [features]
 default = []
 lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
+companion-observer = []  # S3 explicit-statement observer; proposal-only and shadow-only
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
