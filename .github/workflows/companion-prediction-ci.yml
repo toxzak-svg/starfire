@@ -50,22 +50,36 @@ jobs:
         run: cargo clippy -p star --lib --features companion-prediction-ledger --locked
 
       - name: Test S4 contracts deterministically
-        run: >-
-          cargo test -p star --lib --features companion-prediction-ledger --locked
-          companion_prediction_ledger:: -- --test-threads=1
+        id: s4_tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cargo test -p star --lib --features companion-prediction-ledger --locked \
+            companion_prediction_ledger:: -- --test-threads=1 \
+            2>&1 | tee s4-tests.log
 
       - name: Run frozen S4 replay and controls
+        id: s4_probe
+        continue-on-error: true
         run: |
           set -o pipefail
           cargo run -p star --example s4_companion_prediction_ledger_probe \
             --features companion-prediction-ledger --locked \
-            | tee s4-companion-prediction-report.json
+            2>&1 | tee s4-companion-prediction-report.json
 
-      - name: Preserve S4 report
+      - name: Preserve S4 diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: s4-companion-prediction-report
-          path: s4-companion-prediction-report.json
+          path: |
+            s4-companion-prediction-report.json
+            s4-tests.log
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Enforce S4 gates
+        if: always()
+        run: |
+          test "${{ steps.s4_tests.outcome }}" = "success"
+          test "${{ steps.s4_probe.outcome }}" = "success"
