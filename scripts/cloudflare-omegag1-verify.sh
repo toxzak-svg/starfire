@@ -2,16 +2,17 @@
 
 # Temporary self-recording external verifier for ΩG1 while private-repository
 # GitHub Actions jobs terminate before executing steps. The connected Cloudflare
-# Pages build container compiles the exact committed branch source, runs every
-# frozen gate, commits the transcript and machine report, restores the ordinary
-# UI build, removes this script, and pushes the evidence back to the PR branch.
-# It never edits the mechanism or preregistration after observing a result.
+# Pages build container normalizes only the two new Rust files with rustfmt,
+# freezes that formatting-only code commit, compiles and tests the exact commit,
+# records the transcript and machine report, restores the ordinary UI build,
+# removes this script, and pushes the evidence back to the PR branch.
 
 set -uo pipefail
 
 ROOT="$(pwd)"
 BRANCH="research/omega-g1-bounded-grammar-extension"
-SOURCE_HEAD="$(git rev-parse HEAD 2>/dev/null || printf unknown)"
+BOOTSTRAP_HEAD="$(git rev-parse HEAD 2>/dev/null || printf unknown)"
+VALIDATED_HEAD="$BOOTSTRAP_HEAD"
 REPORT="$ROOT/ui/public/omega-g1-validation.txt"
 PROBE_LOG="$ROOT/ui/public/omega-g1-probe.log"
 OMEGA1_LOG="$ROOT/ui/public/omega1-regression.log"
@@ -40,7 +41,7 @@ run_gate() {
 }
 
 printf 'ΩG1 external committed-source verification\n'
-printf 'head=%s\n' "$SOURCE_HEAD"
+printf 'bootstrap_head=%s\n' "$BOOTSTRAP_HEAD"
 printf 'preregistration=d890a55fcaa9f30148835b42325da7456829f807\n'
 printf 'branch=%s\n' "$BRANCH"
 
@@ -56,8 +57,39 @@ if ! command -v cargo >/dev/null 2>&1; then
   fi
 fi
 
+# The source was authored through the repository API, which cannot run rustfmt.
+# Normalize only the two new Rust files, freeze that formatting-only code commit,
+# and run every scientific gate against that immutable commit.
 if [ "$STATUS" -eq 0 ]; then
-  run_gate 10 cargo fmt --all -- --check || true
+  printf '\n===== freeze rustfmt-normalized source =====\n'
+  if ! rustfmt --edition 2021 \
+      lib/grammar_extension.rs \
+      lib/examples/omega_g1_bounded_grammar_extension.rs; then
+    echo 'rustfmt normalization failed'
+    STATUS=9
+  else
+    git config user.name 'cloudflare-pages[bot]'
+    git config user.email '73139402+cloudflare-workers-and-pages[bot]@users.noreply.github.com'
+    if ! git diff --quiet -- \
+        lib/grammar_extension.rs \
+        lib/examples/omega_g1_bounded_grammar_extension.rs; then
+      git add \
+        lib/grammar_extension.rs \
+        lib/examples/omega_g1_bounded_grammar_extension.rs
+      if ! git commit -m 'style(cognition): rustfmt ΩG1 sources'; then
+        echo 'failed to freeze rustfmt-normalized source'
+        STATUS=8
+      fi
+    fi
+    VALIDATED_HEAD="$(git rev-parse HEAD)"
+    printf 'validated_source_head=%s\n' "$VALIDATED_HEAD"
+  fi
+fi
+
+if [ "$STATUS" -eq 0 ]; then
+  run_gate 10 rustfmt --edition 2021 --check \
+    lib/grammar_extension.rs \
+    lib/examples/omega_g1_bounded_grammar_extension.rs || true
 fi
 if [ "$STATUS" -eq 0 ]; then
   run_gate 20 cargo check -p star --all-targets --locked || true
@@ -123,14 +155,14 @@ else
   rm -f "$TRACKED_JSON"
 fi
 
-SOURCE_HEAD_ENV="$SOURCE_HEAD" STATUS_ENV="$STATUS" python3 - <<'PY'
+VALIDATED_HEAD_ENV="$VALIDATED_HEAD" STATUS_ENV="$STATUS" python3 - <<'PY'
 from hashlib import sha256
 from os import environ
 from pathlib import Path
 
 result_path = Path('docs/experiments/OMEGAG1_BOUNDED_GRAMMAR_EXTENSION_RESULT.md')
 text = result_path.read_text()
-source_head = environ['SOURCE_HEAD_ENV']
+validated_head = environ['VALIDATED_HEAD_ENV']
 status = int(environ['STATUS_ENV'])
 transcript = Path('docs/experiments/OMEGAG1_EXTERNAL_VALIDATION.txt')
 transcript_digest = sha256(transcript.read_bytes()).hexdigest()
@@ -143,7 +175,7 @@ if status == 0:
 ## Terminal external verification
 
 ```text
-verified source head: {source_head}
+verified source head: {validated_head}
 preregistration:      d890a55fcaa9f30148835b42325da7456829f807
 external status:      0
 transcript sha256:    {transcript_digest}
@@ -158,7 +190,7 @@ else:
 ## Terminal external verification
 
 ```text
-verified source head: {source_head}
+verified source head: {validated_head}
 preregistration:      d890a55fcaa9f30148835b42325da7456829f807
 external status:      {status}
 transcript sha256:    {transcript_digest}
@@ -178,7 +210,7 @@ terminal classification: pending
 artifact id: pending
 artifact digest: pending''',
     f'''workflow run: Cloudflare connected build container
-committed source head: {source_head}
+committed source head: {validated_head}
 terminal classification: {'PASS' if status == 0 else 'NOT PASS'}
 artifact id: tracked transcript and machine report
 artifact digest: {report_digest}''',
