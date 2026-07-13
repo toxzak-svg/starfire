@@ -1,0 +1,73 @@
+name: Companion Interaction Policy S5-A CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_interaction_policy.rs"
+      - "lib/examples/s5a_shadow_interaction_policy_probe.rs"
+      - "lib/companion_prediction_ledger.rs"
+      - "lib/companion_state/**"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S5A_SHADOW_INTERACTION_POLICY.md"
+      - ".github/workflows/companion-interaction-policy-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s5a-shadow-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format S5-A sources for verification
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_interaction_policy.rs \
+            lib/examples/s5a_shadow_interaction_policy_probe.rs
+
+      - name: Compile S5-A planner and probe
+        run: |
+          cargo check -p star --lib --features companion-interaction-policy --locked
+          cargo check -p star --example s5a_shadow_interaction_policy_probe \
+            --features companion-interaction-policy --locked
+
+      - name: Lint S5-A feature path
+        run: cargo clippy -p star --lib --features companion-interaction-policy --locked
+
+      - name: Test S5-A contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-interaction-policy --locked
+          companion_interaction_policy:: -- --test-threads=1
+
+      - name: Run frozen S5-A shadow-policy probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s5a_shadow_interaction_policy_probe \
+            --features companion-interaction-policy --locked \
+            | tee s5a-shadow-interaction-policy-report.json
+
+      - name: Preserve S5-A report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5a-shadow-interaction-policy-report
+          path: s5a-shadow-interaction-policy-report.json
+          if-no-files-found: ignore
+          retention-days: 30
