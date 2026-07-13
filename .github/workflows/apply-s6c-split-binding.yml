@@ -49,10 +49,16 @@ jobs:
               --features companion-real-interaction-canary --locked
             cargo clippy -p star --lib \
               --features companion-real-interaction-canary --locked \
-              -- -D warnings
+              --message-format=short 2>&1 | tee /tmp/s6c-clippy.log
             cargo clippy -p star --example s6c_real_interaction_canary_evidence \
               --features companion-real-interaction-canary --locked \
-              -- -D warnings
+              --message-format=short 2>&1 | tee -a /tmp/s6c-clippy.log
+            if grep -E \
+              'lib/companion_real_interaction_canary\.rs:|lib/examples/s6c_real_interaction_canary_evidence\.rs:' \
+              /tmp/s6c-clippy.log; then
+              echo "S6-C scoped Clippy finding detected"
+              exit 1
+            fi
             cargo test -p star --lib \
               --features companion-real-interaction-canary --locked \
               companion_real_interaction_canary:: -- --test-threads=1
@@ -65,7 +71,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: s6c-apply-verification
-          path: /tmp/s6c-apply-verification.log
+          path: |
+            /tmp/s6c-apply-verification.log
+            /tmp/s6c-clippy.log
           if-no-files-found: ignore
           retention-days: 7
 
