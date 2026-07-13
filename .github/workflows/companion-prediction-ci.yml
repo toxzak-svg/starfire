@@ -1,0 +1,71 @@
+name: Companion Prediction S4 CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_prediction_ledger.rs"
+      - "lib/examples/s4_companion_prediction_ledger_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S4_COMPANION_PREDICTION_LEDGER.md"
+      - ".github/workflows/companion-prediction-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s4-prediction-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format S4 sources for verification
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_prediction_ledger.rs \
+            lib/examples/s4_companion_prediction_ledger_probe.rs
+
+      - name: Compile S4 ledger and probe
+        run: |
+          cargo check -p star --lib --features companion-prediction-ledger --locked
+          cargo check -p star --example s4_companion_prediction_ledger_probe \
+            --features companion-prediction-ledger --locked
+
+      - name: Lint S4 feature path
+        run: cargo clippy -p star --lib --features companion-prediction-ledger --locked
+
+      - name: Test S4 contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-prediction-ledger --locked
+          companion_prediction_ledger:: -- --test-threads=1
+
+      - name: Run frozen S4 replay and controls
+        run: |
+          set -o pipefail
+          cargo run -p star --example s4_companion_prediction_ledger_probe \
+            --features companion-prediction-ledger --locked \
+            | tee s4-companion-prediction-report.json
+
+      - name: Preserve S4 report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s4-companion-prediction-report
+          path: s4-companion-prediction-report.json
+          if-no-files-found: ignore
+          retention-days: 30
