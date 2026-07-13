@@ -1,0 +1,55 @@
+name: R0-A Latent Role Substrate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/latent_roles.rs"
+      - "lib/lib.rs"
+      - "docs/research/R0A_H12_LATENT_ROLE_SUBSTRATE_CONSOLIDATION.md"
+      - ".github/workflows/r0a-latent-role-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r0a-latent-role-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  latent-role-substrate:
+    name: latent-role-substrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check formatting
+        run: rustfmt --edition 2021 --check lib/latent_roles.rs
+
+      - name: Compile Star library
+        run: cargo check -p star --lib --locked
+
+      - name: Run latent-role substrate tests deterministically
+        run: cargo test -p star latent_roles:: --locked -- --test-threads=1

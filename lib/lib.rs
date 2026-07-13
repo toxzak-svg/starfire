@@ -54,6 +54,7 @@ pub mod autonomy;
 pub mod commitment_state;
 pub mod rule_induction;
 pub mod graph_discovery;
+pub mod latent_roles;
 pub mod representation_genesis;
 pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
