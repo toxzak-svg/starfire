@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Temporary diagnostic route. This run normalizes the two new ΩG1 Rust files in
-# the ephemeral checkout so later compiler/test failures are visible. A PASS from
-# this diagnostic is not terminal until the formatted files are committed and the
-# exact signed source is rerun with rustfmt --check.
+# Temporary export route. The exact rustfmt-normalized ΩG1 sources and machine
+# report are copied into the preview's static output only long enough to freeze
+# them back into the private branch and perform a committed-source rerun.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
@@ -12,7 +11,7 @@ export CARGO_INCREMENTAL=0
 export RUST_BACKTRACE=1
 
 HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || printf unknown)"
-printf 'OMEGA_G1_VERCEL_DIAGNOSTIC_START=1\n'
+printf 'OMEGA_G1_VERCEL_EXPORT_START=1\n'
 printf 'committed_head=%s\n' "$HEAD_SHA"
 printf 'preregistration=d890a55fcaa9f30148835b42325da7456829f807\n'
 
@@ -24,10 +23,15 @@ if ! command -v cargo >/dev/null 2>&1; then
   source "$HOME/.cargo/env"
 fi
 
-printf '\n===== normalize ΩG1 source in ephemeral checkout =====\n'
+printf '\n===== normalize and export ΩG1 source =====\n'
 rustfmt --edition 2021 \
   lib/grammar_extension.rs \
   lib/examples/omega_g1_bounded_grammar_extension.rs
+mkdir -p ui/public
+cp lib/grammar_extension.rs ui/public/omega-g1-grammar-extension.rs.txt
+cp lib/examples/omega_g1_bounded_grammar_extension.rs \
+  ui/public/omega-g1-bounded-grammar-extension-example.rs.txt
+
 git diff --stat -- \
   lib/grammar_extension.rs \
   lib/examples/omega_g1_bounded_grammar_extension.rs
@@ -51,10 +55,12 @@ grep -F '"terminal_classification": "PASS"' /tmp/omega-g1-probe.log
 test -f target/omega-g1-bounded-grammar-extension-report.json
 grep -F '"terminal_classification": "PASS"' \
   target/omega-g1-bounded-grammar-extension-report.json
+cp target/omega-g1-bounded-grammar-extension-report.json \
+  ui/public/omega-g1-bounded-grammar-extension-report.json
 sha256sum target/omega-g1-bounded-grammar-extension-report.json
 
-printf '\nOMEGA_G1_VERCEL_DIAGNOSTIC_STATUS=PASS\n'
-printf 'OMEGA_G1_VERCEL_DIAGNOSTIC_FINISHED=1\n'
+printf '\nOMEGA_G1_VERCEL_EXPORT_STATUS=PASS\n'
+printf 'OMEGA_G1_VERCEL_EXPORT_FINISHED=1\n'
 
 cd "$ROOT/ui"
 npx next build
