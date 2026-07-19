@@ -1,66 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Temporary export route. The exact rustfmt-normalized ΩG1 sources and machine
-# report are copied into the preview's static output only long enough to freeze
-# them back into the private branch and perform a committed-source rerun.
+# Temporary transport route. Normalize the two ΩG1 source files in the verified
+# Vercel checkout and push the byte-exact result to an isolated private branch.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-export CARGO_INCREMENTAL=0
-export RUST_BACKTRACE=1
+printf 'OMEGA_G1_RUSTFMT_TRANSPORT_START=1\n'
+printf 'committed_head=%s\n' "$(git rev-parse HEAD)"
 
-HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || printf unknown)"
-printf 'OMEGA_G1_VERCEL_EXPORT_START=1\n'
-printf 'committed_head=%s\n' "$HEAD_SHA"
-printf 'preregistration=d890a55fcaa9f30148835b42325da7456829f807\n'
-
-if ! command -v cargo >/dev/null 2>&1; then
-  printf '\n===== install stable Rust =====\n'
+if ! command -v rustfmt >/dev/null 2>&1; then
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --profile minimal --component rustfmt,clippy
+    | sh -s -- -y --profile minimal --component rustfmt
   # shellcheck disable=SC1091
   source "$HOME/.cargo/env"
 fi
 
-printf '\n===== normalize and export ΩG1 source =====\n'
 rustfmt --edition 2021 \
   lib/grammar_extension.rs \
   lib/examples/omega_g1_bounded_grammar_extension.rs
-mkdir -p ui/public
-cp lib/grammar_extension.rs ui/public/omega-g1-grammar-extension.rs.txt
-cp lib/examples/omega_g1_bounded_grammar_extension.rs \
-  ui/public/omega-g1-bounded-grammar-extension-example.rs.txt
 
+git diff --check -- \
+  lib/grammar_extension.rs \
+  lib/examples/omega_g1_bounded_grammar_extension.rs
 git diff --stat -- \
   lib/grammar_extension.rs \
   lib/examples/omega_g1_bounded_grammar_extension.rs
 
-printf '\n===== compile all default-feature targets =====\n'
-cargo check -p star --all-targets --locked
+git config user.name "starfire-verifier[bot]"
+git config user.email "starfire-verifier@users.noreply.github.com"
+git add \
+  lib/grammar_extension.rs \
+  lib/examples/omega_g1_bounded_grammar_extension.rs
+git commit -m "style(cognition): rustfmt ΩG1 source"
 
-printf '\n===== run ΩG1 kernel tests =====\n'
-cargo test -p star grammar_extension --locked
-
-printf '\n===== preserve Ω1 representation-genesis regression =====\n'
-cargo test -p star representation_genesis --locked
-cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
-  2>&1 | tee /tmp/omega1-regression.log
-grep -F '"terminal_classification": "PASS"' /tmp/omega1-regression.log
-
-printf '\n===== run frozen ΩG1 probe =====\n'
-cargo run -p star --example omega_g1_bounded_grammar_extension --locked \
-  2>&1 | tee /tmp/omega-g1-probe.log
-grep -F '"terminal_classification": "PASS"' /tmp/omega-g1-probe.log
-test -f target/omega-g1-bounded-grammar-extension-report.json
-grep -F '"terminal_classification": "PASS"' \
-  target/omega-g1-bounded-grammar-extension-report.json
-cp target/omega-g1-bounded-grammar-extension-report.json \
-  ui/public/omega-g1-bounded-grammar-extension-report.json
-sha256sum target/omega-g1-bounded-grammar-extension-report.json
-
-printf '\nOMEGA_G1_VERCEL_EXPORT_STATUS=PASS\n'
-printf 'OMEGA_G1_VERCEL_EXPORT_FINISHED=1\n'
+git push origin HEAD:refs/heads/ci/omega-g1-rustfmt-output
+printf 'OMEGA_G1_RUSTFMT_TRANSPORT_STATUS=PUSHED\n'
+printf 'transport_commit=%s\n' "$(git rev-parse HEAD)"
+printf 'OMEGA_G1_RUSTFMT_TRANSPORT_FINISHED=1\n'
 
 cd "$ROOT/ui"
 npx next build
