@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Temporary verification route. The GitHub-generated merge commit is the exact
+# signed source revision tested by the connected Vercel preview builder.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
