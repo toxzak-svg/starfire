@@ -1,0 +1,101 @@
+name: ΩG1 Bounded Grammar Extension CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "lib/grammar_extension.rs"
+      - "lib/examples/omega_g1_bounded_grammar_extension.rs"
+      - "lib/representation_genesis.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "Cargo.lock"
+      - "docs/experiments/OMEGAG1_BOUNDED_GRAMMAR_EXTENSION.md"
+      - "docs/experiments/OMEGAG1_BOUNDED_GRAMMAR_EXTENSION_RESULT.md"
+      - ".github/workflows/omega-g1-bounded-grammar-extension-ci.yml"
+  push:
+    branches:
+      - main
+      - research/omega-g1-bounded-grammar-extension
+    paths:
+      - "lib/grammar_extension.rs"
+      - "lib/examples/omega_g1_bounded_grammar_extension.rs"
+      - "lib/representation_genesis.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "Cargo.lock"
+      - "docs/experiments/OMEGAG1_BOUNDED_GRAMMAR_EXTENSION.md"
+      - "docs/experiments/OMEGAG1_BOUNDED_GRAMMAR_EXTENSION_RESULT.md"
+      - ".github/workflows/omega-g1-bounded-grammar-extension-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  omega-g1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Record committed scientific-source hashes
+        run: |
+          sha256sum \
+            lib/grammar_extension.rs \
+            lib/examples/omega_g1_bounded_grammar_extension.rs \
+            | tee omega-g1-source-sha256.txt
+
+      - name: Assert pristine scientific source
+        run: |
+          git diff --exit-code -- \
+            lib/grammar_extension.rs \
+            lib/examples/omega_g1_bounded_grammar_extension.rs
+
+      - name: Compile all default-feature targets
+        run: |
+          cargo check -p star --all-targets --locked
+
+      - name: Run ΩG1 kernel tests
+        run: |
+          cargo test -p star grammar_extension --locked
+
+      - name: Preserve Ω1 representation-genesis regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo test -p star representation_genesis --locked
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked 2>&1 | tee omega1-regression.log
+          grep -F '"terminal_classification": "PASS"' omega1-regression.log
+
+      - name: Run frozen ΩG1 probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p star --example omega_g1_bounded_grammar_extension --locked 2>&1 | tee omega-g1-probe.log
+          grep -F '"terminal_classification": "PASS"' omega-g1-probe.log
+          test -f target/omega-g1-bounded-grammar-extension-report.json
+          grep -F '"terminal_classification": "PASS"' target/omega-g1-bounded-grammar-extension-report.json
+          sha256sum target/omega-g1-bounded-grammar-extension-report.json | tee omega-g1-report-sha256.txt
+
+      - name: Reassert scientific-source immutability
+        run: |
+          git diff --exit-code -- \
+            lib/grammar_extension.rs \
+            lib/examples/omega_g1_bounded_grammar_extension.rs
+
+      - name: Upload frozen evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omega-g1-bounded-grammar-extension-evidence
+          if-no-files-found: warn
+          path: |
+            omega-g1-source-sha256.txt
+            omega1-regression.log
+            omega-g1-probe.log
+            omega-g1-report-sha256.txt
+            target/omega-g1-bounded-grammar-extension-report.json

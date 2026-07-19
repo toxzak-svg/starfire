@@ -57,6 +57,7 @@ pub mod graph_discovery;
 pub mod latent_roles;
 pub mod structural_transfer;
 pub mod representation_genesis;
+pub mod grammar_extension;
 pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
