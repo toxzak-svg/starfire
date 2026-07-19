@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "bash scripts/cloudflare-omegag1-verify.sh",
+    "build": "npm --prefix ui ci && npm --prefix ui run build",
     "build:ui": "npm --prefix ui ci && npm --prefix ui run build",
     "preview:cloudflare": "npx wrangler pages dev ui/out",
     "deploy:cloudflare": "npm run build && npx wrangler pages deploy ui/out --project-name starfire"
