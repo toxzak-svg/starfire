@@ -140,6 +140,12 @@ pub mod language_verification;
 #[cfg(feature = "omega-v1-learned-expression")]
 pub mod learned_expression;
 
+// ΩV1-F1 projection packets are sealed before offline scoring. A stale or
+// corrupted VoiceState-derived projection forces exact neutral fallback and
+// cannot reach candidate scoring. This remains builder-only and has no live wiring.
+#[cfg(feature = "omega-v1-learned-expression")]
+pub mod omega_v1f1_projection_guard;
+
 // ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
 // Disabled by default and evaluation-only. It cannot influence Runtime::chat(),
 // mutate voice or companion state, promote beliefs or ontology, select tools,
