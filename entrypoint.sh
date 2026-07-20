@@ -34,9 +34,23 @@ seed_asset() {
 seed_asset "/opt/starfire/assets/IDENTITY.md" \
     "$STARFIRE_DATA/IDENTITY.md" \
     "full Star identity"
+
+reranker_target="$STARFIRE_DATA/models/ckpt_e28_b500.pt"
+
+# A ZIP header here means an earlier deploy persisted the unrelated PyTorch
+# checkpoint under the native CharRNN filename. Remove only that known-bad
+# format so the compatible bundled checkpoint can be seeded in its place.
+if [ -s "$reranker_target" ]; then
+    reranker_magic="$(head -c 4 "$reranker_target" | od -An -tx1 | tr -d '[:space:]')"
+    if [ "$reranker_magic" = "504b0304" ]; then
+        echo "Replacing incompatible PyTorch ZIP reranker checkpoint: $reranker_target"
+        rm -f "$reranker_target"
+    fi
+fi
+
 seed_asset "/opt/starfire/assets/models/ckpt_e28_b500.pt" \
-    "$STARFIRE_DATA/models/ckpt_e28_b500.pt" \
-    "trained CharRNN reranker checkpoint"
+    "$reranker_target" \
+    "native CharRNN reranker checkpoint"
 
 # Set library path for libstar.so.
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
