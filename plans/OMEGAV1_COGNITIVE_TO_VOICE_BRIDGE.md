@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-D0 bounded deterministic live-bridge kernel gate
+**Current stage:** ΩV1-D0 external execution pending; ΩV1-D1 preregistered but blocked
 
 ## Central hypothesis
 
@@ -18,8 +18,8 @@ The renderer controls expression only. It does not control factual conclusions, 
 1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria — **PASS**
 2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **PASS**
 3. ΩV1-C: complete typed semantic-response-plan migration — **PASS**
-4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **current gate**
-5. ΩV1-D1: bounded HTTP chat canary wiring
+4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **merged; external PASS pending**
+5. ΩV1-D1: bounded HTTP chat canary wiring — **preregistered; implementation blocked on D0 PASS**
 6. ΩV1-E: independent language verifier
 7. ΩV1-F: optional learned expression renderer
 8. ΩV1-G: replayable, earned voice evolution
@@ -43,6 +43,10 @@ No stage skips its predecessor.
 
 ΩV1-D0 freezes and implements the smallest useful canary kernel. It accepts only the completed neutral response. When that response begins with the exact bytes `Here for it. `, the kernel may preserve the exact words and punctuation while replacing the trailing space with either one or two newline bytes. The remaining response body is protected byte-for-byte. Ineligible, empty, whitespace-only, oversized, or invariant-breaking inputs return the exact neutral text.
 
-The feature flag is `omega-v1-live-bridge`. At D0 it has no raw-prompt access, `Runtime::chat()` wiring, or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, separator-only table confinement, one-byte maximum growth, and `no_runtime_influence: true`.
+The D0 feature flag is `omega-v1-live-bridge`. It has no raw-prompt access, `Runtime::chat()` wiring, or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, separator-only table confinement, one-byte maximum growth, and `no_runtime_influence: true`.
 
-A D0 PASS authorizes only the separate ΩV1-D1 HTTP canary wiring commit. It does not authorize broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
+The D0 implementation was merged into `main` as commit `87304d21c19b2c18ecb43e12d0b0a84d01750ba4`. D0 is not a PASS until the external Render build for that merged head executes every frozen assertion successfully.
+
+ΩV1-D1 is preregistered separately in `docs/experiments/OMEGAV1D1_HTTP_CANARY.md`. Its proposed feature is `omega-v1-http-canary`, layered over the D0 kernel. D1 may wire only the successful `POST /chat` response after `Runtime::chat()` returns and before JSON serialization. It must not alter `Runtime::chat()`, CLI output, non-chat routes, selector inputs, or the frozen D0 transformation.
+
+A D0 PASS authorizes only D1 implementation. A D1 PASS authorizes only ΩV1-E, the independent language verifier. Neither stage authorizes broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
