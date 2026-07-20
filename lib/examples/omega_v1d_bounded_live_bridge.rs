@@ -39,19 +39,18 @@ fn body_preserved(decision: &LiveBridgeDecision) -> bool {
 }
 
 fn main() -> Result<()> {
-    let prompt = "Explain the next Starfire architecture step.";
     let eligible = "Here for it. The protected semantic body stays exactly the same.";
-    let applied = render_live_response(prompt, eligible);
-    let replay = render_live_response(prompt, eligible);
+    let applied = render_live_response(eligible);
+    let replay = render_live_response(eligible);
 
     let ineligible_text = "The protected semantic body stays exactly the same.";
-    let ineligible = render_live_response(prompt, ineligible_text);
+    let ineligible = render_live_response(ineligible_text);
 
-    let empty = render_live_response(prompt, ELIGIBLE_OPENER);
+    let empty = render_live_response(ELIGIBLE_OPENER);
 
     let oversized_body = "x".repeat(MAX_PROTECTED_BODY_BYTES + 1);
     let oversized_text = format!("{ELIGIBLE_OPENER}{oversized_body}");
-    let oversized = render_live_response(prompt, &oversized_text);
+    let oversized = render_live_response(&oversized_text);
 
     let decisions = [&applied, &ineligible, &empty, &oversized];
     let applied_case_count = decisions
