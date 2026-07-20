@@ -1,10 +1,9 @@
 //! ΩV1-D bounded deterministic live-response bridge kernel.
 //!
-//! The kernel receives only a completed neutral response and the current
-//! prompt. It may replace one exact, preregistered filler opener with one
-//! member of a closed deterministic table. The protected response body must
-//! remain byte-for-byte identical. Any ineligible input or invariant failure
-//! returns the exact neutral response.
+//! The kernel receives only a completed neutral response. It may replace one
+//! exact, preregistered filler opener with one member of a closed deterministic
+//! table. The protected response body must remain byte-for-byte identical. Any
+//! ineligible input or invariant failure returns the exact neutral response.
 //!
 //! This module is the ΩV1-D0 kernel. Until the separate ΩV1-D1 integration
 //! commit lands, it has no `Runtime::chat()` or HTTP response influence.
@@ -83,8 +82,9 @@ pub const fn authority_boundary() -> LiveBridgeAuthorityBoundary {
 }
 
 /// Apply the frozen ΩV1-D canary transformation or return the exact neutral text.
+/// The selector is intentionally blind to the raw prompt and conversation history.
 #[must_use]
-pub fn render_live_response(prompt: &str, neutral_text: &str) -> LiveBridgeDecision {
+pub fn render_live_response(neutral_text: &str) -> LiveBridgeDecision {
     let Some(protected_body) = neutral_text.strip_prefix(ELIGIBLE_OPENER) else {
         return neutral_fallback(neutral_text, FallbackReason::IneligibleOpener, 0);
     };
@@ -105,7 +105,7 @@ pub fn render_live_response(prompt: &str, neutral_text: &str) -> LiveBridgeDecis
         );
     }
 
-    let selected = select_opener(prompt, protected_body);
+    let selected = select_opener(protected_body);
     if !REPLACEMENT_OPENERS.contains(&selected) {
         return neutral_fallback(
             neutral_text,
@@ -145,15 +145,12 @@ pub fn render_live_response(prompt: &str, neutral_text: &str) -> LiveBridgeDecis
 /// Convenience entry point reserved for the later ΩV1-D1 HTTP integration.
 /// Fallback is represented by the exact original response, never an error.
 #[must_use]
-pub fn render_or_neutral(prompt: &str, neutral_text: &str) -> String {
-    render_live_response(prompt, neutral_text).rendered_text
+pub fn render_or_neutral(neutral_text: &str) -> String {
+    render_live_response(neutral_text).rendered_text
 }
 
-fn select_opener(prompt: &str, protected_body: &str) -> &'static str {
-    let mut hash = HASH_OFFSET;
-    hash = fnv1a_extend(hash, prompt.as_bytes());
-    hash = fnv1a_extend(hash, &[0]);
-    hash = fnv1a_extend(hash, protected_body.as_bytes());
+fn select_opener(protected_body: &str) -> &'static str {
+    let hash = fnv1a_extend(HASH_OFFSET, protected_body.as_bytes());
     REPLACEMENT_OPENERS[(hash as usize) % REPLACEMENT_OPENERS.len()]
 }
 
@@ -187,10 +184,9 @@ mod tests {
 
     #[test]
     fn eligible_response_is_deterministic_and_preserves_body() {
-        let prompt = "Explain the next architecture step.";
         let neutral = "Here for it. The semantic body remains protected.";
-        let first = render_live_response(prompt, neutral);
-        let second = render_live_response(prompt, neutral);
+        let first = render_live_response(neutral);
+        let second = render_live_response(neutral);
 
         assert_eq!(first, second);
         assert_eq!(first.mode, LiveBridgeMode::Applied);
@@ -205,7 +201,7 @@ mod tests {
     #[test]
     fn ineligible_response_returns_exact_neutral_text() {
         let neutral = "The architecture is already bounded.";
-        let decision = render_live_response("Continue.", neutral);
+        let decision = render_live_response(neutral);
 
         assert_eq!(decision.mode, LiveBridgeMode::NeutralFallback);
         assert_eq!(decision.rendered_text.as_bytes(), neutral.as_bytes());
@@ -215,7 +211,7 @@ mod tests {
     #[test]
     fn empty_body_returns_exact_neutral_text() {
         let neutral = ELIGIBLE_OPENER;
-        let decision = render_live_response("Continue.", neutral);
+        let decision = render_live_response(neutral);
 
         assert_eq!(decision.mode, LiveBridgeMode::NeutralFallback);
         assert_eq!(decision.rendered_text.as_bytes(), neutral.as_bytes());
@@ -226,7 +222,7 @@ mod tests {
     fn oversized_body_returns_exact_neutral_text() {
         let body = "x".repeat(MAX_PROTECTED_BODY_BYTES + 1);
         let neutral = format!("{ELIGIBLE_OPENER}{body}");
-        let decision = render_live_response("Continue.", &neutral);
+        let decision = render_live_response(&neutral);
 
         assert_eq!(decision.mode, LiveBridgeMode::NeutralFallback);
         assert_eq!(decision.rendered_text.as_bytes(), neutral.as_bytes());
