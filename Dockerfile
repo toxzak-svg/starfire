@@ -15,6 +15,17 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY lib/ ./lib/
 COPY src/ ./src/
+COPY IDENTITY.md ./IDENTITY.md
+COPY models/ckpt_e28_b500.pt ./models/ckpt_e28_b500.pt
+
+# Render runtime-asset gate. This proves the full identity is present and the
+# exact bundled checkpoint parses with the same loader Runtime uses.
+RUN cargo run -p star --example reranker_asset_probe --locked \
+        | tee /tmp/render-asset-report.json \
+    && grep -F '"gate_passed": true' /tmp/render-asset-report.json \
+    && grep -F '"identity_is_full": true' /tmp/render-asset-report.json \
+    && grep -F '"checkpoint_loadable": true' /tmp/render-asset-report.json \
+    && grep -F '"backend": "char_rnn"' /tmp/render-asset-report.json
 
 # ΩV1-A Render regression gate. Render must reproduce the frozen baseline before
 # it is allowed to build and publish a Starfire service image.
@@ -75,8 +86,12 @@ RUN useradd -m -s /bin/bash starfire
 WORKDIR /home/starfire
 
 COPY --from=builder /build/target/release/star /usr/local/bin/star
+COPY --from=builder /build/IDENTITY.md /opt/starfire/assets/IDENTITY.md
+COPY --from=builder /build/models/ckpt_e28_b500.pt /opt/starfire/assets/models/ckpt_e28_b500.pt
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && chmod 0444 /opt/starfire/assets/IDENTITY.md \
+    && chmod 0444 /opt/starfire/assets/models/ckpt_e28_b500.pt \
     && mkdir -p /data \
     && chown -R starfire:starfire /data
 
