@@ -118,6 +118,24 @@ RUN cargo test -p star --features omega-v1-http-canary --locked omega_v1d1 \
     && grep -F '"non_chat_http_influence": false' /tmp/omega-v1d1-report.json \
     && grep -F '"cli_influence": false' /tmp/omega-v1d1-report.json
 
+# The ΩV1-E probe accidentally shadows its `program` and `lexical_table`
+# helper functions with local variables, then calls the helpers again. Apply the
+# exact two-token qualification before compiling the builder-only probe. The
+# greps make this fail closed if upstream source changes instead of silently
+# editing an unintended line.
+RUN grep -F 'let character_limited_program = program(' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs \
+    && grep -F 'let character_limited_lexical = lexical_table(' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs \
+    && sed -i 's/let character_limited_program = program(/let character_limited_program = crate::program(/' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs \
+    && sed -i 's/let character_limited_lexical = lexical_table(/let character_limited_lexical = crate::lexical_table(/' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs \
+    && grep -F 'let character_limited_program = crate::program(' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs \
+    && grep -F 'let character_limited_lexical = crate::lexical_table(' \
+        lib/examples/stlm_l1_independent_language_verifier_probe.rs
+
 # ΩV1-E / STLM L1 Render implementation gate. The verifier runs only in this
 # builder stage. It reconstructs authorized semantics from verifier-ready text,
 # rejects semantic tampering, and receives no renderer alignment or live runtime authority.
