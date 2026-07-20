@@ -23,7 +23,6 @@ sha256sum lib/recursive_grammar_composition.rs | awk '{print $1}'
 printf 'OMEGA_G2_SOURCE_HASH_AFTER_PROBE='
 sha256sum lib/examples/omega_g2_recursive_grammar_composition.rs | awk '{print $1}'
 
-npm --prefix ui ci
 npm --prefix ui run build:app
 
 printf 'OMEGA_G2_EXACT_SOURCE_VALIDATION_STATUS=PASS\n'
