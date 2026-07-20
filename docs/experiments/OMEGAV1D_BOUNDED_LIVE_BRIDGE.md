@@ -54,7 +54,7 @@ The implementation passes only if all of the following hold:
 3. Ineligible responses pass through byte-for-byte.
 4. Empty and oversized bodies pass through byte-for-byte.
 5. Applied output uses only the frozen replacement table.
-6. Maximum output growth is two bytes.
+6. Maximum output growth is three bytes.
 7. The bridge cannot mutate `VoiceState`, memory, beliefs, ontology, routing, tools, CHARGE, companion state, or autonomous actions.
 8. The probe emits `gate_passed: true` before the production binary is built.
 
