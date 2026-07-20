@@ -54,8 +54,8 @@ RUN cargo test -p star --features voice-state-shadow --locked voice_state \
     && grep -F '"session_intensity": 0.24' /tmp/omega-v1b-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1b-report.json
 
-# ΩV1-C Render gate. Every frozen fixture must produce a complete validated
-# SemanticResponsePlan while the neutral compatibility renderer remains byte-exact.
+# ΩV1-C Render regression gate. Every frozen fixture must produce a complete
+# validated SemanticResponsePlan while neutral compatibility remains byte-exact.
 RUN cargo test -p star --features omega-v1-semantic-plan --locked omega_v1_semantic_plan \
     && cargo run -p star --example omega_v1c_semantic_plan_shadow \
         --features omega-v1-semantic-plan --locked \
@@ -69,6 +69,21 @@ RUN cargo test -p star --features omega-v1-semantic-plan --locked omega_v1_seman
     && grep -F '"missing_confidence_count": 0' /tmp/omega-v1c-report.json \
     && grep -F '"missing_claim_provenance_count": 0' /tmp/omega-v1c-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1c-report.json
+
+# ΩV1-D0 Render implementation gate. This verifies the deterministic canary
+# kernel and exact neutral fallback while keeping all runtime influence closed.
+# A PASS authorizes the separate ΩV1-D1 HTTP canary wiring commit only.
+RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_bridge \
+    && cargo run -p star --example omega_v1d_bounded_live_bridge \
+        --features omega-v1-live-bridge --locked \
+        | tee /tmp/omega-v1d0-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"case_count": 4' /tmp/omega-v1d0-report.json \
+    && grep -F '"exact_replay": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"body_preservation_rate": 1.0' /tmp/omega-v1d0-report.json \
+    && grep -F '"ineligible_passthrough_rate": 1.0' /tmp/omega-v1d0-report.json \
+    && grep -F '"frozen_opener_table_only": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"no_runtime_influence": true' /tmp/omega-v1d0-report.json
 
 # Build the exact executable Render runs. Do not pipe through tail: preserving
 # Cargo's exit status makes failures visible in Render's build logs.
