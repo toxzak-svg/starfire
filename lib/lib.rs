@@ -138,6 +138,13 @@ pub mod omega_v1_voice_baseline;
 #[cfg(feature = "voice-state-shadow")]
 pub mod voice_state;
 
+// ΩV1-C: complete typed SemanticResponsePlan migration over the frozen corpus
+// and transitional handler boundary. It runs the old and new paths in matched
+// shadow mode and retains exact neutral compatibility text. No live response,
+// voice-state, memory, belief, ontology, routing, tool, CHARGE, or action authority.
+#[cfg(feature = "omega-v1-semantic-plan")]
+pub mod omega_v1_semantic_plan;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
