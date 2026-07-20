@@ -41,8 +41,8 @@ No stage skips its predecessor.
 
 ΩV1-A, ΩV1-B, and ΩV1-C passed externally executed Render gates on July 20, 2026.
 
-ΩV1-D0 freezes and implements the smallest useful canary kernel. It accepts the completed neutral response and may replace only the exact opener `Here for it. ` with one member of a closed deterministic table. The remaining response body is protected byte-for-byte. Ineligible, empty, oversized, or invariant-breaking inputs return the exact neutral text.
+ΩV1-D0 freezes and implements the smallest useful canary kernel. It accepts only the completed neutral response. When that response begins with the exact bytes `Here for it. `, the kernel may preserve the exact words and punctuation while replacing the trailing space with either one or two newline bytes. The remaining response body is protected byte-for-byte. Ineligible, empty, whitespace-only, oversized, or invariant-breaking inputs return the exact neutral text.
 
-The feature flag is `omega-v1-live-bridge`. At D0 it has no `Runtime::chat()` or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, frozen-table confinement, bounded output growth, and `no_runtime_influence: true`.
+The feature flag is `omega-v1-live-bridge`. At D0 it has no raw-prompt access, `Runtime::chat()` wiring, or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, separator-only table confinement, one-byte maximum growth, and `no_runtime_influence: true`.
 
 A D0 PASS authorizes only the separate ΩV1-D1 HTTP canary wiring commit. It does not authorize broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
