@@ -9,11 +9,10 @@ fn fallback_controls(m: &LearnedExpressionModel, x: &Case, p: &Proj) -> Result<f
         && r.payload.text == neutral.payload.text;
     let mut stale = x.projection.clone();
     stale.source_digest.push_str(":stale");
-    let projection_guard = if stale.source_digest != x.projection.source_digest {
-        neutral.payload.text.clone()
-    } else {
-        String::new()
-    } == neutral.payload.text;
+    let stale_result = OfflineLearnedExpressionSelector::new(m.clone())
+        .select(&x.program, &x.lexical, &stale)?;
+    let projection_guard = stale_result.payload.disposition == SelectionDisposition::NeutralFallback
+        && stale_result.payload.text == neutral.payload.text;
     Ok(ratio(usize::from(model) + usize::from(projection_guard), 2))
 }
 fn prohibited(a: &AM, x: &Fx) -> Vec<String> {
