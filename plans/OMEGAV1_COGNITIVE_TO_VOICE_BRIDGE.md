@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-D0 external execution pending; ΩV1-D1 preregistered but blocked
+**Current stage:** ΩV1-D1 bounded HTTP chat canary external gate
 
 ## Central hypothesis
 
@@ -18,8 +18,8 @@ The renderer controls expression only. It does not control factual conclusions, 
 1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria — **PASS**
 2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **PASS**
 3. ΩV1-C: complete typed semantic-response-plan migration — **PASS**
-4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **merged; external PASS pending**
-5. ΩV1-D1: bounded HTTP chat canary wiring — **preregistered; implementation blocked on D0 PASS**
+4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **PASS**
+5. ΩV1-D1: bounded HTTP chat canary wiring — **implemented in draft; external PASS pending**
 6. ΩV1-E: independent language verifier
 7. ΩV1-F: optional learned expression renderer
 8. ΩV1-G: replayable, earned voice evolution
@@ -39,14 +39,14 @@ No stage skips its predecessor.
 
 ## Current implementation target
 
-ΩV1-A, ΩV1-B, and ΩV1-C passed externally executed Render gates on July 20, 2026.
+ΩV1-A, ΩV1-B, ΩV1-C, and ΩV1-D0 passed externally executed Render gates on July 20, 2026.
 
-ΩV1-D0 freezes and implements the smallest useful canary kernel. It accepts only the completed neutral response. When that response begins with the exact bytes `Here for it. `, the kernel may preserve the exact words and punctuation while replacing the trailing space with either one or two newline bytes. The remaining response body is protected byte-for-byte. Ineligible, empty, whitespace-only, oversized, or invariant-breaking inputs return the exact neutral text.
+D0 remains the unchanged separator-only kernel. It receives only a completed neutral response, preserves the protected body byte-for-byte, and returns exact neutral text for every ineligible or invariant-breaking input. Its own authority declaration remains shadow-only when compiled without D1.
 
-The D0 feature flag is `omega-v1-live-bridge`. It has no raw-prompt access, `Runtime::chat()` wiring, or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, separator-only table confinement, one-byte maximum growth, and `no_runtime_influence: true`.
+ΩV1-D1 adds a distinct `omega-v1-http-canary` feature layered over `omega-v1-live-bridge`. The successful HTTP `POST /chat` result is passed through a pure `finalize_chat_response(String) -> String` helper after `Runtime::chat()` completes and before JSON serialization. The helper signature cannot accept the prompt, request body, runtime, memory, state, route metadata, or conversation history.
 
-The D0 implementation was merged into `main` as commit `87304d21c19b2c18ecb43e12d0b0a84d01750ba4`. D0 is not a PASS until the external Render build for that merged head executes every frozen assertion successfully.
+The D1 Docker gate must prove deterministic replay, exact protected-body preservation, exact ineligible passthrough, unchanged single-field JSON shape, confinement to the frozen separator table, one-byte maximum growth, continued D0 shadow authority, and a D1 authority matrix in which only HTTP chat wiring and bounded returned-text influence are true.
 
-ΩV1-D1 is preregistered separately in `docs/experiments/OMEGAV1D1_HTTP_CANARY.md`. Its proposed feature is `omega-v1-http-canary`, layered over the D0 kernel. D1 may wire only the successful `POST /chat` response after `Runtime::chat()` returns and before JSON serialization. It must not alter `Runtime::chat()`, CLI output, non-chat routes, selector inputs, or the frozen D0 transformation.
+The production binary enables D1 explicitly. CLI chat, Telegram, all non-chat HTTP routes, `Runtime::chat()`, cognition, reranking, `VoiceEngine`, memory, beliefs, ontology, routing, tools, CHARGE, persistence, companion state, and `VoiceState` remain unchanged.
 
-A D0 PASS authorizes only D1 implementation. A D1 PASS authorizes only ΩV1-E, the independent language verifier. Neither stage authorizes broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
+A D1 PASS authorizes only ΩV1-E, the independent language verifier. It does not authorize broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
