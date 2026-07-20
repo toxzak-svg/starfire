@@ -432,7 +432,7 @@ fn search_abstraction(
         .map(ValidatedConcreteSolutionCertificate::lineage)
         .collect::<Vec<_>>();
     lineages.sort_by_key(|lineage| (lineage.arity, lineage.root_id));
-    let concrete_node_cost = examples.iter().map(|example| example.node_cost()).sum();
+    let concrete_node_cost: usize = examples.iter().map(|example| example.node_cost()).sum();
     let mut analyses = Vec::new();
     for kind in AbstractionSchemaKind::all() {
         budget.schema_candidates = budget.schema_candidates.saturating_add(1);
