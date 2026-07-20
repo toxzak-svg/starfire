@@ -476,10 +476,10 @@ fn run(replay_exact: bool) -> Result<Report, Box<dyn Error>> {
         omega_g2_proposal,
         omega_g2_validation,
         omega_g2_revalidation,
-        omega_g3_concrete_proposal,
-        omega_g3_concrete_validation,
-        omega_g3_abstraction_proposal,
-        omega_g3_abstraction_validation,
+        omega_g3_concrete_proposal: g3_concrete_proposal,
+        omega_g3_concrete_validation: g3_concrete_validation,
+        omega_g3_abstraction_proposal: g3_abstraction_proposal,
+        omega_g3_abstraction_validation: g3_abstraction_validation,
     };
     let parent_budgets_equal = parent_budgets.omega_g1_proposal
         == parent_budgets.omega_g1_validation
