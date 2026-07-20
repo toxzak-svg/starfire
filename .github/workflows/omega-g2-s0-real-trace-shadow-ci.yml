@@ -1,0 +1,79 @@
+name: ΩG2-S0 Real-Trace Shadow CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "lib/omega_g2_shadow.rs"
+      - "lib/prediction/mod.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "lib/examples/omega_g2_s0_real_trace_shadow.rs"
+      - "docs/experiments/OMEGAG2_S0_REAL_TRACE_SHADOW.md"
+      - ".github/workflows/omega-g2-s0-real-trace-shadow-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/omega_g2_shadow.rs"
+      - "lib/prediction/mod.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "lib/examples/omega_g2_s0_real_trace_shadow.rs"
+      - "docs/experiments/OMEGAG2_S0_REAL_TRACE_SHADOW.md"
+      - ".github/workflows/omega-g2-s0-real-trace-shadow-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  omega-g2-s0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Record scientific source hashes
+        run: |
+          sha256sum \
+            lib/omega_g2_shadow.rs \
+            lib/prediction/mod.rs \
+            lib/examples/omega_g2_s0_real_trace_shadow.rs \
+            | tee omega-g2-s0-source-sha256.txt
+
+      - name: Compile default build without shadow feature
+        run: cargo check -p star --all-targets --locked
+
+      - name: Compile opt-in shadow build
+        run: cargo check -p star --all-targets --features omega-g2-shadow --locked
+
+      - name: Run shadow tests
+        run: cargo test -p star omega_g2_shadow --features omega-g2-shadow --locked
+
+      - name: Run live PredictionCenter shadow probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p star --example omega_g2_s0_real_trace_shadow --features omega-g2-shadow --locked 2>&1 | tee omega-g2-s0-probe.log
+          grep -F '"terminal_classification": "PASS"' omega-g2-s0-probe.log
+
+      - name: Reassert source immutability
+        run: |
+          git diff --exit-code -- \
+            lib/omega_g2_shadow.rs \
+            lib/prediction/mod.rs \
+            lib/examples/omega_g2_s0_real_trace_shadow.rs
+
+      - name: Upload frozen evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omega-g2-s0-real-trace-shadow-evidence
+          if-no-files-found: warn
+          path: |
+            omega-g2-s0-source-sha256.txt
+            omega-g2-s0-probe.log
