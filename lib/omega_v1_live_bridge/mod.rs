@@ -1,19 +1,21 @@
 //! ΩV1-D bounded deterministic live-response bridge kernel.
 //!
 //! The kernel receives only a completed neutral response. It may replace one
-//! exact, preregistered filler opener with one member of a closed deterministic
-//! table. The protected response body must remain byte-for-byte identical. Any
-//! ineligible input or invariant failure returns the exact neutral response.
+//! exact, preregistered filler opener with the same words and punctuation plus
+//! a frozen newline separator. The protected response body must remain
+//! byte-for-byte identical. Any ineligible input or invariant failure returns
+//! the exact neutral response.
 //!
 //! This module is the ΩV1-D0 kernel. Until the separate ΩV1-D1 integration
 //! commit lands, it has no `Runtime::chat()` or HTTP response influence.
 
 use serde::{Deserialize, Serialize};
 
+pub const OPENER_STEM: &str = "Here for it.";
 pub const ELIGIBLE_OPENER: &str = "Here for it. ";
-pub const REPLACEMENT_OPENERS: [&str; 3] = ["Got it. ", "I'm following. ", "I'm with you. "];
+pub const REPLACEMENT_OPENERS: [&str; 2] = ["Here for it.\n", "Here for it.\n\n"];
 pub const MAX_PROTECTED_BODY_BYTES: usize = 4_096;
-pub const MAX_OUTPUT_GROWTH_BYTES: usize = 3;
+pub const MAX_OUTPUT_GROWTH_BYTES: usize = 1;
 
 const HASH_OFFSET: u64 = 0xcbf29ce484222325;
 const HASH_PRIME: u64 = 0x100000001b3;
@@ -81,7 +83,7 @@ pub const fn authority_boundary() -> LiveBridgeAuthorityBoundary {
     }
 }
 
-/// Apply the frozen ΩV1-D canary transformation or return the exact neutral text.
+/// Apply the frozen ΩV1-D separator canary or return the exact neutral text.
 /// The selector is intentionally blind to the raw prompt and conversation history.
 #[must_use]
 pub fn render_live_response(neutral_text: &str) -> LiveBridgeDecision {
@@ -106,7 +108,7 @@ pub fn render_live_response(neutral_text: &str) -> LiveBridgeDecision {
     }
 
     let selected = select_opener(protected_body);
-    if !REPLACEMENT_OPENERS.contains(&selected) {
+    if !REPLACEMENT_OPENERS.contains(&selected) || !replacement_is_separator_only(selected) {
         return neutral_fallback(
             neutral_text,
             FallbackReason::InvariantViolation,
@@ -154,6 +156,10 @@ fn select_opener(protected_body: &str) -> &'static str {
     REPLACEMENT_OPENERS[(hash as usize) % REPLACEMENT_OPENERS.len()]
 }
 
+fn replacement_is_separator_only(opener: &str) -> bool {
+    matches!(opener.strip_prefix(OPENER_STEM), Some("\n") | Some("\n\n"))
+}
+
 fn fnv1a_extend(mut hash: u64, bytes: &[u8]) -> u64 {
     for byte in bytes {
         hash ^= u64::from(*byte);
@@ -194,8 +200,18 @@ mod tests {
         let body = neutral.strip_prefix(ELIGIBLE_OPENER).unwrap();
         let selected = first.selected_opener.as_deref().unwrap();
         assert!(REPLACEMENT_OPENERS.contains(&selected));
+        assert!(replacement_is_separator_only(selected));
         assert_eq!(first.rendered_text.strip_prefix(selected), Some(body));
         assert!(first.rendered_text.len() <= neutral.len() + MAX_OUTPUT_GROWTH_BYTES);
+    }
+
+    #[test]
+    fn replacement_table_preserves_words_and_punctuation() {
+        for opener in REPLACEMENT_OPENERS {
+            assert!(replacement_is_separator_only(opener));
+            assert!(opener.starts_with(OPENER_STEM));
+            assert!(opener.len() <= ELIGIBLE_OPENER.len() + MAX_OUTPUT_GROWTH_BYTES);
+        }
     }
 
     #[test]
@@ -211,6 +227,16 @@ mod tests {
     #[test]
     fn empty_body_returns_exact_neutral_text() {
         let neutral = ELIGIBLE_OPENER;
+        let decision = render_live_response(neutral);
+
+        assert_eq!(decision.mode, LiveBridgeMode::NeutralFallback);
+        assert_eq!(decision.rendered_text.as_bytes(), neutral.as_bytes());
+        assert_eq!(decision.fallback_reason, Some(FallbackReason::EmptyProtectedBody));
+    }
+
+    #[test]
+    fn whitespace_only_body_returns_exact_neutral_text() {
+        let neutral = "Here for it.  \n\t";
         let decision = render_live_response(neutral);
 
         assert_eq!(decision.mode, LiveBridgeMode::NeutralFallback);
