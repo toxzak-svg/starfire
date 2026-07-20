@@ -16,7 +16,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY lib/ ./lib/
 COPY src/ ./src/
 COPY IDENTITY.md ./IDENTITY.md
-COPY models/ckpt_e28_b500.pt ./models/ckpt_e28_b500.pt
+# Runtime's CharRNN loader expects the native binary produced by CharRNN::save.
+# Keep the historical runtime filename for compatibility, but source the bytes
+# from the native Rust checkpoint rather than the unrelated PyTorch ZIP archive.
+COPY data/star_model.bin ./models/ckpt_e28_b500.pt
 
 # Render runtime-asset gate. This proves the full identity is present and the
 # exact bundled checkpoint parses with the same loader Runtime uses.
