@@ -60,6 +60,10 @@ pub mod representation_genesis;
 pub mod grammar_extension;
 pub mod recursive_grammar_composition;
 pub mod multistep_abstraction_reuse;
+// ΩG4 is exercised through its public integration-test target. The production
+// module remains available to normal library users and executable probes.
+#[cfg(not(test))]
+pub mod intervention_guided_abstraction_selection;
 pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
