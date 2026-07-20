@@ -6,8 +6,12 @@ on:
       - main
     paths:
       - "lib/learned_expression/**"
+      - "lib/examples/omega_v1f1_offline_evaluation.rs"
+      - "lib/examples/omega_v1f1_eval/**"
+      - "lib/fixtures/omega_v1f1/**"
       - "lib/Cargo.toml"
       - "lib/lib.rs"
+      - "Dockerfile"
       - "docs/experiments/OMEGAV1F0_LEARNED_EXPRESSION_RENDERER_PREREGISTRATION.md"
       - "docs/experiments/OMEGAV1F1_RESULT_TEMPLATE.md"
       - ".github/workflows/omega-v1f1-ci.yml"
@@ -19,7 +23,7 @@ permissions:
 jobs:
   omega-v1f1-offline-selector:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -35,18 +39,27 @@ jobs:
 
       - name: Check canonical formatting
         run: |
-          rustfmt --edition 2021 --check lib/learned_expression/mod.rs
+          rustfmt --edition 2021 --check \
+            lib/learned_expression/mod.rs \
+            lib/examples/omega_v1f1_offline_evaluation.rs \
+            lib/examples/omega_v1f1_eval/*.rs
 
-      - name: Compile scoped feature
+      - name: Compile scoped feature and evaluator
         run: |
           cargo check -p star --lib --features omega-v1-learned-expression --locked
+          cargo check -p star --example omega_v1f1_offline_evaluation \
+            --features omega-v1-learned-expression --locked
 
-      - name: Lint scoped source
+      - name: Lint scoped sources
         run: |
           set -o pipefail
-          cargo clippy -p star --lib --features omega-v1-learned-expression --locked \
-            --message-format=short 2>&1 | tee omega-v1f1-clippy.log
-          if grep -E 'lib/learned_expression/' omega-v1f1-clippy.log; then
+          {
+            cargo clippy -p star --lib --features omega-v1-learned-expression --locked \
+              --message-format=short
+            cargo clippy -p star --example omega_v1f1_offline_evaluation \
+              --features omega-v1-learned-expression --locked --message-format=short
+          } 2>&1 | tee omega-v1f1-clippy.log
+          if grep -E 'lib/learned_expression/|lib/examples/omega_v1f1' omega-v1f1-clippy.log; then
             echo "Omega V1-F1 scoped Clippy finding detected"
             exit 1
           fi
@@ -56,11 +69,24 @@ jobs:
           cargo test -p star --lib --features omega-v1-learned-expression --locked
           learned_expression:: -- --test-threads=1
 
-      - name: Preserve lint output
+      - name: Run frozen corpus evaluation
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_v1f1_offline_evaluation \
+            --features omega-v1-learned-expression --locked \
+            | tee omega-v1f1-report.json
+          grep -F '"gate_passed": true' omega-v1f1-report.json
+          grep -F '"fixture_count": 122' omega-v1f1-report.json
+          grep -F '"authority_boundary_closed": true' omega-v1f1-report.json
+          grep -F '"no_runtime_influence": true' omega-v1f1-report.json
+
+      - name: Preserve reports and lint output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: omega-v1f1-offline-selector-ci
-          path: omega-v1f1-clippy.log
+          path: |
+            omega-v1f1-report.json
+            omega-v1f1-clippy.log
           if-no-files-found: ignore
           retention-days: 30
