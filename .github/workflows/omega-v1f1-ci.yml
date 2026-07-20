@@ -1,0 +1,66 @@
+name: Omega V1-F1 Offline Learned Selector CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/learned_expression/**"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "docs/experiments/OMEGAV1F0_LEARNED_EXPRESSION_RENDERER_PREREGISTRATION.md"
+      - "docs/experiments/OMEGAV1F1_RESULT_TEMPLATE.md"
+      - ".github/workflows/omega-v1f1-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  omega-v1f1-offline-selector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check canonical formatting
+        run: |
+          rustfmt --edition 2021 --check lib/learned_expression/mod.rs
+
+      - name: Compile scoped feature
+        run: |
+          cargo check -p star --lib --features omega-v1-learned-expression --locked
+
+      - name: Lint scoped source
+        run: |
+          set -o pipefail
+          cargo clippy -p star --lib --features omega-v1-learned-expression --locked \
+            --message-format=short 2>&1 | tee omega-v1f1-clippy.log
+          if grep -E 'lib/learned_expression/' omega-v1f1-clippy.log; then
+            echo "Omega V1-F1 scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run offline learned selector contracts
+        run: >-
+          cargo test -p star --lib --features omega-v1-learned-expression --locked
+          learned_expression:: -- --test-threads=1
+
+      - name: Preserve lint output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omega-v1f1-offline-selector-ci
+          path: omega-v1f1-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
