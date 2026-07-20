@@ -8,6 +8,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "omega-g2-shadow")]
+use crate::omega_g2_shadow::{OmegaG2ShadowObserver, OmegaG2ShadowSnapshot};
+
 pub mod types;
 pub mod question_gravity;
 pub mod belief_revision;
@@ -38,6 +41,10 @@ pub struct PredictionCenter {
     history: Vec<Prediction>,
     /// Maximum history size
     max_history: usize,
+    /// ΩG2-S0 receives copies of typed ranking traces and settled outcomes only.
+    /// It is absent from default builds and cannot influence this center.
+    #[cfg(feature = "omega-g2-shadow")]
+    omega_g2_shadow: OmegaG2ShadowObserver,
 }
 
 impl PredictionCenter {
@@ -51,6 +58,8 @@ impl PredictionCenter {
             counterfactual: CounterfactualEngine::new(),
             history: Vec::new(),
             max_history: 100,
+            #[cfg(feature = "omega-g2-shadow")]
+            omega_g2_shadow: OmegaG2ShadowObserver::default(),
         }
     }
 
@@ -73,7 +82,7 @@ impl PredictionCenter {
                 context.consciousness_proxy,
                 context.creativity_phase,
             );
-            
+
             let belief_preds = self.belief_revision.project_conclusion(3);
             predictions.extend(belief_preds);
         }
@@ -106,13 +115,24 @@ impl PredictionCenter {
             pred.confidence = calibrated;
         }
 
-        // 5. Add to history
+        // 5. Add to history. Preserve the pre-existing history behavior.
         for pred in &predictions {
             self.add_to_history(pred.clone());
         }
 
         // Sort by confidence
-        predictions.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        predictions.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // ΩG2-S0 observes the already-final ranking. Its return value is ignored,
+        // and no value from the observer can flow back into prediction behavior.
+        #[cfg(feature = "omega-g2-shadow")]
+        {
+            let _ = self.omega_g2_shadow.observe_prediction_batch(&predictions);
+        }
 
         predictions
     }
@@ -127,15 +147,22 @@ impl PredictionCenter {
 
     /// Query predictions by filter
     pub fn query(&self, filter: PredictionFilter) -> Vec<&Prediction> {
-        self.history.iter()
-            .filter(|p| filter.matches(p))
-            .collect()
+        self.history.iter().filter(|p| filter.matches(p)).collect()
     }
 
     /// Update prediction statuses based on new evidence
     pub fn update_with_evidence(&mut self, evidence: &Evidence) {
         for pred in &mut self.history {
             if pred.id == evidence.prediction_id {
+                // Copy the independently supplied outcome into the inert shadow
+                // ledger before applying the unchanged live status transition.
+                #[cfg(feature = "omega-g2-shadow")]
+                {
+                    let _ = self
+                        .omega_g2_shadow
+                        .resolve_prediction_evidence(pred, evidence);
+                }
+
                 match evidence.outcome {
                     PredictionOutcome::Confirmed => pred.mark_confirmed(),
                     PredictionOutcome::Refuted => pred.mark_refuted(),
@@ -144,21 +171,38 @@ impl PredictionCenter {
                 }
 
                 // Update meta-prediction calibration
-                let correct = matches!(evidence.outcome, PredictionOutcome::Confirmed | PredictionOutcome::Surprised);
+                let correct = matches!(
+                    evidence.outcome,
+                    PredictionOutcome::Confirmed | PredictionOutcome::Surprised
+                );
                 self.meta.update_engine_accuracy(pred.engine, correct);
                 self.meta.update_kind_accuracy(pred.kind, correct);
-                self.meta.record_outcome_with_confidence(pred.confidence, evidence.outcome);
+                self.meta
+                    .record_outcome_with_confidence(pred.confidence, evidence.outcome);
             }
         }
     }
 
+    /// Read-only ΩG2-S0 diagnostics. This method exists only in opt-in builds.
+    #[cfg(feature = "omega-g2-shadow")]
+    #[must_use]
+    pub fn omega_g2_shadow_snapshot(&self) -> OmegaG2ShadowSnapshot {
+        self.omega_g2_shadow.snapshot()
+    }
+
     /// Get the top N most confident pending predictions
     pub fn top_predictions(&self, n: usize) -> Vec<&Prediction> {
-        let mut pending: Vec<&Prediction> = self.history.iter()
+        let mut pending: Vec<&Prediction> = self
+            .history
+            .iter()
             .filter(|p| p.status == PredictionStatus::Pending && !p.is_expired())
             .collect();
 
-        pending.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        pending.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         pending.into_iter().take(n).collect()
     }
 
@@ -186,16 +230,29 @@ impl PredictionCenter {
 
     /// Project a "what if" counterfactual question
     pub fn project_counterfactual(&mut self, assumption: &str) -> CounterfactualResult {
-        self.counterfactual.project_counterfactual(assumption, &self.basin)
+        self.counterfactual
+            .project_counterfactual(assumption, &self.basin)
     }
 
     /// Get current state for display/debugging
     pub fn summary(&self) -> PredictionCenterSummary {
         PredictionCenterSummary {
             total_predictions: self.history.len(),
-            pending_count: self.history.iter().filter(|p| p.status == PredictionStatus::Pending).count(),
-            confirmed_count: self.history.iter().filter(|p| p.status == PredictionStatus::Confirmed).count(),
-            refuted_count: self.history.iter().filter(|p| p.status == PredictionStatus::Refuted).count(),
+            pending_count: self
+                .history
+                .iter()
+                .filter(|p| p.status == PredictionStatus::Pending)
+                .count(),
+            confirmed_count: self
+                .history
+                .iter()
+                .filter(|p| p.status == PredictionStatus::Confirmed)
+                .count(),
+            refuted_count: self
+                .history
+                .iter()
+                .filter(|p| p.status == PredictionStatus::Refuted)
+                .count(),
             question_gravity_gaps: self.question_gravity.current_gaps().len(),
             belief_revision_trajectory: self.belief_revision.trajectory_length(),
             basin_nodes: self.basin.node_count(),
@@ -208,7 +265,8 @@ impl PredictionCenter {
     /// Record an exchange - update all engines with new context
     pub fn record_exchange(&mut self, context: &ConversationContext) {
         // Update question gravity
-        self.question_gravity.note_topic(&context.current_topic, context.depth);
+        self.question_gravity
+            .note_topic(&context.current_topic, context.depth);
 
         // Update belief revision with reservoir state
         if let Some(ref state) = context.quanot_state {
@@ -233,7 +291,8 @@ impl PredictionCenter {
 
     /// Get recent predictions for display
     pub fn recent_predictions(&self, n: usize) -> Vec<String> {
-        self.history.iter()
+        self.history
+            .iter()
             .rev()
             .take(n)
             .map(|p| format!("[{}] {} (conf: {:.2})", p.engine, p.description, p.confidence))
@@ -266,18 +325,29 @@ impl fmt::Display for PredictionCenterSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Prediction Center Summary:")?;
         writeln!(f, "  Total predictions: {}", self.total_predictions)?;
-        writeln!(f, "  Pending: {}, Confirmed: {}, Refuted: {}", 
-            self.pending_count, self.confirmed_count, self.refuted_count)?;
+        writeln!(
+            f,
+            "  Pending: {}, Confirmed: {}, Refuted: {}",
+            self.pending_count, self.confirmed_count, self.refuted_count
+        )?;
         writeln!(f, "  Question Gravity gaps: {}", self.question_gravity_gaps)?;
-        writeln!(f, "  Belief Revision trajectory: {}", self.belief_revision_trajectory)?;
-        writeln!(f, "  Basin nodes: {}, constraints: {}", self.basin_nodes, self.basin_constraints)?;
+        writeln!(
+            f,
+            "  Belief Revision trajectory: {}",
+            self.belief_revision_trajectory
+        )?;
+        writeln!(
+            f,
+            "  Basin nodes: {}, constraints: {}",
+            self.basin_nodes, self.basin_constraints
+        )?;
         writeln!(f, "  Overall accuracy: {:.1}%", self.overall_accuracy * 100.0)?;
-        
+
         writeln!(f, "  Engine weights:")?;
         for (engine, weight) in &self.engine_weights {
             writeln!(f, "    {}: {:.2}", engine, weight)?;
         }
-        
+
         Ok(())
     }
 }
@@ -290,7 +360,7 @@ mod tests {
     fn test_new_prediction_center() {
         let center = PredictionCenter::new();
         let summary = center.summary();
-        
+
         assert_eq!(summary.total_predictions, 0);
         assert_eq!(summary.pending_count, 0);
     }
@@ -298,7 +368,7 @@ mod tests {
     #[test]
     fn test_generate_predictions() {
         let mut center = PredictionCenter::new();
-        
+
         // Provide context with discussed entities so gaps can be found
         let mut context = ConversationContext::new(
             "consciousness".to_string(),
@@ -307,9 +377,9 @@ mod tests {
             Some(0.5),
         );
         context.discussed_entities = vec!["AI".to_string(), "learning".to_string()];
-        
-        let predictions = center.generate(&context);
-        
+
+        let _predictions = center.generate(&context);
+
         // Should have generated some predictions (depends on context having entities)
         // Just verify it doesn't panic
     }
@@ -317,7 +387,7 @@ mod tests {
     #[test]
     fn test_query_pending() {
         let mut center = PredictionCenter::new();
-        
+
         // Provide context with discussed entities
         let mut context = ConversationContext::new(
             "test".to_string(),
@@ -326,31 +396,26 @@ mod tests {
             Some(0.5),
         );
         context.discussed_entities = vec!["test".to_string()];
-        
+
         center.generate(&context);
-        
+
         let filter = PredictionFilter {
             status: Some(PredictionStatus::Pending),
             ..Default::default()
         };
-        
-        let pending = center.query(filter);
+
+        let _pending = center.query(filter);
         // May be empty depending on implementation
     }
 
     #[test]
     fn test_top_predictions() {
         let mut center = PredictionCenter::new();
-        
-        let context = ConversationContext::new(
-            "test".to_string(),
-            1,
-            None,
-            None,
-        );
-        
+
+        let context = ConversationContext::new("test".to_string(), 1, None, None);
+
         center.generate(&context);
-        
+
         let top = center.top_predictions(3);
         assert!(top.len() <= 3);
     }
@@ -358,12 +423,12 @@ mod tests {
     #[test]
     fn test_engine_accuracy() {
         let mut center = PredictionCenter::new();
-        
+
         let context = ConversationContext::default();
         center.generate(&context);
-        
+
         let accuracies = center.engine_accuracy();
-        
+
         // Should have accuracy for all 4 engines
         assert_eq!(accuracies.len(), 4);
     }
@@ -372,7 +437,7 @@ mod tests {
     fn test_prediction_center_summary() {
         let center = PredictionCenter::new();
         let summary = center.summary();
-        
+
         assert_eq!(summary.basin_nodes, 0);
         assert_eq!(summary.basin_constraints, 0);
     }
@@ -380,16 +445,16 @@ mod tests {
     #[test]
     fn test_record_exchange() {
         let mut center = PredictionCenter::new();
-        
+
         let context = ConversationContext::new(
             "test topic".to_string(),
             1,
             Some(vec![0.1, 0.2, 0.3]),
             Some(0.5),
         );
-        
+
         center.record_exchange(&context);
-        
+
         let summary = center.summary();
         assert_eq!(summary.belief_revision_trajectory, 1);
     }
@@ -397,9 +462,28 @@ mod tests {
     #[test]
     fn test_counterfactual_projection() {
         let mut center = PredictionCenter::new();
-        
+
         let result = center.project_counterfactual("fire causes heat");
-        
+
         assert!(!result.assumption.is_empty());
+    }
+
+    #[cfg(feature = "omega-g2-shadow")]
+    #[test]
+    fn omega_shadow_is_observational_only() {
+        let mut center = PredictionCenter::new();
+        let mut context = ConversationContext::new(
+            "shadow test".to_string(),
+            1,
+            Some(vec![0.1, 0.2, 0.3]),
+            Some(0.5),
+        );
+        context.discussed_entities = vec!["alpha".to_string(), "beta".to_string()];
+        let predictions = center.generate(&context);
+        let snapshot = center.omega_g2_shadow_snapshot();
+        assert_eq!(snapshot.pending_traces, predictions.len());
+        assert!(!snapshot.authority.prediction_generation_influence);
+        assert!(!snapshot.authority.prediction_ranking_influence);
+        assert!(!snapshot.authority.prediction_outcome_influence);
     }
 }

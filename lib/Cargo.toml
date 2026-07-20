@@ -100,6 +100,11 @@ path = "examples/omega_g2_recursive_grammar_composition.rs"
 name = "omega_g3_multistep_abstraction_reuse"
 path = "examples/omega_g3_multistep_abstraction_reuse.rs"
 
+[[example]]
+name = "omega_g2_s0_real_trace_shadow"
+path = "examples/omega_g2_s0_real_trace_shadow.rs"
+required-features = ["omega-g2-shadow"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
@@ -124,6 +129,7 @@ regex.workspace = true
 [features]
 default = []
 lmrs-backend = []  # enables lib/language_model::intent_reranker::LmRsBackend
+omega-g2-shadow = []  # ΩG2-S0 typed real-prediction audit; in-memory and no live influence
 companion-observer = []  # S3 explicit-statement observer; proposal-only and shadow-only
 companion-prediction-ledger = []  # S4 unresolved commitments and independent scoring; no live influence
 companion-interaction-policy = ["companion-prediction-ledger"]  # S5-A shadow proposals and controls
