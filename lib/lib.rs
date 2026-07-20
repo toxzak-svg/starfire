@@ -64,6 +64,13 @@ pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
 
+// ΩG2-S0: bounded real-trace grammar-composition audit. Disabled by default.
+// It receives typed prediction rankings and independently settled outcomes only;
+// it cannot influence prediction generation/ranking/outcomes, chat, persistence,
+// grammar admission, state keys, routing, tools, or autonomous action.
+#[cfg(feature = "omega-g2-shadow")]
+pub mod omega_g2_shadow;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
