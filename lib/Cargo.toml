@@ -96,6 +96,10 @@ path = "examples/omega_g1_bounded_grammar_extension.rs"
 name = "omega_g2_recursive_grammar_composition"
 path = "examples/omega_g2_recursive_grammar_composition.rs"
 
+[[example]]
+name = "omega_g3_multistep_abstraction_reuse"
+path = "examples/omega_g3_multistep_abstraction_reuse.rs"
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
