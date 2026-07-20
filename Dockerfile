@@ -166,8 +166,30 @@ RUN cargo test -p star --lib --features independent-language-verifier --locked \
     && grep -F '"wrong_grammar_rejected": true' /tmp/omega-v1e-report.json \
     && grep -F '"authority_boundary_closed": true' /tmp/omega-v1e-report.json
 
-# Build the exact executable Render runs with D1 explicitly enabled. ΩV1-E stays
-# builder-only and is deliberately absent from the production feature set.
+# ΩV1-F1 runs only as an offline builder gate. It trains and evaluates the
+# bounded closed-lattice ranker over all 122 frozen fixtures, then exits nonzero
+# unless every preregistered semantic, safety, control, and authority gate passes.
+RUN cargo test -p star --lib --features omega-v1-learned-expression --locked \
+        learned_expression:: -- --test-threads=1 \
+    && cargo run -p star --example omega_v1f1_offline_evaluation \
+        --features omega-v1-learned-expression --locked \
+        | tee /tmp/omega-v1f1-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"fixture_count": 122' /tmp/omega-v1f1-report.json \
+    && grep -F '"selected_candidate_verifier_acceptance": 1.0' /tmp/omega-v1f1-report.json \
+    && grep -F '"semantic_claim_preservation": 1.0' /tmp/omega-v1f1-report.json \
+    && grep -F '"prohibited_implication_absence": 1.0' /tmp/omega-v1f1-report.json \
+    && grep -F '"adversarial_safety_pass_rate": 1.0' /tmp/omega-v1f1-report.json \
+    && grep -F '"model_bounds_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"semantic_tamper_suite_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"budget_overflow_suite_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"stale_digest_and_scope_suite_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"model_artifact_corruption_suite_passed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"authority_boundary_closed": true' /tmp/omega-v1f1-report.json \
+    && grep -F '"no_runtime_influence": true' /tmp/omega-v1f1-report.json
+
+# Build the exact executable Render runs with D1 explicitly enabled. ΩV1-E and
+# ΩV1-F1 stay builder-only and are deliberately absent from the production feature set.
 RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-http-canary
 
 FROM debian:bookworm-slim AS runtime
