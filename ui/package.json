@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cd .. && bash scripts/vercel-omega-v1a-verify.sh",
+    "build:app": "next build",
     "start": "next start",
     "lint": "next lint"
   },

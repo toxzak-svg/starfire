@@ -124,6 +124,13 @@ pub mod semantic_response;
 #[cfg(feature = "deterministic-language-renderer")]
 pub mod language_realization;
 
+// ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
+// Disabled by default and evaluation-only. It cannot influence Runtime::chat(),
+// mutate voice or companion state, promote beliefs or ontology, select tools,
+// discharge CHARGE, or authorize autonomous action.
+#[cfg(feature = "omega-v1-baseline")]
+pub mod omega_v1_voice_baseline;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
