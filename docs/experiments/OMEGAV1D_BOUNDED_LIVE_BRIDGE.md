@@ -10,6 +10,10 @@ Can Starfire make one detectable, deterministic expression change in the live re
 
 ΩV1-D is deliberately smaller than a general renderer. It is the first live canary for the cognitive-to-voice bridge, not permission for free-form rewriting.
 
+## Pre-execution boundary amendment
+
+Before any external D0 execution, the selector input was narrowed from `prompt + NUL + protected_body` to `protected_body` alone. Passing the raw user prompt would contradict the frozen `raw_conversation_access: false` authority boundary. No gate result was observed before this amendment.
+
 ## Frozen canary transformation
 
 The neutral input is the completed post-reranker, post-`VoiceEngine` response.
@@ -28,7 +32,7 @@ I'm following.
 I'm with you. 
 ```
 
-Selection is deterministic: FNV-1a over `prompt + NUL + protected_body`, modulo the table length.
+Selection is deterministic: FNV-1a over the protected body, modulo the table length.
 
 No other substring, punctuation mark, claim, hedge, question, reference, or body byte may change.
 
@@ -49,24 +53,25 @@ Fallback is a successful bounded outcome, not an error.
 
 The implementation passes only if all of the following hold:
 
-1. Same prompt and neutral response produce exactly the same output and decision metadata.
+1. The same neutral response produces exactly the same output and decision metadata.
 2. Every applied transformation preserves the protected body byte-for-byte.
 3. Ineligible responses pass through byte-for-byte.
 4. Empty and oversized bodies pass through byte-for-byte.
 5. Applied output uses only the frozen replacement table.
 6. Maximum output growth is three bytes.
-7. The bridge cannot mutate `VoiceState`, memory, beliefs, ontology, routing, tools, CHARGE, companion state, or autonomous actions.
+7. The bridge cannot read the raw prompt or mutate `VoiceState`, memory, beliefs, ontology, routing, tools, CHARGE, companion state, or autonomous actions.
 8. The probe emits `gate_passed: true` before the production binary is built.
 
 ## Authority boundary
 
-ΩV1-D grants two narrowly scoped authorities:
+ΩV1-D grants two narrowly scoped authorities only after D1 wiring:
 
-- the HTTP chat path may call the bounded bridge;
+- the HTTP chat path may pass the completed neutral response to the bounded bridge;
 - the bridge may alter the eligible opener in returned live text.
 
 It grants no authority to:
 
+- read the raw user prompt or unrestricted conversation history;
 - invent, remove, negate, qualify, or reorder claims;
 - change confidence, polarity, commitments, abstentions, or prohibited implications;
 - inspect unrestricted memory or raw persistence state;
