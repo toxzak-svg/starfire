@@ -50,7 +50,7 @@ fn reversed_accuracy(xs: &[Case]) -> Result<f64> {
         .iter()
         .filter(|x| x.split == Split::Train)
         .map(|x| PairwisePreference {
-            projection: x.projection.clone(),
+            projection: x.projection.projection.clone(),
             left: VariantProfile::direct(),
             right: VariantProfile::warm(),
             preferred: if x.pref == Pref::Direct {
@@ -229,7 +229,11 @@ fn boundary_controls(x: &Case) -> Result<bool> {
     let wrong_grammar = grammar.verify_integrity(&x.program, &x.lexical).is_err();
     let mut projection = x.projection.clone();
     projection.source_digest.push_str(":stale");
-    let stale_projection = projection.source_digest != x.projection.source_digest;
+    let stale_projection = s
+        .select(&x.program, &x.lexical, &projection)?
+        .payload
+        .disposition
+        == SelectionDisposition::NeutralFallback;
     Ok(stale_program
         && stale_lexical
         && stale_lattice
