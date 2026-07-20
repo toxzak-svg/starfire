@@ -7,8 +7,8 @@
 !Dockerfile
 !entrypoint.sh
 !IDENTITY.md
-!models/
-!models/ckpt_e28_b500.pt
+!data/
+!data/star_model.bin
 !lib/
 !lib/**
 !src/
