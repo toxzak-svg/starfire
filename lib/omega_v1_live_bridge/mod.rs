@@ -1,10 +1,13 @@
-//! ΩV1-D bounded deterministic live-response bridge.
+//! ΩV1-D bounded deterministic live-response bridge kernel.
 //!
-//! The bridge receives only the completed neutral response and the current
+//! The kernel receives only a completed neutral response and the current
 //! prompt. It may replace one exact, preregistered filler opener with one
 //! member of a closed deterministic table. The protected response body must
 //! remain byte-for-byte identical. Any ineligible input or invariant failure
 //! returns the exact neutral response.
+//!
+//! This module is the ΩV1-D0 kernel. Until the separate ΩV1-D1 integration
+//! commit lands, it has no `Runtime::chat()` or HTTP response influence.
 
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +46,7 @@ pub struct LiveBridgeDecision {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LiveBridgeAuthorityBoundary {
+    pub bounded_transform_available: bool,
     pub api_chat_wiring: bool,
     pub live_generated_text_influence: bool,
     pub raw_conversation_access: bool,
@@ -61,8 +65,9 @@ pub struct LiveBridgeAuthorityBoundary {
 #[must_use]
 pub const fn authority_boundary() -> LiveBridgeAuthorityBoundary {
     LiveBridgeAuthorityBoundary {
-        api_chat_wiring: true,
-        live_generated_text_influence: true,
+        bounded_transform_available: true,
+        api_chat_wiring: false,
+        live_generated_text_influence: false,
         raw_conversation_access: false,
         unrestricted_memory_access: false,
         voice_state_mutation: false,
@@ -137,8 +142,8 @@ pub fn render_live_response(prompt: &str, neutral_text: &str) -> LiveBridgeDecis
     }
 }
 
-/// Convenience entry point for the HTTP boundary. Fallback is represented by
-/// returning the exact original response rather than surfacing an error.
+/// Convenience entry point reserved for the later ΩV1-D1 HTTP integration.
+/// Fallback is represented by the exact original response, never an error.
 #[must_use]
 pub fn render_or_neutral(prompt: &str, neutral_text: &str) -> String {
     render_live_response(prompt, neutral_text).rendered_text
@@ -232,10 +237,11 @@ mod tests {
     }
 
     #[test]
-    fn authority_is_expression_only() {
+    fn kernel_authority_remains_shadow_only() {
         let boundary = authority_boundary();
-        assert!(boundary.api_chat_wiring);
-        assert!(boundary.live_generated_text_influence);
+        assert!(boundary.bounded_transform_available);
+        assert!(!boundary.api_chat_wiring);
+        assert!(!boundary.live_generated_text_influence);
         assert!(!boundary.raw_conversation_access);
         assert!(!boundary.unrestricted_memory_access);
         assert!(!boundary.voice_state_mutation);
