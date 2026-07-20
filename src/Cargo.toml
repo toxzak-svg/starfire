@@ -46,6 +46,10 @@ path = "bin/parser_test.rs"
 name = "bench_train"
 path = "bin/bench_train.rs"
 
+[features]
+default = []
+omega-v1-http-canary = ["star/omega-v1-http-canary"]
+
 [dependencies]
 star = { path = "../lib" }
 rusqlite.workspace = true
