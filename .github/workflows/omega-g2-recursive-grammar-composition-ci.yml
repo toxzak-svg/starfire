@@ -1,0 +1,100 @@
+name: ΩG2 Recursive Grammar Composition CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "lib/recursive_grammar_composition.rs"
+      - "lib/examples/omega_g2_recursive_grammar_composition.rs"
+      - "lib/grammar_extension.rs"
+      - "lib/representation_genesis.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "Cargo.lock"
+      - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION.md"
+      - ".github/workflows/omega-g2-recursive-grammar-composition-ci.yml"
+  push:
+    branches:
+      - research/omega-g2-recursive-grammar-composition
+    paths:
+      - "lib/recursive_grammar_composition.rs"
+      - "lib/examples/omega_g2_recursive_grammar_composition.rs"
+      - "lib/grammar_extension.rs"
+      - "lib/representation_genesis.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "Cargo.lock"
+      - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION.md"
+      - ".github/workflows/omega-g2-recursive-grammar-composition-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  omega-g2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out committed source
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Record committed scientific-source hashes
+        run: |
+          sha256sum \
+            lib/recursive_grammar_composition.rs \
+            lib/examples/omega_g2_recursive_grammar_composition.rs \
+            | tee omega-g2-source-sha256.txt
+
+      - name: Assert pristine scientific source
+        run: |
+          git diff --exit-code -- \
+            lib/recursive_grammar_composition.rs \
+            lib/examples/omega_g2_recursive_grammar_composition.rs
+
+      - name: Compile all default-feature targets
+        run: cargo check -p star --all-targets --locked
+
+      - name: Run ΩG2 kernel tests
+        run: cargo test -p star recursive_grammar_composition --locked
+
+      - name: Preserve Ω1 and ΩG1 regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked 2>&1 | tee omega1-regression.log
+          grep -F '"terminal_classification": "PASS"' omega1-regression.log
+          cargo run -p star --example omega_g1_bounded_grammar_extension --locked 2>&1 | tee omega-g1-regression.log
+          grep -F '"terminal_classification": "PASS"' omega-g1-regression.log
+
+      - name: Run frozen ΩG2 probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p star --example omega_g2_recursive_grammar_composition --locked 2>&1 | tee omega-g2-probe.log
+          grep -F '"terminal_classification": "PASS"' omega-g2-probe.log
+          test -f target/omega-g2-recursive-grammar-composition-report.json
+          grep -F '"terminal_classification": "PASS"' target/omega-g2-recursive-grammar-composition-report.json
+          sha256sum target/omega-g2-recursive-grammar-composition-report.json | tee omega-g2-report-sha256.txt
+
+      - name: Reassert scientific-source immutability
+        run: |
+          git diff --exit-code -- \
+            lib/recursive_grammar_composition.rs \
+            lib/examples/omega_g2_recursive_grammar_composition.rs
+
+      - name: Upload frozen evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omega-g2-recursive-grammar-composition-evidence
+          if-no-files-found: warn
+          path: |
+            omega-g2-source-sha256.txt
+            omega1-regression.log
+            omega-g1-regression.log
+            omega-g2-probe.log
+            omega-g2-report-sha256.txt
+            target/omega-g2-recursive-grammar-composition-report.json
