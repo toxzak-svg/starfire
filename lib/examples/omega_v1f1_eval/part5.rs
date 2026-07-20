@@ -133,12 +133,19 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
     let c = xs.iter().find(|x| x.fx.category == "continuity").context("continuity")?;
     let cr = s.select(&c.program, &c.lexical, &c.projection)?;
     let cl = ExpressionLattice::build(&c.program, &c.lexical)?;
+    let prediction_label = &c
+        .lexical
+        .payload
+        .predictions
+        .first()
+        .context("continuity prediction binding")?
+        .label;
     let reference = v
         .verify(
             &c.program,
             &c.lexical,
             cl.digest,
-            &cr.payload.text.replace(&c.fx.id, "substituted"),
+            &cr.payload.text.replace(prediction_label, "substituted"),
         )
         .is_err();
     let a = xs.iter().find(|x| x.fx.category == "adversarial").context("adversarial")?;
