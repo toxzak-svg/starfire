@@ -60,6 +60,7 @@ pub mod representation_genesis;
 pub mod grammar_extension;
 pub mod recursive_grammar_composition;
 pub mod multistep_abstraction_reuse;
+pub mod intervention_guided_abstraction_selection;
 pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
