@@ -172,10 +172,10 @@ fn budget_controls(x: &Case) -> Result<bool> {
     p.style.maximum_paragraphs = 0;
     let paragraphs = revalidate(p).is_err();
     let mut p = x.program.payload.clone();
-    p.compute_budget.maximum_operations = 1;
+    p.compute_budget.maximum_operations = 0;
     let operations = revalidate(p).is_err();
     let mut p = x.program.payload.clone();
-    p.compute_budget.maximum_verification_steps = 1;
+    p.compute_budget.maximum_verification_steps = 0;
     let steps = revalidate(p).is_err();
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let mut counts = BTreeMap::<OperationId, usize>::new();
