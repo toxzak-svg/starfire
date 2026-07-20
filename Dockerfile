@@ -70,7 +70,7 @@ RUN cargo test -p star --features omega-v1-semantic-plan --locked omega_v1_seman
     && grep -F '"missing_claim_provenance_count": 0' /tmp/omega-v1c-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1c-report.json
 
-# ΩV1-D0 Render implementation gate. This verifies the deterministic canary
+# ΩV1-D0 Render implementation gate. This verifies the separator-only canary
 # kernel and exact neutral fallback while keeping all runtime influence closed.
 # A PASS authorizes the separate ΩV1-D1 HTTP canary wiring commit only.
 RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_bridge \
@@ -78,11 +78,17 @@ RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_br
         --features omega-v1-live-bridge --locked \
         | tee /tmp/omega-v1d0-report.json \
     && grep -F '"gate_passed": true' /tmp/omega-v1d0-report.json \
-    && grep -F '"case_count": 4' /tmp/omega-v1d0-report.json \
+    && grep -F '"case_count": 5' /tmp/omega-v1d0-report.json \
+    && grep -F '"applied_case_count": 1' /tmp/omega-v1d0-report.json \
+    && grep -F '"neutral_fallback_case_count": 4' /tmp/omega-v1d0-report.json \
     && grep -F '"exact_replay": true' /tmp/omega-v1d0-report.json \
     && grep -F '"body_preservation_rate": 1.0' /tmp/omega-v1d0-report.json \
     && grep -F '"ineligible_passthrough_rate": 1.0' /tmp/omega-v1d0-report.json \
-    && grep -F '"frozen_opener_table_only": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"empty_body_passthrough": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"whitespace_only_passthrough": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"oversized_body_passthrough": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"separator_only_table": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"replacement_table_max_growth_bytes": 1' /tmp/omega-v1d0-report.json \
     && grep -F '"raw_conversation_access": false' /tmp/omega-v1d0-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1d0-report.json
 
