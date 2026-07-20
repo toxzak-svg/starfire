@@ -92,6 +92,10 @@ path = "examples/h13c_structural_role_transfer_stress.rs"
 name = "omega_g1_bounded_grammar_extension"
 path = "examples/omega_g1_bounded_grammar_extension.rs"
 
+[[example]]
+name = "omega_g2_recursive_grammar_composition"
+path = "examples/omega_g2_recursive_grammar_composition.rs"
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
