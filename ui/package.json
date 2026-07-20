@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cd .. && cargo build --release -p star_bin --bin star && npm --prefix ui run build:app",
+    "build:app": "next build",
     "start": "next start",
     "lint": "next lint"
   },
