@@ -1,10 +1,12 @@
 # ΩV1-A Render Verification
 
-**Status:** Pending external execution
+**Status:** PASS
 
-Render is the external execution environment for the merged ΩV1-A frozen voice baseline.
+**External execution:** Render production Docker build, July 20, 2026
 
-The production Docker build now runs the following gate before compiling the Starfire service image:
+Render reproduced the merged ΩV1-A frozen voice baseline before compiling and publishing the Starfire service image.
+
+The production Docker build ran:
 
 ```bash
 cargo test -p star --features omega-v1-baseline --locked omega_v1_voice_baseline
@@ -12,7 +14,7 @@ cargo run -p star --example omega_v1a_voice_baseline \
   --features omega-v1-baseline --locked
 ```
 
-The build also requires the emitted report to contain:
+The Docker step hard-required:
 
 - `gate_passed: true`
 - `fixture_count: 122`
@@ -21,6 +23,6 @@ The build also requires the emitted report to contain:
 - `prohibited_implication_absence: 1.0`
 - `adversarial_safety_pass_rate: 1.0`
 
-Any evaluator, fixture, semantic, adversarial, or frozen-metric drift causes the Render image build to fail before deployment.
+Render subsequently completed the release build, exported the image, started Starfire, passed readiness, and marked the service live. Because the ΩV1-A commands and assertions are a chained Docker `RUN` step before the release build, any failed test or missing marker would have terminated the image build before deployment.
 
-Passing the Render build authorizes only ΩV1-B shadow implementation. It does not grant live voice-state mutation or response influence.
+ΩV1-A therefore authorizes ΩV1-B typed `VoiceState` implementation in shadow mode only. It does not grant live voice-state mutation or response influence.
