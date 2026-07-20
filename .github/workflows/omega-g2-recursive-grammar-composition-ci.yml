@@ -12,9 +12,11 @@ on:
       - "lib/Cargo.toml"
       - "Cargo.lock"
       - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION.md"
+      - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION_RESULT.md"
       - ".github/workflows/omega-g2-recursive-grammar-composition-ci.yml"
   push:
     branches:
+      - main
       - research/omega-g2-recursive-grammar-composition
     paths:
       - "lib/recursive_grammar_composition.rs"
@@ -25,6 +27,7 @@ on:
       - "lib/Cargo.toml"
       - "Cargo.lock"
       - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION.md"
+      - "docs/experiments/OMEGAG2_RECURSIVE_GRAMMAR_COMPOSITION_RESULT.md"
       - ".github/workflows/omega-g2-recursive-grammar-composition-ci.yml"
 
 permissions:
