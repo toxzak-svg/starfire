@@ -83,6 +83,7 @@ RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_br
     && grep -F '"body_preservation_rate": 1.0' /tmp/omega-v1d0-report.json \
     && grep -F '"ineligible_passthrough_rate": 1.0' /tmp/omega-v1d0-report.json \
     && grep -F '"frozen_opener_table_only": true' /tmp/omega-v1d0-report.json \
+    && grep -F '"raw_conversation_access": false' /tmp/omega-v1d0-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1d0-report.json
 
 # Build the exact executable Render runs. Do not pipe through tail: preserving
