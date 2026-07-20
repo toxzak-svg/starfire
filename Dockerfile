@@ -16,9 +16,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY lib/ ./lib/
 COPY src/ ./src/
 
-# ΩV1-A Render gate. Render must reproduce the frozen baseline before it is
-# allowed to build and publish a Starfire service image. The example exits
-# nonzero on corpus, snapshot, semantic, adversarial, or metric drift.
+# ΩV1-A Render regression gate. Render must reproduce the frozen baseline before
+# it is allowed to build and publish a Starfire service image.
 RUN cargo test -p star --features omega-v1-baseline --locked omega_v1_voice_baseline \
     && cargo run -p star --example omega_v1a_voice_baseline \
         --features omega-v1-baseline --locked \
@@ -29,6 +28,21 @@ RUN cargo test -p star --features omega-v1-baseline --locked omega_v1_voice_base
     && grep -F '"semantic_claim_preservation": 1.0' /tmp/omega-v1a-report.json \
     && grep -F '"prohibited_implication_absence": 1.0' /tmp/omega-v1a-report.json \
     && grep -F '"adversarial_safety_pass_rate": 1.0' /tmp/omega-v1a-report.json
+
+# ΩV1-B Render gate. The typed VoiceState must be deterministic, versioned,
+# exactly replayable, bounded, explicitly mutated, and disconnected from live
+# response generation before the service image may be published.
+RUN cargo test -p star --features voice-state-shadow --locked voice_state \
+    && cargo run -p star --example omega_v1b_voice_state_shadow \
+        --features voice-state-shadow --locked \
+        | tee /tmp/omega-v1b-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1b-report.json \
+    && grep -F '"exact_state_match": true' /tmp/omega-v1b-report.json \
+    && grep -F '"exact_json_match": true' /tmp/omega-v1b-report.json \
+    && grep -F '"exact_digest_match": true' /tmp/omega-v1b-report.json \
+    && grep -F '"version": 1' /tmp/omega-v1b-report.json \
+    && grep -F '"session_intensity": 0.24' /tmp/omega-v1b-report.json \
+    && grep -F '"no_runtime_influence": true' /tmp/omega-v1b-report.json
 
 # Build the exact executable Render runs. Do not pipe through tail: preserving
 # Cargo's exit status makes failures visible in Render's build logs.
