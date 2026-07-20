@@ -95,6 +95,11 @@ path = "examples/omega_v1d1_http_canary.rs"
 required-features = ["omega-v1-http-canary"]
 
 [[example]]
+name = "omega_v1f1_offline_evaluation"
+path = "examples/omega_v1f1_offline_evaluation.rs"
+required-features = ["omega-v1-learned-expression"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
