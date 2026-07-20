@@ -70,6 +70,11 @@ path = "examples/omega_v1a_voice_baseline.rs"
 required-features = ["omega-v1-baseline"]
 
 [[example]]
+name = "omega_v1b_voice_state_shadow"
+path = "examples/omega_v1b_voice_state_shadow.rs"
+required-features = ["voice-state-shadow"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -144,5 +149,6 @@ companion-real-interaction-canary = ["companion-policy-evaluation"]  # S6-C cons
 semantic-response-program = []  # STLM L0-B typed semantic authorization and replay; no Runtime::chat() wiring
 deterministic-language-renderer = ["semantic-response-program"]  # STLM L0-C bounded reference realization; no live influence
 omega-v1-baseline = []  # ΩV1-A frozen voice corpus and metrics; no live influence
+voice-state-shadow = []  # ΩV1-B typed persistent VoiceState; explicit mutation only, no live response influence
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
