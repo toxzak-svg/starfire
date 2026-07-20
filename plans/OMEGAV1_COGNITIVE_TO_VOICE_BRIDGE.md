@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-A frozen baseline
+**Current stage:** ΩV1-B typed `VoiceState` shadow gate
 
 ## Central hypothesis
 
@@ -15,8 +15,8 @@ The renderer controls expression only. It does not control factual conclusions, 
 
 ## Promotion ladder
 
-1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria
-2. ΩV1-B: typed persistent `VoiceState` in shadow mode
+1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria — **PASS**
+2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **current gate**
 3. ΩV1-C: complete typed semantic-response-plan migration
 4. ΩV1-D: bounded deterministic live bridge with neutral fallback
 5. ΩV1-E: independent language verifier
@@ -29,7 +29,7 @@ No stage skips its predecessor.
 ## Core invariants
 
 - Every durable voice revision is versioned, attributable, replayable, and reversible.
-- Baseline identity, acquired tendencies, and session expression remain separate.
+- Baseline identity, acquired tendencies, relationship calibration, and session expression remain separate.
 - Voice changes cannot promote factual beliefs or ontology.
 - Relationship-specific calibration cannot silently rewrite global identity.
 - Renderer failure returns the exact neutral realization.
@@ -38,4 +38,8 @@ No stage skips its predecessor.
 
 ## Current implementation target
 
-ΩV1-A is the only promoted target until its frozen evaluator passes. After that gate, ΩV1-B adds typed `VoiceState` with deterministic serialization, optimistic versioning, exact replay, bounded dimensions, no automatic mutation, and no live response influence.
+ΩV1-A passed its externally executed Render gate on July 20, 2026.
+
+ΩV1-B adds typed `VoiceState` with deterministic serialization, optimistic versioning, exact replay, explicit default state, bounded dimensions, debug projection, no automatic mutation, and no live response influence. Its feature flag is `voice-state-shadow`.
+
+ΩV1-C remains blocked until the same ordered ΩV1-B event log reproduces the exact state, canonical serialization, and digest under external execution.

@@ -131,6 +131,13 @@ pub mod language_realization;
 #[cfg(feature = "omega-v1-baseline")]
 pub mod omega_v1_voice_baseline;
 
+// ΩV1-B: typed persistent VoiceState, deterministic serialization, optimistic
+// versioning, exact replay, bounded dimensions, and debug projection. Disabled
+// by default and shadow-only: no Runtime::chat(), VoiceEngine, persistence,
+// belief, ontology, routing, tool, CHARGE, or autonomous-action wiring.
+#[cfg(feature = "voice-state-shadow")]
+pub mod voice_state;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
