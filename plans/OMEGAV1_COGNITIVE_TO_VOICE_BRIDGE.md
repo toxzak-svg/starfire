@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-B typed `VoiceState` shadow gate
+**Current stage:** ΩV1-C complete typed semantic-response-plan shadow gate
 
 ## Central hypothesis
 
@@ -16,8 +16,8 @@ The renderer controls expression only. It does not control factual conclusions, 
 ## Promotion ladder
 
 1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria — **PASS**
-2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **current gate**
-3. ΩV1-C: complete typed semantic-response-plan migration
+2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **PASS**
+3. ΩV1-C: complete typed semantic-response-plan migration — **current gate**
 4. ΩV1-D: bounded deterministic live bridge with neutral fallback
 5. ΩV1-E: independent language verifier
 6. ΩV1-F: optional learned expression renderer
@@ -38,8 +38,8 @@ No stage skips its predecessor.
 
 ## Current implementation target
 
-ΩV1-A passed its externally executed Render gate on July 20, 2026.
+ΩV1-A and ΩV1-B passed externally executed Render gates on July 20, 2026.
 
-ΩV1-B adds typed `VoiceState` with deterministic serialization, optimistic versioning, exact replay, explicit default state, bounded dimensions, debug projection, no automatic mutation, and no live response influence. Its feature flag is `voice-state-shadow`.
+ΩV1-C completes the transitional response-plan boundary in matched shadow mode. Every frozen fixture receives explicit intent, ordered operations, grounded claims, confidence, stance, emotional position, initiative, dialogue policy, detail budget, prohibited implications, reference bindings, and claim provenance. The neutral compatibility renderer must reproduce the exact legacy output.
 
-ΩV1-C remains blocked until the same ordered ΩV1-B event log reproduces the exact state, canonical serialization, and digest under external execution.
+The feature flag is `omega-v1-semantic-plan`. It has no `Runtime::chat()` or live voice influence. ΩV1-D remains blocked until all 122 baseline fixtures produce complete plans with exact neutral compatibility and independent semantic-program validation under external execution.
