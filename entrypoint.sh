@@ -8,10 +8,17 @@ export STARFIRE_PORT="${STARFIRE_PORT:-${PORT:-8080}}"
 export STARFIRE_DATA="${STARFIRE_DATA:-/data}"
 export STARFIRE_LOG="${STARFIRE_LOG:-info}"
 
-# Create persistent data directories.
+# The CLI currently resolves an explicit data directory to its nested life/
+# directory unless SPEC.md is present. Keep /data as the canonical asset store,
+# then expose those assets at the effective runtime path without duplicating them.
+runtime_data="$STARFIRE_DATA/life"
+
 mkdir -p "$STARFIRE_DATA/memory"
 mkdir -p "$STARFIRE_DATA/logs"
 mkdir -p "$STARFIRE_DATA/models"
+mkdir -p "$runtime_data/memory"
+mkdir -p "$runtime_data/logs"
+mkdir -p "$runtime_data/models"
 
 # Render persistent disks replace the image's /data tree at runtime. Keep the
 # canonical assets outside that mount and seed them only when the persistent
@@ -51,6 +58,12 @@ fi
 seed_asset "/opt/starfire/assets/models/ckpt_e28_b500.pt" \
     "$reranker_target" \
     "native CharRNN reranker checkpoint"
+
+# Runtime::new receives /data/life from the current CLI path resolver. Link the
+# canonical persistent assets into that effective directory so identity and the
+# trained reranker are loaded from the same files on every boot.
+ln -sfn "$STARFIRE_DATA/IDENTITY.md" "$runtime_data/IDENTITY.md"
+ln -sfn "$reranker_target" "$runtime_data/models/ckpt_e28_b500.pt"
 
 # Set library path for libstar.so.
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
