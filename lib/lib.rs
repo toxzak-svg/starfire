@@ -133,6 +133,19 @@ pub mod verifier_ready_realization;
 #[cfg(feature = "independent-language-verifier")]
 pub mod language_verification;
 
+// ΩV1-F1: bounded offline learned expression selection over a closed grammar-v3
+// surface lattice. The ranker is integer-only and every selected candidate is
+// independently reconstructed from text. Disabled by default, with no live
+// response, raw prompt, state mutation, persistence, routing, or action authority.
+#[cfg(feature = "omega-v1-learned-expression")]
+pub mod learned_expression;
+
+// ΩV1-F1 projection packets are sealed before offline scoring. A stale or
+// corrupted VoiceState-derived projection forces exact neutral fallback and
+// cannot reach candidate scoring. This remains builder-only and has no live wiring.
+#[cfg(feature = "omega-v1-learned-expression")]
+pub mod omega_v1f1_projection_guard;
+
 // ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
 // Disabled by default and evaluation-only. It cannot influence Runtime::chat(),
 // mutate voice or companion state, promote beliefs or ontology, select tools,
