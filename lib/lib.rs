@@ -145,6 +145,12 @@ pub mod voice_state;
 #[cfg(feature = "omega-v1-semantic-plan")]
 pub mod omega_v1_semantic_plan;
 
+// ΩV1-D0: deterministic bounded opener-substitution kernel. The protected
+// response body remains byte-exact and every failure returns the neutral text.
+// This stage is probe-only until ΩV1-D1 explicitly wires the HTTP chat boundary.
+#[cfg(feature = "omega-v1-live-bridge")]
+pub mod omega_v1_live_bridge;
+
 // H-Infant-0: typed developmental evidence boundary only. Disabled by default
 // and intentionally not wired into Runtime::chat(), routing, belief promotion,
 // ontology promotion, or autonomous action selection.
