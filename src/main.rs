@@ -40,16 +40,20 @@ enum Commands {
 fn main() -> anyhow::Result<()> {
     // Parse args
     let cli = Cli::parse();
+    let explicit_data_dir = cli.data_dir.is_some();
     
     // Determine data directory
     let data_dir = cli.data_dir
         .or_else(|| dirs::data_local_dir().map(|d| d.join("star")))
         .unwrap_or_else(|| PathBuf::from("."));
     
-    // Ensure the life/ directory path resolution is correct
-    // If we're running from the life/ directory, use ./
-    // Otherwise use the standard path
-    let life_dir = if data_dir.join("SPEC.md").exists() {
+    // An explicit --data-dir is an exact storage contract. Container entrypoints
+    // seed identity, checkpoints, and databases directly into that directory, so
+    // never rewrite it to a nested life/ path. Preserve the legacy discovery
+    // behavior only for implicit desktop defaults.
+    let life_dir = if explicit_data_dir {
+        data_dir.clone()
+    } else if data_dir.join("SPEC.md").exists() {
         data_dir.clone()
     } else if data_dir.join("life/SPEC.md").exists() {
         data_dir.join("life")
