@@ -1,8 +1,8 @@
 # ΩV1-D1: Bounded HTTP Chat Canary
 
-**Status:** Preregistered; implementation blocked pending an externally observed ΩV1-D0 PASS  
-**Parent gate:** ΩV1-D0 bounded deterministic live-bridge kernel  
-**Proposed feature flag:** `omega-v1-http-canary`
+**Status:** Implemented in draft; external D1 execution pending  
+**Parent gate:** ΩV1-D0 PASS on Render, July 20, 2026  
+**Feature flag:** `omega-v1-http-canary`
 
 ## Scientific question
 
@@ -10,11 +10,9 @@ Can Starfire apply the already-frozen ΩV1-D0 separator-only transformation at t
 
 ΩV1-D1 does not widen the transformation. It tests one wiring seam only.
 
-## Activation precondition
+## Parent PASS
 
-Implementation and activation are prohibited until an external Render build has executed the ΩV1-D0 Docker gate and produced every frozen D0 PASS assertion.
-
-A missing result, an infrastructure-only result, or a build failure is not a PASS.
+The D0 implementation was merged as `87304d21c19b2c18ecb43e12d0b0a84d01750ba4`. On July 20, 2026, Render completed the Docker build, exported and pushed the image, initialized Star, bound the production API, and declared `https://starfire-cuee.onrender.com` live. Because the frozen D0 gate precedes production binary construction and image export, this clears the D1 activation precondition.
 
 ## Frozen wiring location
 
@@ -36,15 +34,15 @@ It must not receive:
 
 ## Frozen feature boundary
 
-D1 must use a new feature layered over the D0 kernel:
+D1 uses a separate feature layered over the D0 kernel:
 
 ```text
 omega-v1-http-canary = ["omega-v1-live-bridge"]
 ```
 
-The D0 feature continues to compile and test the kernel with no HTTP influence. Only `omega-v1-http-canary` may compile the `/chat` splice.
+The D0 feature continues to compile and test the kernel with no HTTP influence. Only `omega-v1-http-canary` compiles the `/chat` splice.
 
-The production binary may enable `omega-v1-http-canary` explicitly. Builds without it must return the exact pre-D1 HTTP response.
+The production binary enables `omega-v1-http-canary` explicitly. Builds without it return the exact pre-D1 HTTP response.
 
 ## Frozen transformation
 
@@ -98,15 +96,15 @@ D1 grants exactly two authorities:
 
 D1 grants no authority to read or hash the raw prompt, access unrestricted history or memory, change protected-body bytes, alter claims or confidence, mutate state, select routes or tools, discharge CHARGE, affect CLI or non-chat routes, or learn new replacement strings.
 
-## Required implementation sequence
+## Implemented sequence
 
-1. Commit this preregistration while ΩV1-D0 remains pending.
-2. Observe and record an external ΩV1-D0 PASS.
-3. Add the separate `omega-v1-http-canary` feature.
-4. Add a pure response-boundary helper and focused tests.
-5. Wire only the successful `POST /chat` response path.
-6. Add a machine-readable D1 probe and Docker assertions while retaining the D0 regression gate.
-7. Build the production binary with the D1 feature.
-8. Merge only after review, then require an external Render PASS before calling D1 complete.
+1. Preregister D1 while D0 was pending.
+2. Observe and record external D0 PASS.
+3. Add `omega-v1-http-canary` layered over D0.
+4. Add the pure `finalize_chat_response(String) -> String` boundary helper and focused tests.
+5. Call it only from the successful `POST /chat` response arm.
+6. Add the machine-readable D1 probe and Docker assertions while retaining D0 unchanged.
+7. Enable D1 explicitly in the production binary build.
+8. Review and merge, then require an external Render PASS before calling D1 complete.
 
 A D1 PASS authorizes only ΩV1-E, the independent language verifier. It does not authorize broader rewriting, a learned renderer, automatic voice evolution, or any cognition-side authority.
