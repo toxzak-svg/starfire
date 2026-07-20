@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         .iter()
         .filter(|c| c.split == Split::Train)
         .map(|c| PairwisePreference {
-            projection: c.projection.clone(),
+            projection: c.projection.projection.clone(),
             left: VariantProfile::direct(),
             right: VariantProfile::warm(),
             preferred: side(c.pref),
