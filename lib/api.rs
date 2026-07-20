@@ -5,8 +5,72 @@
 use crate::{Runtime, Memory};
 use crate::persistence::MemoryDomain;
 use anyhow::Result;
+#[cfg(feature = "omega-v1-http-canary")]
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tracing::{info, warn};
+
+/// Frozen ΩV1-D1 authority boundary for the HTTP response canary.
+/// Only successful `POST /chat` response wiring and the bounded live-text
+/// transformation are authorized; all other authority remains closed.
+#[cfg(feature = "omega-v1-http-canary")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HttpCanaryAuthorityBoundary {
+    pub api_chat_wiring: bool,
+    pub live_generated_text_influence: bool,
+    pub raw_prompt_access: bool,
+    pub unrestricted_conversation_access: bool,
+    pub unrestricted_memory_access: bool,
+    pub voice_state_mutation: bool,
+    pub companion_state_mutation: bool,
+    pub persistence_authority: bool,
+    pub belief_promotion_authority: bool,
+    pub ontology_promotion_authority: bool,
+    pub routing_authority: bool,
+    pub tool_selection_authority: bool,
+    pub charge_discharge_authority: bool,
+    pub autonomous_action_authority: bool,
+    pub non_chat_http_influence: bool,
+    pub cli_influence: bool,
+}
+
+#[cfg(feature = "omega-v1-http-canary")]
+#[must_use]
+pub const fn http_canary_authority_boundary() -> HttpCanaryAuthorityBoundary {
+    HttpCanaryAuthorityBoundary {
+        api_chat_wiring: true,
+        live_generated_text_influence: true,
+        raw_prompt_access: false,
+        unrestricted_conversation_access: false,
+        unrestricted_memory_access: false,
+        voice_state_mutation: false,
+        companion_state_mutation: false,
+        persistence_authority: false,
+        belief_promotion_authority: false,
+        ontology_promotion_authority: false,
+        routing_authority: false,
+        tool_selection_authority: false,
+        charge_discharge_authority: false,
+        autonomous_action_authority: false,
+        non_chat_http_influence: false,
+        cli_influence: false,
+    }
+}
+
+/// Finalize only a completed successful HTTP `/chat` response. This helper
+/// receives no prompt, request body, runtime handle, memory, state, or route metadata.
+#[must_use]
+pub fn finalize_chat_response(response: String) -> String {
+    #[cfg(feature = "omega-v1-http-canary")]
+    {
+        return crate::omega_v1_live_bridge::render_or_neutral(&response);
+    }
+
+    #[cfg(not(feature = "omega-v1-http-canary"))]
+    {
+        response
+    }
+}
 
 /// Start the Star HTTP API server.
 pub fn start(runtime: Arc<Mutex<Runtime>>, host: &str, port: u16) -> Result<()> {
@@ -246,7 +310,10 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
     };
 
     match rt_guard.chat(&req.message) {
-        Ok(response) => serde_json::json!({ "response": response }).to_string(),
+        Ok(response) => {
+            let response = finalize_chat_response(response);
+            serde_json::json!({ "response": response }).to_string()
+        }
         Err(e) => format!(r#"{{"error":"Chat error: {}"}}"#, e),
     }
 }
@@ -445,4 +512,65 @@ fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String 
         "chat_id": chat_id,
         "update_id": update.update_id,
     }).to_string()
+}
+
+#[cfg(all(test, feature = "omega-v1-http-canary"))]
+mod omega_v1d1_tests {
+    use super::*;
+    use crate::omega_v1_live_bridge::{ELIGIBLE_OPENER, OPENER_STEM, REPLACEMENT_OPENERS};
+
+    #[test]
+    fn omega_v1d1_success_finalizer_is_deterministic_and_body_exact() {
+        let neutral = "Here for it. The protected response body is unchanged.".to_string();
+        let body = neutral.strip_prefix(ELIGIBLE_OPENER).unwrap().to_string();
+        let first = finalize_chat_response(neutral.clone());
+        let second = finalize_chat_response(neutral);
+
+        assert_eq!(first, second);
+        let selected = REPLACEMENT_OPENERS
+            .iter()
+            .find(|candidate| first.starts_with(**candidate))
+            .copied()
+            .expect("eligible response must use the frozen separator table");
+        assert_eq!(first.strip_prefix(selected), Some(body.as_str()));
+        assert!(selected.starts_with(OPENER_STEM));
+    }
+
+    #[test]
+    fn omega_v1d1_ineligible_response_is_exact_passthrough() {
+        let neutral = "No eligible opener is present.".to_string();
+        assert_eq!(finalize_chat_response(neutral.clone()), neutral);
+    }
+
+    #[test]
+    fn omega_v1d1_json_shape_remains_response_string() {
+        let neutral = "Here for it. JSON shape remains unchanged.".to_string();
+        let finalized = finalize_chat_response(neutral);
+        let json = serde_json::json!({ "response": finalized }).to_string();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.as_object().map(|object| object.len()), Some(1));
+        assert!(parsed.get("response").is_some_and(serde_json::Value::is_string));
+    }
+
+    #[test]
+    fn omega_v1d1_authority_is_http_only() {
+        let boundary = http_canary_authority_boundary();
+        assert!(boundary.api_chat_wiring);
+        assert!(boundary.live_generated_text_influence);
+        assert!(!boundary.raw_prompt_access);
+        assert!(!boundary.unrestricted_conversation_access);
+        assert!(!boundary.unrestricted_memory_access);
+        assert!(!boundary.voice_state_mutation);
+        assert!(!boundary.companion_state_mutation);
+        assert!(!boundary.persistence_authority);
+        assert!(!boundary.belief_promotion_authority);
+        assert!(!boundary.ontology_promotion_authority);
+        assert!(!boundary.routing_authority);
+        assert!(!boundary.tool_selection_authority);
+        assert!(!boundary.charge_discharge_authority);
+        assert!(!boundary.autonomous_action_authority);
+        assert!(!boundary.non_chat_http_influence);
+        assert!(!boundary.cli_influence);
+    }
 }

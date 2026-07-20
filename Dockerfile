@@ -74,9 +74,8 @@ RUN cargo test -p star --features omega-v1-semantic-plan --locked omega_v1_seman
     && grep -F '"missing_claim_provenance_count": 0' /tmp/omega-v1c-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1c-report.json
 
-# ΩV1-D0 Render implementation gate. This verifies the separator-only canary
-# kernel and exact neutral fallback while keeping all runtime influence closed.
-# A PASS authorizes the separate ΩV1-D1 HTTP canary wiring commit only.
+# ΩV1-D0 Render regression gate. This verifies the separator-only kernel and
+# exact neutral fallback while its own authority declaration remains shadow-only.
 RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_bridge \
     && cargo run -p star --example omega_v1d_bounded_live_bridge \
         --features omega-v1-live-bridge --locked \
@@ -96,9 +95,32 @@ RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_br
     && grep -F '"raw_conversation_access": false' /tmp/omega-v1d0-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1d0-report.json
 
-# Build the exact executable Render runs. Do not pipe through tail: preserving
-# Cargo's exit status makes failures visible in Render's build logs.
-RUN cargo build --release --locked -p star_bin --bin star
+# ΩV1-D1 Render implementation gate. Only the completed successful POST /chat
+# response may cross the unchanged D0 kernel; prompt, state, CLI, and other routes
+# remain outside the canary authority boundary.
+RUN cargo test -p star --features omega-v1-http-canary --locked omega_v1d1 \
+    && cargo run -p star --example omega_v1d1_http_canary \
+        --features omega-v1-http-canary --locked \
+        | tee /tmp/omega-v1d1-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"parent_d0_commit": "87304d21c19b2c18ecb43e12d0b0a84d01750ba4"' /tmp/omega-v1d1-report.json \
+    && grep -F '"case_count": 2' /tmp/omega-v1d1-report.json \
+    && grep -F '"exact_replay": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"protected_body_preserved": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"ineligible_passthrough": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"json_shape_preserved": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"replacement_table_confined": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"maximum_output_growth_bytes": 1' /tmp/omega-v1d1-report.json \
+    && grep -F '"d0_kernel_authority_still_shadow_only": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"api_chat_wiring": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"live_generated_text_influence": true' /tmp/omega-v1d1-report.json \
+    && grep -F '"raw_prompt_access": false' /tmp/omega-v1d1-report.json \
+    && grep -F '"non_chat_http_influence": false' /tmp/omega-v1d1-report.json \
+    && grep -F '"cli_influence": false' /tmp/omega-v1d1-report.json
+
+# Build the exact executable Render runs with D1 explicitly enabled. Do not pipe
+# through tail: preserving Cargo's exit status makes failures visible in Render.
+RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-http-canary
 
 FROM debian:bookworm-slim AS runtime
 
