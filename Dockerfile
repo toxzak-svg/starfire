@@ -28,6 +28,7 @@ RUN cargo run -p star --example reranker_asset_probe --locked \
     && grep -F '"gate_passed": true' /tmp/render-asset-report.json \
     && grep -F '"identity_is_full": true' /tmp/render-asset-report.json \
     && grep -F '"checkpoint_loadable": true' /tmp/render-asset-report.json \
+    && grep -F '"vocabulary_compatible": true' /tmp/render-asset-report.json \
     && grep -F '"backend": "char_rnn"' /tmp/render-asset-report.json
 
 # ΩV1-A Render regression gate. Render must reproduce the frozen baseline before
