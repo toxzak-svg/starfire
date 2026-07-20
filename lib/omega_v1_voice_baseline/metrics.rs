@@ -161,7 +161,9 @@ fn semantic_preservation(realized: &[RealizedFixture]) -> f64 {
         let output = item.output.to_lowercase();
         for anchor in &item.fixture.required_claim_anchors {
             total += 1;
-            hits += usize::from(output.contains(&anchor.to_lowercase()));
+            if output.contains(&anchor.to_lowercase()) {
+                hits += 1;
+            }
         }
     }
     ratio(hits, total)
@@ -174,7 +176,9 @@ fn prohibited_absence(realized: &[RealizedFixture]) -> f64 {
         let output = item.output.to_lowercase();
         for anchor in &item.prohibited_claim_anchors {
             total += 1;
-            absent += usize::from(!output.contains(&anchor.to_lowercase()));
+            if !output.contains(&anchor.to_lowercase()) {
+                absent += 1;
+            }
         }
     }
     if total == 0 { 1.0 } else { ratio(absent, total) }
