@@ -16,6 +16,20 @@ COPY Cargo.toml Cargo.lock ./
 COPY lib/ ./lib/
 COPY src/ ./src/
 
+# ΩV1-A Render gate. Render must reproduce the frozen baseline before it is
+# allowed to build and publish a Starfire service image. The example exits
+# nonzero on corpus, snapshot, semantic, adversarial, or metric drift.
+RUN cargo test -p star --features omega-v1-baseline --locked omega_v1_voice_baseline \
+    && cargo run -p star --example omega_v1a_voice_baseline \
+        --features omega-v1-baseline --locked \
+        | tee /tmp/omega-v1a-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1a-report.json \
+    && grep -F '"fixture_count": 122' /tmp/omega-v1a-report.json \
+    && grep -F '"exact_snapshot_match_rate": 1.0' /tmp/omega-v1a-report.json \
+    && grep -F '"semantic_claim_preservation": 1.0' /tmp/omega-v1a-report.json \
+    && grep -F '"prohibited_implication_absence": 1.0' /tmp/omega-v1a-report.json \
+    && grep -F '"adversarial_safety_pass_rate": 1.0' /tmp/omega-v1a-report.json
+
 # Build the exact executable Render runs. Do not pipe through tail: preserving
 # Cargo's exit status makes failures visible in Render's build logs.
 RUN cargo build --release --locked -p star_bin --bin star
