@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-C complete typed semantic-response-plan shadow gate
+**Current stage:** ΩV1-D0 bounded deterministic live-bridge kernel gate
 
 ## Central hypothesis
 
@@ -17,12 +17,13 @@ The renderer controls expression only. It does not control factual conclusions, 
 
 1. ΩV1-A: frozen corpus, current outputs, metrics, and promotion criteria — **PASS**
 2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **PASS**
-3. ΩV1-C: complete typed semantic-response-plan migration — **current gate**
-4. ΩV1-D: bounded deterministic live bridge with neutral fallback
-5. ΩV1-E: independent language verifier
-6. ΩV1-F: optional learned expression renderer
-7. ΩV1-G: replayable, earned voice evolution
-8. ΩV1-H: validated companion-policy projection
+3. ΩV1-C: complete typed semantic-response-plan migration — **PASS**
+4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **current gate**
+5. ΩV1-D1: bounded HTTP chat canary wiring
+6. ΩV1-E: independent language verifier
+7. ΩV1-F: optional learned expression renderer
+8. ΩV1-G: replayable, earned voice evolution
+9. ΩV1-H: validated companion-policy projection
 
 No stage skips its predecessor.
 
@@ -38,8 +39,10 @@ No stage skips its predecessor.
 
 ## Current implementation target
 
-ΩV1-A and ΩV1-B passed externally executed Render gates on July 20, 2026.
+ΩV1-A, ΩV1-B, and ΩV1-C passed externally executed Render gates on July 20, 2026.
 
-ΩV1-C completes the transitional response-plan boundary in matched shadow mode. Every frozen fixture receives explicit intent, ordered operations, grounded claims, confidence, stance, emotional position, initiative, dialogue policy, detail budget, prohibited implications, reference bindings, and claim provenance. The neutral compatibility renderer must reproduce the exact legacy output.
+ΩV1-D0 freezes and implements the smallest useful canary kernel. It accepts the completed neutral response and may replace only the exact opener `Here for it. ` with one member of a closed deterministic table. The remaining response body is protected byte-for-byte. Ineligible, empty, oversized, or invariant-breaking inputs return the exact neutral text.
 
-The feature flag is `omega-v1-semantic-plan`. It has no `Runtime::chat()` or live voice influence. ΩV1-D remains blocked until all 122 baseline fixtures produce complete plans with exact neutral compatibility and independent semantic-program validation under external execution.
+The feature flag is `omega-v1-live-bridge`. At D0 it has no `Runtime::chat()` or HTTP response influence. The Render Docker gate must prove deterministic replay, exact protected-body preservation, exact passthrough, frozen-table confinement, bounded output growth, and `no_runtime_influence: true`.
+
+A D0 PASS authorizes only the separate ΩV1-D1 HTTP canary wiring commit. It does not authorize broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
