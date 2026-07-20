@@ -95,7 +95,7 @@ RUN cargo test -p star --features omega-v1-live-bridge --locked omega_v1_live_br
     && grep -F '"raw_conversation_access": false' /tmp/omega-v1d0-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1d0-report.json
 
-# ΩV1-D1 Render implementation gate. Only the completed successful POST /chat
+# ΩV1-D1 Render regression gate. Only the completed successful POST /chat
 # response may cross the unchanged D0 kernel; prompt, state, CLI, and other routes
 # remain outside the canary authority boundary.
 RUN cargo test -p star --features omega-v1-http-canary --locked omega_v1d1 \
@@ -118,8 +118,38 @@ RUN cargo test -p star --features omega-v1-http-canary --locked omega_v1d1 \
     && grep -F '"non_chat_http_influence": false' /tmp/omega-v1d1-report.json \
     && grep -F '"cli_influence": false' /tmp/omega-v1d1-report.json
 
-# Build the exact executable Render runs with D1 explicitly enabled. Do not pipe
-# through tail: preserving Cargo's exit status makes failures visible in Render.
+# ΩV1-E / STLM L1 Render implementation gate. The verifier runs only in this
+# builder stage. It reconstructs authorized semantics from verifier-ready text,
+# rejects semantic tampering, and receives no renderer alignment or live runtime authority.
+RUN cargo test -p star --lib --features independent-language-verifier --locked \
+        verifier_ready_realization:: -- --test-threads=1 \
+    && cargo test -p star --lib --features independent-language-verifier --locked \
+        language_verification:: -- --test-threads=1 \
+    && cargo run -p star --example stlm_l0c_deterministic_renderer_probe \
+        --features deterministic-language-renderer --locked \
+        | tee /tmp/stlm-l0c-regression-report.json \
+    && grep -F '"terminal_classification": "PASS"' /tmp/stlm-l0c-regression-report.json \
+    && grep -F '"gate_passed": true' /tmp/stlm-l0c-regression-report.json \
+    && grep -F '"authority_boundary_closed": true' /tmp/stlm-l0c-regression-report.json \
+    && cargo run -p star --example stlm_l1_independent_language_verifier_probe \
+        --features independent-language-verifier --locked \
+        | tee /tmp/omega-v1e-report.json \
+    && grep -F '"terminal_classification": "PASS"' /tmp/omega-v1e-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1e-report.json \
+    && grep -F '"grammar_version": 2' /tmp/omega-v1e-report.json \
+    && grep -F '"all_nine_operations_reconstructed": true' /tmp/omega-v1e-report.json \
+    && grep -F '"deterministic_report": true' /tmp/omega-v1e-report.json \
+    && grep -F '"alignment_independence_preserved": true' /tmp/omega-v1e-report.json \
+    && grep -F '"omission_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"polarity_reversal_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"certainty_inflation_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"claim_substitution_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"ambiguous_surface_binding_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"wrong_grammar_rejected": true' /tmp/omega-v1e-report.json \
+    && grep -F '"authority_boundary_closed": true' /tmp/omega-v1e-report.json
+
+# Build the exact executable Render runs with D1 explicitly enabled. ΩV1-E stays
+# builder-only and is deliberately absent from the production feature set.
 RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-http-canary
 
 FROM debian:bookworm-slim AS runtime

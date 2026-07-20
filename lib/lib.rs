@@ -124,6 +124,15 @@ pub mod semantic_response;
 #[cfg(feature = "deterministic-language-renderer")]
 pub mod language_realization;
 
+// STLM L1 / ΩV1-E: verifier-ready grammar-v2 realization plus a text-only
+// inverse semantic verifier. Disabled by default and executed only as an offline
+// Render builder gate. It has no Runtime::chat(), response, memory, persistence,
+// routing, companion-state, belief, ontology, tool, CHARGE, or action authority.
+#[cfg(feature = "independent-language-verifier")]
+pub mod verifier_ready_realization;
+#[cfg(feature = "independent-language-verifier")]
+pub mod language_verification;
+
 // ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
 // Disabled by default and evaluation-only. It cannot influence Runtime::chat(),
 // mutate voice or companion state, promote beliefs or ontology, select tools,

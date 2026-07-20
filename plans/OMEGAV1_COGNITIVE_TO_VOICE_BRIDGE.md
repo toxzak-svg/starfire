@@ -1,7 +1,7 @@
 # ΩV1: Starfire Cognitive-to-Voice Bridge
 
 **Status:** Active implementation program  
-**Current stage:** ΩV1-D1 bounded HTTP chat canary external gate
+**Current stage:** ΩV1-E independent language verifier external gate
 
 ## Central hypothesis
 
@@ -19,8 +19,8 @@ The renderer controls expression only. It does not control factual conclusions, 
 2. ΩV1-B: typed persistent `VoiceState` in shadow mode — **PASS**
 3. ΩV1-C: complete typed semantic-response-plan migration — **PASS**
 4. ΩV1-D0: bounded deterministic bridge kernel with exact neutral fallback — **PASS**
-5. ΩV1-D1: bounded HTTP chat canary wiring — **implemented in draft; external PASS pending**
-6. ΩV1-E: independent language verifier
+5. ΩV1-D1: bounded HTTP chat canary wiring — **PASS**
+6. ΩV1-E: independent language verifier — **implemented in draft; external PASS pending**
 7. ΩV1-F: optional learned expression renderer
 8. ΩV1-G: replayable, earned voice evolution
 9. ΩV1-H: validated companion-policy projection
@@ -39,14 +39,14 @@ No stage skips its predecessor.
 
 ## Current implementation target
 
-ΩV1-A, ΩV1-B, ΩV1-C, and ΩV1-D0 passed externally executed Render gates on July 20, 2026.
+ΩV1-A through ΩV1-D1 passed externally executed Render gates on July 20, 2026. D1 remains the only live voice-path authority: the successful HTTP `POST /chat` response may pass through the unchanged separator-only D0 kernel. Prompt access, CLI, Telegram, non-chat routes, state mutation, and cognition-side authority remain closed.
 
-D0 remains the unchanged separator-only kernel. It receives only a completed neutral response, preserves the protected body byte-for-byte, and returns exact neutral text for every ineligible or invariant-breaking input. Its own authority declaration remains shadow-only when compiled without D1.
+ΩV1-E converges with the existing STLM L1 independent-language-verifier lineage from draft PR #72. The frozen preregistration commit is `dd992abf163c42cb8062cf75f61459009b57683a`; the identifiability addendum is `26ee75d135f57cac1ea12d2c477308472a1a1ba0`.
 
-ΩV1-D1 adds a distinct `omega-v1-http-canary` feature layered over `omega-v1-live-bridge`. The successful HTTP `POST /chat` result is passed through a pure `finalize_chat_response(String) -> String` helper after `Runtime::chat()` completes and before JSON serialization. The helper signature cannot accept the prompt, request body, runtime, memory, state, route metadata, or conversation history.
+E preserves the frozen L0-C renderer and adds a separate verifier-ready grammar version 2 because the v1 surfaces for `Assert` and `Qualify` were not independently identifiable. The v2 forward surface exists only to create an invertible controlled evaluation target. It is not wired into the live D1 response.
 
-The D1 Docker gate must prove deterministic replay, exact protected-body preservation, exact ineligible passthrough, unchanged single-field JSON shape, confinement to the frozen separator table, one-byte maximum growth, continued D0 shadow authority, and a D1 authority matrix in which only HTTP chat wiring and bounded returned-text influence are true.
+The independent inverse verifier receives a validated semantic program, a validated lexical binding table, their digests and subject scope, a grammar version, and untrusted text. It does not receive renderer alignments and does not call the forward renderer. It reconstructs operation order and type, claims, polarity, epistemic status, typed references, abstention reason, spans, and independently recomputed costs. Ambiguous, malformed, semantically altered, over-budget, stale, or scope-mismatched text fails closed.
 
-The production binary enables D1 explicitly. CLI chat, Telegram, all non-chat HTTP routes, `Runtime::chat()`, cognition, reranking, `VoiceEngine`, memory, beliefs, ontology, routing, tools, CHARGE, persistence, companion state, and `VoiceState` remain unchanged.
+The Render builder reruns the frozen L0-C regression, focused verifier-ready and inverse-verifier tests, and the all-nine-operation negative-control probe. The production executable continues to build with only `omega-v1-http-canary`; `independent-language-verifier` is absent from the runtime feature set.
 
-A D1 PASS authorizes only ΩV1-E, the independent language verifier. It does not authorize broader rewriting, learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, or autonomous action.
+An ΩV1-E PASS authorizes only ΩV1-F evaluation of an optional learned expression renderer behind the independent verifier. It does not authorize live learned rendering, automatic `VoiceState` mutation, belief or ontology changes, routing, tools, CHARGE discharge, persistence, companion-state authority, or autonomous action.
