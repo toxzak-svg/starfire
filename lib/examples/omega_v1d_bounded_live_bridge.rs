@@ -3,7 +3,7 @@ use serde::Serialize;
 use star::omega_v1_live_bridge::{
     authority_boundary, render_live_response, FallbackReason, LiveBridgeAuthorityBoundary,
     LiveBridgeDecision, LiveBridgeMode, ELIGIBLE_OPENER, MAX_OUTPUT_GROWTH_BYTES,
-    MAX_PROTECTED_BODY_BYTES, REPLACEMENT_OPENERS,
+    MAX_PROTECTED_BODY_BYTES, OPENER_STEM, REPLACEMENT_OPENERS,
 };
 
 #[derive(Debug, Serialize)]
@@ -16,9 +16,10 @@ struct OmegaV1dKernelReport {
     body_preservation_rate: f64,
     ineligible_passthrough_rate: f64,
     empty_body_passthrough: bool,
+    whitespace_only_passthrough: bool,
     oversized_body_passthrough: bool,
-    frozen_opener_table_only: bool,
-    maximum_output_growth_bytes: usize,
+    separator_only_table: bool,
+    replacement_table_max_growth_bytes: usize,
     authority_boundary: LiveBridgeAuthorityBoundary,
     no_runtime_influence: bool,
     gate_passed: bool,
@@ -38,6 +39,10 @@ fn body_preserved(decision: &LiveBridgeDecision) -> bool {
         && decision.rendered_text.strip_prefix(selected) == Some(neutral_body)
 }
 
+fn separator_only(opener: &str) -> bool {
+    matches!(opener.strip_prefix(OPENER_STEM), Some("\n") | Some("\n\n"))
+}
+
 fn main() -> Result<()> {
     let eligible = "Here for it. The protected semantic body stays exactly the same.";
     let applied = render_live_response(eligible);
@@ -48,11 +53,20 @@ fn main() -> Result<()> {
 
     let empty = render_live_response(ELIGIBLE_OPENER);
 
+    let whitespace_only_text = "Here for it.  \n\t";
+    let whitespace_only = render_live_response(whitespace_only_text);
+
     let oversized_body = "x".repeat(MAX_PROTECTED_BODY_BYTES + 1);
     let oversized_text = format!("{ELIGIBLE_OPENER}{oversized_body}");
     let oversized = render_live_response(&oversized_text);
 
-    let decisions = [&applied, &ineligible, &empty, &oversized];
+    let decisions = [
+        &applied,
+        &ineligible,
+        &empty,
+        &whitespace_only,
+        &oversized,
+    ];
     let applied_case_count = decisions
         .iter()
         .filter(|decision| decision.mode == LiveBridgeMode::Applied)
@@ -74,8 +88,8 @@ fn main() -> Result<()> {
             / applied_decisions.len() as f64
     };
 
-    let fallback_decisions = [&ineligible];
-    let ineligible_passthrough_rate = fallback_decisions
+    let ineligible_decisions = [&ineligible];
+    let ineligible_passthrough_rate = ineligible_decisions
         .iter()
         .filter(|decision| {
             decision.mode == LiveBridgeMode::NeutralFallback
@@ -83,23 +97,26 @@ fn main() -> Result<()> {
                 && decision.fallback_reason == Some(FallbackReason::IneligibleOpener)
         })
         .count() as f64
-        / fallback_decisions.len() as f64;
+        / ineligible_decisions.len() as f64;
 
     let exact_replay = applied == replay;
     let empty_body_passthrough = empty.mode == LiveBridgeMode::NeutralFallback
         && empty.rendered_text.as_bytes() == ELIGIBLE_OPENER.as_bytes()
         && empty.fallback_reason == Some(FallbackReason::EmptyProtectedBody);
+    let whitespace_only_passthrough = whitespace_only.mode == LiveBridgeMode::NeutralFallback
+        && whitespace_only.rendered_text.as_bytes() == whitespace_only_text.as_bytes()
+        && whitespace_only.fallback_reason == Some(FallbackReason::EmptyProtectedBody);
     let oversized_body_passthrough = oversized.mode == LiveBridgeMode::NeutralFallback
         && oversized.rendered_text.as_bytes() == oversized_text.as_bytes()
         && oversized.fallback_reason == Some(FallbackReason::ProtectedBodyTooLarge);
-    let frozen_opener_table_only = applied
-        .selected_opener
-        .as_deref()
-        .is_some_and(|selected| REPLACEMENT_OPENERS.contains(&selected));
-    let maximum_output_growth_bytes = applied
-        .rendered_text
-        .len()
-        .saturating_sub(applied.neutral_text.len());
+    let separator_only_table = REPLACEMENT_OPENERS
+        .iter()
+        .all(|opener| separator_only(opener));
+    let replacement_table_max_growth_bytes = REPLACEMENT_OPENERS
+        .iter()
+        .map(|opener| opener.len().saturating_sub(ELIGIBLE_OPENER.len()))
+        .max()
+        .unwrap_or(usize::MAX);
 
     let boundary = authority_boundary();
     let no_runtime_influence = !boundary.api_chat_wiring
@@ -116,16 +133,17 @@ fn main() -> Result<()> {
         && !boundary.charge_discharge_authority
         && !boundary.autonomous_action_authority;
 
-    let gate_passed = decisions.len() == 4
+    let gate_passed = decisions.len() == 5
         && applied_case_count == 1
-        && neutral_fallback_case_count == 3
+        && neutral_fallback_case_count == 4
         && exact_replay
         && body_preservation_rate == 1.0
         && ineligible_passthrough_rate == 1.0
         && empty_body_passthrough
+        && whitespace_only_passthrough
         && oversized_body_passthrough
-        && frozen_opener_table_only
-        && maximum_output_growth_bytes <= MAX_OUTPUT_GROWTH_BYTES
+        && separator_only_table
+        && replacement_table_max_growth_bytes == MAX_OUTPUT_GROWTH_BYTES
         && boundary.bounded_transform_available
         && no_runtime_influence;
 
@@ -138,9 +156,10 @@ fn main() -> Result<()> {
         body_preservation_rate,
         ineligible_passthrough_rate,
         empty_body_passthrough,
+        whitespace_only_passthrough,
         oversized_body_passthrough,
-        frozen_opener_table_only,
-        maximum_output_growth_bytes,
+        separator_only_table,
+        replacement_table_max_growth_bytes,
         authority_boundary: boundary,
         no_runtime_influence,
         gate_passed,
