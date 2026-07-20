@@ -7,7 +7,7 @@ use star::language_realization::{
 };
 use star::learned_expression::{
     authority_boundary, ExpressionLattice, GrammarV3Verifier, LearnedExpressionModel,
-    LearnedVoiceProjection, OfflineLearnedExpressionSelector, PairwisePreference, PreferredSide,
+    PairwisePreference, PreferredSide,
     SelectionDisposition, VariantProfile, MAX_BEAM_WIDTH, MAX_MODEL_BYTES,
     MAX_RESPONSE_CANDIDATES, MAX_TRAINABLE_PARAMETERS, MAX_VARIANTS_PER_OPERATION,
 };
@@ -19,6 +19,10 @@ use star::semantic_response::{
     ResponseProgramId, SemanticResponseIntent, SemanticResponseProgram,
     SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
     SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+};
+use star::omega_v1f1_projection_guard::{
+    GuardedOfflineLearnedExpressionSelector as OfflineLearnedExpressionSelector,
+    VerifiedVoiceProjection as LearnedVoiceProjection,
 };
 use star::verifier_ready_realization::VerifierReadyRenderer;
 use std::collections::{BTreeMap, BTreeSet};
