@@ -166,14 +166,14 @@ RUN cargo test -p star --lib --features independent-language-verifier --locked \
     && grep -F '"wrong_grammar_rejected": true' /tmp/omega-v1e-report.json \
     && grep -F '"authority_boundary_closed": true' /tmp/omega-v1e-report.json
 
-# ΩV1-F1 runs only as an offline builder gate. It trains and evaluates the
-# bounded closed-lattice ranker over all 122 frozen fixtures, then exits nonzero
-# unless every preregistered semantic, safety, control, and authority gate passes.
+# ΩV1-F1R1 remains the full offline learned-expression regression gate. It must
+# pass before the frozen model may be exported for the live F2 shadow worker.
 RUN cargo test -p star --lib --features omega-v1-learned-expression --locked \
         learned_expression:: -- --test-threads=1 \
     && cargo run -p star --example omega_v1f1_offline_evaluation \
         --features omega-v1-learned-expression --locked \
         | tee /tmp/omega-v1f1-report.json \
+    && grep -F '"experiment": "OMEGAV1F1R1_OFFLINE_LEARNED_SELECTOR"' /tmp/omega-v1f1-report.json \
     && grep -F '"gate_passed": true' /tmp/omega-v1f1-report.json \
     && grep -F '"fixture_count": 122' /tmp/omega-v1f1-report.json \
     && grep -F '"selected_candidate_verifier_acceptance": 1.0' /tmp/omega-v1f1-report.json \
@@ -188,9 +188,53 @@ RUN cargo test -p star --lib --features omega-v1-learned-expression --locked \
     && grep -F '"authority_boundary_closed": true' /tmp/omega-v1f1-report.json \
     && grep -F '"no_runtime_influence": true' /tmp/omega-v1f1-report.json
 
-# Build the exact executable Render runs with D1 explicitly enabled. ΩV1-E and
-# ΩV1-F1 stay builder-only and are deliberately absent from the production feature set.
-RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-http-canary
+# Export the exact deterministic F1R1 ranker from the same frozen 74-example
+# training split. The digest must match the model evaluated immediately above.
+RUN OMEGA_V1F2_MODEL_OUT=/tmp/omega_v1f1r1_model.json \
+        cargo run -p star --example omega_v1f1_model_export \
+        --features omega-v1-learned-expression --locked \
+        | tee /tmp/omega-v1f1-model-export.json \
+    && test -s /tmp/omega_v1f1r1_model.json \
+    && grep -F '"experiment": "OMEGAV1F1R1_MODEL_EXPORT"' /tmp/omega-v1f1-model-export.json \
+    && grep -F '"fixture_count": 122' /tmp/omega-v1f1-model-export.json \
+    && grep -F '"training_count": 74' /tmp/omega-v1f1-model-export.json \
+    && grep -F '"artifact_replay_exact": true' /tmp/omega-v1f1-model-export.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1f1-model-export.json \
+    && f1_digest="$(sed -n 's/.*"model_digest": \([0-9][0-9]*\).*/\1/p' /tmp/omega-v1f1-report.json | head -n 1)" \
+    && export_digest="$(sed -n 's/.*"model_digest": \([0-9][0-9]*\).*/\1/p' /tmp/omega-v1f1-model-export.json | head -n 1)" \
+    && test -n "$f1_digest" \
+    && test "$f1_digest" = "$export_digest"
+
+# ΩV1-F2 builder gate. It proves typed eligibility, exact response fingerprints,
+# deterministic nested verification, model corruption rejection, timeout/panic/
+# ledger isolation, and the closed authority matrix before the live binary exists.
+RUN cargo test -p star --lib --features omega-v1-f2-shadow --locked \
+        omega_v1f2_shadow:: -- --test-threads=1 \
+    && OMEGA_V1F2_MODEL_PATH=/tmp/omega_v1f1r1_model.json \
+        cargo run -p star --example omega_v1f2_shadow_probe \
+        --features omega-v1-f2-shadow --locked \
+        | tee /tmp/omega-v1f2-report.json \
+    && grep -F '"experiment": "OMEGAV1F2_LIVE_SHADOW_IMPLEMENTATION"' /tmp/omega-v1f2-report.json \
+    && grep -F '"model_loaded": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"model_bounds_passed": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"eligible_bundle_valid": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"learned_candidate_verified": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"deterministic_replay": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"response_bytes_preserved": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"stale_projection_fail_closed": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"missing_model_rejected": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"corrupt_model_rejected": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"oversized_model_rejected": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"timeout_isolated": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"panic_isolated": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"unavailable_ledger_isolated": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"authority_boundary_closed": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"no_runtime_response_influence": true' /tmp/omega-v1f2-report.json \
+    && grep -F '"gate_passed": true' /tmp/omega-v1f2-report.json
+
+# Build the exact executable Render runs with F2 compiled behind its explicit
+# runtime kill switch. STARFIRE_OMEGA_V1F2_SHADOW remains disabled by default.
+RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-f2-shadow
 
 FROM debian:bookworm-slim AS runtime
 
@@ -206,10 +250,12 @@ WORKDIR /home/starfire
 COPY --from=builder /build/target/release/star /usr/local/bin/star
 COPY --from=builder /build/IDENTITY.md /opt/starfire/assets/IDENTITY.md
 COPY --from=builder /build/models/ckpt_e28_b500.pt /opt/starfire/assets/models/ckpt_e28_b500.pt
+COPY --from=builder /tmp/omega_v1f1r1_model.json /opt/starfire/assets/models/omega_v1f1r1_model.json
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh \
     && chmod 0444 /opt/starfire/assets/IDENTITY.md \
     && chmod 0444 /opt/starfire/assets/models/ckpt_e28_b500.pt \
+    && chmod 0444 /opt/starfire/assets/models/omega_v1f1r1_model.json \
     && mkdir -p /data \
     && chown -R starfire:starfire /data
 
