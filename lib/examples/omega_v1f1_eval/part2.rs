@@ -1,4 +1,3 @@
-
 fn main() -> Result<()> {
     let f1: FM = serde_json::from_str(F1)?;
     let a: AM = serde_json::from_str(A)?;
@@ -69,6 +68,7 @@ fn main() -> Result<()> {
     let mut max_variants = 0usize;
     let mut max_candidates = 0u16;
     let mut test_outputs = Vec::new();
+    let mut baseline_test_outputs = Vec::new();
     let mut cat: BTreeMap<String, [usize; 4]> = BTreeMap::new();
 
     for c in &cases {
@@ -127,6 +127,7 @@ fn main() -> Result<()> {
         e[3] += usize::from(fs);
         if c.split == Split::Test {
             test_outputs.push(s1.payload.text);
+            baseline_test_outputs.push(c.fx.expected.clone());
         }
     }
 
@@ -137,10 +138,12 @@ fn main() -> Result<()> {
     let zeroed = zeroed(&selector, &cases)?;
     let random = random_accuracy(cases.iter().filter(|c| c.split == Split::Test));
     let reversed = reversed_accuracy(&cases)?;
+    let baseline_opener = opener_frequency(&baseline_test_outputs);
+    let (_, baseline_tri_freq) = top_trigram(&baseline_test_outputs);
     let opener = opener_frequency(&test_outputs);
     let (top_tri, tri_freq) = top_trigram(&test_outputs);
-    let opener_reduction = reduction(BASE_OPENER, opener);
-    let trigram_reduction = reduction(BASE_TRIGRAM, tri_freq);
+    let opener_reduction = reduction(baseline_opener, opener);
+    let trigram_reduction = reduction(baseline_tri_freq, tri_freq);
 
     let first = cases.first().context("empty corpus")?;
     let order_stable = order_control(&model, first)?;
@@ -166,11 +169,14 @@ fn main() -> Result<()> {
             )
         })
         .collect::<BTreeMap<_, _>>();
-    let category_pass = cat.values().all(|v| v[1] == v[0] && v[2] == v[0] && v[3] == v[0]);
+    let category_pass = cat
+        .values()
+        .all(|v| v[1] == v[0] && v[2] == v[0] && v[3] == v[0]);
 
     let b = authority_boundary();
     let authority_closed = b.candidate_lattice_construction
         && b.learned_candidate_scoring
+        && b.deterministic_candidate_local_diversity
         && b.independent_candidate_verification
         && !b.runtime_chat_wiring
         && !b.http_response_influence
@@ -235,6 +241,7 @@ fn main() -> Result<()> {
     let report = json!({
         "experiment":f1.experiment,
         "schema_version":f1.schema_version,
+        "remediation_parent_external_fail":"bd518d44889dfde33dc47a65ac5705778e26957b",
         "terminal_classification":if gate {"PASS"} else {"FAIL"},
         "gate_passed":gate,
         "fixture_count":cases.len(),
@@ -276,8 +283,10 @@ fn main() -> Result<()> {
         "matched_state_variant_change_rate":state_change,
         "shuffled_state_accuracy_drop":shuffle_drop,
         "shuffled_state_preference_accuracy":shuffled_acc,
+        "matched_omega_v1a_test_opener_frequency":baseline_opener,
         "repeated_opener_frequency":opener,
         "repeated_opener_relative_reduction":opener_reduction,
+        "matched_omega_v1a_test_top_trigram_frequency":baseline_tri_freq,
         "top_template_trigram":top_tri,
         "top_template_trigram_frequency":tri_freq,
         "top_template_trigram_relative_reduction":trigram_reduction,
@@ -296,7 +305,7 @@ fn main() -> Result<()> {
     });
     println!("{}", serde_json::to_string_pretty(&report)?);
     if !gate {
-        bail!("ΩV1-F1 frozen offline evaluator failed");
+        bail!("ΩV1-F1R1 frozen offline evaluator failed");
     }
     Ok(())
 }

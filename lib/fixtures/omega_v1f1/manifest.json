@@ -1,7 +1,17 @@
 {
-  "schema_version": 1,
-  "experiment": "OMEGAV1F1_OFFLINE_LEARNED_SELECTOR",
+  "schema_version": 2,
+  "experiment": "OMEGAV1F1R1_OFFLINE_LEARNED_SELECTOR",
   "source_corpus": "OMEGAV1A_VOICE_BASELINE",
+  "remediation": {
+    "parent_external_fail_source": "bd518d44889dfde33dc47a65ac5705778e26957b",
+    "observed_failure": "top-template trigram collapse on mandatory epistemic surface",
+    "original_top_template_trigram": "is possible that",
+    "original_top_template_trigram_frequency": 0.8333333333333334,
+    "original_top_template_trigram_relative_reduction": 0.0,
+    "metric_correction": "compare learned test outputs with the same 24 frozen Omega V1-A test fixtures",
+    "candidate_boundary": "three direct and three warm committed surfaces per operation; learned family plus deterministic candidate-local phase",
+    "interpretation_limit": "remediation mechanics only; the previously observed test set is no longer an untouched human-quality holdout"
+  },
   "split": {
     "modulus": 5,
     "test_remainder": 0,
@@ -18,9 +28,9 @@
     }
   },
   "preference_evidence": {
-    "schema_version": 1,
-    "left_candidate_id": "all-direct-v1",
-    "right_candidate_id": "all-warm-v2",
+    "schema_version": 2,
+    "left_candidate_id": "direct-family-v1",
+    "right_candidate_id": "warm-family-v1",
     "evidence_source": "reviewed_project_voice_guidance",
     "reviewer": "omega-v1a-frozen-profile-guidance-v1",
     "profile_preferences": {

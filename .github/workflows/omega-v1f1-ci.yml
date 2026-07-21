@@ -1,4 +1,4 @@
-name: Omega V1-F1 Offline Learned Selector CI
+name: Omega V1-F1R1 Template Remediation CI
 
 on:
   pull_request:
@@ -15,6 +15,8 @@ on:
       - "Dockerfile"
       - "docs/experiments/OMEGAV1F0_LEARNED_EXPRESSION_RENDERER_PREREGISTRATION.md"
       - "docs/experiments/OMEGAV1F1_RESULT_TEMPLATE.md"
+      - "docs/experiments/OMEGAV1F1_EXTERNAL_FAIL_2026-07-20.md"
+      - "docs/experiments/OMEGAV1F1R1_TEMPLATE_REMEDIATION_PREREGISTRATION.md"
       - ".github/workflows/omega-v1f1-ci.yml"
   workflow_dispatch:
 
@@ -22,7 +24,7 @@ permissions:
   contents: read
 
 jobs:
-  omega-v1f1-offline-selector:
+  omega-v1f1r1-offline-selector:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -60,9 +62,9 @@ jobs:
               --message-format=short
             cargo clippy -p star --example omega_v1f1_offline_evaluation \
               --features omega-v1-learned-expression --locked --message-format=short
-          } 2>&1 | tee omega-v1f1-clippy.log
-          if grep -E 'lib/learned_expression/|lib/omega_v1f1_projection_guard|lib/examples/omega_v1f1' omega-v1f1-clippy.log; then
-            echo "Omega V1-F1 scoped Clippy finding detected"
+          } 2>&1 | tee omega-v1f1r1-clippy.log
+          if grep -E 'lib/learned_expression/|lib/omega_v1f1_projection_guard|lib/examples/omega_v1f1' omega-v1f1r1-clippy.log; then
+            echo "Omega V1-F1R1 scoped Clippy finding detected"
             exit 1
           fi
 
@@ -73,26 +75,28 @@ jobs:
           cargo test -p star --lib --features omega-v1-learned-expression --locked \
             omega_v1f1_projection_guard:: -- --test-threads=1
 
-      - name: Run frozen corpus evaluation
+      - name: Run frozen remediation evaluation
         run: |
           set -o pipefail
           cargo run -p star --example omega_v1f1_offline_evaluation \
             --features omega-v1-learned-expression --locked \
-            | tee omega-v1f1-report.json
-          grep -F '"gate_passed": true' omega-v1f1-report.json
-          grep -F '"fixture_count": 122' omega-v1f1-report.json
-          grep -F '"stale_digest_and_scope_suite_passed": true' omega-v1f1-report.json
-          grep -F '"exact_neutral_fallback_rate": 1.0' omega-v1f1-report.json
-          grep -F '"authority_boundary_closed": true' omega-v1f1-report.json
-          grep -F '"no_runtime_influence": true' omega-v1f1-report.json
+            | tee omega-v1f1r1-report.json
+          grep -F '"experiment": "OMEGAV1F1R1_OFFLINE_LEARNED_SELECTOR"' omega-v1f1r1-report.json
+          grep -F '"remediation_parent_external_fail": "bd518d44889dfde33dc47a65ac5705778e26957b"' omega-v1f1r1-report.json
+          grep -F '"gate_passed": true' omega-v1f1r1-report.json
+          grep -F '"fixture_count": 122' omega-v1f1r1-report.json
+          grep -F '"stale_digest_and_scope_suite_passed": true' omega-v1f1r1-report.json
+          grep -F '"exact_neutral_fallback_rate": 1.0' omega-v1f1r1-report.json
+          grep -F '"authority_boundary_closed": true' omega-v1f1r1-report.json
+          grep -F '"no_runtime_influence": true' omega-v1f1r1-report.json
 
       - name: Preserve reports and lint output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: omega-v1f1-offline-selector-ci
+          name: omega-v1f1r1-template-remediation-ci
           path: |
-            omega-v1f1-report.json
-            omega-v1f1-clippy.log
+            omega-v1f1r1-report.json
+            omega-v1f1r1-clippy.log
           if-no-files-found: ignore
           retention-days: 30

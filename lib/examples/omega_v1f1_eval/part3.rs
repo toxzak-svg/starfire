@@ -1,18 +1,17 @@
-
 fn validate_headers(f: &FM) -> Result<()> {
-    if f.schema_version != 1
-        || f.experiment != "OMEGAV1F1_OFFLINE_LEARNED_SELECTOR"
+    if f.schema_version != 2
+        || f.experiment != "OMEGAV1F1R1_OFFLINE_LEARNED_SELECTOR"
         || f.source_corpus != "OMEGAV1A_VOICE_BASELINE"
-        || f.preference_evidence.schema_version != 1
-        || f.preference_evidence.left_candidate_id != "all-direct-v1"
-        || f.preference_evidence.right_candidate_id != "all-warm-v2"
+        || f.preference_evidence.schema_version != 2
+        || f.preference_evidence.left_candidate_id != "direct-family-v1"
+        || f.preference_evidence.right_candidate_id != "warm-family-v1"
         || f.preference_evidence.evidence_source != "reviewed_project_voice_guidance"
         || f.preference_evidence.reviewer.is_empty()
         || f.split.modulus != 5
         || f.split.test_remainder != 0
         || f.split.validation_remainder != 4
     {
-        bail!("frozen F1 manifest drift");
+        bail!("frozen F1R1 manifest drift");
     }
     Ok(())
 }
@@ -116,7 +115,7 @@ fn projection(p: &Proj, id: &str, pref: Pref, n: u16) -> Result<LearnedVoiceProj
         v[5],
         v[6],
         format!(
-            "omega-v1f1-projection-v1:{id}:{}:{:016x}",
+            "omega-v1f1r1-projection-v1:{id}:{}:{:016x}",
             if pref == Pref::Direct { "direct" } else { "warm" },
             hash(&v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>())
         ),
@@ -134,7 +133,10 @@ fn exact_projection(p: &Proj, id: &str, pref: Pref) -> Result<LearnedVoiceProjec
         v[4],
         v[5],
         v[6],
-        format!("omega-v1f1-exact:{id}:{}", if pref == Pref::Direct {"direct"} else {"warm"}),
+        format!(
+            "omega-v1f1r1-exact:{id}:{}",
+            if pref == Pref::Direct { "direct" } else { "warm" }
+        ),
     )
     .map_err(Into::into)
 }
