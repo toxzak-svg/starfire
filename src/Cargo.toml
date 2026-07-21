@@ -46,6 +46,15 @@ path = "bin/parser_test.rs"
 name = "bench_train"
 path = "bin/bench_train.rs"
 
+[features]
+default = []
+omega-v1-http-canary = ["star/omega-v1-http-canary"]
+# Retained for explicit legacy proxy testing only.
+omega-v1-f2-shadow = ["star/omega-v1-f2-shadow"]
+# Production enables the library's F2 observer but intentionally does not enable
+# the binary crate's legacy HTTP proxy cfg. Runtime::chat remains the text authority.
+starfire-live = ["star/omega-v1-f2-shadow"]
+
 [dependencies]
 star = { path = "../lib" }
 rusqlite.workspace = true

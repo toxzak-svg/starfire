@@ -1,0 +1,24 @@
+# Render deployment refresh: 2026-07-19
+services:
+  - type: web
+    name: starfire
+    runtime: docker
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: STARFIRE_DATA
+        value: /data
+      - key: STARFIRE_LOG
+        value: info
+    buildFilter:
+      paths:
+        - Cargo.toml
+        - Cargo.lock
+        - Dockerfile
+        - entrypoint.sh
+        - render.yaml
+        - lib/**
+        - src/**

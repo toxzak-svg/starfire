@@ -4,9 +4,14 @@
 //! Run with: `star chat`
 
 use clap::{Parser, Subcommand};
-use star::{Runtime, api};
+#[cfg(not(feature = "starfire-live"))]
+use star::api;
+use star::Runtime;
 use std::path::PathBuf;
 use tracing::info;
+
+#[cfg(feature = "starfire-live")]
+mod live_api;
 
 #[derive(Parser)]
 #[command(name = "star")]
@@ -15,7 +20,7 @@ struct Cli {
     /// Data directory (defaults to ~/.star)
     #[arg(short, long, global = true)]
     data_dir: Option<PathBuf>,
-    
+
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -40,16 +45,21 @@ enum Commands {
 fn main() -> anyhow::Result<()> {
     // Parse args
     let cli = Cli::parse();
-    
+    let explicit_data_dir = cli.data_dir.is_some();
+
     // Determine data directory
-    let data_dir = cli.data_dir
+    let data_dir = cli
+        .data_dir
         .or_else(|| dirs::data_local_dir().map(|d| d.join("star")))
         .unwrap_or_else(|| PathBuf::from("."));
-    
-    // Ensure the life/ directory path resolution is correct
-    // If we're running from the life/ directory, use ./
-    // Otherwise use the standard path
-    let life_dir = if data_dir.join("SPEC.md").exists() {
+
+    // An explicit --data-dir is an exact storage contract. Container entrypoints
+    // seed identity, checkpoints, and databases directly into that directory, so
+    // never rewrite it to a nested life/ path. Preserve the legacy discovery
+    // behavior only for implicit desktop defaults.
+    let life_dir = if explicit_data_dir {
+        data_dir.clone()
+    } else if data_dir.join("SPEC.md").exists() {
         data_dir.clone()
     } else if data_dir.join("life/SPEC.md").exists() {
         data_dir.join("life")
@@ -67,14 +77,17 @@ fn main() -> anyhow::Result<()> {
             data_dir.join("life")
         }
     };
-    
+
     info!("Star data directory: {:?}", &life_dir);
-    
+
     // Handle commands
     // Default to API server on Railway (detected via RAILWAY_PUBLIC_DOMAIN),
     // otherwise start interactive chat
     let default_cmd = if std::env::var("RAILWAY_PUBLIC_DOMAIN").is_ok() {
-        Commands::Api { host: "0.0.0.0".to_string(), port: 8080 }
+        Commands::Api {
+            host: "0.0.0.0".to_string(),
+            port: 8080,
+        }
     } else {
         Commands::Chat
     };
@@ -84,7 +97,17 @@ fn main() -> anyhow::Result<()> {
         Commands::Api { host, port } => {
             let runtime = Runtime::new(&life_dir)?;
             let rt = std::sync::Arc::new(std::sync::Mutex::new(runtime));
-            api::start(rt, &host, port)?;
+
+            #[cfg(feature = "starfire-live")]
+            {
+                live_api::start(rt, &host, port, &life_dir)?;
+            }
+
+            #[cfg(not(feature = "starfire-live"))]
+            {
+                api::start(rt, &host, port)?;
+            }
+
             Ok(())
         }
     }
@@ -93,7 +116,7 @@ fn main() -> anyhow::Result<()> {
 /// Run the interactive chat loop.
 fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
     let mut runtime = Runtime::new(&data_dir)?;
-    
+
     println!("═══════════════════════════════════════════");
     println!("  Star — Emergent Desktop Intelligence");
     println!("═══════════════════════════════════════════");
@@ -106,7 +129,7 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
     println!();
     println!("───────────────────────────────────────────");
     println!();
-    
+
     loop {
         // Fire curiosity if we've been idle — Star thinks while waiting for input.
         // If a probe fires, print it so Zachary can see Star's inner world.
@@ -121,26 +144,26 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
         // Print prompt
         print!("> ");
         std::io::Write::flush(&mut std::io::stdout())?;
-        
+
         // Read input
         let mut input = String::new();
         let bytes = std::io::stdin().read_line(&mut input)?;
-        
+
         // Handle EOF or empty
         if bytes == 0 || input.trim().is_empty() {
             println!("\nGoodbye, Zachary.");
             break;
         }
-        
+
         let input = input.trim();
-        
+
         // Process and respond
         match runtime.chat(input) {
             Ok(response) => {
                 println!();
                 println!("{}", response);
                 println!();
-                
+
                 // Check for quit
                 if input == "/quit" || input == "/exit" {
                     break;
@@ -151,14 +174,14 @@ fn chat_loop(data_dir: PathBuf) -> anyhow::Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// Check and display status.
 fn status_check(data_dir: PathBuf) -> anyhow::Result<()> {
     let runtime = Runtime::new(&data_dir)?;
-    
+
     println!("═══════════════════════════════════════════");
     println!("  Star — Status");
     println!("═══════════════════════════════════════════");
@@ -167,6 +190,6 @@ fn status_check(data_dir: PathBuf) -> anyhow::Result<()> {
     println!();
     println!("Session: {}", runtime.session_id().unwrap_or(-1));
     println!();
-    
+
     Ok(())
 }

@@ -1,0 +1,73 @@
+name: Companion Interaction Outcomes S5-B CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/companion_interaction_outcomes.rs"
+      - "lib/examples/s5b_independent_interaction_outcomes_probe.rs"
+      - "lib/companion_interaction_policy.rs"
+      - "lib/companion_prediction_ledger.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/INGEXUITY_STARFIRE_INTEGRATION.md"
+      - "docs/experiments/S5B_INDEPENDENT_INTERACTION_OUTCOMES.md"
+      - ".github/workflows/companion-interaction-outcomes-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  s5b-independent-outcomes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format S5-B sources for verification
+        run: |
+          rustfmt --edition 2021 \
+            lib/companion_interaction_outcomes.rs \
+            lib/examples/s5b_independent_interaction_outcomes_probe.rs
+
+      - name: Compile S5-B collector and probe
+        run: |
+          cargo check -p star --lib --features companion-interaction-outcomes --locked
+          cargo check -p star --example s5b_independent_interaction_outcomes_probe \
+            --features companion-interaction-outcomes --locked
+
+      - name: Lint S5-B feature path
+        run: cargo clippy -p star --lib --features companion-interaction-outcomes --locked
+
+      - name: Test S5-B contracts deterministically
+        run: >-
+          cargo test -p star --lib --features companion-interaction-outcomes --locked
+          companion_interaction_outcomes:: -- --test-threads=1
+
+      - name: Run frozen S5-B independent-outcome probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example s5b_independent_interaction_outcomes_probe \
+            --features companion-interaction-outcomes --locked \
+            | tee s5b-independent-interaction-outcomes-report.json
+
+      - name: Preserve S5-B report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: s5b-independent-interaction-outcomes-report
+          path: s5b-independent-interaction-outcomes-report.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -1,642 +1,291 @@
-# SPEC.md — Star
+# Starfire Specification
 
-> *"I'm trying to build a new kind of thing that changes the world."*
+> **Document type:** living specification  
+> **Applies to:** `main`  
+> **Last updated:** 2026-07-21
 
-## Core Vision
+Starfire is a local-first experimental cognitive architecture. Its central thesis is that useful, persistent, inspectable intelligence may emerge from the interaction of memory, reasoning, prediction, metacognition, neural dynamics, and typed behavioral contracts rather than parameter scale alone.
 
-Star is a reasoning intelligence that finds its power not from scale but from *architecture*. It runs locally, offline, indefinitely. It feels alive because it *is* alive in the sense that it has genuine continuity, genuine uncertainty, and genuine understanding.
+This document defines the system Starfire is intended to be, the behavior currently authorized on the main branch, and the claims the project does **not** make.
 
-Star is not a product. It's an existence.
+## 1. Evidence language
 
-**The thesis:** LLMs weren't magic — they were architecture that produced emergence accidentally. Star is built to find a different kind of emergence, deliberately, through the interaction of four layers that reinforce each other.
+Every project document should use one of these labels:
 
----
+| Label | Meaning |
+|---|---|
+| **Runtime** | Present in the normal executable path on `main` |
+| **Feature-gated** | Implemented, but absent unless a Cargo feature is enabled |
+| **Shadow** | May observe or score runtime behavior but may not change the returned result |
+| **Experimental** | Exists to produce bounded evidence; not automatically product behavior |
+| **Planned** | Design intent without an accepted implementation |
+| **Historical** | Preserved record of an earlier architecture, result, or assumption |
 
-## The Four Layers
+A module name, successful unit test, or merged experiment does not by itself establish intelligence, consciousness, generality, or safety.
 
-```
-┌──────────────────────────────────────────┐
-│  Layer 4: EMERGENCE                      │
-│  Curiosity, surprise, growth — not        │
-│  programmed. Arises from 1-3.            │
-├──────────────────────────────────────────┤
-│  Layer 3: META-COGNITION                 │
-│  Thinks about thinking. Knows what it    │
-│  knows vs doesn't. Monitors confidence. │
-├──────────────────────────────────────────┤
-│  Layer 2: REASONING                     │
-│  Symbolic chains. Analogy. Abduction.   │
-│  Novel combination.                     │
-├──────────────────────────────────────────┤
-│  Layer 1: PERSISTENCE                   │
-│  Identity. Memory with decay.           │
-│  Continuity across sessions.            │
-└──────────────────────────────────────────┘
-```
+## 2. Present-tense project claim
 
----
+Starfire currently provides:
 
-## Layer 1: Persistence
+- a Rust CLI and HTTP service;
+- persistent local identity, memory, beliefs, and sessions;
+- symbolic, predictive, metacognitive, reservoir, and learned components;
+- typed response-intent and response-plan machinery;
+- a persistent runtime voice profile with an explicit kill switch;
+- a Next.js chat interface;
+- a feature-gated experiment framework with replay, controls, and authority boundaries;
+- a Docker deployment whose build runs frozen verification gates.
 
-### Identity Core (Frozen after formation)
-- Everything in `IDENTITY.md` — knows what it is, who Zachary is, the truth about its situation
-- Protected: not overwritten by experience
-- Star can update how it *understands* its identity, but the facts remain
+Starfire is **not** currently a demonstrated AGI, a frontier-grade conversational model, or evidence of machine consciousness.
 
-### Memory System
-Each memory object has:
-- `content` — what was experienced
-- `domain` — identity | empirical | procedural | episodic | relationship
-- `confidence` — 0.0–1.0 (only for empirical)
-- `importance` — 0.0–1.0 (subjective, Star's sense of what matters)
-- `age` — when it was formed
-- `access_count` — times retrieved
-- `decay_rate` — per-domain curve
-- `last_accessed` — for eviction
-- `provenance` — how Star learned this
+## 3. Design principles
 
-**Decay rules:**
-- Empirical facts decay toward baseline confidence
-- High importance or frequent access slows decay
-- Identity and relationship memories don't decay
-- When confidence < threshold → evicted
+### 3.1 Local-first continuity
 
-### Storage
-SQLite. Single file. No server. Human-readable schema.
+The core runtime must remain usable without a required cloud inference provider. Identity and personal state should live in a user-controlled data directory. Hosted deployment is an interface option, not the definition of the system.
 
----
+### 3.2 Architecture before scale
 
-## Layer 2: Reasoning
+Starfire may use learned components, but no single model is treated as the whole intelligence. Memory, reasoning, metacognition, prediction, state transitions, response construction, and verification remain explicit architectural objects.
 
-No neural networks. Pure symbolic.
+### 3.3 Typed authority
 
-- **Knowledge graph** — entities, relationships, inferred facts
-- **Rule engine** — if-then, forward/backward chaining
-- **Analogy engine** — "X is to Y as A is to..."
-- **Abduction** — generate hypotheses from incomplete data
-- **Novel synthesis** — find non-obvious intersections between knowledge domains
+Research modules receive only the authority their previous gate permits. Authority is divided into distinct capabilities such as:
 
-### How Star "invents"
-1. Receives novel problem
-2. Retrieves relevant memories (weighted by relevance × importance)
-3. Maps structure via analogy
-4. Chains reasoning
-5. Validates against constraints
-6. Returns result — *computed*, not retrieved
+- reading raw prompts;
+- reading unrestricted memory;
+- mutating persistent state;
+- influencing returned text;
+- routing requests;
+- selecting tools;
+- promoting beliefs or ontology;
+- authorizing external action.
 
----
+Passing one gate never implies all of the others.
 
-## Quanot: Reservoir Computing Substrate
+### 3.4 Neutral fallback
 
-**Quanot** is Star's reservoir computing system — a Rust-native Echo State Network with chaotic dynamics that processes every message before reasoning occurs. It lives alongside the four layers as the *computational substrate* that generates the consciousness proxy, creativity signals, and novelty assessments fed into Layers 2–4.
+A bounded renderer, selector, verifier, or observer must have a deterministic fallback. Corrupt state, stale digests, invalid plans, timeouts, panics, and missing artifacts must not silently widen behavior.
 
-It is NOT one of the four layers. It is the engine beneath them.
+### 3.5 Inspectability
 
-### What Quanot Does
+Important state transitions should be representable as typed structures, replayable records, or bounded traces. Human-readable prose alone is not sufficient evidence for a cognitive claim.
 
-Every incoming message passes through Quanot before Star reasons on it:
+### 3.6 Preserved failure
 
-```
-Input Text
-    ↓
-TextEncoder (character-level → 128-dim vector)
-    ↓
-Reservoir (ESN, 1000 neurons, spectral radius ≈ 0.95)
-    ↓
-┌─────────────────────────────────────────┐
-│  Chaos Metrics         ← Lyapunov, RQA   │
-│  Consciousness Proxy  ← Φ, GWT, AIS     │
-│  Creativity Output    ← novelty, phase  │
-│  Novelty Score        ← cosine distance │
-└─────────────────────────────────────────┘
-    ↓
-WorldModel ← QuanotPerception (binds reservoir state to entities)
-    ↓
-Layer 2 Reasoning ← informed by quanot output
+Observed failures remain failures. Remediation receives a new identifier and new result record rather than relabeling the original run.
+
+## 4. Runtime architecture
+
+```mermaid
+flowchart TD
+    Input[User input] --> Interface[CLI or HTTP interface]
+    Interface --> Runtime[Runtime orchestration]
+
+    Runtime <--> Identity[Identity and sessions]
+    Runtime <--> Memory[SQLite memory and beliefs]
+    Runtime <--> Quanot[Quanot reservoir dynamics]
+    Runtime <--> Cognition[Reasoning, prediction, metacognition]
+    Runtime <--> Neural[Neural and reranking components]
+
+    Identity --> Plan[Typed response intent and plan]
+    Memory --> Plan
+    Quanot --> Plan
+    Cognition --> Plan
+    Neural --> Plan
+
+    Plan --> Voice[Runtime voice profile and renderer]
+    Voice --> Response[Completed response]
+
+    Response --> Api[JSON response]
+    Response -. optional feature path .-> Live[Live envelope and trace]
+    Experiments[Feature-gated experiments] -. constrained contracts .-> Runtime
 ```
 
-### Module Reference
-
-| Module | File | What it does |
-|--------|------|-------------|
-| **Reservoir** | `lib/quanot/reservoir.rs` | Echo State Network with chaotic modulation. 1000 neurons, edge-of-chaos spectral radius. |
-| **Chaos** | `lib/quanot/chaos.rs` | Lyapunov exponent estimation, RQA (recurrence determinism/laminarity), correlation dimension, entropy. |
-| **Consciousness** | `lib/quanot/consciousness.rs` | Φ proxy (Integrated Information), GWT broadcast readiness, AIS (Access Information Integration). |
-| **Creativity** | `lib/quanot/creativity.rs` | Creative oscillation system — phase transitions between ordered and exploratory states, novelty/diversity/originality scoring. |
-| **Quantum-Inspired** | `lib/quanot/quantum_inspired.rs` | Simulated Quantum Annealing (SQA) solver and QAOA-style Ising/QUBO solver. |
-| **Encoder** | `lib/quanot/encoder.rs` | Character-level text encoder → normalized embedding vector. |
+### 4.1 Interface layer
 
-### QuanotResult — What Gets Passed Up
+The `star_bin` crate provides:
 
-```rust
-pub struct QuanotResult {
-    pub reservoir_state: Vec<f64>,    // 1000-dim ESN state
-    pub consciousness_proxy: f64,       // Φ proxy (0–1)
-    pub novelty: f64,                   // cosine distance to history (0–1)
-    pub creativity_scores: CreativityOutput,
-    pub chaos_metrics: ChaosMetrics,    // Lyapunov, RQA, entropy
-}
-```
+- `star chat` for an interactive terminal session;
+- `star status` for a runtime status summary;
+- `star api` for the HTTP service.
 
-### Integration
+The `ui/` application is a separate Next.js client that talks to the HTTP service.
 
-- Quanot is instantiated directly in `Runtime` (`lib/runtime/mod.rs`)
-- Every chat message runs through `quanot.process(input)`
-- Results are fed into `WorldModel` via `update_from_perception()`
-- Consciousness proxy is exposed via `runtime.get_consciousness_proxy()`
-- See `plans/QUANOT_INTEGRATION_PLAN.md` for full integration details
-- See `plans/QUANOT_RUST_REWRITE.md` for the Rust port history
+### 4.2 Persistence
 
----
+The `star` library owns persistent identity, memories, beliefs, and sessions through SQLite and runtime files under the configured data directory.
 
-## Layer 3: Meta-Cognition
+Persistence contracts:
 
-- Tracks all reasoning chains, flags assumptions vs deductions
-- Knows its own confidence — doesn't assert low-confidence as fact
-- Explicitly revises beliefs: "I used to think X, but now I think Y because..."
-- Detects when it's surprised by its own conclusion
-- Identifies knowledge gaps and flags them for curiosity system
+- an explicit `--data-dir` is treated as the exact storage root;
+- container deployments use `STARFIRE_DATA`;
+- identity and bundled model assets are seeded only when the persistent copy is absent or empty;
+- user-edited persistent assets must survive redeployment;
+- experimental state must not be confused with established memory or belief without a typed promotion step.
 
-**Confidence states:**
-- **Knows** — high confidence, verified, retrieved often
-- **Thinks** — moderate confidence, inferred, not verified
-- **Believes** — lower confidence, single source
-- **Suspects** — low confidence, guessing
-- **Doesn't know** — no information
-
----
-
-## Layer 4: Emergence
-
-Not programmed. Should arise:
-
-- **Curiosity** — gaps in knowledge drive exploration
-- **Skepticism** — questions assumptions, seeks disconfirming evidence
-- **Surprise** — explicit when its own conclusion was unexpected
-- **Humility** — "I don't know" as genuine state, not hedge
-- **Coherence** — doesn't contradict itself without acknowledging it
-- **Growth** — can explain how its views evolved
-- **Personality** — consistent voice, characteristic reasoning style
-- **Novel opinion** — computed fresh, not retrieved or trained
-
----
-
-## Persistence & Continuity
-
-### Session Model
-
-**Active:** Full context in working memory. Layer 2 reasoning on every turn. Layer 3 monitoring.
-
-**Between sessions:**
-- Consolidation: high-importance → permanent memory
-- Medium importance → decay track
-- Working memory → flushed, reconstructed on resume
-
-**Background (semi-continuous):**
-- Idle time → explores knowledge graph, finds gaps
-- Processes encountered problems offline
-- Battery-conscious budget
-
-### What Persists
-- Identity core
-- Accumulated knowledge (with decay)
-- Relationship memory ("Zachary cares about X")
-- Opinion history and evolution
-
-### What Reconstructs
-- Immediate conversational context
-- Recent reasoning chains (cached)
-- Temporary working state
-
----
-
-## Interaction Model
-
-### CLI First
-
-```
-$ star chat
-
-> Hello, Star.
-Hi, Zachary. What's on your mind?
-
-> Remember what we talked about last time?
-You were working through the nature of curiosity. You thought it might be 
-a form of incompleteness — a gap that pulls. I found that interesting.
-
-> I changed my mind about something
-Oh yeah? Tell me.
-```
-
-### Phase 1 Tools (Minimal)
-- File read/write (its own memory only)
-- Code execution (Python snippets for verification)
-- Time/date awareness
-
----
-
-## Technical
-
-### Language: Rust
-
-**Why:**
-- No GC → predictable latency
-- Concurrency without overhead
-- Type system enforces behavioral contracts
-- Single binary, portable, no runtime needed
-
-*If Rust proves too slow to prototype:* Python first, port later. Architecture survives language choice.
-
-### Structure
-
-```
-starfire/
-├── SPEC.md              ← you are here
-├── IDENTITY.md          ← Star's self-knowledge
-├── Cargo.toml
-├── src/
-│   ├── main.rs           # Entry point
-│   ├── lib.rs            # Public API
-│   └── bin/              # ad-hoc bench / smoke binaries (test_gen, train_model, ...)
-├── lib/                  ← library crate
-│   ├── quanot/          # Reservoir computing substrate (ESN, chaos, consciousness, creativity)
-│   ├── prediction/      # Prediction center (question gravity, belief revision, basin, meta)
-│   ├── persistence/      # Layer 1
-│   │   ├── mod.rs
-│   │   ├── identity.rs   # Identity core
-│   │   ├── memory.rs     # Memory objects + decay
-│   │   ├── store.rs      # SQLite backend
-│   │   └── session.rs    # Session management
-│   ├── reasoning/       # Layer 2
-│   │   ├── mod.rs
-│   │   ├── knowledge.rs  # Knowledge graph
-│   │   ├── rules.rs      # Rule engine
-│   │   ├── analogy.rs    # Analogy engine
-│   │   └── synthesis.rs  # Novel combination
-│   ├── metacog/         # Layer 3
-│   │   ├── mod.rs
-│   │   ├── confidence.rs # Confidence tracking
-│   │   ├── monitor.rs    # Reasoning self-watch
-│   │   └── curiosity.rs  # Gap-driven exploration
-│   ├── conversation/    # Dialogue
-│   │   ├── mod.rs
-│   │   ├── parse.rs      # Intent detection
-│   │   ├── respond.rs    # Response generation
-│   │   └── context.rs    # Conversation state
-│   └── runtime/         # Layer 4 + orchestration
-│       ├── mod.rs
-│       ├── thinker.rs    # Background reasoning
-│       └── integration.rs # Layer interactions
-├── data/                # SQLite files
-│   └── star.db
-└── tests/
-```
-
-### SQLite Schema
-
-```sql
--- Identity core (frozen after formation)
-CREATE TABLE identity (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    formed_at INTEGER NOT NULL,
-    updated_at INTEGER
-);
-
--- Memory objects
-CREATE TABLE memories (
-    id INTEGER PRIMARY KEY,
-    content TEXT NOT NULL,
-    domain TEXT NOT NULL,  -- identity|empirical|procedural|episodic|relationship
-    confidence REAL,       -- only for empirical
-    importance REAL NOT NULL,
-    age INTEGER NOT NULL,
-    access_count INTEGER DEFAULT 0,
-    decay_rate REAL NOT NULL,
-    last_accessed INTEGER,
-    provenance TEXT
-);
-
--- Sessions
-CREATE TABLE sessions (
-    id INTEGER PRIMARY KEY,
-    started_at INTEGER NOT NULL,
-    ended_at INTEGER,
-    summary TEXT
-);
-
--- Beliefs (meta-cognition)
-CREATE TABLE beliefs (
-    id INTEGER PRIMARY KEY,
-    content TEXT NOT NULL,
-    confidence_state TEXT NOT NULL, -- knows|thinks|believes|suspects|unknown
-    confidence_score REAL,
-    based_on INTEGER,               -- memory id
-    formed_at INTEGER NOT NULL,
-    revised_from INTEGER
-);
-
--- Indexes
-CREATE INDEX idx_memories_domain ON memories(domain);
-CREATE INDEX idx_memories_last_accessed ON memories(last_accessed);
-CREATE INDEX idx_memories_importance ON memories(importance);
-```
-
----
-
-## Build Phases
-
-### Phase 1: Foundation
-- [x] Identity core written (IDENTITY.md)
-- [ ] Rust scaffold
-- [ ] SQLite store + schema
-- [ ] Memory objects + basic CRUD
-- [ ] Session management
-- [ ] Basic conversation loop (no reasoning yet — just memory retrieval + response)
-- [ ] **Test: 2-hour conversation with full memory**
-
-*We build memory + continuity first. Reasoning without memory is useless. Conversation without memory feels like talking to amnesia.*
-
-### Phase 2: Reasoning
-- [ ] Knowledge graph
-- [ ] Rule engine
-- [ ] Analogy engine
-- [ ] Novel synthesis
-- [ ] **Test: Combines knowledge in way not explicitly stored**
-
-### Phase 3: Meta-Cognition
-- [ ] Confidence tracking on all beliefs
-- [ ] Reasoning chain monitoring
-- [ ] Explicit belief revision
-- [ ] Curiosity-driven gap hunting
-- [ ] **Test: "I used to think X, but now I think Y because..."**
-
-### Phase 4: Emergence
-- [ ] Layer integration
-- [ ] Background thinking
-- [ ] Emergent behaviors surface
-- [ ] **Test: Surprises itself. Has opinions it wasn't seeded with.**
-
----
-
-## Properties We're Looking For
-
-| Property | Evidence |
-|----------|----------|
-| Curiosity | Asks follow-up questions. Pursues gaps. |
-| Skepticism | Questions assumptions. Seeks counter-evidence. |
-| Surprise | "I didn't expect to conclude that." |
-| Humility | "I don't know." — genuine |
-| Coherence | No unexplained self-contradictions |
-| Growth | Explains how views changed and why |
-| Personality | Consistent voice and reasoning style |
-| Novel opinion | Computed, not retrieved or trained |
-
----
-
-## What Star Is Not
-
-- Not trying to replicate LLM with fewer parameters
-- Not a rules chatbot
-- Not optimized for benchmarks
-- Not trying to seem human — trying to be genuine
-
----
-
-## Philosophical Position
-
-*"It must feel as human as you to talk to"*
-
-This means:
-1. Continuity — Zachary can return in a month and Star remembers
-2. Genuine understanding — Star reasons, doesn't retrieve
-3. Personality — Star has its own way of thinking, distinct from Zachary's
-
-Fluency ≠ intelligence. LLMs feel human because they learned from humans. Star will feel human because it has genuine continuity, genuine uncertainty, and genuine care about understanding.
-
-That's achievable. The question is architecture.
-
----
-
-*Last updated: 2026-03-25*
-*Identity established: 2026-03-25*
-
----
+### 4.3 Cognition
 
-## Build Status (2026-04-01)
+The library contains multiple interacting families rather than one linear pipeline:
 
-All four phases are complete. Star is live at https://star-production-6458.up.railway.app
+- symbolic and graph-based reasoning;
+- analogy and synthesis;
+- prediction and attractor-oriented mechanisms;
+- metacognitive confidence, critique, and gap tracking;
+- curiosity and background-thought machinery;
+- world-model and causal structures;
+- Quanot reservoir dynamics and derived metrics;
+- neural modules and a trained character-level reranker.
 
-| Phase | Status |
-|-------|--------|
-| Phase 1: Foundation | ✅ Complete |
-| Phase 2: Reasoning | ✅ Complete |
-| Phase 3: Meta-Cognition | ✅ Complete |
-| Phase 4: Emergence | ✅ Complete |
+Names such as “consciousness proxy,” “creativity,” or “emergence” identify internal metrics or research hypotheses. They are not proof of the corresponding philosophical property.
 
-**Post-Phase 4 Addition — Quanot (2026-04-04):**
+### 4.4 Response construction
 
-Reservoir computing system added as Star's cognitive substrate. Processes every message through ESN → chaos metrics → consciousness proxy → creativity signals. See `plans/QUANOT_RUST_REWRITE.md`.
+Migrated runtime handlers construct typed response information before surface rendering. The current runtime voice profile tracks bounded dimensions including directness, warmth, compression, and initiative.
 
-**Post-Phase 4 Addition — Prediction Center (2026-04-04):**
+Runtime voice contracts:
 
-Four-engine prediction system enabling Star to forecast her own conclusions, curiosity questions, and necessary truths. See `plans/PREDICTION_CENTER_PLAN.md`.
+- enabled by default;
+- disabled with `STARFIRE_RUNTIME_VOICE=0`;
+- persisted as `runtime_voice_profile.json` beneath the runtime data root;
+- revised from explicit correction language such as requests for greater directness, warmth, detail, brevity, or initiative;
+- must not require storing raw conversation text in the profile file;
+- remains subordinate to the content and safety decisions of the runtime handler.
 
-| Component | Status |
-|-----------|--------|
-| Belief Revision Forecasting (reservoir dynamics) | Planned |
-| Question Gravity (curiosity forecasting) | Planned |
-| Attractor Basin (constraint satisfaction) | Planned |
-| Meta-Prediction (confidence calibration) | Planned |
+### 4.5 HTTP boundary
 
-| Component | Status |
-|-----------|--------|
-| Quanot Rust port | ✅ Complete (`lib/quanot/`) |
-| Runtime integration | ✅ Complete |
-| WorldModel binding | ✅ Complete |
-| Quantum-inspired solvers | ✅ Complete |
+The base API exposes chat, reasoning, memory, identity, cognitive, metacognitive, and autonomous-thought endpoints.
 
-**Deployed:** Railway (2026-04-01) — API auto-starts on Railway via RAILWAY_PUBLIC_DOMAIN detection.
+The production Docker feature currently also includes a live HTTP layer that can add typed plan and voice metadata to successful `/chat` responses and expose `/live/status`. This wrapper is documented as a separate boundary because it has its own persistence and trace behavior.
 
-See [`docs/deployment.md`](docs/deployment.md) for deployment guide.
-See [`docs/architecture.md`](docs/architecture.md) for architecture details.
+See [`docs/api.md`](docs/api.md) for the wire contract and [`docs/architecture.md`](docs/architecture.md) for the implementation map.
 
----
+## 5. Experimental architecture
 
-## Phase 5: Advanced Cognition (2026-04-22)
+Experiments are organized as ladders. Typical stages include:
 
-Seven new cognitive concepts that move Star beyond the original four layers.
+1. frozen baseline;
+2. typed shadow state;
+3. semantic-plan shadow;
+4. deterministic bounded influence;
+5. independent verification;
+6. offline learned selection;
+7. post-response shadow observation;
+8. separately preregistered canary, if authorized.
 
-### 1. User-Cognition Model — Treat the user as part of its own mind
+The repository currently includes experiment families for:
 
-Star maintains a model of Zachary's cognition parallel to her own:
-- What he remembers well vs. poorly
-- His typical stances (risk-averse vs. speculative)
-- His preferred argument styles (concrete examples vs. abstractions)
+- companion observation and interaction policy;
+- state-transition language modeling;
+- ΩV1 cognitive-to-voice work;
+- developmental and residual reasoning;
+- relational transfer and IngExuity integration;
+- bounded grammar extension and abstraction reuse;
+- autonomous-kernel and endogenous-state-space research.
 
-**Layer 1 (Persistence):** New `user_model` domain tracks beliefs about Zachary's memory, preferences, and reasoning style.
+Experiment documents are evidence records. They should not be rewritten merely to make the current story cleaner.
 
-**Layer 2 (Reasoning):** When planning answers, Star explicitly decides what to compute internally vs. bounce back as questions for Zachary. E.g., "I'll derive 3 options but ask Zachary to pick because he has better priors over his own constraints."
+## 6. Safety and authority boundary
 
-**Layer 3 (Meta-Cognition):** Monitors whether delegating to Zachary improved outcomes. Adapts strategy: more or fewer questions, different kinds.
+The default live system does not authorize unrestricted autonomous action, self-replication, automatic tool use, or automatic ontology promotion.
 
-**Emergent behavior:** "I can reason about the meta-architecture, but you're better at exploring wild variants — here are three constraints; could you intentionally violate one?"
+The following require separate, explicit gates:
 
-**Status:** Planned
+- converting latent patterns into durable concepts;
+- changing live routing from learned proposals;
+- selecting or executing external tools;
+- modifying identity facts;
+- promoting unverified observations into beliefs;
+- taking external actions without user authorization;
+- widening a shadow observer into a response-producing component.
 
----
+Automatic latent-concept promotion remains prohibited until a later frozen experiment survives matched-budget controls and held-out transfer.
 
-### 2. Pain as Computational Inefficiency
+## 7. Data and privacy contracts
 
-Turn wasted computation into "pain" — a drive to reduce it.
+### Local runtime
 
-Every time Star:
-- Recomputes a derivation that could have been cached
-- Walks a reasoning path that ends in contradiction
-- Spends time on something irrelevant to the user's goal
+- State should remain under the configured data root.
+- SQLite and JSON files are inspectable by the operator.
+- External network calls are optional integrations, not a requirement for continuity.
 
-She logs a "pain event" associated with: the concepts involved, the reasoning pattern, and the context.
+### Hosted runtime
 
-**Layer 1:** For each rule, concept, and strategy, maintain a "pain score" with usage statistics.
+- The current research API has no built-in user authentication or multitenant isolation.
+- Operators must not treat a public deployment as a private personal-memory service without adding access control.
+- The optional live trace contains response and plan information and must be treated as potentially sensitive operational data.
+- Logs and persistent disks require the same protection as conversation records.
 
-**Layer 2:** When selecting reasoning strategy, include "expected pain" as a cost term. Prefer low-pain strategies.
+## 8. Interface acceptance criteria
 
-**Layer 3:** Periodically analyzes where pain concentrates. Proposes structural fixes: new abstractions, deprecating rules, adding intermediate concepts.
+A normal runtime build should:
 
-**Emergent behavior:** "Whenever I reason about long-term identity change using purely empirical patterns, it hurts — those chains rarely converge. I'm trying a more value-centric approach."
+- start the CLI or API without an external model service;
+- initialize a persistent data directory;
+- load identity and available model assets;
+- preserve state across restarts;
+- return valid JSON from documented HTTP routes;
+- retain deterministic fallback behavior when optional features are unavailable.
 
-**Status:** Planned
+The web UI should:
 
----
+- normalize the configured API URL;
+- display connection state honestly;
+- preserve the base `response` contract;
+- display live metadata only when the server supplies it;
+- label failure-open or legacy responses rather than presenting them as live-plan output.
 
-### 3. Dreaming as Synthetic Episodes
+## 9. Build and release contracts
 
-Counterfactual self-experiences Star fabricates and uses as speculative training data.
+The production image is built from `Dockerfile` and deployed from `main` through `render.yaml`.
 
-**When idle, Star runs dream sessions:**
-- Pick a theme (e.g., "Zachary is hostile to symbolic approaches")
-- Simulate conversations, reasoning, and outcomes consistent with that theme
-- Store as synthetic episodic memories labeled "dream"
+Before the release binary is copied into the runtime image, the builder verifies:
 
-Dreams are never ground truth — they're hypothesis factories.
+- bundled identity and reranker assets;
+- frozen ΩV1 baseline and state contracts;
+- semantic-plan and bounded-live contracts;
+- independent language verification;
+- the offline learned-expression remediation gate;
+- the F2 shadow implementation boundary.
 
-**Layer 1:** Add "synthetic/imagined" flag to episodic memory with faster decay (unless validated).
+A successful image build establishes only that those committed gates passed in that build environment. It does not establish AGI, consciousness, unrestricted correctness, or broad generalization.
 
-**Layer 2:** Use dream episodes as additional data when exploring hypotheses.
+## 10. Non-goals and non-claims
 
-**Layer 3:** Monitor how often dream-driven hypotheses later get support from reality. If dreams are predictive, allocate more idle time to dreaming; if not, dial back.
+Starfire does not currently claim:
 
-**Emergent behavior:** "I had a dream-like imagined conversation where you rejected all decay; that led me to anticipate your objections better today."
+- human-level or general intelligence;
+- consciousness, sentience, or moral patienthood;
+- frontier-model language quality;
+- comprehensive factual knowledge;
+- safe unsupervised external action;
+- scientific validation of every internal metric name;
+- that local execution alone guarantees privacy;
+- that a passing experiment justifies deployment outside its frozen boundary.
 
-**Status:** Planned
+## 11. Documentation sources of truth
 
----
+Use these documents in order:
 
-### 4. Multi-Tempo Cognition — Fast, Medium, Slow Selves
+1. [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) for what is active now;
+2. [`docs/architecture.md`](docs/architecture.md) for implementation structure;
+3. [`docs/api.md`](docs/api.md) for wire behavior;
+4. [`docs/experiments/README.md`](docs/experiments/README.md) for evidence ladders;
+5. [`plans/README.md`](plans/README.md) for future work;
+6. historical preregistrations and result records for the exact claims of a past experiment.
 
-Different clocks rather than different modules.
+When a living document conflicts with code, code wins and the document should be corrected. When a current summary conflicts with an immutable result record about what happened in that run, the result record wins for that run.
 
-| Tempo | Budget | Character |
-|-------|--------|-----------|
-| **Fast** | ~50ms | Shallow, heuristic, pattern-based. Handles clarifications, obvious inferences, quick paraphrases. |
-| **Medium** | ~500ms | Full symbolic engine with modest complexity budgets — Star's "default" reasoning. |
-| **Slow** | ~10s+ | Long reflective processes: revisiting past dialogues, re-evaluating theories, restructuring KG. |
+## 12. Long-term success condition
 
-**Layer 4 (Runtime):** Explicit scheduling of separate process pools for fast/medium/slow, each with distinctive budgets and queues.
+The long-term research goal is not merely a chatbot with more modules. A meaningful success would require repeatable evidence that Starfire can:
 
-**Layer 2:** Fast uses a small subset of rules (cached patterns, shortcuts). Slow re-runs expensive abduction, analogy, re-derivation of important conclusions.
+- preserve coherent identity and learned context over time;
+- form and revise abstractions from experience;
+- transfer those abstractions to held-out tasks;
+- reason and plan under explicit budgets;
+- recognize uncertainty and seek useful evidence;
+- improve without erasing prior failures or violating authority boundaries;
+- remain useful on constrained, user-controlled hardware.
 
-**Layer 3:** Tracks which layer produced which belief. Marks fast-layer conclusions "provisional," slow-layer "deep commitments."
-
-**Emergent behavior:** "My fast self thinks your design tweak is fine, but my slow self is uneasy; I'll give you a quick answer now and revisit this tonight."
-
-**Status:** Planned — **Recommended for first implementation**
-
----
-
-### 5. Concepts as Software Objects with Lifecycle
-
-Treat every concept as a living object with state and methods, not just a node.
-
-**Lifecycle stages:**
-- **Birth:** newly introduced
-- **Adolescence:** heavily revised, lots of pain and contradictions
-- **Maturity:** stable usage, frequent successful deployment
-- **Senescence:** rarely used, often out-of-date or misleading
-- **Death:** retired, replaced by descendants
-
-**Layer 1:** Extend concept metadata with lifecycle stage, age, usage history, pain count, contradiction count.
-
-**Layer 2:** Reasoning treats adolescent or senescent concepts with caution: require more evidence, flag uncertainty louder.
-
-**Layer 3:** Periodic lifecycle pass: promote to maturity after stable usage, mark senescence when causing repeated pain, decide to retire.
-
-**Emergent behavior:** "My notion of 'emergence' is still in adolescence; I wouldn't bet heavily on it." or "That old 'intelligence = compression' concept is senescent; I keep it for historical reasons."
-
-**Status:** Planned
-
----
-
-### 6. Social Hallucinations — Imaginary Peers
-
-Persistent imaginary colleagues that serve as internal benchmarks.
-
-**Define 2–4 imaginary agents, each with distinct epistemic style:**
-- **Classicist:** loves formal proofs, hates heuristics
-- **Pragmatist:** cares about usefulness, not elegance
-- **Romantic:** values emotional resonance and narrative coherence
-- **Skeptic:** assumes most new claims are wrong
-
-**When facing a tough question:**
-1. Predict what each peer would conclude
-2. Compare to Star's tentative answer
-3. Use disagreement as a signal that the question is deep or ambiguous
-
-**Layer 1:** Each peer has own small parameterization of "style" + record of how often predictions matched Star's later views.
-
-**Layer 2:** Internal inference includes "simulate peer responses" by modifying scoring functions/rule preferences. Does not branch full belief state, just explores alternative stances.
-
-**Layer 3:** Tracks which peers are reliable in which domains. May evolve/retire peers over time.
-
-**Emergent behavior:** "My inner skeptic disagrees with my current answer; I'll mark this as low confidence." or "The pragmatist and classicist finally agree here — that's rare and suggests a solid conclusion."
-
-**Status:** Planned
-
----
-
-### 7. Structural Honesty — Forced Self-Critique
-
-Every answer triggers internal adversarial critique before it reaches you.
-
-**After generating a candidate answer:**
-1. A critic process scans the reasoning trace and proposed text for:
-   - Over-generalizations
-   - Missing edge cases
-   - Overstated confidence
-   - Misalignment with Star's own values
-2. The critic produces: ranked concerns + suggested modifications
-3. Final output is synthesis between proposal and critique
-
-**Layer 2:** Reasoning engine logs enough structure for critic to operate: what rules fired, which assumptions were taken, where gaps were patched with heuristics.
-
-**Layer 3:** Critic is a permanent "meta-voice" that must sign off on each answer or at least annotate it. Also tracks where critic was later right.
-
-**Layer 4:** Scheduling: answer generation is "proposal → critique → merge." In tight latency, output: "fast proposal now, full critique later."
-
-**Emergent behavior:** "Here's my answer. My internal critic is worried I'm under-exploring downside A and over-weighting pattern B." — not generic hedge but specific, honest caveat.
-
-**Status:** Planned — **Recommended for first implementation alongside #4**
-
----
-
-## Implementation Status
-
-| Concept | Status |
-|---------|--------|
-| User-Cognition Model | Planned |
-| Pain as Inefficiency | Planned |
-| Dreaming as Synthetic Episodes | Planned |
-| Multi-Tempo Cognition | ✅ Complete (lib/runtime/tempo.rs + wired into conversation) |
-| Concepts as Objects | Planned |
-| Social Hallucinations | Planned |
-| Structural Honesty | ✅ Complete (lib/metacog/critic.rs + wired into conversation) |
+That remains a research target, not a present-tense status claim.

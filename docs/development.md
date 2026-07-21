@@ -1,353 +1,362 @@
-# Development Guide
+# Starfire Development Guide
 
-How to work on Star locally.
+> **Last reviewed:** 2026-07-21
 
----
+This guide covers ordinary local work on the Rust workspace and Next.js UI. The production Dockerfile is a release gate and is intentionally much heavier than the normal development loop.
 
 ## Prerequisites
 
-- Rust 1.77+ (`rustup update`)
-- SQLite3 (usually pre-installed)
+- current stable Rust toolchain;
+- Git;
+- Node.js 20+ for `ui/`;
+- Docker only for production-style verification;
+- `sqlite3` CLI only when manually inspecting the database.
 
 ```bash
-rustc --version  # should be 1.77+
+rustc --version
 cargo --version
+node --version
 ```
 
----
+## Workspace
 
-## Project Layout
-
-```
-starfire/                          ← workspace root
-├── Cargo.toml                      ← Rust workspace
-├── src/                           ← binary crate (star_bin)
-│   ├── main.rs                    # Entry: chat / api / status
-│   └── bin/
-│       ├── quanot_bench.rs        # Quanot reservoir benchmarks
-│       ├── train_model.rs         # Language model trainer
-│       ├── test_gen.rs            # Generation tests
-│       ├── test_trained.rs        # Test trained model
-│       ├── quick_gen.rs           # Quick generation
-│       └── test_save_load.rs      # Save/load tests
-├── lib/                           ← library crate (star)
-│   ├── Cargo.toml
-│   ├── lib.rs                     # Crate root — all modules exported
-│   ├── api.rs                     # HTTP API server (tiny_http)
-│   ├── cognition.rs               # Cognitive state tracking
-│   ├── learning.rs
-│   ├── training_db.rs
-│   ├── capabilities/              # File reading, tool use
-│   ├── causal/                    # Causal reasoning & discovery
-│   ├── context/                   # Context ring buffer
-│   ├── conversation/              # Dialogue, intent detection
-│   ├── curiosity/                 # Curiosity engine
-│   ├── curriculum/               # Learning curriculum scheduler
-│   ├── goals/                     # Goal planning & tracking
-│   ├── knowledge/                 # Wikipedia reader, web search
-│   ├── learning/                  # Hypothesis & eviction
-│   ├── math/                      # Symbolic math, proof, logic
-│   ├── metacog/                   # Meta-cognition
-│   ├── multimodal/               # Text, image, audio, binding
-│   ├── neural/                   # Neural network layer
-│   │   ├── network.rs            # Network structure
-│   │   ├── neuron.rs             # Base neuron
-│   │   ├── layer.rs              # Layer implementation
-│   │   ├── train.rs              # Training logic
-│   │   └── neurons/             # Special-purpose neurons
-│   │       ├── causal_neuron.rs
-│   │       ├── quanot_neuron.rs
-│   │       ├── reasoning_neuron.rs
-│   │       ├── knowledge_neuron.rs
-│   │       ├── fewshot_neuron.rs
-│   │       ├── goals_neuron.rs
-│   │       ├── curriculum_neuron.rs
-│   │       └── worldmodel_neuron.rs
-│   ├── language_model/           # Transformer LM
-│   │   ├── model.rs
-│   │   ├── train.rs
-│   │   ├── generate.rs
-│   │   └── vocabulary.rs
-│   ├── persistence/              # Layer 1 — Identity, memory, SQLite
-│   │   ├── identity.rs           # Frozen identity core
-│   │   ├── memory.rs             # Memory objects with decay
-│   │   ├── store.rs              # SQLite backend
-│   │   ├── session.rs            # Session management
-│   │   ├── tiers.rs              # Memory tiers
-│   │   └── identity_guard.rs     # Identity protection
-│   ├── quanot/                   # Reservoir computing substrate
-│   │   ├── reservoir.rs          # Echo State Network (1000 neurons)
-│   │   ├── chaos.rs             # Lyapunov, RQA, entropy
-│   │   ├── consciousness.rs     # Φ proxy, GWT, AIS
-│   │   ├── creativity.rs         # Creative oscillation
-│   │   ├── encoder.rs            # Char-level encoder
-│   │   ├── quantum_inspired.rs   # SQA / QAOA solvers
-│   │   └── quantum.rs
-│   ├── prediction/               # Prediction center
-│   │   ├── question_gravity.rs   # Curiosity forecasting
-│   │   ├── belief_revision.rs    # Belief update forecasting
-│   │   ├── basin.rs              # Attractor basin
-│   │   ├── meta_prediction.rs    # Confidence calibration
-│   │   ├── counterfactual.rs     # Counterfactual reasoning
-│   │   └── types.rs
-│   ├── reasoning/                # Layer 2 — Symbolic reasoning
-│   │   ├── knowledge.rs         # Knowledge graph
-│   │   ├── rules.rs             # Inference rules
-│   │   ├── symbolic.rs           # Propositional logic engine
-│   │   ├── analogy.rs            # Structure mapping
-│   │   ├── synthesis.rs          # Novel combination
-│   │   ├── chain.rs
-│   │   ├── chain_display.rs
-│   │   └── pathways.rs          # R&D-E reasoning
-│   ├── runtime/                  # Orchestration, background thinker
-│   │   ├── thinker.rs            # Background thinking engine
-│   │   └── curious.rs            # Gap-driven curiosity
-│   ├── voice/                   # Voice/phrases templates
-│   ├── world_model/             # Perception, state, prediction
-│   ├── personality/            # Personality module
-│   └── research/               # Research engine
-├── ui/                          # Web chat (Next.js + Vercel)
-├── data/                        # SQLite stores
-│   ├── star.db
-│   └── training.db
-├── docs/                        # Architecture, API, deployment docs
-├── scripts/                     # CLI clients, daemons
-├── plans/                       # Expansion plans
-└── SPEC.md                      # Technical specification
+```text
+starfire/
+├── Cargo.toml            # workspace: src + lib
+├── src/                  # star_bin executable crate
+│   ├── main.rs           # CLI and API startup
+│   ├── live_api.rs       # optional live HTTP wrapper
+│   └── bin/              # ad hoc training, benchmark, and smoke binaries
+├── lib/                  # star library crate
+│   ├── runtime/
+│   ├── persistence/
+│   ├── reasoning/
+│   ├── prediction/
+│   ├── metacog/
+│   ├── quanot/
+│   ├── neural/
+│   ├── language_model/
+│   ├── user_model/
+│   └── examples/         # executable research probes
+├── ui/                   # Next.js web client
+├── docs/                 # living docs and evidence records
+├── plans/                # research and implementation plans
+├── scripts/              # evaluators and integration utilities
+├── data/                 # local assets and checkpoints
+├── Dockerfile            # gated release image
+└── render.yaml           # Render blueprint
 ```
 
----
+See [`architecture.md`](architecture.md) for the current subsystem map.
 
-## Running Locally
+## Run locally
 
-### Chat (interactive CLI)
+### CLI chat
 
 ```bash
-cargo run --release -- chat
+cargo run --release -p star_bin --bin star -- chat
 ```
 
-### API server
+### Isolated data directory
+
+Place global arguments before the subcommand:
 
 ```bash
-cargo run --release -- api --host 0.0.0.0 --port 8080
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev \
+  chat
 ```
 
-### With custom data directory
+### Status
 
 ```bash
-cargo run --release -- chat --data-dir ./my-data
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev \
+  status
 ```
 
-### Status check
+### HTTP API
 
 ```bash
-cargo run --release -- status
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev \
+  api --host 0.0.0.0 --port 8080
 ```
-
----
-
-## Testing
 
 ```bash
-cargo test
+curl http://localhost:8080/health
 ```
 
-Some tests require the full data directory. Run from the project root.
+The default local build uses the protected API directly. The outer live wrapper is compiled only when `star_bin` is built with `starfire-live`.
 
----
-
-## Building
+## Web UI
 
 ```bash
-cargo build --release
+cd ui
+cp .env.local.example .env.local
+npm install
+npm run dev
 ```
 
-Output: `target/release/star`
+The example environment file points to the hosted Render API. For a local backend, set:
 
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STAR_DATA_DIR` | `~/.star` or `/data/star-data` | Data directory |
-| `PORT` | `8080` | API server port |
-| `USE_LLM` | `false` | Enable Ollama (not needed for symbolic mode) |
-| `OLLAMA_BASE_URL` | — | Ollama server URL |
-| `USE_TELEGNOSTR` | `false` | Telegram bridge mode |
-| `TELEGRAM_BOT_TOKEN` | — | Telegram bot token |
-| `STAR_DEBUG` | `false` | Include reasoning chain in API responses |
-
-On Railway, `RAILWAY_PUBLIC_DOMAIN` is set — Star auto-detects this and starts the API server.
-
----
-
-## Code Organization
-
-### Layer 1 — Persistence (`lib/persistence/`)
-- `identity.rs` — frozen identity core (never overwritten)
-- `memory.rs` — memory objects with per-domain decay
-- `store.rs` — SQLite backend
-- `session.rs` — session management
-- `tiers.rs` — memory tier system
-- `identity_guard.rs` — identity protection
-
-### Layer 2 — Reasoning (`lib/reasoning/`)
-- `knowledge.rs` — knowledge graph (entities + typed relationships)
-- `rules.rs` — forward-chaining inference rules
-- `symbolic.rs` — propositional logic engine
-- `analogy.rs` — structural analogy mapping
-- `synthesis.rs` — novel concept combination
-- `pathways.rs` — R&D-E reasoning divergence
-- `chain.rs` — reasoning chain representation
-
-### Layer 3 — Meta-Cognition (`lib/metacog/`)
-- `mod.rs` — confidence tracking, belief revision, curiosity, gap detection
-
-### Cognitive State (`lib/cognition.rs`)
-- `engagement`, `emotional_valence`, `certainty`, `reasoning_trace`
-
-### Quanot Reservoir (`lib/quanot/`)
-- `reservoir.rs` — Echo State Network (1000 neurons, spectral radius 0.95)
-- `chaos.rs` — Lyapunov exponent, RQA metrics, entropy
-- `consciousness.rs` — Φ proxy, GWT, AIS
-- `creativity.rs` — creative oscillation between ordered/exploratory
-- `encoder.rs` — character-level text encoder
-- `quantum_inspired.rs` — simulated quantum annealing
-
-### Prediction Center (`lib/prediction/`)
-- `question_gravity.rs` — curiosity topic forecasting
-- `belief_revision.rs` — forecasting belief updates from reservoir dynamics
-- `basin.rs` — attractor basin for constraint satisfaction
-- `meta_prediction.rs` — confidence calibration
-
-### Neural Layer (`lib/neural/`)
-- `network.rs`, `layer.rs`, `neuron.rs` — base network
-- `train.rs` — backpropagation training
-- `neurons/` — special-purpose neurons (causal, quanot, reasoning, knowledge, fewshot, goals, curriculum, worldmodel)
-
-### Language Model (`lib/language_model/`)
-- `model.rs` — transformer architecture
-- `train.rs` — training loop
-- `generate.rs` — text generation
-- `vocabulary.rs` — character-level vocabulary
-
-### Runtime (`lib/runtime/`)
-- `mod.rs` — orchestration of all layers
-- `thinker.rs` — background thinking
-- `curious.rs` — curiosity engine (fires every 60s idle)
-
-### API (`lib/api.rs`)
-HTTP server via `tiny_http`. Endpoints: `/`, `/health`, `/chat`, `/reason`, `/remember`, `/identity`, `/memory/stats`, `/cognitive`, `/metacog`, `/metacog/insight`, `/think`, `/thought`, `/webhook/telegram`
-
----
-
-## Key Design Decisions
-
-### Symbolic + Neural hybrid
-Star uses propositional logic + knowledge graph for interpretable reasoning, with neural modules for pattern recognition and generation. No GPU required for symbolic path.
-
-### Quanot as cognitive substrate
-Every message passes through the Quanot reservoir before reasoning. The ESN produces consciousness proxy, creativity signals, and novelty scores that inform all four layers.
-
-### Identity is frozen
-`IDENTITY.md` is never overwritten by experience. Star can update how she *understands* her identity, but the core facts remain.
-
-### Memory decay
-Empirical facts decay toward baseline confidence. Identity and relationship memories don't. High importance or frequent access slows decay.
-
-### Curiosity asks "why was I uncertain?"
-Not "what is X?" The question is about the gap in reasoning, not the topic. This generates richer follow-ups and surfaces metacognitive structure.
-
----
-
-## Common Tasks
-
-### Add a new reasoning rule
-
-Edit `lib/reasoning/symbolic.rs` → `SymbolicEngine::new()` → add to `rules` vec:
-
-```rust
-Rule {
-    name: "my_rule",
-    if_predicate: "creates".to_string(),
-    then_subject: "_intermediate".to_string(),
-    then_predicate: "is".to_string(),
-    then_object: "_any".to_string(),
-}
+```text
+NEXT_PUBLIC_STAR_API=http://localhost:8080
 ```
 
-### Add a new conversation intent
+Open `http://localhost:3000`.
 
-Edit `lib/conversation/mod.rs` → `Conversation::classify_intent()`. Add a pattern match.
+## Core test loop
 
-### Change curiosity interval
+### Fast library check
 
-Edit `lib/runtime/curious.rs` → `CuriousEngine::new()` → `probe_interval: Duration::from_secs(60)`:
-
-```rust
-pub fn new(...) -> Self {
-    Self {
-        probe_interval: Duration::from_secs(30), // change 60 to 30
-        ...
-    }
-}
+```bash
+cargo check -p star --locked
+cargo test -p star --locked
 ```
 
-### Add a new memory domain
+### Executable crate
 
-1. Add to `lib/persistence/memory.rs` → `MemoryDomain` enum
-2. Add decay rule in `Memory::decay_rate()` for the new domain
-3. Update `/memory/stats` API if needed
+```bash
+cargo check -p star_bin --bin star --locked
+cargo test -p star_bin --locked
+```
 
----
+### Workspace
+
+```bash
+cargo test --workspace --locked
+```
+
+### Formatting and linting
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+```
+
+The repository contains old examples and broad feature combinations that may expose pre-existing warnings or defects. When changing a bounded experiment, run the exact frozen command from its document in addition to broad linting.
+
+## Feature-gated experiments
+
+The library defaults to no research features. Enable only the feature needed by the target probe.
+
+Examples:
+
+```bash
+cargo run -p star \
+  --example omega_v1a_voice_baseline \
+  --features omega-v1-baseline \
+  --locked
+```
+
+```bash
+cargo run -p star \
+  --example omega_v1f2_shadow_probe \
+  --features omega-v1-f2-shadow \
+  --locked
+```
+
+```bash
+cargo run -p star \
+  --example r1_relational_residual_bridge \
+  --features relational-evidence \
+  --locked
+```
+
+Do not invent an umbrella feature for convenience if it changes the frozen authority or dependency boundary.
+
+## Production-feature local run
+
+Build the executable with the same top-level feature as the Docker image:
+
+```bash
+cargo run --release -p star_bin --bin star \
+  --features starfire-live -- \
+  --data-dir ./data/live-dev \
+  api --host 0.0.0.0 --port 8080
+```
+
+This starts the outer live server and an internal protected API on the next port unless `STARFIRE_INTERNAL_PORT` is configured.
+
+Inspect:
+
+```bash
+curl http://localhost:8080/live/status
+```
+
+## Runtime environment
+
+| Variable | Purpose |
+|---|---|
+| `STARFIRE_DATA` | Persistent runtime root used by container and newer state files |
+| `STARFIRE_HOME` | Fallback runtime state root |
+| `STARFIRE_PORT` | Container API port |
+| `PORT` | Platform-supplied port fallback |
+| `STARFIRE_INTERNAL_PORT` | Protected loopback API port for `starfire-live` |
+| `STARFIRE_RUNTIME_VOICE` | Set `0` to disable runtime-owned voice modulation |
+| `STARFIRE_OMEGA_V1F2_SHADOW` | Set `1` only for the authorized F2 shadow collection path |
+| `OMEGA_V1F2_MODEL_PATH` | Override F2 bounded model artifact location |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot API token |
+| `RUST_LOG` | Tracing filter used by `tracing-subscriber` |
+| `NEXT_PUBLIC_STAR_API` | API base URL for the UI build |
+
+`STARFIRE_LOG` is set by container configuration for compatibility, but Rust tracing should be debugged with `RUST_LOG` unless code explicitly maps the former.
+
+## Persistent state
+
+For reproducible tests, use a fresh data directory per experiment or test family:
+
+```bash
+rm -rf ./data/test-run
+mkdir -p ./data/test-run
+```
+
+Avoid pointing experiments at a personal or production data directory. Some runtime paths intentionally persist voice, memory, sessions, or traces.
+
+Common files:
+
+```text
+<data-root>/
+├── IDENTITY.md
+├── runtime_voice_profile.json
+├── live_voice_state.json
+├── live_chat_trace.jsonl
+├── models/
+└── *.db
+```
+
+Not every file appears in every build.
+
+## SQLite inspection
+
+Locate the database under the selected data root, then inspect it without modifying production state:
+
+```bash
+sqlite3 ./data/dev/star.db '.tables'
+sqlite3 ./data/dev/star.db 'SELECT * FROM memories LIMIT 5;'
+```
+
+Database filenames and effective paths may vary across historical layouts. Check the runtime startup log rather than assuming `~/.star/star.db`.
+
+## Adding runtime behavior
+
+Before wiring a new component into `Runtime::chat`, answer:
+
+1. What input can it read?
+2. What state can it mutate?
+3. Can it alter returned text?
+4. What is the neutral fallback?
+5. How is behavior replayed?
+6. What kill switch exists?
+7. Which test proves the boundary remains closed?
+8. Does the change require a preregistered experiment first?
+
+For latent concepts, routing, tools, or persistent belief promotion, assume a new gate is required.
+
+## Adding an API route
+
+1. Add the route in `lib/api.rs`.
+2. Preserve CORS behavior or deliberately revise it.
+3. Return valid JSON on success and error.
+4. Update [`api.md`](api.md).
+5. Decide whether the outer live server should proxy, transform, or reject it.
+6. Add route and failure tests.
+7. Update UI code only after the base wire contract is stable.
+
+The current API sometimes returns application errors with HTTP 200. New routes should prefer accurate status codes, but do not silently change existing clients without a migration.
+
+## Adding a Cargo experiment feature
+
+1. Define the smallest feature in `lib/Cargo.toml`.
+2. Express dependencies explicitly.
+3. Add `required-features` to examples when appropriate.
+4. Keep the default feature set empty unless live promotion is deliberate.
+5. Freeze the authority matrix in the preregistration.
+6. Run default tests to prove the feature remains absent when disabled.
+
+## Documentation obligations
+
+A merged runtime change should update:
+
+- [`CURRENT_STATUS.md`](CURRENT_STATUS.md);
+- [`architecture.md`](architecture.md) when data flow or authority changes;
+- [`api.md`](api.md) when the wire contract changes;
+- [`deployment.md`](deployment.md) when build or environment behavior changes;
+- the relevant preregistration/result record without rewriting prior outcomes.
+
+See the [documentation index](README.md).
+
+## Docker build
+
+```bash
+docker build -t starfire .
+```
+
+The Dockerfile runs the full release gate and may be slow. A green Cargo unit test is not a substitute for the image gate when changing bundled assets, feature wiring, or release-only evaluators.
+
+Run:
+
+```bash
+docker run --rm \
+  -p 8080:8080 \
+  -v starfire-data:/data \
+  starfire
+```
+
+## Branch and pull-request practice
+
+- branch from `main`;
+- keep experiment identifiers stable;
+- include exact verification commands in the pull request;
+- distinguish local, external-builder, and deployed evidence;
+- do not merge draft experiments merely because infrastructure compiled;
+- merge only after required checks and frozen gates are green.
+
+The old `layer4`/Railway branch workflow is historical.
 
 ## Debugging
 
-### Rust compiler errors
+### Trace logs
 
 ```bash
-cargo build --release 2>&1 | grep "^error" | head -20
+RUST_LOG=debug cargo run -p star_bin --bin star -- chat
 ```
 
-### Treat warnings as errors
+### Test one module
 
 ```bash
-cargo build --release -- -Dwarnings
+cargo test -p star response_intent --locked -- --nocapture
 ```
 
-### Debug logging
+### Test one feature family
 
 ```bash
-RUST_LOG=debug cargo run -- chat
+cargo test -p star \
+  --features omega-v1-f2-shadow \
+  omega_v1f2_shadow:: \
+  --locked \
+  -- --test-threads=1 --nocapture
 ```
 
-### Inspect the SQLite store
+### API transport
 
 ```bash
-sqlite3 ~/.star/star.db ".schema"
-sqlite3 ~/.star/star.db "SELECT * FROM memories LIMIT 5;"
+curl -v http://localhost:8080/health
+curl -v http://localhost:8080/chat \
+  -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"hello"}'
 ```
 
----
+### Live-wrapper split
 
-## Performance
+When the outer server is healthy but chat fails, test the internal port separately. By default it is the external port plus one.
 
-- API latency: 100ms–2s per response (symbolic reasoning)
-- Memory footprint: ~20–50MB resident (no GPU)
-- Disk: ~5–20MB SQLite for typical session
-- No network required after startup (seed knowledge embedded)
+## Related documents
 
----
-
-## Branch Strategy
-
-- **layer4** — active development branch
-- **main** — stable (merge from layer4 after testing)
-
-Push to layer4 to trigger a Railway deploy:
-
-```bash
-git push origin layer4
-railway up
-```
+- [Architecture](architecture.md)
+- [API reference](api.md)
+- [Deployment](deployment.md)
+- [Current status](CURRENT_STATUS.md)
+- [Experiment index](experiments/README.md)

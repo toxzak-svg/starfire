@@ -42,17 +42,46 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Compile star crate and CHARGE probes
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
+          git diff --exit-code -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
+
+      - name: Compile Star library and A1 probe
         run: |
           set -o pipefail
-          cargo check -p star --all-targets --locked 2>&1 | tee charge-cargo-check.log
+          cargo check -p star --lib --locked 2>&1 | tee charge-cargo-check.log
+          cargo check -p star --example a1_bounded_autonomous_kernel --locked 2>&1 \
+            | tee -a charge-cargo-check.log
 
       - name: Run CHARGE and closed-cycle contract tests deterministically
         run: |
           set -o pipefail
           cargo test -p star charge:: --locked -- --test-threads=1 2>&1 | tee charge-test.log
+          cargo test -p star companion_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star persistence::companion:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star user_model::companion_projection:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star cognitive_cycle:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
           cargo test -p star environment:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star autonomy:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star commitment_state:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star rule_induction:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star graph_discovery:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star latent_roles:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
+          cargo test -p star representation_transport_orbit:: --locked -- --test-threads=1 2>&1 | tee -a charge-test.log
 
       - name: Run real-component CHARGE specialization probe
         run: |
@@ -112,6 +141,42 @@ jobs:
           cargo run -p star --example h6_disagreement_contrast_probe --locked \
             | tee h6-disagreement-contrast-report.json
 
+      - name: Run H9 proof-carrying executable commitment probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h9_executable_commitment_state --locked \
+            | tee h9-executable-commitment-state-report.json
+
+      - name: Run H10 evidence-bound rule induction probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h10_evidence_bound_rule_induction --locked \
+            | tee h10-evidence-bound-rule-induction-report.json
+
+      - name: Run H11 graph-discovered relation induction probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example h11_graph_discovered_relation_induction --locked \
+            | tee h11-graph-discovered-relation-induction-report.json
+
+      - name: Run Ω1 endogenous state-space genesis probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
+            | tee omega1-endogenous-state-space-genesis-report.json
+
+      - name: Run ΩR1 representative transportability probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_r1_representative_transportability --locked \
+            | tee omega-r1-representative-transportability-report.json
+
+      - name: Run A1 bounded autonomous kernel foundation probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example a1_bounded_autonomous_kernel --locked \
+            | tee a1-bounded-autonomous-kernel-report.json
+
       - name: Preserve CHARGE diagnostics and reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -126,5 +191,11 @@ jobs:
             h5-residual-identity-diagnostic-report.json
             h5-b-identifiability-report.json
             h6-disagreement-contrast-report.json
+            h9-executable-commitment-state-report.json
+            h10-evidence-bound-rule-induction-report.json
+            h11-graph-discovered-relation-induction-report.json
+            omega1-endogenous-state-space-genesis-report.json
+            omega-r1-representative-transportability-report.json
+            a1-bounded-autonomous-kernel-report.json
           if-no-files-found: ignore
           retention-days: 7

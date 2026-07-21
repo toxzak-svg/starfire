@@ -1,30 +1,15 @@
-# Exclude certain patterns but include specific files/dirs needed for deployment
-.git
-.gitignore
-target
-README.md
-AGENTS.md
-SOUL.md
-USER.md
-MEMORY.md
-HEARTBEAT.md
-IDENTITY.md
-SPEC.md
-TOOLS.md
-.clawhub
-.openclaw
-docs
-plans
-**/*.md
-
-# Include all of ui
-!ui
-!ui/**
-
-# Include deployment files
-!entrypoint.sh
-!Dockerfile
+# Send Render only the files required to build the Rust API image.
+# The repository contains large research and UI assets that are not part of
+# this container and can otherwise make the Docker build context enormous.
+**
 !Cargo.toml
 !Cargo.lock
-!lib
-!src
+!Dockerfile
+!entrypoint.sh
+!IDENTITY.md
+!data/
+!data/star_model.bin
+!lib/
+!lib/**
+!src/
+!src/**

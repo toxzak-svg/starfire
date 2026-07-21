@@ -1,0 +1,159 @@
+name: ΩD1 CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omega-d1-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  omega-d1-contract:
+    name: omega-d1-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Show Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Compile all default-feature star targets
+        run: |
+          set -o pipefail
+          cargo check -p star --all-targets --locked 2>&1 | tee omega-d1-cargo-check.log
+
+      - name: Compile feature-gated probes with their declared features
+        run: |
+          set -o pipefail
+          cargo check -p star --example s3_companion_observer_false_positive_probe \
+            --features companion-observer --locked 2>&1 | tee omega-d1-feature-check.log
+          cargo check -p star --example s4_companion_prediction_ledger_probe \
+            --features companion-prediction-ledger --locked 2>&1 | tee -a omega-d1-feature-check.log
+          cargo check -p star \
+            --example h_infant_typed_pressure_routing_probe \
+            --example h_infant_multi_pressure_priority_probe \
+            --example h_infant_residual_revision_probe \
+            --features developmental-evidence --locked 2>&1 | tee -a omega-d1-feature-check.log
+          cargo check -p star --example r1_relational_residual_bridge \
+            --features relational-evidence --locked 2>&1 | tee -a omega-d1-feature-check.log
+
+      - name: Run transport and descendant contract tests deterministically
+        run: |
+          set -o pipefail
+          cargo test -p star representation_genesis:: --locked -- --test-threads=1 2>&1 | tee omega-d1-test.log
+          cargo test -p star representation_transport_orbit:: --locked -- --test-threads=1 2>&1 | tee -a omega-d1-test.log
+          cargo test -p star representation_transport_descendants:: --locked -- --test-threads=1 2>&1 | tee -a omega-d1-test.log
+
+      - name: Reproduce Ω1 prerequisite
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega1_endogenous_state_space_genesis --locked \
+            | tee omega1-endogenous-state-space-genesis-report.json
+
+      - name: Reproduce ΩR1 prerequisite
+        run: |
+          set -o pipefail
+          cargo run -p star --example omega_r1_representative_transportability --locked \
+            | tee omega-r1-representative-transportability-report.json
+
+      - name: Reproduce corrected ΩD1 control-failure classification
+        run: |
+          set -o pipefail
+          set +e
+          cargo run -p star --example omega_d1_transport_certified_descendant_necessity --locked \
+            | tee omega-d1-transport-certified-descendant-necessity-report.json
+          omega_status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "${omega_status}" -eq 0 ]; then
+            echo "ΩD1 unexpectedly returned success; the corrected frozen result is CONTROL_FAILURE"
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("omega-d1-transport-certified-descendant-necessity-report.json").read_text()
+          )
+
+          assert report["terminal_classification"] == "CONTROL_FAILURE"
+          assert report["root_audit"]["roots"] == 56
+          assert report["root_audit"]["wrong_transport_frontier_exact"] == 0
+          assert report["gates"]["structural_audits_exact"] is False
+          assert report["gates"]["budgets_exact"] is False
+
+          expected_true = [
+              "cohort_exact",
+              "stateful_training",
+              "stateful_holdout",
+              "stateful_future",
+              "l0_raw_zero_predictions",
+              "l0_descendant_empty_everywhere",
+              "ancestor_payload_does_not_create_terminal",
+              "wrong_transport_ancestor_rejected_everywhere",
+              "exact_ancestor_replacement_rejected_everywhere",
+              "stationary_chain_exact_half_transfer",
+              "descendant_payload_only_inert_everywhere",
+              "counterfeit_descendant_rejected_everywhere",
+              "delayed_zero_during_window",
+              "delayed_eventual_admission",
+              "all_future_families_transfer",
+              "replay_exact",
+              "invariants_hold",
+          ]
+          for gate in expected_true:
+              assert report["gates"][gate] is True, gate
+
+          expected_splits = {
+              "training": (16, 512),
+              "holdout": (8, 256),
+              "future": (32, 1024),
+          }
+          for split, (roots, predictions) in expected_splits.items():
+              metrics = report[split]["paths"]["transport_descendant_chain"]
+              assert metrics["full_successes"] == roots
+              assert metrics["total_correct_predictions"] == predictions
+              assert metrics["budgets_exact"] is True
+              assert metrics["replay_exact"] is True
+              assert metrics["invariants_hold"] is True
+          PY
+
+      - name: Preserve ΩD1 diagnostics and reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omega-d1-diagnostics
+          path: |
+            omega-d1-cargo-check.log
+            omega-d1-feature-check.log
+            omega-d1-test.log
+            omega1-endogenous-state-space-genesis-report.json
+            omega-r1-representative-transportability-report.json
+            omega-d1-transport-certified-descendant-necessity-report.json
+          if-no-files-found: ignore
+          retention-days: 7
