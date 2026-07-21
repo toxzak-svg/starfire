@@ -146,6 +146,8 @@ pub mod language_verification;
 // belief, ontology, memory, or autonomous-action authority.
 #[cfg(feature = "arise-typed-plan")]
 pub mod arise_typed_plan_shadow;
+#[cfg(feature = "arise-typed-plan")]
+pub mod arise_response_shadow_ext;
 
 // ΩV1-F1: bounded offline learned expression selection over a closed grammar-v3
 // surface lattice. The ranker is integer-only and every selected candidate is
