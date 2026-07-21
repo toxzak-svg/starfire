@@ -48,16 +48,29 @@ if [[ ! -f "$REPO_ROOT/Cargo.toml" || ! -f "$REPO_ROOT/Cargo.lock" ]]; then
   exit 91
 fi
 
-if ! command -v cargo >/dev/null 2>&1; then
+export PATH="$HOME/.cargo/bin:$PATH"
+
+needs_rustup=0
+command -v cargo >/dev/null 2>&1 || needs_rustup=1
+command -v rustfmt >/dev/null 2>&1 || needs_rustup=1
+cargo clippy --version >/dev/null 2>&1 || needs_rustup=1
+
+if [[ $needs_rustup -eq 1 ]]; then
   echo "Installing the stable Rust toolchain with rustfmt and Clippy..."
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --profile minimal --default-toolchain stable --component rustfmt,clippy
+    | sh -s -- -y --profile minimal --default-toolchain stable --component rustfmt,clippy --no-modify-path
+  export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
-# shellcheck disable=SC1091
-source "$HOME/.cargo/env"
+if [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.cargo/env"
+fi
+
 rustc --version
 cargo --version
+rustfmt --version
+cargo clippy --version
 
 export CARGO_TERM_COLOR=always
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/starfire-arise-a0-target}"
