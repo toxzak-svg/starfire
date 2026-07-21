@@ -115,6 +115,16 @@ path = "examples/omega_v1f2_ledger_report.rs"
 required-features = ["omega-v1-f2-shadow"]
 
 [[example]]
+name = "arise_a0_edge_bridge"
+path = "examples/arise_a0_edge_bridge.rs"
+required-features = ["arise-edge"]
+
+[[example]]
+name = "arise_a1_typed_program_shadow"
+path = "examples/arise_a1_typed_program_shadow.rs"
+required-features = ["arise-typed-plan"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
@@ -186,10 +196,12 @@ companion-policy-evaluation = ["companion-interaction-outcomes"]  # S5-C held-ou
 companion-bounded-live-policy = ["companion-policy-evaluation"]  # S6-A opt-in bounded response-planning metadata
 companion-live-policy-stress = ["companion-bounded-live-policy"]  # S6-B adversarial audit/replay stress; no new authority
 companion-real-interaction-canary = ["companion-policy-evaluation"]  # S6-C consented typed canary intake; no runtime authority
+arise-edge = []  # ARISE-A0 reverse-obligation engine and inert runtime-shadow observer
+arise-typed-plan = ["arise-edge", "independent-language-verifier"]  # ARISE-A1 typed semantic-program shadow audit; no live text influence
 semantic-response-program = []  # STLM L0-B typed semantic authorization and replay; no Runtime::chat() wiring
 deterministic-language-renderer = ["semantic-response-program"]  # STLM L0-C bounded reference realization; no live influence
 independent-language-verifier = ["deterministic-language-renderer"]  # STLM L1 / ΩV1-E inverse semantic verifier; builder-only and offline
-omega-v1-baseline = []  # ΩV1-A frozen voice corpus and metrics; no live influence
+omega-v1-baseline = []  # ΩV1-A frozen current-voice corpus and metrics; no live influence
 voice-state-shadow = []  # ΩV1-B typed persistent VoiceState; explicit mutation only, no live response influence
 omega-v1-semantic-plan = ["semantic-response-program"]  # ΩV1-C complete typed plans in matched shadow mode
 omega-v1-live-bridge = ["omega-v1-semantic-plan", "voice-state-shadow"]  # ΩV1-D0 deterministic canary kernel; no live wiring until D1

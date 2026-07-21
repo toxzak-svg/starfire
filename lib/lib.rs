@@ -112,6 +112,13 @@ pub mod companion_bounded_live_policy;
 #[cfg(feature = "companion-real-interaction-canary")]
 pub mod companion_real_interaction_canary;
 
+// ARISE-A0: terminal-first reverse-obligation planning with bounded forward
+// span realization and independent reconstruction. Disabled by default. The
+// current integration exposes the reusable engine and an inert runtime-shadow
+// observer only; it cannot alter returned text or acquire cognitive authority.
+#[cfg(feature = "arise-edge")]
+pub mod arise_edge;
+
 // STLM L0-B: typed semantic response authorization, validation, canonical
 // digesting, and in-memory replay. Disabled by default and intentionally has no
 // renderer, Runtime::chat(), persistence, routing, mutation, tool, or action authority.
@@ -132,6 +139,15 @@ pub mod language_realization;
 pub mod verifier_ready_realization;
 #[cfg(feature = "independent-language-verifier")]
 pub mod language_verification;
+
+// ARISE-A1: adapt validated semantic response programs into terminal-first
+// obligations, then reconstruct the final text with the independent verifier.
+// Shadow-only and default-off: no response, persistence, routing, tool, CHARGE,
+// belief, ontology, memory, or autonomous-action authority.
+#[cfg(feature = "arise-typed-plan")]
+pub mod arise_typed_plan_shadow;
+#[cfg(feature = "arise-typed-plan")]
+pub mod arise_response_shadow_ext;
 
 // ΩV1-F1: bounded offline learned expression selection over a closed grammar-v3
 // surface lattice. The ranker is integer-only and every selected candidate is
