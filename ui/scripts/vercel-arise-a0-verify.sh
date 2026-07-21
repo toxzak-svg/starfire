@@ -5,14 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$UI_DIR/.." && pwd)"
 EVIDENCE_DIR="$UI_DIR/public/arise-a0-evidence"
-LOG_FILE="$EVIDENCE_DIR/verifier.log"
 TRACE_FILE="$EVIDENCE_DIR/execution-trace.json"
 STATUS_FILE="$EVIDENCE_DIR/status.json"
 
 mkdir -p "$EVIDENCE_DIR"
-: >"$LOG_FILE"
-
-exec > >(tee -a "$LOG_FILE") 2>&1
 
 write_status() {
   local state="$1"
@@ -35,7 +31,7 @@ NODE
 
 on_error() {
   local exit_code=$?
-  write_status "failed" "Rust verification exited with code ${exit_code}. Inspect verifier.log."
+  write_status "failed" "Rust verification exited with code ${exit_code}. Inspect the Vercel build log."
   exit "$exit_code"
 }
 trap on_error ERR
