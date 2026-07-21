@@ -1,8 +1,8 @@
 use super::engine::{split_clauses, AriseEngine, LexicalSpanRenderer, LexicalTransitionVerifier};
 use super::types::{
-    authority_boundary, AriseConfig, AriseRequest, AriseRuntimeSnapshot, AriseTerminalClassification,
-    ObligationId, SemanticObligation, MAX_WITNESS_BYTES, RUNTIME_MAX_SEGMENTS,
-    RUNTIME_PIPELINE,
+    authority_boundary, AriseConfig, AriseRequest, AriseRuntimeSnapshot,
+    AriseTerminalClassification, ObligationId, SemanticObligation, MAX_WITNESS_BYTES,
+    RUNTIME_MAX_SEGMENTS, RUNTIME_PIPELINE,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -156,7 +156,10 @@ mod tests {
             "Teaching",
             "Moist air rises. Rising air cools. Water vapor condenses.",
         );
-        assert_eq!(snapshot.terminal_classification, AriseTerminalClassification::Pass);
+        assert_eq!(
+            snapshot.terminal_classification,
+            AriseTerminalClassification::Pass
+        );
         assert_eq!(snapshot.final_residual, 0);
         assert_eq!(snapshot.intent_label, "teaching");
         assert!(!snapshot.authority.generated_text_influence);
