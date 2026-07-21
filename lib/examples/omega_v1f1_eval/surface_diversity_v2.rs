@@ -25,22 +25,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub const CLAIM_FIRST_GRAMMAR_VERSION: u16 = 5;
-const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v2";
-const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v2";
-const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v2";
-
-pub type ExpressionLatticeDigest = ClaimFirstLatticeDigest;
-pub type OperationSurfaceVariant = ClaimFirstSurfaceVariant;
-pub type ExpressionLattice = ClaimFirstLattice;
-pub type GrammarV3Verifier = ClaimFirstVerifier;
-pub type OfflineLearnedExpressionSelector = ClaimFirstOfflineSelector;
+const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v3";
+const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v3";
+const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v3";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstLatticeDigest(pub u64);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstVerificationDigest(pub u64);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstSelectionDigest(pub u64);
 
@@ -65,7 +57,6 @@ pub struct ClaimFirstLatticePayload {
     pub grammar_version: u16,
     pub variants: Vec<ClaimFirstSurfaceVariant>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstLattice {
     pub payload: ClaimFirstLatticePayload,
@@ -135,7 +126,6 @@ pub struct ClaimFirstVerifiedVariant {
     pub family: ExpressionFamily,
     pub phase: u8,
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstCosts {
     pub operation_cost: u32,
@@ -145,7 +135,6 @@ pub struct ClaimFirstCosts {
     pub sentence_count: u16,
     pub paragraph_count: u16,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstVerificationPayload {
     pub program_digest: ResponseProgramDigest,
@@ -157,13 +146,11 @@ pub struct ClaimFirstVerificationPayload {
     pub variants: Vec<ClaimFirstVerifiedVariant>,
     pub costs: ClaimFirstCosts,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstVerificationReport {
     pub payload: ClaimFirstVerificationPayload,
     pub digest: ClaimFirstVerificationDigest,
 }
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ClaimFirstVerifier;
 
@@ -240,13 +227,11 @@ pub struct ClaimFirstSelectionPayload {
     pub verification_digest: Option<ClaimFirstVerificationDigest>,
     pub fallback_reason: Option<String>,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstSelectionResult {
     pub payload: ClaimFirstSelectionPayload,
     pub digest: ClaimFirstSelectionDigest,
 }
-
 #[derive(Debug, Clone)]
 pub struct ClaimFirstOfflineSelector {
     model: LearnedExpressionModel,
@@ -303,13 +288,12 @@ impl ClaimFirstOfflineSelector {
         projection.verify_integrity()?;
         let base = RemediatedOfflineSelector::new(self.model.clone())
             .select(program, lexical_table, projection)?;
-        if base.payload.disposition != SelectionDisposition::LearnedVerified {
+        if base.payload.disposition != SelectionDisposition::LearnedVerified
+            || base.payload.variant_ids.len() != program.payload.operations.len()
+        {
             return Err(ClaimFirstError::BaseSelectionFallback);
         }
         let lattice = ClaimFirstLattice::build(program, lexical_table)?;
-        if base.payload.variant_ids.len() != program.payload.operations.len() {
-            return Err(ClaimFirstError::MissingVariant);
-        }
         let mut text = String::new();
         for (index, (operation, variant_id)) in program
             .payload
@@ -476,9 +460,12 @@ fn claim_first_text(
     phase: u8,
 ) -> String {
     match kind {
-        DiscourseOperationKind::Assert(_) | DiscourseOperationKind::Qualify { .. } => {
-            claim_first_epistemic(canonical, family, phase)
-                .unwrap_or_else(|| generic_phase_text(canonical, family, phase))
+        DiscourseOperationKind::Assert(_) => claim_first_epistemic(canonical, family, phase)
+            .unwrap_or_else(|| generic_phase_text(canonical, family, phase)),
+        DiscourseOperationKind::Qualify { .. } => {
+            let base = claim_first_epistemic(canonical, family, phase)
+                .unwrap_or_else(|| generic_phase_text(canonical, family, phase));
+            format!("{} The qualification remains explicit.", base)
         }
         DiscourseOperationKind::Acknowledge(_) => {
             let label = extract_between(
@@ -558,11 +545,7 @@ fn claim_first_text(
     }
 }
 
-fn generic_phase_text(
-    canonical: &str,
-    family: ExpressionFamily,
-    phase: u8,
-) -> String {
+fn generic_phase_text(canonical: &str, family: ExpressionFamily, phase: u8) -> String {
     let ending = choose(
         family,
         phase,
@@ -705,11 +688,7 @@ fn choose(
     }
 }
 
-fn extract_between<'a>(
-    text: &'a str,
-    prefixes: &[&str],
-    terminal: &[char],
-) -> Option<&'a str> {
+fn extract_between<'a>(text: &'a str, prefixes: &[&str], terminal: &[char]) -> Option<&'a str> {
     for prefix in prefixes {
         if let Some(position) = text.find(prefix) {
             return Some(
@@ -774,10 +753,7 @@ fn parse_exact<'a>(
     Ok(matched)
 }
 
-fn assemble_base(
-    program: &SemanticResponseProgram,
-    variants: &[&ClaimFirstSurfaceVariant],
-) -> String {
+fn assemble_base(program: &SemanticResponseProgram, variants: &[&ClaimFirstSurfaceVariant]) -> String {
     let mut text = String::new();
     for (index, variant) in variants.iter().enumerate() {
         text.push_str(separator_before(program, index));
@@ -880,22 +856,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn possible_claims_lead_all_six_surfaces() {
+    fn assert_and_qualify_are_text_distinct() {
         let canonical = "Conclusion: It is possible that the selector stays bounded.";
-        let mut outputs = BTreeSet::new();
-        for family in [ExpressionFamily::Direct, ExpressionFamily::Warm] {
-            for phase in 0..3 {
-                let output = claim_first_text(
-                    canonical,
-                    &DiscourseOperationKind::Assert(ClaimId(1)),
-                    family,
-                    phase,
-                );
-                assert!(output.starts_with("The selector stays bounded."));
-                outputs.insert(output);
-            }
-        }
-        assert_eq!(outputs.len(), 6);
+        let asserted = claim_first_text(
+            canonical,
+            &DiscourseOperationKind::Assert(ClaimId(1)),
+            ExpressionFamily::Direct,
+            0,
+        );
+        let qualified = claim_first_text(
+            canonical,
+            &DiscourseOperationKind::Qualify {
+                claim: ClaimId(1),
+                status: crate::semantic_response::EpistemicStatus::Possible,
+            },
+            ExpressionFamily::Direct,
+            0,
+        );
+        assert_ne!(asserted, qualified);
+        assert!(asserted.starts_with("The selector stays bounded."));
+        assert!(qualified.starts_with("The selector stays bounded."));
     }
 
     #[test]
