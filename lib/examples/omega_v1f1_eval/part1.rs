@@ -6,11 +6,11 @@ use star::language_realization::{
     MissingVariableLexicalBinding, ObservationLexicalBinding, PredictionLexicalBinding,
 };
 use star::learned_expression::{
-    authority_boundary, ExpressionLattice, GrammarV3Verifier, LearnedExpressionModel,
-    PairwisePreference, PreferredSide,
-    SelectionDisposition, VariantProfile, MAX_BEAM_WIDTH, MAX_MODEL_BYTES,
-    MAX_RESPONSE_CANDIDATES, MAX_TRAINABLE_PARAMETERS, MAX_VARIANTS_PER_OPERATION,
+    LearnedExpressionModel, PairwisePreference, PreferredSide, SelectionDisposition,
+    VariantProfile, MAX_BEAM_WIDTH, MAX_MODEL_BYTES, MAX_RESPONSE_CANDIDATES,
+    MAX_TRAINABLE_PARAMETERS, MAX_VARIANTS_PER_OPERATION,
 };
+use star::omega_v1f1_projection_guard::VerifiedVoiceProjection as LearnedVoiceProjection;
 use star::semantic_response::{
     AbstentionReason, AcknowledgmentLevel, AuthorizedClaim, ClaimId, ClaimPolarity,
     CognitiveStateVersion, ComputeBudget, DetailLevel, DialogueMode, DiscourseOperation,
@@ -20,12 +20,15 @@ use star::semantic_response::{
     SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
     SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
 };
-use star::omega_v1f1_projection_guard::{
-    GuardedOfflineLearnedExpressionSelector as OfflineLearnedExpressionSelector,
-    VerifiedVoiceProjection as LearnedVoiceProjection,
-};
 use star::verifier_ready_realization::VerifierReadyRenderer;
 use std::collections::{BTreeMap, BTreeSet};
+use surface_diversity::{
+    authority_boundary, RemediatedLattice as ExpressionLattice,
+    RemediatedLatticeDigest as ExpressionLatticeDigest,
+    RemediatedOfflineSelector as OfflineLearnedExpressionSelector,
+    RemediatedSurfaceVariant as OperationSurfaceVariant,
+    RemediatedVerifier as GrammarV3Verifier,
+};
 
 const F1: &str = include_str!("../../fixtures/omega_v1f1/manifest.json");
 const A: &str = include_str!("../../fixtures/omega_v1a/manifest.json");
@@ -39,8 +42,6 @@ const SHARDS: [(&str, &str); 7] = [
     ("adversarial", include_str!("../../fixtures/omega_v1a/adversarial.json")),
 ];
 const SUBJECT: SubjectScope = SubjectScope(77);
-const BASE_OPENER: f64 = 0.819_672_131_147_541;
-const BASE_TRIGRAM: f64 = 0.278_688_524_590_163_9;
 
 #[derive(Clone, Deserialize)]
 struct AM {
