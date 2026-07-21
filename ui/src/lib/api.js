@@ -1,15 +1,20 @@
 // Star API client
 // Normalize the configured host so a scheme-less Vercel environment value cannot
 // silently turn API calls into relative requests against the frontend itself.
-const configuredApi = process.env.NEXT_PUBLIC_STAR_API || "https://starfire-cuee.onrender.com";
-const STAR_API = (/^https?:\/\//i.test(configuredApi) ? configuredApi : `https://${configuredApi}`)
-  .replace(/\/+$/, "");
+const configuredApi =
+  process.env.NEXT_PUBLIC_STAR_API || "https://starfire-cuee.onrender.com";
+const STAR_API = (
+  /^https?:\/\//i.test(configuredApi)
+    ? configuredApi
+    : `https://${configuredApi}`
+).replace(/\/+$/, "");
 
-export async function sendMessage(message, history = []) {
+export async function sendMessage(message, history = [], options = {}) {
   const res = await fetch(`${STAR_API}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, history }),
+    signal: options.signal,
   });
   if (!res.ok) throw new Error(`Star API error: ${res.status}`);
   return res.json();
