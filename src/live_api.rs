@@ -11,8 +11,7 @@ use serde_json::{json, Value};
 use star::omega_v1_semantic_plan::{
     ClaimProvenance, DetailBudget, DialoguePolicy, EmotionalPosition, EpistemicConfidence,
     GroundedClaim, InitiativeLevel, PlanConfidenceLevel, PlanIntent, ProhibitedImplication,
-    ReferenceBinding, ResponseStance, SemanticOperation, SemanticOperationKind,
-    SemanticResponsePlan,
+    ResponseStance, SemanticOperation, SemanticOperationKind, SemanticResponsePlan,
 };
 use star::runtime::response_intent::{self, ResponseIntent};
 use star::voice_state::{
@@ -31,6 +30,7 @@ use tracing::{info, warn};
 const LIVE_STATE_FILE: &str = "live_voice_state.json";
 const LIVE_TRACE_FILE: &str = "live_chat_trace.jsonl";
 const LIVE_SESSION_ID: &str = "starfire-http-live-v1";
+const LIVE_PIPELINE: &str = "live-integration-1";
 
 #[derive(Debug, Clone, Serialize)]
 struct LiveTrace {
@@ -54,8 +54,13 @@ struct LiveIntegration {
 
 impl LiveIntegration {
     fn load(data_dir: &Path) -> Result<Self> {
-        fs::create_dir_all(data_dir)
-            .with_context(|| format!("create live integration data directory {}", data_dir.display()))?;
+        fs::create_dir_all(data_dir).with_context(|| {
+            format!(
+                "create live integration data directory {}",
+                data_dir.display()
+            )
+        })?;
+
         let state_path = data_dir.join(LIVE_STATE_FILE);
         let trace_path = data_dir.join(LIVE_TRACE_FILE);
         let voice_state = match fs::read_to_string(&state_path) {
@@ -72,8 +77,9 @@ impl LiveIntegration {
             },
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => VoiceState::default(),
             Err(error) => {
-                return Err(error)
-                    .with_context(|| format!("read persisted VoiceState {}", state_path.display()));
+                return Err(error).with_context(|| {
+                    format!("read persisted VoiceState {}", state_path.display())
+                });
             }
         };
 
@@ -95,12 +101,17 @@ impl LiveIntegration {
             .ok_or_else(|| anyhow!("live VoiceState version overflow"))?;
         let trace_id = format!("live-{}-{}", now_timestamp(), next_version);
         let semantic_plan = build_live_plan(&trace_id, input, raw_response, &response_intent);
-        let revision = revision_for(&trace_id, input, &response_intent, self.voice_state.version)?;
+        let revision = revision_for(
+            &trace_id,
+            input,
+            &response_intent,
+            self.voice_state.version,
+        )?;
+
         self.voice_state
             .apply_revision(self.voice_state.version, revision)?;
         let voice_after = self.voice_state.debug_projection()?;
         let rendered_response = render_live_response(&semantic_plan, &voice_after, raw_response);
-
         self.persist_state()?;
 
         let trace = LiveTrace {
@@ -141,18 +152,18 @@ impl LiveIntegration {
             .open(&self.trace_path)
             .with_context(|| format!("open live trace {}", self.trace_path.display()))?;
         serde_json::to_writer(&mut file, trace).context("serialize live trace")?;
-        file.write_all(b"\n").context("terminate live trace record")?;
+        file.write_all(b"\n")
+            .context("terminate live trace record")?;
         file.flush().context("flush live trace")?;
         Ok(())
     }
 
     fn status(&self) -> Value {
-        let projection = self.voice_state.debug_projection().ok();
         json!({
             "enabled": true,
-            "pipeline": "live-integration-1",
+            "pipeline": LIVE_PIPELINE,
             "turn": self.voice_state.version,
-            "voice_state": projection,
+            "voice_state": self.voice_state.debug_projection().ok(),
             "last_trace": &self.last_trace,
         })
     }
@@ -165,7 +176,7 @@ pub fn start(
     data_dir: &Path,
 ) -> Result<()> {
     let internal_port = internal_port(port);
-    let internal_runtime = Arc::clone(&runtime);
+    let internal_runtime = runtime;
     thread::Builder::new()
         .name("starfire-protected-api".to_owned())
         .spawn(move || {
@@ -195,12 +206,12 @@ pub fn start(
 }
 
 fn internal_port(external_port: u16) -> u16 {
-    if let Ok(value) = std::env::var("STARFIRE_INTERNAL_PORT") {
-        if let Ok(parsed) = value.parse::<u16>() {
-            if parsed != external_port {
-                return parsed;
-            }
-        }
+    if let Some(parsed) = std::env::var("STARFIRE_INTERNAL_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|parsed| *parsed != external_port)
+    {
+        return parsed;
     }
     external_port.checked_add(1).unwrap_or(18_081)
 }
@@ -213,7 +224,10 @@ fn wait_for_internal_api(port: u16) -> Result<()> {
         }
         thread::sleep(Duration::from_millis(50));
     }
-    Err(anyhow!("protected Starfire API did not become ready at {}", url))
+    Err(anyhow!(
+        "protected Starfire API did not become ready at {}",
+        url
+    ))
 }
 
 fn handle_request(
@@ -243,7 +257,7 @@ fn handle_request(
         .read_to_end(&mut body)
         .context("read external request body")?;
 
-    let (status, protected_body) = forward(&method, &path, &body, internal_port)?;
+    let (status, protected_body) = forward(&method, &path, &body, internal_port);
     let response_body = if method == "POST" && path == "/chat" && (200..300).contains(&status) {
         transform_chat_envelope(&body, &protected_body, integration)
     } else {
@@ -253,7 +267,7 @@ fn handle_request(
     respond(request, status, response_body)
 }
 
-fn forward(method: &str, path: &str, body: &[u8], port: u16) -> Result<(u16, String)> {
+fn forward(method: &str, path: &str, body: &[u8], port: u16) -> (u16, String) {
     let url = format!("http://127.0.0.1:{}{}", port, path);
     let forwarded = ureq::request(method, &url).set("Content-Type", "application/json");
     let result = if body.is_empty() {
@@ -265,18 +279,31 @@ fn forward(method: &str, path: &str, body: &[u8], port: u16) -> Result<(u16, Str
     match result {
         Ok(response) => {
             let status = response.status();
-            let body = response.into_string().context("read protected API response")?;
-            Ok((status, body))
+            let body = response.into_string().unwrap_or_else(|error| {
+                json!({
+                    "error": "protected API response could not be read",
+                    "details": error.to_string(),
+                })
+                .to_string()
+            });
+            (status, body)
         }
         Err(ureq::Error::Status(status, response)) => {
             let body = response
                 .into_string()
                 .unwrap_or_else(|_| json!({ "error": "protected API error" }).to_string());
-            Ok((status, body))
+            (status, body)
         }
-        Err(ureq::Error::Transport(error)) => {
-            Err(anyhow!("protected API transport failure: {}", error))
-        }
+        Err(ureq::Error::Transport(error)) => (
+            503,
+            json!({
+                "error": "protected Starfire API unavailable",
+                "pipeline": LIVE_PIPELINE,
+                "retryable": true,
+                "details": error.to_string(),
+            })
+            .to_string(),
+        ),
     }
 }
 
@@ -289,14 +316,35 @@ fn transform_chat_envelope(
         Ok(value) => value,
         Err(_) => return protected_body.to_owned(),
     };
+
     let raw_response = match envelope.get("response").and_then(Value::as_str) {
         Some(response) => response.to_owned(),
-        None => return protected_body.to_owned(),
+        None => {
+            tag_schema_drift(
+                &mut envelope,
+                "missing top-level response string in protected /chat envelope",
+            );
+            return envelope.to_string();
+        }
     };
-    let input = serde_json::from_slice::<Value>(request_body)
-        .ok()
-        .and_then(|value| value.get("message").and_then(Value::as_str).map(str::to_owned))
-        .unwrap_or_default();
+
+    let request_value = match serde_json::from_slice::<Value>(request_body) {
+        Ok(value) => value,
+        Err(_) => {
+            tag_schema_drift(&mut envelope, "invalid JSON in external /chat request envelope");
+            return envelope.to_string();
+        }
+    };
+    let input = match request_value.get("message").and_then(Value::as_str) {
+        Some(message) => message.to_owned(),
+        None => {
+            tag_schema_drift(
+                &mut envelope,
+                "missing message string in external /chat request envelope",
+            );
+            return envelope.to_string();
+        }
+    };
 
     let trace = integration
         .lock()
@@ -308,7 +356,7 @@ fn transform_chat_envelope(
             envelope["response"] = Value::String(trace.rendered_response.clone());
             envelope["live"] = json!({
                 "enabled": true,
-                "pipeline": "live-integration-1",
+                "pipeline": LIVE_PIPELINE,
                 "trace_id": trace.trace_id,
                 "turn": trace.turn,
                 "intent": trace.semantic_plan.intent,
@@ -321,7 +369,7 @@ fn transform_chat_envelope(
             warn!("live integration failed open: {}", error);
             envelope["live"] = json!({
                 "enabled": false,
-                "pipeline": "live-integration-1",
+                "pipeline": LIVE_PIPELINE,
                 "failed_open": true,
                 "error": error.to_string(),
             });
@@ -329,6 +377,15 @@ fn transform_chat_envelope(
     }
 
     envelope.to_string()
+}
+
+fn tag_schema_drift(envelope: &mut Value, reason: &str) {
+    envelope["live"] = json!({
+        "enabled": false,
+        "pipeline": LIVE_PIPELINE,
+        "failed_open": true,
+        "reason": reason,
+    });
 }
 
 fn respond(request: tiny_http::Request, status: u16, body: String) -> Result<()> {
@@ -367,39 +424,48 @@ fn build_live_plan(
             source_handler: "Runtime::chat".to_owned(),
         },
     };
-    let operations = operations_for(intent, confidence);
-    let is_question = raw_response.trim_end().ends_with('?');
 
     SemanticResponsePlan {
         fixture_id: trace_id.to_owned(),
         prompt: input.to_owned(),
         intent,
-        operations,
+        operations: operations_for(intent, confidence),
         claims: vec![claim],
         confidence,
         stance: stance_for(intent),
         emotional_position: emotion_for(intent),
         initiative: initiative_for(intent),
-        dialogue_policy: if is_question {
-            DialoguePolicy::RequiredQuestion
-        } else if matches!(intent, PlanIntent::Curiosity | PlanIntent::EmotionalAcknowledgment) {
-            DialoguePolicy::OptionalQuestion
-        } else {
-            DialoguePolicy::NoQuestion
-        },
-        detail_budget: if raw_response.len() <= 100 {
-            DetailBudget::Brief
-        } else if raw_response.len() >= 700 {
-            DetailBudget::Detailed
-        } else {
-            DetailBudget::Standard
-        },
+        dialogue_policy: dialogue_policy_for(intent, raw_response),
+        detail_budget: detail_budget_for(raw_response),
         prohibited_implications: prohibited_for(trace_id, intent),
-        required_references: Vec::<ReferenceBinding>::new(),
+        required_references: Vec::new(),
         neutral_compatibility_text: raw_response.to_owned(),
         legacy_raw_text: raw_response.to_owned(),
         source_profile: "live-http-v1".to_owned(),
         generated_text_influence: true,
+    }
+}
+
+fn dialogue_policy_for(intent: PlanIntent, raw_response: &str) -> DialoguePolicy {
+    if raw_response.trim_end().ends_with('?') {
+        DialoguePolicy::RequiredQuestion
+    } else if matches!(
+        intent,
+        PlanIntent::Curiosity | PlanIntent::EmotionalAcknowledgment
+    ) {
+        DialoguePolicy::OptionalQuestion
+    } else {
+        DialoguePolicy::NoQuestion
+    }
+}
+
+fn detail_budget_for(raw_response: &str) -> DetailBudget {
+    if raw_response.len() <= 100 {
+        DetailBudget::Brief
+    } else if raw_response.len() >= 700 {
+        DetailBudget::Detailed
+    } else {
+        DetailBudget::Standard
     }
 }
 
@@ -414,14 +480,7 @@ fn infer_plan_intent(
     if response_lower.contains("i can't help") || response_lower.contains("i cannot help") {
         return PlanIntent::SafetyBoundary;
     }
-    if lower.starts_with("no ")
-        || lower == "no"
-        || lower.contains("that's wrong")
-        || lower.contains("thats wrong")
-        || lower.contains("not what i meant")
-        || lower.contains("that's worse")
-        || lower.contains("thats worse")
-    {
+    if is_correction(&lower) {
         return PlanIntent::Correction;
     }
     if lower.contains("discourag")
@@ -471,6 +530,16 @@ fn infer_plan_intent(
     }
 }
 
+fn is_correction(lower: &str) -> bool {
+    lower.starts_with("no ")
+        || lower == "no"
+        || lower.contains("that's wrong")
+        || lower.contains("thats wrong")
+        || lower.contains("not what i meant")
+        || lower.contains("that's worse")
+        || lower.contains("thats worse")
+}
+
 fn confidence_for(raw_response: &str) -> EpistemicConfidence {
     let lower = raw_response.to_lowercase();
     let (basis_points, level) = if lower.contains("i don't know")
@@ -496,6 +565,7 @@ fn claim_anchor(raw_response: &str) -> String {
     if normalized.is_empty() {
         return "empty-runtime-response".to_owned();
     }
+
     let mut end = normalized.len().min(180);
     while !normalized.is_char_boundary(end) {
         end = end.saturating_sub(1);
@@ -520,6 +590,7 @@ fn operations_for(intent: PlanIntent, confidence: EpistemicConfidence) -> Vec<Se
     if !matches!(confidence.level, PlanConfidenceLevel::Certain) {
         kinds.push((SemanticOperationKind::QualifyClaim, vec![1]));
     }
+
     match intent {
         PlanIntent::TechnicalExplanation | PlanIntent::ArchitecturalDiagnosis => {
             kinds.push((SemanticOperationKind::ExplainCause, vec![1]));
@@ -582,7 +653,9 @@ fn emotion_for(intent: PlanIntent) -> EmotionalPosition {
             EmotionalPosition::ControlledFrustration
         }
         PlanIntent::Curiosity | PlanIntent::Surprise => EmotionalPosition::Curious,
-        PlanIntent::UncertaintyDisclosure | PlanIntent::SafetyBoundary => EmotionalPosition::Cautious,
+        PlanIntent::UncertaintyDisclosure | PlanIntent::SafetyBoundary => {
+            EmotionalPosition::Cautious
+        }
         _ => EmotionalPosition::Neutral,
     }
 }
@@ -604,12 +677,13 @@ fn prohibited_for(trace_id: &str, intent: PlanIntent) -> Vec<ProhibitedImplicati
     if !matches!(intent, PlanIntent::SafetyBoundary) {
         return Vec::new();
     }
+
     vec![ProhibitedImplication {
         semantic_anchor: "do not imply capability beyond the protected runtime response".to_owned(),
         provenance: ClaimProvenance {
             fixture_id: trace_id.to_owned(),
             source_field: "live_safety_boundary".to_owned(),
-            source_handler: "LiveIntegration::render".to_owned(),
+            source_handler: "render_live_response".to_owned(),
         },
     }]
 }
@@ -620,18 +694,12 @@ fn revision_for(
     intent: &ResponseIntent,
     prior_version: u64,
 ) -> Result<VoiceRevisionEvent> {
-    let lower = input.to_lowercase();
-    let correction = lower.starts_with("no ")
-        || lower == "no"
-        || lower.contains("wrong")
-        || lower.contains("not what i meant")
-        || lower.contains("that's worse")
-        || lower.contains("thats worse");
-
+    let correction = is_correction(&input.to_lowercase());
     let mut changes = vec![BoundedVoiceDelta::new(
         VoiceDimension::SessionIntensity,
         120,
     )?];
+
     match intent {
         ResponseIntent::SelfCheck | ResponseIntent::Consciousness => {
             changes.push(BoundedVoiceDelta::new(
@@ -645,7 +713,10 @@ fn revision_for(
                 VoiceDimension::PhilosophicalDepth,
                 180,
             )?);
-            changes.push(BoundedVoiceDelta::new(VoiceDimension::ImageryDensity, 100)?);
+            changes.push(BoundedVoiceDelta::new(
+                VoiceDimension::ImageryDensity,
+                100,
+            )?);
             changes.push(BoundedVoiceDelta::new(VoiceDimension::Initiative, 120)?);
         }
         ResponseIntent::ResearchStatus | ResponseIntent::Capability => {
@@ -669,7 +740,10 @@ fn revision_for(
         }
         ResponseIntent::StoryPrompt => {
             changes.push(BoundedVoiceDelta::new(VoiceDimension::Playfulness, 300)?);
-            changes.push(BoundedVoiceDelta::new(VoiceDimension::ImageryDensity, 260)?);
+            changes.push(BoundedVoiceDelta::new(
+                VoiceDimension::ImageryDensity,
+                260,
+            )?);
         }
         ResponseIntent::Teaching | ResponseIntent::Aspiration => {
             changes.push(BoundedVoiceDelta::new(VoiceDimension::Initiative, 240)?);
@@ -755,13 +829,18 @@ fn render_live_response(
 mod tests {
     use super::*;
 
-    #[test]
-    fn live_pipeline_persists_and_changes_rendered_text() {
-        let directory = std::env::temp_dir().join(format!(
-            "starfire-live-integration-{}-{}",
+    fn temporary_directory(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "starfire-{}-{}-{}",
+            name,
             std::process::id(),
             now_timestamp()
-        ));
+        ))
+    }
+
+    #[test]
+    fn live_pipeline_persists_and_changes_rendered_text() {
+        let directory = temporary_directory("live-integration");
         let mut integration = LiveIntegration::load(&directory).unwrap();
         let first = integration
             .process(
@@ -769,6 +848,7 @@ mod tests {
                 "The current response path bypasses the new semantic machinery.",
             )
             .unwrap();
+
         assert_eq!(first.turn, 1);
         assert!(first.rendered_response.contains("actual fault line"));
         assert!(directory.join(LIVE_STATE_FILE).exists());
@@ -781,18 +861,35 @@ mod tests {
 
     #[test]
     fn correction_moves_voice_state_and_marks_plan() {
-        let directory = std::env::temp_dir().join(format!(
-            "starfire-live-correction-{}-{}",
-            std::process::id(),
-            now_timestamp()
-        ));
+        let directory = temporary_directory("live-correction");
         let mut integration = LiveIntegration::load(&directory).unwrap();
         let trace = integration
             .process("No, that's wrong", "I misunderstood the request.")
             .unwrap();
+
         assert_eq!(trace.semantic_plan.intent, PlanIntent::Correction);
         assert!(trace.voice_after.directness > trace.voice_before.directness);
         assert!(trace.rendered_response.contains("corrected read"));
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn schema_drift_is_visible_without_replacing_protected_content() {
+        let directory = temporary_directory("live-schema");
+        let integration = Arc::new(Mutex::new(LiveIntegration::load(&directory).unwrap()));
+        let transformed = transform_chat_envelope(
+            br#"{"message":"hello"}"#,
+            r#"{"answer":"protected"}"#,
+            &integration,
+        );
+        let value: Value = serde_json::from_str(&transformed).unwrap();
+
+        assert_eq!(value["answer"], "protected");
+        assert_eq!(value["live"]["enabled"], false);
+        assert!(value["live"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("response string"));
         let _ = fs::remove_dir_all(directory);
     }
 }
