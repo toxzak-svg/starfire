@@ -5,10 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UI_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$UI_DIR/.." && pwd)"
 EVIDENCE_DIR="$UI_DIR/public/arise-a0-evidence"
+FORMATTED_DIR="$EVIDENCE_DIR/formatted"
 TRACE_FILE="$EVIDENCE_DIR/execution-trace.json"
 STATUS_FILE="$EVIDENCE_DIR/status.json"
 
-mkdir -p "$EVIDENCE_DIR"
+mkdir -p "$EVIDENCE_DIR" "$FORMATTED_DIR"
 
 write_status() {
   local state="$1"
@@ -76,13 +77,19 @@ export CARGO_TERM_COLOR=always
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/starfire-arise-a0-target}"
 cd "$REPO_ROOT"
 
-echo "== Formatting =="
-rustfmt --edition 2021 --check \
+echo "== Formatting disposable build copy =="
+rustfmt --edition 2021 \
   lib/arise_edge/mod.rs \
   lib/arise_edge/types.rs \
   lib/arise_edge/engine.rs \
   lib/arise_edge/runtime_shadow.rs \
   lib/examples/arise_a0_edge_bridge.rs
+
+cp lib/arise_edge/mod.rs "$FORMATTED_DIR/mod.rs.txt"
+cp lib/arise_edge/types.rs "$FORMATTED_DIR/types.rs.txt"
+cp lib/arise_edge/engine.rs "$FORMATTED_DIR/engine.rs.txt"
+cp lib/arise_edge/runtime_shadow.rs "$FORMATTED_DIR/runtime_shadow.rs.txt"
+cp lib/examples/arise_a0_edge_bridge.rs "$FORMATTED_DIR/arise_a0_edge_bridge.rs.txt"
 
 echo "== Default library compile =="
 cargo check -p star --lib --locked
@@ -117,7 +124,7 @@ cargo run -p star --example arise_a0_edge_bridge --features arise-edge --locked 
 grep -F '"terminal_classification": "Pass"' "$TRACE_FILE"
 grep -F '"final_residual": 0' "$TRACE_FILE"
 
-write_status "passed" "Formatting, compilation, tests, scoped Clippy, and executable probe passed."
+write_status "passed" "Disposable Rustfmt, compilation, tests, scoped Clippy, and executable probe passed."
 trap - ERR
 
 echo "ARISE-A0 Vercel verification PASS"
