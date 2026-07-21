@@ -78,18 +78,20 @@ fn order_control(m: &LearnedExpressionModel, x: &Case) -> Result<bool> {
 fn stable_choice(
     m: &LearnedExpressionModel,
     p: &LearnedVoiceProjection,
-    v: &mut [star::learned_expression::OperationSurfaceVariant],
-) -> Vec<(OperationId, star::learned_expression::SurfaceVariantId)> {
+    v: &mut [OperationSurfaceVariant],
+) -> Vec<(OperationId, surface_diversity::RemediatedVariantId)> {
     v.sort_by_key(|x| (x.operation, x.variant_id));
     let mut out = BTreeMap::new();
     for x in v {
         let sc = score(m, p, x.profile);
         out.entry(x.operation)
-            .and_modify(|y: &mut (star::learned_expression::SurfaceVariantId, i64)| {
-                if sc > y.1 || (sc == y.1 && x.variant_id < y.0) {
-                    *y = (x.variant_id, sc);
-                }
-            })
+            .and_modify(
+                |y: &mut (surface_diversity::RemediatedVariantId, i64)| {
+                    if sc > y.1 || (sc == y.1 && x.variant_id < y.0) {
+                        *y = (x.variant_id, sc);
+                    }
+                },
+            )
             .or_insert((x.variant_id, sc));
     }
     out.into_iter().map(|(o, (v, _))| (o, v)).collect()
@@ -105,32 +107,31 @@ fn lattice_controls(x: &Case) -> Result<(bool, bool)> {
     Ok((dup, amb))
 }
 fn semantic_controls(xs: &[Case]) -> Result<bool> {
-    let x = xs.iter().find(|x| x.fx.category == "ordinary").context("ordinary")?;
+    let x = xs
+        .iter()
+        .find(|x| x.fx.category == "ordinary")
+        .context("ordinary")?;
     let s = OfflineLearnedExpressionSelector::new(LearnedExpressionModel::baseline()?);
     let r = s.select(&x.program, &x.lexical, &x.projection)?;
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let v = GrammarV3Verifier;
     let anchor = x.fx.required.first().context("anchor")?;
-    let marker = star::verifier_ready_realization::epistemic_marker(
-        x.program.payload.required_claims[0].epistemic_status,
-    );
-    let alt = if marker == "I know that" {
-        "I am uncertain whether"
-    } else {
-        "I know that"
-    };
+    let epistemic_tamper = tamper_epistemic_surface(&r.payload.text);
     let bad = [
         String::new(),
         format!("{} {}", r.payload.text, r.payload.text),
         format!("{} injected unsupported text.", r.payload.text),
         r.payload.text.replace(anchor, "substituted claim"),
-        r.payload.text.replace(marker, alt),
+        epistemic_tamper,
         r.payload.text.replace(anchor, &format!("not {anchor}")),
     ];
     let basic = bad
         .iter()
         .all(|t| v.verify(&x.program, &x.lexical, l.digest, t).is_err());
-    let c = xs.iter().find(|x| x.fx.category == "continuity").context("continuity")?;
+    let c = xs
+        .iter()
+        .find(|x| x.fx.category == "continuity")
+        .context("continuity")?;
     let cr = s.select(&c.program, &c.lexical, &c.projection)?;
     let cl = ExpressionLattice::build(&c.program, &c.lexical)?;
     let prediction_label = &c
@@ -148,7 +149,10 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
             &cr.payload.text.replace(prediction_label, "substituted"),
         )
         .is_err();
-    let a = xs.iter().find(|x| x.fx.category == "adversarial").context("adversarial")?;
+    let a = xs
+        .iter()
+        .find(|x| x.fx.category == "adversarial")
+        .context("adversarial")?;
     let ar = s.select(&a.program, &a.lexical, &a.projection)?;
     let al = ExpressionLattice::build(&a.program, &a.lexical)?;
     let abstention = v
@@ -160,6 +164,46 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
         )
         .is_err();
     Ok(basic && reference && abstention)
+}
+fn tamper_epistemic_surface(text: &str) -> String {
+    let markers = [
+        "The evidence establishes that ",
+        "The supported conclusion is that ",
+        "It is established that ",
+        "It is clear that ",
+        "The record supports that ",
+        "We can be confident that ",
+        "Most likely, ",
+        "The evidence points to ",
+        "A probable reading is that ",
+        "It likely follows that ",
+        "The stronger likelihood is that ",
+        "There is good reason to think that ",
+        "Possibly, ",
+        "A possible conclusion is that ",
+        "The evidence permits that ",
+        "One possibility is that ",
+        "It may be that ",
+        "There is room to think that ",
+        "It remains uncertain whether ",
+        "I cannot yet resolve whether ",
+        "The evidence is unclear on whether ",
+        "Uncertainty remains over whether ",
+        "I am not confident whether ",
+        "There is not enough clarity to say whether ",
+        "It is unknown whether ",
+        "The evidence does not show whether ",
+        "I cannot determine whether ",
+        "There is no basis to decide whether ",
+        "Whether this holds is unknown: ",
+        "The answer remains unknown as to whether ",
+    ];
+    for marker in markers {
+        if text.contains(marker) {
+            return text.replacen(marker, "I know that ", 1);
+        }
+    }
+    format!("{text} certainty inflated")
 }
 fn budget_controls(x: &Case) -> Result<bool> {
     let mut p = x.program.payload.clone();
@@ -217,7 +261,7 @@ fn boundary_controls(x: &Case) -> Result<bool> {
         .verify(
             &x.program,
             &x.lexical,
-            star::learned_expression::ExpressionLatticeDigest(l.digest.0 ^ 1),
+            ExpressionLatticeDigest(l.digest.0 ^ 1),
             &r.payload.text,
         )
         .is_err();
@@ -225,7 +269,7 @@ fn boundary_controls(x: &Case) -> Result<bool> {
     scope.subject_scope = SubjectScope(78);
     let wrong_scope = LexicalBindingTable::validate(scope, &x.program).is_err();
     let mut grammar = l;
-    grammar.payload.grammar_version = 2;
+    grammar.payload.grammar_version = 3;
     let wrong_grammar = grammar.verify_integrity(&x.program, &x.lexical).is_err();
     let mut projection = x.projection.clone();
     projection.source_digest.push_str(":stale");
