@@ -7,6 +7,9 @@ set -euo pipefail
 export STARFIRE_PORT="${STARFIRE_PORT:-${PORT:-8080}}"
 export STARFIRE_DATA="${STARFIRE_DATA:-/data}"
 export STARFIRE_LOG="${STARFIRE_LOG:-info}"
+# ΩV1-F2 is compiled into the binary but remains inert until this explicit
+# switch is enabled after the external build/deploy gate succeeds.
+export STARFIRE_OMEGA_V1F2_SHADOW="${STARFIRE_OMEGA_V1F2_SHADOW:-0}"
 
 # The CLI currently resolves an explicit data directory to its nested life/
 # directory unless SPEC.md is present. Keep /data as the canonical asset store,
@@ -59,11 +62,17 @@ seed_asset "/opt/starfire/assets/models/ckpt_e28_b500.pt" \
     "$reranker_target" \
     "native CharRNN reranker checkpoint"
 
+f2_model_target="$STARFIRE_DATA/models/omega_v1f1r1_model.json"
+seed_asset "/opt/starfire/assets/models/omega_v1f1r1_model.json" \
+    "$f2_model_target" \
+    "bounded ΩV1-F1R1 shadow model"
+
 # Runtime::new receives /data/life from the current CLI path resolver. Link the
 # canonical persistent assets into that effective directory so identity and the
 # trained reranker are loaded from the same files on every boot.
 ln -sfn "$STARFIRE_DATA/IDENTITY.md" "$runtime_data/IDENTITY.md"
 ln -sfn "$reranker_target" "$runtime_data/models/ckpt_e28_b500.pt"
+ln -sfn "$f2_model_target" "$runtime_data/models/omega_v1f1r1_model.json"
 
 # Set library path for libstar.so.
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"

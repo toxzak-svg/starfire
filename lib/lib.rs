@@ -146,6 +146,22 @@ pub mod learned_expression;
 #[cfg(feature = "omega-v1-learned-expression")]
 pub mod omega_v1f1_projection_guard;
 
+// ΩV1-F1R1 bounded surface-family and claim-first nested-verification layers.
+// These are the exact externally passed evaluator modules promoted into the
+// library so F2 may execute them in shadow without duplicating the verifier.
+#[cfg(feature = "omega-v1-learned-expression")]
+pub mod omega_v1f1r1_surface;
+#[cfg(feature = "omega-v1-learned-expression")]
+pub use omega_v1f1r1_surface as surface_diversity;
+#[cfg(feature = "omega-v1-learned-expression")]
+pub mod omega_v1f1r1_claim_first;
+
+// ΩV1-F2: post-response learned-expression shadow observation. The live HTTP
+// response is frozen first; only typed intent-derived semantics, sealed VoiceState
+// projection data, bounded fingerprints, and metadata enter the isolated worker.
+#[cfg(feature = "omega-v1-f2-shadow")]
+pub mod omega_v1f2_shadow;
+
 // ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
 // Disabled by default and evaluation-only. It cannot influence Runtime::chat(),
 // mutate voice or companion state, promote beliefs or ontology, select tools,
