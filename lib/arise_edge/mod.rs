@@ -6,6 +6,10 @@
 //! The module is fixed-capacity, deterministic, feature-gated, and has no
 //! authority to alter runtime text, memory, routing, tools, CHARGE, or actions.
 
+// Rust 1.92's manual-pattern lint flags the equivalent explicit punctuation
+// closures used by the frozen A0 verifier. Keep the allowance scoped to this
+// module so repository-wide Clippy debt cannot hide ARISE findings.
+#[allow(clippy::manual_pattern_char_comparison)]
 mod engine;
 mod runtime_shadow;
 mod types;
