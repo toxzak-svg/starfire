@@ -49,6 +49,11 @@ path = "bin/bench_train.rs"
 [features]
 default = []
 omega-v1-http-canary = ["star/omega-v1-http-canary"]
+# The production Dockerfile already builds this feature. It now forwards the
+# dependency feature explicitly and activates Live Integration 1 at the HTTP
+# boundary while retaining the existing F2 shadow worker.
+omega-v1-f2-shadow = ["star/omega-v1-f2-shadow"]
+starfire-live = ["omega-v1-f2-shadow"]
 
 [dependencies]
 star = { path = "../lib" }
