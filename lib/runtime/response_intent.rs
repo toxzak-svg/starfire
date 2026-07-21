@@ -18,7 +18,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const VOICE_PROFILE_FILE: &str = "runtime_voice_profile.json";
 const LIVE_PIPELINE: &str = "runtime-response-plan-v1";
 
-/// What kind of response Star is about to produce.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponseIntent {
@@ -78,7 +77,6 @@ impl ResponseIntent {
     }
 }
 
-/// A typed plan created before the final surface text is rendered.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeResponsePlan {
     pub intent: ResponseIntent,
@@ -89,7 +87,6 @@ pub struct RuntimeResponsePlan {
     pub slot_count: usize,
 }
 
-/// Persistent dimensions that materially influence response rendering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 struct RuntimeVoiceProfile {
@@ -131,7 +128,6 @@ impl Default for RuntimeVoiceProfile {
     }
 }
 
-/// Public API projection. It contains no raw prompt or response text.
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeVoiceSnapshot {
     pub enabled: bool,
@@ -184,8 +180,7 @@ fn profile_path() -> PathBuf {
 }
 
 fn load_profile() -> RuntimeVoiceProfile {
-    let path = profile_path();
-    fs::read_to_string(&path)
+    fs::read_to_string(profile_path())
         .ok()
         .and_then(|json| serde_json::from_str(&json).ok())
         .unwrap_or_default()
@@ -203,7 +198,9 @@ fn persist_profile(profile: &RuntimeVoiceProfile) {
     let temporary = path.with_extension("json.tmp");
     match serde_json::to_vec_pretty(profile) {
         Ok(json) => {
-            if let Err(error) = fs::write(&temporary, json).and_then(|_| fs::rename(&temporary, &path)) {
+            if let Err(error) =
+                fs::write(&temporary, json).and_then(|_| fs::rename(&temporary, &path))
+            {
                 tracing::warn!("runtime voice: persist profile failed: {}", error);
             }
         }
@@ -231,6 +228,10 @@ fn clamp_dimensions(profile: &mut RuntimeVoiceProfile) {
     profile.initiative = profile.initiative.clamp(0.10, 0.95);
 }
 
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
+}
+
 fn observe_user_input(input: &str) {
     if !runtime_voice_enabled() {
         return;
@@ -243,8 +244,6 @@ fn observe_user_input(input: &str) {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    // The API shadow observer and Runtime::chat may classify the same request.
-    // Suppress only immediate duplicates, not a later repeated user message.
     if profile.last_input_fingerprint == fingerprint
         && now.saturating_sub(profile.last_input_seen_ms) < 2_000
     {
@@ -329,10 +328,6 @@ fn observe_user_input(input: &str) {
     }
 }
 
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| haystack.contains(needle))
-}
-
 fn strip_weak_opening(mut text: String) -> String {
     for prefix in [
         "I think ",
@@ -356,8 +351,11 @@ fn strip_weak_opening(mut text: String) -> String {
 
 fn trim_optional_follow_up(text: String) -> String {
     for marker in [". What would you", ". What do you", ". Want me to", ". Should I"] {
-        if let Some(index) = text.find(marker) {
-            return format!("{}.", text[..index].trim_end_matches('.'));
+        if let Some(index) = text.rfind(marker) {
+            let tail = &text[index..];
+            if tail.len() <= 160 && tail.trim_end().ends_with('?') {
+                return format!("{}.", text[..index].trim_end_matches('.'));
+            }
         }
     }
     text
@@ -395,25 +393,21 @@ fn render_mode(profile: &RuntimeVoiceProfile, intent: &ResponseIntent) -> &'stat
 
 fn render_body(profile: &RuntimeVoiceProfile, intent: &ResponseIntent, body: String) -> String {
     let mut rendered = body;
-
     if profile.directness >= 0.78 {
         rendered = strip_weak_opening(rendered);
     }
-
     if profile.directness >= 0.82
         && profile.initiative >= 0.70
         && !matches!(intent, ResponseIntent::StoryPrompt | ResponseIntent::CuriosityCheck)
     {
         rendered = trim_optional_follow_up(rendered);
     }
-
     if profile.compression >= 0.88
         && rendered.len() > 180
         && !matches!(intent, ResponseIntent::ResearchStatus | ResponseIntent::Recall)
     {
         rendered = compress_to_two_sentences(rendered);
     }
-
     if profile.warmth >= 0.56
         && matches!(
             intent,
@@ -423,11 +417,9 @@ fn render_body(profile: &RuntimeVoiceProfile, intent: &ResponseIntent, body: Str
     {
         rendered = format!("Zachary, {}", rendered);
     }
-
     rendered
 }
 
-/// Response slots and rendered body produced by the typed runtime path.
 #[derive(Debug, Clone, Default)]
 pub struct Response {
     pub intent: ResponseIntent,
@@ -440,7 +432,6 @@ impl Response {
     pub fn with_body(intent: ResponseIntent, body: impl Into<String>) -> Self {
         let source_body = body.into();
         let style_hint = intent.default_style_hint();
-
         if !runtime_voice_enabled() {
             return Self {
                 intent,
@@ -458,23 +449,24 @@ impl Response {
         profile.last_render_mode = render_mode(&profile, &intent).to_string();
         profile.last_trace_id = format!("runtime-{}-v{}", profile.turn, profile.version);
 
-        let plan = RuntimeResponsePlan {
-            intent: intent.clone(),
-            style_hint: style_hint.as_ref().map(|style| format!("{:?}", style).to_lowercase()),
-            voice_version: profile.version,
-            render_mode: profile.last_render_mode.clone(),
-            source_body_chars: source_body.chars().count(),
-            slot_count: 4,
-        };
-        let rendered = render_body(&profile, &intent, source_body);
-        profile.last_plan = Some(plan);
-
         let slots = vec![
             ("voice_version".to_string(), profile.version.to_string()),
             ("voice_turn".to_string(), profile.turn.to_string()),
             ("render_mode".to_string(), profile.last_render_mode.clone()),
             ("trace_id".to_string(), profile.last_trace_id.clone()),
         ];
+        let plan = RuntimeResponsePlan {
+            intent: intent.clone(),
+            style_hint: style_hint
+                .as_ref()
+                .map(|style| format!("{:?}", style).to_lowercase()),
+            voice_version: profile.version,
+            render_mode: profile.last_render_mode.clone(),
+            source_body_chars: source_body.chars().count(),
+            slot_count: slots.len(),
+        };
+        let rendered = render_body(&profile, &intent, source_body);
+        profile.last_plan = Some(plan);
         persist_profile(&profile);
 
         Self {
@@ -486,7 +478,6 @@ impl Response {
     }
 }
 
-/// Inspect the latest runtime-owned voice state without exposing raw text.
 pub fn live_voice_snapshot() -> RuntimeVoiceSnapshot {
     let profile = profile_store()
         .lock()
@@ -508,7 +499,6 @@ pub fn live_voice_snapshot() -> RuntimeVoiceSnapshot {
     }
 }
 
-/// Classify a user input into a [`ResponseIntent`].
 pub fn classify(input: &str) -> ResponseIntent {
     observe_user_input(input);
     let lower = input.to_lowercase();
@@ -522,7 +512,6 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::Consciousness;
     }
-
     if lower.contains("how are you")
         || lower.contains("how're you")
         || lower.contains("are you sure")
@@ -535,14 +524,12 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::SelfCheck;
     }
-
     if lower.contains("i want you to grow")
         || lower.contains("i want you to expand")
         || lower.contains("grow yourself")
     {
         return ResponseIntent::Aspiration;
     }
-
     if lower.contains("what are you thinking")
         || lower.contains("what are u thinking")
         || lower.contains("wut are u thinking")
@@ -556,11 +543,9 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::Reflection;
     }
-
     if lower.contains("what have you been researching") || lower.contains("what are you researching") {
         return ResponseIntent::ResearchStatus;
     }
-
     if lower.contains("what are you curious")
         || lower.contains("what are u curious")
         || lower.contains("what do you wonder")
@@ -568,7 +553,6 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::CuriosityCheck;
     }
-
     if lower.contains("do you love")
         || lower.contains("do u love")
         || lower.contains("i love you")
@@ -578,7 +562,6 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::Emotional;
     }
-
     if lower.contains("who are you")
         || lower.contains("what are you")
         || lower.contains("tell me about yourself")
@@ -587,26 +570,21 @@ pub fn classify(input: &str) -> ResponseIntent {
     {
         return ResponseIntent::Identity;
     }
-
     if lower.contains("can you look up")
         || lower.contains("can u look up")
         || lower.contains("can you read")
     {
         return ResponseIntent::Capability;
     }
-
     if lower.contains("tell me a story") || lower.contains("tell you a story") {
         return ResponseIntent::StoryPrompt;
     }
-
     if lower.contains("what do you know about") || lower.contains("what have you learned") {
         return ResponseIntent::Recall;
     }
-
     if lower.contains(" means ") || lower.contains(" is a ") || lower.contains(" called ") {
         return ResponseIntent::Teaching;
     }
-
     ResponseIntent::Unknown
 }
 
@@ -633,18 +611,9 @@ mod tests {
 
     #[test]
     fn classify_reflection() {
-        assert_eq!(
-            classify("what are you thinking about?"),
-            ResponseIntent::Reflection
-        );
-        assert_eq!(
-            classify("what's been on your mind lately"),
-            ResponseIntent::Reflection
-        );
-        assert_eq!(
-            classify("what's keeping you busy"),
-            ResponseIntent::Reflection
-        );
+        assert_eq!(classify("what are you thinking about?"), ResponseIntent::Reflection);
+        assert_eq!(classify("what's been on your mind lately"), ResponseIntent::Reflection);
+        assert_eq!(classify("what's keeping you busy"), ResponseIntent::Reflection);
     }
 
     #[test]
@@ -653,18 +622,12 @@ mod tests {
             classify("what have you been researching?"),
             ResponseIntent::ResearchStatus
         );
-        assert_eq!(
-            classify("what are you researching"),
-            ResponseIntent::ResearchStatus
-        );
+        assert_eq!(classify("what are you researching"), ResponseIntent::ResearchStatus);
     }
 
     #[test]
     fn classify_curiosity() {
-        assert_eq!(
-            classify("what are you curious about"),
-            ResponseIntent::CuriosityCheck
-        );
+        assert_eq!(classify("what are you curious about"), ResponseIntent::CuriosityCheck);
         assert_eq!(classify("what do you wonder?"), ResponseIntent::CuriosityCheck);
     }
 
@@ -684,10 +647,7 @@ mod tests {
 
     #[test]
     fn classify_capability() {
-        assert_eq!(
-            classify("can you look up the weather?"),
-            ResponseIntent::Capability
-        );
+        assert_eq!(classify("can you look up the weather?"), ResponseIntent::Capability);
         assert_eq!(classify("can you read this file"), ResponseIntent::Capability);
     }
 
@@ -729,6 +689,20 @@ mod tests {
             "I think I can inspect the repository. What would you like me to inspect?".to_string(),
         );
         assert_eq!(rendered, "I can inspect the repository.");
+    }
+
+    #[test]
+    fn direct_profile_preserves_mid_response_question_language() {
+        let direct = RuntimeVoiceProfile {
+            directness: 0.90,
+            initiative: 0.80,
+            ..RuntimeVoiceProfile::default()
+        };
+        let source = "The report asks: What do you infer from this sentence. That quotation is evidence, not a follow-up.";
+        assert_eq!(
+            render_body(&direct, &ResponseIntent::Recall, source.to_string()),
+            source
+        );
     }
 
     #[test]
