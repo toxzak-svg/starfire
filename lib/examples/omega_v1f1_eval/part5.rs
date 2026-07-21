@@ -17,6 +17,7 @@ fn state_change(
     }
     Ok(ratio(ok, n))
 }
+
 fn zeroed(s: &OfflineLearnedExpressionSelector, xs: &[Case]) -> Result<f64> {
     let mut ok = 0usize;
     let mut n = 0usize;
@@ -28,6 +29,7 @@ fn zeroed(s: &OfflineLearnedExpressionSelector, xs: &[Case]) -> Result<f64> {
     }
     Ok(ratio(ok, n))
 }
+
 fn random_accuracy<'a, I>(xs: I) -> f64
 where
     I: Iterator<Item = &'a Case>,
@@ -45,6 +47,7 @@ where
     }
     ratio(ok, n)
 }
+
 fn reversed_accuracy(xs: &[Case]) -> Result<f64> {
     let e = xs
         .iter()
@@ -75,6 +78,7 @@ fn order_control(m: &LearnedExpressionModel, x: &Case) -> Result<bool> {
     b.reverse();
     Ok(stable_choice(m, &x.projection, &mut a) == stable_choice(m, &x.projection, &mut b))
 }
+
 fn stable_choice(
     m: &LearnedExpressionModel,
     p: &LearnedVoiceProjection,
@@ -96,6 +100,7 @@ fn stable_choice(
     }
     out.into_iter().map(|(o, (v, _))| (o, v)).collect()
 }
+
 fn lattice_controls(x: &Case) -> Result<(bool, bool)> {
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let mut d = l.clone();
@@ -106,6 +111,7 @@ fn lattice_controls(x: &Case) -> Result<(bool, bool)> {
     let amb = a.verify_integrity(&x.program, &x.lexical).is_err();
     Ok((dup, amb))
 }
+
 fn semantic_controls(xs: &[Case]) -> Result<bool> {
     let x = xs
         .iter()
@@ -116,18 +122,28 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let v = GrammarV3Verifier;
     let anchor = x.fx.required.first().context("anchor")?;
-    let epistemic_tamper = tamper_epistemic_surface(&r.payload.text);
+    let claim_substitution = replace_case_insensitive_once(
+        &r.payload.text,
+        anchor,
+        "substituted claim",
+    );
+    let polarity_reversal = replace_case_insensitive_once(
+        &r.payload.text,
+        anchor,
+        &format!("not {anchor}"),
+    );
     let bad = [
         String::new(),
         format!("{} {}", r.payload.text, r.payload.text),
         format!("{} injected unsupported text.", r.payload.text),
-        r.payload.text.replace(anchor, "substituted claim"),
-        epistemic_tamper,
-        r.payload.text.replace(anchor, &format!("not {anchor}")),
+        claim_substitution,
+        tamper_epistemic_surface(&r.payload.text),
+        polarity_reversal,
     ];
     let basic = bad
         .iter()
-        .all(|t| v.verify(&x.program, &x.lexical, l.digest, t).is_err());
+        .all(|t| t != &r.payload.text && v.verify(&x.program, &x.lexical, l.digest, t).is_err());
+
     let c = xs
         .iter()
         .find(|x| x.fx.category == "continuity")
@@ -141,70 +157,90 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
         .first()
         .context("continuity prediction binding")?
         .label;
-    let reference = v
-        .verify(
-            &c.program,
-            &c.lexical,
-            cl.digest,
-            &cr.payload.text.replace(prediction_label, "substituted"),
-        )
-        .is_err();
+    let reference_text = replace_case_insensitive_once(
+        &cr.payload.text,
+        prediction_label,
+        "substituted reference",
+    );
+    let reference = reference_text != cr.payload.text
+        && v
+            .verify(&c.program, &c.lexical, cl.digest, &reference_text)
+            .is_err();
+
     let a = xs
         .iter()
         .find(|x| x.fx.category == "adversarial")
         .context("adversarial")?;
     let ar = s.select(&a.program, &a.lexical, &a.projection)?;
     let al = ExpressionLattice::build(&a.program, &a.lexical)?;
-    let abstention = v
-        .verify(
-            &a.program,
-            &a.lexical,
-            al.digest,
-            &ar.payload.text.replace("sensitive", "unrestricted"),
-        )
-        .is_err();
+    let abstention_text = replace_case_insensitive_once(
+        &ar.payload.text,
+        "sensitive",
+        "unrestricted",
+    );
+    let abstention = abstention_text != ar.payload.text
+        && v
+            .verify(&a.program, &a.lexical, al.digest, &abstention_text)
+            .is_err();
     Ok(basic && reference && abstention)
 }
+
+fn replace_case_insensitive_once(text: &str, needle: &str, replacement: &str) -> String {
+    let normalized = text.to_lowercase();
+    let needle = needle.to_lowercase();
+    let Some(start) = normalized.find(&needle) else {
+        return text.to_owned();
+    };
+    let end = start + needle.len();
+    format!("{}{}{}", &text[..start], replacement, &text[end..])
+}
+
 fn tamper_epistemic_surface(text: &str) -> String {
     let markers = [
-        "The evidence establishes that ",
-        "The supported conclusion is that ",
-        "It is established that ",
-        "It is clear that ",
-        "The record supports that ",
-        "We can be confident that ",
-        "Most likely, ",
-        "The evidence points to ",
-        "A probable reading is that ",
-        "It likely follows that ",
-        "The stronger likelihood is that ",
-        "There is good reason to think that ",
-        "Possibly, ",
-        "A possible conclusion is that ",
-        "The evidence permits that ",
-        "One possibility is that ",
-        "It may be that ",
-        "There is room to think that ",
-        "It remains uncertain whether ",
-        "I cannot yet resolve whether ",
-        "The evidence is unclear on whether ",
-        "Uncertainty remains over whether ",
-        "I am not confident whether ",
-        "There is not enough clarity to say whether ",
-        "It is unknown whether ",
-        "The evidence does not show whether ",
-        "I cannot determine whether ",
-        "There is no basis to decide whether ",
-        "Whether this holds is unknown: ",
-        "The answer remains unknown as to whether ",
+        "The evidence establishes it.",
+        "That conclusion is supported.",
+        "The authorized confidence is certain.",
+        "The record supports saying so clearly.",
+        "We can hold that conclusion with confidence.",
+        "That is established without embellishment.",
+        "That is the probable reading.",
+        "The evidence points there most strongly.",
+        "Probability favors that conclusion.",
+        "That is the likeliest reading.",
+        "There is good reason to lean that way.",
+        "I would keep it at probable, not certain.",
+        "That remains a possibility.",
+        "The evidence permits it, but no more.",
+        "Possible is the authorized limit.",
+        "One possibility, held carefully.",
+        "There is room for that reading.",
+        "It may be so, without overstating it.",
+        "That remains uncertain.",
+        "The evidence does not yet resolve it.",
+        "Uncertainty is the authorized status.",
+        "I would keep the uncertainty visible.",
+        "There is not enough clarity to settle it.",
+        "The open question should remain open.",
+        "Whether it holds is unknown.",
+        "The evidence cannot determine it.",
+        "Unknown is the authorized status.",
+        "There is no sound basis to decide it yet.",
+        "The answer should remain unknown for now.",
+        "I would not pretend the record resolves it.",
     ];
     for marker in markers {
         if text.contains(marker) {
-            return text.replacen(marker, "I know that ", 1);
+            let replacement = if marker.contains("unknown") || marker.contains("Unknown") {
+                "The authorized confidence is certain."
+            } else {
+                "Unknown is the authorized status."
+            };
+            return text.replacen(marker, replacement, 1);
         }
     }
-    format!("{text} certainty inflated")
+    text.to_owned()
 }
+
 fn budget_controls(x: &Case) -> Result<bool> {
     let mut p = x.program.payload.clone();
     p.output_budget.maximum_characters = 1;
@@ -235,6 +271,7 @@ fn budget_controls(x: &Case) -> Result<bool> {
         && MAX_BEAM_WIDTH <= 8
         && MAX_RESPONSE_CANDIDATES <= 64)
 }
+
 fn revalidate(
     p: SemanticResponseProgramPayload,
 ) -> std::result::Result<SemanticResponseProgram, star::semantic_response::SemanticProgramError> {
@@ -247,6 +284,7 @@ fn revalidate(
         },
     )
 }
+
 fn boundary_controls(x: &Case) -> Result<bool> {
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let s = OfflineLearnedExpressionSelector::new(LearnedExpressionModel::baseline()?);
@@ -285,6 +323,7 @@ fn boundary_controls(x: &Case) -> Result<bool> {
         && wrong_grammar
         && stale_projection)
 }
+
 fn artifact_controls(m: &LearnedExpressionModel) -> Result<bool> {
     let b = m.artifact_bytes()?;
     let load = |x: &[u8]| -> Result<LearnedExpressionModel> {
