@@ -15,12 +15,10 @@ mod semantic_response {
 mod verifier_ready_realization {
     pub use star::verifier_ready_realization::*;
 }
-mod surface_diversity {
-    include!("omega_v1f1_eval/surface_diversity.rs");
-}
-mod surface_diversity_v2 {
-    include!("omega_v1f1_eval/surface_diversity_v2.rs");
-}
+#[path = "omega_v1f1_eval/surface_diversity.rs"]
+mod surface_diversity;
+#[path = "omega_v1f1_eval/surface_diversity_v2.rs"]
+mod surface_diversity_v2;
 
 include!("omega_v1f1_eval/part1.rs");
 include!("omega_v1f1_eval/part2.rs");
