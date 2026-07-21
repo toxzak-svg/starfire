@@ -232,9 +232,9 @@ RUN cargo test -p star --lib --features omega-v1-f2-shadow --locked \
     && grep -F '"no_runtime_response_influence": true' /tmp/omega-v1f2-report.json \
     && grep -F '"gate_passed": true' /tmp/omega-v1f2-report.json
 
-# Build the exact executable Render runs with F2 compiled behind its explicit
-# runtime kill switch. STARFIRE_OMEGA_V1F2_SHADOW remains disabled by default.
-RUN cargo build --release --locked -p star_bin --bin star --features omega-v1-f2-shadow
+# Build the production executable with an explicit live-integration opt-in.
+# The F2 shadow worker remains a dependency of starfire-live, not its synonym.
+RUN cargo build --release --locked -p star_bin --bin star --features starfire-live
 
 FROM debian:bookworm-slim AS runtime
 
