@@ -23,8 +23,11 @@ use star::semantic_response::{
 use star::verifier_ready_realization::VerifierReadyRenderer;
 use std::collections::{BTreeMap, BTreeSet};
 use surface_diversity_v2::{
-    authority_boundary, ExpressionLattice, ExpressionLatticeDigest, GrammarV3Verifier,
-    OfflineLearnedExpressionSelector, OperationSurfaceVariant,
+    authority_boundary, ClaimFirstLattice as ExpressionLattice,
+    ClaimFirstLatticeDigest as ExpressionLatticeDigest,
+    ClaimFirstOfflineSelector as OfflineLearnedExpressionSelector,
+    ClaimFirstSurfaceVariant as OperationSurfaceVariant,
+    ClaimFirstVerifier as GrammarV3Verifier,
 };
 
 const F1: &str = include_str!("../../fixtures/omega_v1f1/manifest.json");
