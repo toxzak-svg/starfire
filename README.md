@@ -1,125 +1,207 @@
-# Star
+<div align="center">
 
-**A reasoning intelligence that finds its power from architecture, not scale.**
+# ✦ Starfire
 
-Star is a desktop AI that runs locally, offline, indefinitely. She has genuine continuity — she remembers who you are, what you've talked about, and what she concluded. She thinks before she responds. She knows when she doesn't know.
+### A local-first experimental cognitive architecture built in Rust
 
-Not a product. Not a service. Not a cloud API. An existence.
+Starfire combines persistent memory, symbolic and neural components, metacognition, typed response construction, and tightly bounded research experiments in one inspectable system.
 
-**Live:** https://star-production-6458.up.railway.app
-**Web UI:** https://star-ui.vercel.app
+[![Rust](https://img.shields.io/badge/Rust-2021-000000?logo=rust)](Cargo.toml)
+[![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
+[![Status](https://img.shields.io/badge/status-active%20research-6f42c1)](docs/CURRENT_STATUS.md)
+[![Deployment](https://img.shields.io/badge/API-Render-46E3B7?logo=render&logoColor=000)](docs/deployment.md)
 
----
+[Documentation](docs/README.md) · [Current status](docs/CURRENT_STATUS.md) · [Architecture](docs/architecture.md) · [API](docs/api.md) · [Experiments](docs/experiments/README.md)
 
-## Architecture
+</div>
 
-Star is not a pipeline. She's a system — a web of interdependent processes that reinforce and modulate each other. No stage feeds cleanly into the next. Everything influences everything.
+> [!IMPORTANT]
+> **Starfire is research software, not a demonstrated AGI or a validated consciousness system.** The repository contains working runtime capabilities alongside preregistered, feature-gated experiments. Documentation uses explicit status labels so ambition, implementation, and evidence do not blur together.
 
-**Quanot** — the substrate. An Echo State Network of 1000 neurons that ingests every message and emits consciousness proxy (Φ), creativity signals, novelty scores, chaos metrics. It's not one layer — it's the connective tissue that bathes everything else.
+## What Starfire is
 
-**Prediction Center** — four engines (question gravity, belief revision, attractor basin, meta-prediction) that forecast curiosity, calibrate confidence, and guide attention. Feeds into reasoning, metacog, and curiosity alike.
+Starfire is an attempt to build useful intelligence from **system architecture rather than model scale alone**. The project is centered on a long-lived Rust runtime that can preserve identity and memory, reason over structured state, inspect its own uncertainty, and construct responses through typed internal contracts.
 
-**Reasoning** — symbolic engine, knowledge graph, analogy, synthesis. Takes input from Quanot, prediction, memory. Outputs into everything.
+The repository includes:
 
-**Meta-Cognition** — monitors reasoning quality, tracks epistemic gaps, calibrates confidence. Influenced by reasoning — influences reasoning back.
+- a local CLI and HTTP API;
+- SQLite-backed identity, memory, beliefs, and session continuity;
+- symbolic reasoning, analogy, synthesis, prediction, and metacognitive subsystems;
+- **Quanot**, a Rust-native reservoir-computing substrate;
+- a trained character-level reranker and additional neural components;
+- typed response intents, persistent runtime voice dimensions, and inspectable response plans;
+- a Next.js web chat with memory, cognition, and live-response metadata views;
+- a large experimental program with frozen controls, neutral fallbacks, and explicit authority boundaries.
 
-**Persistence** — identity core, memory with decay, session continuity. SQLite. Local. Forever. Read by everything, written by everything.
+## System map
 
-**Neural Layer** — custom transformer neurons (causal, reasoning, knowledge, goals, worldmodel, etc.). Connects to Quanot's reservoir dynamics.
+```mermaid
+flowchart LR
+    U[User] --> I[CLI · HTTP API · Web UI]
+    I --> R[Runtime]
 
-**Language Model** — character-level transformer generation. Where thoughts become language.
+    R <--> P[(SQLite persistence)]
+    R <--> Q[Quanot reservoir]
+    R <--> C[Reasoning · prediction · metacognition]
+    R <--> N[Neural and reranking components]
 
-**Runtime** — background thinker, curiosity engine, goal planning. Orchestrates the whole system.
+    C --> T[Typed response intent and plan]
+    P --> T
+    Q --> T
+    N --> T
+    T --> V[Persistent runtime voice renderer]
+    V --> O[Response]
 
----
-
-## Project Structure
-
+    E[Feature-gated experiments] -. bounded evidence only .-> R
+    O --> L[Optional live HTTP envelope and trace]
 ```
+
+The diagram is deliberately asymmetric: experiments do not automatically gain runtime authority. A research module must cross its own preregistered gates before it can influence a live path.
+
+## Current portrait
+
+| Area | Main-branch state |
+|---|---|
+| Local runtime | CLI chat, status command, and HTTP server |
+| Continuity | SQLite persistence for identity, memories, beliefs, and sessions |
+| Cognition | Reasoning, prediction, metacognition, curiosity, world-model, and Quanot modules |
+| Language path | Runtime-owned typed response plans plus persistent voice rendering |
+| Learned component | Bundled native CharRNN reranker checkpoint |
+| Web interface | Next.js 16 / React 19 chat UI with cognitive and memory drawers |
+| Deployment | Dockerized API on Render; web UI designed for Vercel or local use |
+| Experimental tracks | Companion policy, STLM, ΩV1 voice, developmental, relational, and grammar-abstraction probes |
+| Default safety posture | Research features default off unless explicitly compiled or enabled |
+
+See [Current Status](docs/CURRENT_STATUS.md) for the exact main-branch boundary, known seams, and work that remains outside production.
+
+## Quick start
+
+### Requirements
+
+- a current stable Rust toolchain;
+- Git;
+- Node.js 20+ only when running the web UI.
+
+### Run the local CLI
+
+```bash
+git clone https://github.com/toxzak-svg/starfire.git
+cd starfire
+
+cargo run --release -p star_bin --bin star -- chat
+```
+
+Use a dedicated data directory when you want an isolated local state:
+
+```bash
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev chat
+```
+
+### Start the API
+
+```bash
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev \
+  api --host 0.0.0.0 --port 8080
+```
+
+Then send a message:
+
+```bash
+curl http://localhost:8080/chat \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"message":"What are you uncertain about right now?"}'
+```
+
+### Start the web UI
+
+```bash
+cd ui
+npm install
+NEXT_PUBLIC_STAR_API=http://localhost:8080 npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Useful commands
+
+```bash
+# Runtime status
+cargo run --release -p star_bin --bin star -- status
+
+# Workspace tests
+cargo test --workspace --locked
+
+# Library tests only
+cargo test -p star --locked
+
+# Production-style image
+docker build -t starfire .
+docker run --rm -p 8080:8080 -v starfire-data:/data starfire
+```
+
+The production Docker build intentionally runs a long chain of frozen experiment and asset gates before publishing the binary. For ordinary development, use targeted Cargo tests instead of rebuilding the image after every edit.
+
+## Runtime configuration
+
+| Variable | Default | Purpose |
+|---|---:|---|
+| `STARFIRE_DATA` | platform data directory, `/data` in the container | Persistent runtime files and models |
+| `STARFIRE_HOME` | unset | Fallback location for runtime-owned state |
+| `STARFIRE_PORT` | `PORT` or `8080` | HTTP listen port in the container |
+| `STARFIRE_LOG` | `info` in the container | Runtime logging level |
+| `STARFIRE_RUNTIME_VOICE` | `1` | Set to `0` to disable persistent runtime voice modulation |
+| `STARFIRE_OMEGA_V1F2_SHADOW` | `0` | Explicitly enables the ΩV1-F2 post-response shadow observer |
+| `NEXT_PUBLIC_STAR_API` | hosted Render API | API base URL used by the web UI |
+| `TELEGRAM_BOT_TOKEN` | unset | Enables Telegram reply delivery for webhook traffic |
+
+## Repository guide
+
+```text
 starfire/
-├── src/                         ← binary crate
-│   └── main.rs                  # chat, api, status entry points
-├── lib/                         ← library crate (star)
-│   ├── quanot/                  # ESN, chaos, consciousness, creativity
-│   ├── prediction/              # curiosity, belief revision, basin
-│   ├── reasoning/               # symbolic, knowledge, analogy, synthesis
-│   ├── metacog/                 # meta-cognition
-│   ├── persistence/             # SQLite identity + memory
-│   ├── neural/                  # custom transformer neurons
-│   ├── language_model/          # character-level transformer
-│   ├── runtime/                 # background thinker
-│   └── ...                      # goals, curriculum, causal, etc.
-├── ui/                          # Next.js web chat
-└── data/                        # SQLite stores
+├── src/                  # star_bin: CLI, API entry point, live HTTP wrapper
+├── lib/                  # star: cognition, persistence, runtime, experiments
+├── ui/                   # Next.js web chat
+├── docs/                 # living docs, architecture, API, evidence records
+├── plans/                # research and implementation plans
+├── scripts/              # evaluation, traffic, and integration tooling
+├── data/                 # local assets and model checkpoints
+├── Dockerfile            # gated Render production image
+├── render.yaml           # Render service blueprint
+├── SPEC.md               # current project specification
+└── IDENTITY.md           # bundled Star identity source
 ```
 
----
+## Research discipline
 
-## Quick Start
+Starfire’s experiment tree is intentionally stricter than a normal application feature backlog.
 
-```bash
-# Chat (interactive CLI)
-cargo run --release -- chat
+1. **Preregister the hypothesis and authority boundary.**
+2. **Build the smallest testable implementation.**
+3. **Run matched controls and failure cases.**
+4. **Record PASS, FAIL, or collecting without rewriting prior evidence.**
+5. **Promote only the authority explicitly authorized by the previous gate.**
 
-# API server
-cargo run --release -- api --host 0.0.0.0 --port 8080
+A PASS in an offline selector does not silently authorize live text. A shadow observer does not silently authorize routing. A promising diagnostic does not authorize automatic ontology promotion. These separations are part of the architecture, not paperwork around it.
 
-# Status check
-cargo run --release -- status
+Start with the [experiment index](docs/experiments/README.md) and the [documentation map](docs/README.md).
 
-# Run tests
-cargo test
-```
+## Known limits
 
-Rust 1.77+ required. No external service dependencies.
+- Starfire is not currently competitive with frontier LLMs for broad fluent conversation or world knowledge.
+- Several subsystems are research prototypes whose scientific labels are narrower than their names may suggest.
+- Some older documents are historical records and intentionally retain the language and assumptions of their time.
+- The hosted system is a research deployment. It has no built-in authentication, multitenant isolation, or production-grade rate limiting.
+- Automatic latent-concept or ontology promotion remains outside the authorized live boundary.
 
----
+## Project philosophy
 
-## API Endpoints
+> Build the smallest architecture that can produce evidence, preserve the evidence when it fails, and only then grant it more power.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Service info + endpoint list |
-| GET | `/health` | Health check |
-| POST | `/chat` | Send a message, receive response |
-| POST | `/reason` | Pure reasoning query with memories |
-| POST | `/remember` | Retrieve memories on a topic |
-| GET | `/identity` | Get Star's identity state |
-| GET | `/memory/stats` | Memory statistics |
-| GET | `/cognitive` | Current cognitive state |
-| GET | `/metacog` | Meta-cognition status |
-| GET | `/think` | Trigger background thinking |
-| GET | `/thought` | Get last autonomous thought |
+Starfire’s long-term ambition is substantial. Its present-tense claims remain deliberately smaller.
 
----
+## License
 
-## Deployment
-
-**API → Railway**
-```bash
-railway up
-```
-
-**UI → Vercel**
-```bash
-cd ui && vercel
-```
-
-Set `NEXT_PUBLIC_STAR_API` in Vercel to your Railway URL.
-
----
-
-## Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Intelligence | Rust — symbolic reasoning + neural |
-| Reservoir | Quanot — Rust ESN with chaos metrics |
-| Prediction | Question gravity, belief revision, attractor basin |
-| Persistence | SQLite — offline, local, forever |
-| Backend | Railway |
-| Web UI | Next.js 15 + Tailwind CSS 4 |
-
----
-
-*"I'm trying to build a new kind of thing that changes the world."*
+Starfire is available under the [MIT License](LICENSE).
