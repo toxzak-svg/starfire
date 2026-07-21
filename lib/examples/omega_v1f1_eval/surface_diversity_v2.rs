@@ -1,10 +1,8 @@
-//! ΩV1-F1R1 claim-first surface layer.
+//! ΩV1-F1R1 claim-first nested-verification layer.
 //!
-//! This evaluator-local layer transforms each already bounded R1 candidate into
-//! a claim- or reference-led surface. It preserves the same six variant IDs and
-//! independently reconstructs the R1 text before the R1 verifier reconstructs
-//! grammar-v3. The nested chain prevents anti-template metrics from being
-//! satisfied by unverifiable paraphrase or hidden semantic omission.
+//! Every candidate is first reconstructed into the bounded R1 surface, then R1
+//! reconstructs the original grammar-v3 candidate. The learned model still
+//! chooses only direct versus warm. All six committed surfaces remain distinct.
 
 use crate::language_realization::{LexicalBindingTable, LexicalTableDigest};
 use crate::learned_expression::{
@@ -27,9 +25,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub const CLAIM_FIRST_GRAMMAR_VERSION: u16 = 5;
-const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v1";
-const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v1";
-const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v1";
+const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v2";
+const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v2";
+const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v2";
 
 pub type ExpressionLatticeDigest = ClaimFirstLatticeDigest;
 pub type OperationSurfaceVariant = ClaimFirstSurfaceVariant;
@@ -192,8 +190,12 @@ impl ClaimFirstVerifier {
             lattice.payload.base_lattice_digest,
             &base_text,
         )?;
-        let claim_cost = base_report.payload.costs.claim_cost;
-        let costs = recompute_costs(program, text, &matched, claim_cost)?;
+        let costs = recompute_costs(
+            program,
+            text,
+            &matched,
+            base_report.payload.costs.claim_cost,
+        )?;
         let payload = ClaimFirstVerificationPayload {
             program_digest: program.digest,
             lexical_table_digest: lexical_table.digest,
@@ -265,8 +267,7 @@ impl ClaimFirstOfflineSelector {
         program.verify_replay_integrity()?;
         lexical_table.verify_integrity(program)?;
         let neutral = VerifierReadyRenderer.render(program, lexical_table)?;
-        let attempted = self.try_select(program, lexical_table, projection);
-        let payload = match attempted {
+        let payload = match self.try_select(program, lexical_table, projection) {
             Ok(payload) => payload,
             Err(error) => ClaimFirstSelectionPayload {
                 program_digest: program.digest,
@@ -306,6 +307,9 @@ impl ClaimFirstOfflineSelector {
             return Err(ClaimFirstError::BaseSelectionFallback);
         }
         let lattice = ClaimFirstLattice::build(program, lexical_table)?;
+        if base.payload.variant_ids.len() != program.payload.operations.len() {
+            return Err(ClaimFirstError::MissingVariant);
+        }
         let mut text = String::new();
         for (index, (operation, variant_id)) in program
             .payload
@@ -344,8 +348,6 @@ impl ClaimFirstOfflineSelector {
         })
     }
 }
-
-pub type RemediatedVariantIdAlias = RemediatedVariantId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstAuthorityBoundary {
@@ -476,7 +478,7 @@ fn claim_first_text(
     match kind {
         DiscourseOperationKind::Assert(_) | DiscourseOperationKind::Qualify { .. } => {
             claim_first_epistemic(canonical, family, phase)
-                .unwrap_or_else(|| canonical.to_owned())
+                .unwrap_or_else(|| generic_phase_text(canonical, family, phase))
         }
         DiscourseOperationKind::Acknowledge(_) => {
             let label = extract_between(
@@ -485,19 +487,21 @@ fn claim_first_text(
                 &['.'],
             )
             .unwrap_or(canonical);
-            let endings = match family {
-                ExpressionFamily::Direct => [
+            let ending = choose(
+                family,
+                phase,
+                [
                     "registered directly.",
                     "noted without ornament.",
                     "acknowledged plainly.",
                 ],
-                ExpressionFamily::Warm => [
+                [
                     "is in view.",
                     "is acknowledged with context.",
                     "has my attention.",
                 ],
-            };
-            format!("{}: {}", label, endings[usize::from(phase)])
+            );
+            format!("{}: {}", label, ending)
         }
         DiscourseOperationKind::RequestEvidence(_) => {
             let label = extract_between(
@@ -511,19 +515,21 @@ fn claim_first_text(
                 &['?', '.'],
             )
             .unwrap_or(canonical);
-            let endings = match family {
-                ExpressionFamily::Direct => [
+            let ending = choose(
+                family,
+                phase,
+                [
                     "what evidence resolves it?",
                     "which fact would settle it?",
                     "what observation closes the gap?",
                 ],
-                ExpressionFamily::Warm => [
+                [
                     "what would make the answer clear?",
                     "which evidence would give us confidence?",
                     "what would let us resolve this carefully?",
                 ],
-            };
-            format!("{}: {}", label, endings[usize::from(phase)])
+            );
+            format!("{}: {}", label, ending)
         }
         DiscourseOperationKind::Commit(_) => {
             let label = extract_between(
@@ -532,22 +538,46 @@ fn claim_first_text(
                 &['.'],
             )
             .unwrap_or(canonical);
-            let endings = match family {
-                ExpressionFamily::Direct => [
+            let ending = choose(
+                family,
+                phase,
+                [
                     "I will track it.",
                     "it remains on the ledger.",
                     "the commitment is explicit.",
                 ],
-                ExpressionFamily::Warm => [
+                [
                     "I will keep it in view.",
                     "I will carry that forward.",
                     "it stays with the next check.",
                 ],
-            };
-            format!("{}: {}", label, endings[usize::from(phase)])
+            );
+            format!("{}: {}", label, ending)
         }
-        _ => canonical.to_owned(),
+        _ => generic_phase_text(canonical, family, phase),
     }
+}
+
+fn generic_phase_text(
+    canonical: &str,
+    family: ExpressionFamily,
+    phase: u8,
+) -> String {
+    let ending = choose(
+        family,
+        phase,
+        [
+            "The relation is explicit.",
+            "The operation remains bounded.",
+            "The typed structure is preserved.",
+        ],
+        [
+            "The relation stays visible.",
+            "The boundary remains intact.",
+            "The structure is carried through carefully.",
+        ],
+    );
+    format!("{} {}", canonical, ending)
 }
 
 fn claim_first_epistemic(
@@ -555,21 +585,19 @@ fn claim_first_epistemic(
     family: ExpressionFamily,
     phase: u8,
 ) -> Option<String> {
-    let markers = [
+    for (marker, band) in [
         ("I know that ", EpistemicBand::Certain),
         ("It is probable that ", EpistemicBand::Probable),
         ("It is possible that ", EpistemicBand::Possible),
         ("I am uncertain whether ", EpistemicBand::Uncertain),
         ("I do not know whether ", EpistemicBand::Unknown),
-    ];
-    for (marker, band) in markers {
+    ] {
         if let Some(position) = canonical.find(marker) {
             let claim = canonical[position + marker.len()..]
                 .trim_end_matches(|character| matches!(character, '.' | '?' | '!'));
-            let claim = capitalize_first(claim);
             return Some(format!(
                 "{}. {}",
-                claim,
+                capitalize_first(claim),
                 epistemic_ending(band, family, phase)
             ));
         }
@@ -591,60 +619,86 @@ fn epistemic_ending(
     family: ExpressionFamily,
     phase: u8,
 ) -> &'static str {
-    let direct = match band {
-        EpistemicBand::Certain => [
-            "The evidence establishes it.",
-            "That conclusion is supported.",
-            "The authorized confidence is certain.",
-        ],
-        EpistemicBand::Probable => [
-            "That is the probable reading.",
-            "The evidence points there most strongly.",
-            "Probability favors that conclusion.",
-        ],
-        EpistemicBand::Possible => [
-            "That remains a possibility.",
-            "The evidence permits it, but no more.",
-            "Possible is the authorized limit.",
-        ],
-        EpistemicBand::Uncertain => [
-            "That remains uncertain.",
-            "The evidence does not yet resolve it.",
-            "Uncertainty is the authorized status.",
-        ],
-        EpistemicBand::Unknown => [
-            "Whether it holds is unknown.",
-            "The evidence cannot determine it.",
-            "Unknown is the authorized status.",
-        ],
-    };
-    let warm = match band {
-        EpistemicBand::Certain => [
-            "The record supports saying so clearly.",
-            "We can hold that conclusion with confidence.",
-            "That is established without needing embellishment.",
-        ],
-        EpistemicBand::Probable => [
-            "That is the likeliest reading.",
-            "There is good reason to lean that way.",
-            "I would keep it at probable, not certain.",
-        ],
-        EpistemicBand::Possible => [
-            "One possibility, held carefully.",
-            "There is room for that reading.",
-            "It may be so, without overstating it.",
-        ],
-        EpistemicBand::Uncertain => [
-            "I would keep the uncertainty visible.",
-            "There is not enough clarity to settle it.",
-            "The open question should remain open.",
-        ],
-        EpistemicBand::Unknown => [
-            "There is no sound basis to decide it yet.",
-            "The answer should remain unknown for now.",
-            "I would not pretend the record resolves it.",
-        ],
-    };
+    match band {
+        EpistemicBand::Certain => choose(
+            family,
+            phase,
+            [
+                "The evidence establishes it.",
+                "That conclusion is supported.",
+                "The authorized confidence is certain.",
+            ],
+            [
+                "The record supports saying so clearly.",
+                "We can hold that conclusion with confidence.",
+                "That is established without embellishment.",
+            ],
+        ),
+        EpistemicBand::Probable => choose(
+            family,
+            phase,
+            [
+                "That is the probable reading.",
+                "The evidence points there most strongly.",
+                "Probability favors that conclusion.",
+            ],
+            [
+                "That is the likeliest reading.",
+                "There is good reason to lean that way.",
+                "I would keep it at probable, not certain.",
+            ],
+        ),
+        EpistemicBand::Possible => choose(
+            family,
+            phase,
+            [
+                "That remains a possibility.",
+                "The evidence permits it, but no more.",
+                "Possible is the authorized limit.",
+            ],
+            [
+                "One possibility, held carefully.",
+                "There is room for that reading.",
+                "It may be so, without overstating it.",
+            ],
+        ),
+        EpistemicBand::Uncertain => choose(
+            family,
+            phase,
+            [
+                "That remains uncertain.",
+                "The evidence does not yet resolve it.",
+                "Uncertainty is the authorized status.",
+            ],
+            [
+                "I would keep the uncertainty visible.",
+                "There is not enough clarity to settle it.",
+                "The open question should remain open.",
+            ],
+        ),
+        EpistemicBand::Unknown => choose(
+            family,
+            phase,
+            [
+                "Whether it holds is unknown.",
+                "The evidence cannot determine it.",
+                "Unknown is the authorized status.",
+            ],
+            [
+                "There is no sound basis to decide it yet.",
+                "The answer should remain unknown for now.",
+                "I would not pretend the record resolves it.",
+            ],
+        ),
+    }
+}
+
+fn choose(
+    family: ExpressionFamily,
+    phase: u8,
+    direct: [&'static str; 3],
+    warm: [&'static str; 3],
+) -> &'static str {
     match family {
         ExpressionFamily::Direct => direct[usize::from(phase)],
         ExpressionFamily::Warm => warm[usize::from(phase)],
@@ -826,7 +880,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn possible_claims_lead_the_surface() {
+    fn possible_claims_lead_all_six_surfaces() {
         let canonical = "Conclusion: It is possible that the selector stays bounded.";
         let mut outputs = BTreeSet::new();
         for family in [ExpressionFamily::Direct, ExpressionFamily::Warm] {
@@ -839,6 +893,25 @@ mod tests {
                 );
                 assert!(output.starts_with("The selector stays bounded."));
                 outputs.insert(output);
+            }
+        }
+        assert_eq!(outputs.len(), 6);
+    }
+
+    #[test]
+    fn non_claim_operations_remain_six_way_distinct() {
+        let canonical = "The context is too sensitive for disclosure, so I abstain.";
+        let mut outputs = BTreeSet::new();
+        for family in [ExpressionFamily::Direct, ExpressionFamily::Warm] {
+            for phase in 0..3 {
+                outputs.insert(claim_first_text(
+                    canonical,
+                    &DiscourseOperationKind::Abstain(
+                        crate::semantic_response::AbstentionReason::SensitiveContext,
+                    ),
+                    family,
+                    phase,
+                ));
             }
         }
         assert_eq!(outputs.len(), 6);
