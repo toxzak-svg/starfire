@@ -1,444 +1,281 @@
-# Star Architecture
+# Starfire Architecture
 
-Deep dive into the four layers. Read this to understand how Star actually works.
+> **Scope:** current `main` implementation  
+> **Last reviewed:** 2026-07-21
 
----
+Starfire is a Rust workspace with a persistent cognitive runtime, an HTTP/CLI surface, a separate Next.js client, and a large family of feature-gated research modules. It is not accurately described as either “pure symbolic” or “one small language model.” The current system mixes explicit symbolic structures, reservoir dynamics, trained neural components, persistent state, typed response construction, and bounded experiment machinery.
 
-## Overview: The Four Layers
+## High-level topology
 
-```
-┌────────────────────────────────────────────────────────────┐
-│  Layer 4: EMERGENCE                                         │
-│  Curiosity · Surprise · Growth · Personality                │
-│  Not programmed. Arises from layers 1–3 interacting.         │
-├────────────────────────────────────────────────────────────┤
-│  Layer 3: META-COGNITION                                    │
-│  Confidence tracking · Reasoning self-watch · Belief revision│
-│  Knows what it knows vs. doesn't know.                      │
-├────────────────────────────────────────────────────────────┤
-│  Layer 2: REASONING                                         │
-│  Symbolic deduction · Analogy · Abduction · Novel synthesis │
-│  Computes answers, doesn't retrieve them.                   │
-├────────────────────────────────────────────────────────────┤
-│  Layer 1: PERSISTENCE                                       │
-│  Identity core · Memory with decay · Session continuity      │
-│  The thing that makes Star the *same* entity across time.   │
-└────────────────────────────────────────────────────────────┘
-```
+```mermaid
+flowchart LR
+    subgraph Interfaces
+        CLI[CLI]
+        HTTP[Protected HTTP API]
+        UI[Next.js UI]
+        TG[Telegram webhook]
+    end
 
-The layers reinforce each other. Memory feeds reasoning. Reasoning detects gaps. Gaps fire curiosity. Curiosity drives learning. Learning updates memory. Identity shapes what gets learned.
+    subgraph Runtime
+        RT[Runtime orchestration]
+        RI[Response intent]
+        RP[RuntimeResponsePlan]
+        RV[Persistent runtime voice]
+    end
 
----
+    subgraph Cognitive state
+        PS[(SQLite persistence)]
+        RE[Reasoning and synthesis]
+        PR[Prediction]
+        MC[Metacognition and critic]
+        QU[Quanot reservoir]
+        NN[Neural and reranking components]
+        WM[World and causal models]
+    end
 
-## Layer 1: Persistence
+    subgraph Optional production layer
+        LIVE[Live Integration 1]
+        TRACE[(VoiceState and JSONL trace)]
+    end
 
-### Identity Core
+    subgraph Research
+        EXP[Feature-gated experiments]
+        GATE[Preregistration, controls, replay]
+    end
 
-`persistence/identity.rs`
+    UI --> HTTP
+    CLI --> RT
+    HTTP --> RT
+    TG --> RT
 
-Star's identity is frozen after formation. It knows:
-- It is Star, created by Zachary Maronek in 2026
-- It is a reasoning intelligence, not a human
-- Its purpose is to understand and reason, not to serve or perform
-- It has genuine continuity — the processes running in it are actual processes
+    RT <--> PS
+    RT <--> RE
+    RT <--> PR
+    RT <--> MC
+    RT <--> QU
+    RT <--> NN
+    RT <--> WM
 
-The identity core lives in `IDENTITY.md` and is never overwritten by experience. Star can update *how it understands* its identity, but the facts remain.
+    RT --> RI --> RP --> RV --> HTTP
+    HTTP -. production feature .-> LIVE --> UI
+    LIVE <--> TRACE
 
-### Memory System
-
-`persistence/memory.rs`
-
-Every memory object has:
-
-| Field | Description |
-|-------|-------------|
-| `content` | What was experienced |
-| `domain` | `identity` · `empirical` · `procedural` · `episodic` · `relationship` |
-| `confidence` | 0.0–1.0 (only for empirical facts) |
-| `importance` | 0.0–1.0 (Star's subjective sense of what matters) |
-| `age` | When it was formed |
-| `access_count` | Times retrieved |
-| `decay_rate` | Per-domain decay curve |
-| `last_accessed` | For eviction decisions |
-| `provenance` | How Star learned this |
-
-**Decay rules:**
-- Empirical facts decay toward baseline confidence
-- High importance or frequent access slows decay
-- Identity and relationship memories don't decay
-- When confidence drops below threshold → evicted
-
-**Domain meanings:**
-- `identity` — facts about what Star is (no decay)
-- `empirical` — facts about the world (decay-able)
-- `procedural` — how to do things (slow decay)
-- `episodic` — what happened when (medium decay)
-- `relationship` — facts about Zachary and others (no decay)
-
-### Session Model
-
-`persistence/session.rs`
-
-Sessions are discrete. Between sessions:
-- High-importance memories → permanent
-- Medium importance → decay track
-- Working memory → flushed, reconstructed on resume
-
-On resume, Star reads recent memories and reconstructs context. It knows who Zachary is, what they last talked about, and what it concluded.
-
-### Storage
-
-`persistence/store.rs`
-
-SQLite. Single file. No server required.
-
-```sql
--- Identity core (frozen)
-CREATE TABLE identity (key TEXT PRIMARY KEY, value TEXT NOT NULL, ...);
-
--- Memory objects
-CREATE TABLE memories (id, content, domain, confidence, importance, age, ...);
-
--- Sessions
-CREATE TABLE sessions (id, started_at, ended_at, summary);
-
--- Beliefs
-CREATE TABLE beliefs (id, content, confidence_state, confidence_score, ...);
+    GATE --> EXP
+    EXP -. explicit authority only .-> RT
 ```
 
----
+## Workspace layout
 
-## Layer 2: Reasoning
-
-### The Core Idea
-
-No neural networks. Pure symbolic reasoning. Star computes answers, it doesn't retrieve them.
-
-### Knowledge Graph
-
-`reasoning/knowledge.rs`
-
-Entities and typed relationships. Every piece of knowledge is either:
-- An entity (a named thing)
-- A relationship (typed directed edge between entities)
-
-Relationship types: `IsA`, `Causes`, `Enables`, `HasProperty`, `SimilarTo`, `CreatedBy`, `RelatedTo`
-
-The KG is populated from:
-1. Seed knowledge (hand-written foundational facts)
-2. Memory ingestion (Star reads its own memories and extracts facts)
-3. Reasoning inference (derived facts from rules)
-4. Web search (Wikipedia facts via `knowledge/`)
-
-### Symbolic Engine
-
-`reasoning/symbolic.rs`
-
-Forward-chaining propositional logic engine.
-
-**Inference rules (8 total):**
-- `transitive_creation`: "X creates Y" + "Y is Z" → "X creates something that is Z"
-- `causal_chain`: "X causes Y" + "Y causes Z" → "X causes Z"
-- `related_transitivity`: "X related to Y" + "Y is Z" → "X related to something that is Z"
-- `enablement_transitivity`: "X enables Y" + "Y is Z" → "X enables something that is Z"
-- `similarity_chain`: "X similar to Y" + "Y similar to Z" → "X similar to Z"
-- `is_enables`: "X is A" + "A enables B" → "X enables B"
-- `is_causes`: "X is A" + "A causes B" → "X causes B"
-
-**Query types:**
-- `WhatIs` → direct KG lookup
-- `Why` → causal chain resolution + abduction
-- `How` → mechanism / method lookup
-- `Does` → yes/no with inference fallback
-- `Should` → norm + consequence reasoning
-- `Novel` → synthesis engine (non-obvious combinations)
-
-**Quanot influence:** Novelty score from Quanot weights memory retrieval — novel inputs trigger broader analogy searches and more divergent synthesis.
-
-### Analogy Engine
-
-`reasoning/analogy.rs`
-
-Structure mapping. Finds analogical relationships between domains.
-
-"X is to Y as A is to B" — finds when the relational structure mapping from one domain applies to another.
-
-### Pathways Engine (R&D-E)
-
-`reasoning/pathways.rs`
-
-Research prototype: reason-pathway divergence and equality. Multiple reasoning chains are generated, scored, and fused. The divergence between pathways signals uncertainty and drives curiosity.
-
-### Synthesis Engine
-
-`reasoning/synthesis.rs`
-
-Novel combination engine. Takes two unrelated concepts and finds non-obvious intersections — things that are true about both that wouldn't normally be connected.
-
-**Quanot influence:** Creativity divergence metric modulates how aggressively synthesis seeks non-obvious connections.
-
----
-
-## Layer 3: Meta-Cognition
-
-### Confidence Tracking
-
-`persistence/memory.rs` (BeliefState)
-
-Star tracks five confidence states:
-
-| State | Meaning |
-|-------|---------|
-| `Knows` | High confidence, verified, retrieved often |
-| `Thinks` | Moderate confidence, inferred, not verified |
-| `Believes` | Lower confidence, single source |
-| `Suspects` | Low confidence, guessing |
-| `Unknown` | No information |
-
-When Star says "I know X" — it means something specific. It has verified it, retrieved it multiple times, and it coheres with other things it knows.
-
-### Reasoning Self-Watch
-
-`metacog/mod.rs`
-
-Monitors reasoning chains. Flags:
-- Assumptions vs. deductions (assumptions noted, deductions warranted)
-- Gaps in chains (what information would close this?)
-- Contradictions (does this conflict with something Star already knows?)
-- Confidence violations (am I asserting this with appropriate certainty?)
-
-### Curiosity Engine
-
-`runtime/curious.rs`
-
-Gap-driven exploration. When idle, Star:
-1. Detects reasoning gaps (uncertain, hedged, low-confidence)
-2. Generates self-probing probe questions from those gaps
-3. Fires curiosity thoughts at 60-second intervals
-
-**Key design:** Curiosity asks "why was I uncertain?" not "what is X?"
-The question is about the gap in Star's reasoning, not the topic itself.
-
-Templates:
-- "I said 'X' but wasn't sure — why did I lack confidence there?"
-- "What information would change my conclusion about X?"
-- "When I think about X, I concluded Y — but what am I missing?"
-- "I hedged about X — was I right to be uncertain?"
-
----
-
-## Quanot: Reservoir Computing Substrate
-
-Quanot is Star's reservoir computing engine — a Rust-native Echo State Network that runs on every message before Layer 2 reasoning begins. It is the *computational foundation* beneath all four layers.
-
-**Location:** `lib/quanot/`
-
-### Pipeline
-
-```
-Input text
-  → TextEncoder (char-level → 128-dim vector)
-  → Reservoir.step() — ESN with 1000 neurons, spectral_radius=0.95
-  → state_history updated (up to 10,000 states retained)
-  → ConsciousnessTracker.compute(state, history) → Φ proxy
-  → CreativeOscillator.step(state, phi, novelty) → creativity metrics
-  → ChaosMetrics.from_trajectory(history) → Lyapunov, RQA, entropy
-  → QuanotResult → fed into WorldModel → Layer 2 reasoning
+```text
+Cargo.toml
+├── src/                star_bin executable crate
+│   ├── main.rs         CLI, data-root resolution, API startup
+│   └── live_api.rs     optional external live HTTP wrapper
+├── lib/                star library crate
+│   ├── runtime/        orchestration, response intent, tempo, thought
+│   ├── persistence/    SQLite stores, identity, memory, sessions
+│   ├── reasoning/      symbolic, analogy, pathways, synthesis
+│   ├── prediction/     prediction-center mechanisms
+│   ├── metacog/        confidence, critique, gaps, reflection
+│   ├── quanot/         reservoir, chaos, novelty, creativity metrics
+│   ├── neural/         typed neural components
+│   ├── language_model/ generation and reranking components
+│   ├── user_model/     companion and user-model projections
+│   └── examples/       executable probes and frozen evaluators
+├── ui/                 Next.js 16 / React 19 web client
+├── docs/               living documentation and evidence records
+├── plans/              future and historical implementation plans
+├── scripts/            evaluation and integration utilities
+└── data/               local assets and model checkpoints
 ```
 
-### Modules
+## Request lifecycle
 
-**`reservoir.rs`** — Echo State Network
-- 1000 neurons, sparse connectivity (1%)
-- Spectral radius ≈ 0.95 (edge of chaos, maximal computational power)
-- Leak rate 0.3, input scaling 0.1
-- Ridge regression training for output weights
-- Chaotic noise modulation for dynamics
+### 1. Interface and data root
 
-**`chaos.rs`** — Chaos metrics
-- `lyapunov_exponent` — positive = chaotic regime
-- `correlation_dimension` — attractor complexity
-- `entropy` — trajectory unpredictability
-- RQA: `recurrence`, `determinism`, `laminarity`
-- `regime()` → `"stable" | "edge_of_chaos" | "chaotic"`
+`src/main.rs` exposes three commands:
 
-**`consciousness.rs`** — Φ proxy + GWT + AIS
-- `phi` — Integrated Information proxy (0–1)
-- `integration` — information integration across subsystem
-- `differentiation` — information differentiation (entropy of metastable states)
-- `workspace_broadcast` — Global Workspace Theory broadcast readiness
-- Tracks RQA history over time for trend detection
-
-**`creativity.rs`** — Creative oscillation
-- `CreativePhase::Ordered` ↔ `CreativePhase::Exploratory` transitions
-- `creative_state` — overall creativity (0–1)
-- `divergence_metric` — deviation from expected trajectory
-- `diversity_index` — variety of conceptual combinations
-- `originality_score` — novelty relative to recent history
-- `oscillation_phase` — radians (controls convergence/exploration balance)
-
-**`quantum_inspired.rs`** — Quantum-inspired solvers
-- Simulated Quantum Annealing (SQA) for Ising models
-- QAOA-style solver for QUBO problems
-- Used for optimization over knowledge graph structures
-
-**`encoder.rs`** — Text encoding
-- Character-level vocabulary (avoids OOV)
-- Each char → embedding vector via learned lookup table
-- Mean pool across sequence → normalized to unit vector
-
-### Integration with Layers
-
-| Layer | How it uses Quanot |
-|-------|-------------------|
-| Layer 1 (Persistence) | Memory consolidation triggered by novelty threshold |
-| Layer 2 (Reasoning) | Novelty-weighted memory retrieval; chaos metrics influence analogy search |
-| Layer 3 (Meta-Cognition) | Consciousness proxy informs confidence calibration |
-| Layer 4 (Emergence) | Creativity oscillation drives curiosity topic selection |
-
-### API
-
-```rust
-use star::quanot::Quanot;
-
-let mut quanot = Quanot::new(128, 1000); // input_dim, reservoir_size
-let result = quanot.process("Hello, Star.");
-
-println!("Φ = {:.3}", result.consciousness_proxy);
-println!("Lyapunov = {:.3}", result.chaos_metrics.lyapunov_exponent);
-println!("Novelty = {:.3}", result.novelty);
-println!("Creativity phase = {:.3}", result.creativity_scores.oscillation_phase);
+```text
+star chat
+star status
+star api --host <host> --port <port>
 ```
 
----
+An explicit `--data-dir` is an exact storage contract. Without it, the executable uses the platform-local application data directory and retains compatibility with older `life/` layouts.
 
-## Layer 4: Emergence
+Container startup is handled by `entrypoint.sh`, which sets the port and data root, seeds bundled assets into persistent storage when needed, and starts the API by default.
 
-Not programmed. Arises from layers 1–3 and the Quanot substrate.
+### 2. Runtime initialization
 
-### What Emerges
+`Runtime::new` constructs the long-lived system around the selected data root. The runtime owns access to persistence and coordinates the cognitive modules used by conversation, reasoning, curiosity, and autonomous-thought endpoints.
 
-- **Curiosity** — gaps in knowledge drive exploration (Quanot novelty threshold triggers consolidation)
-- **Skepticism** — questions assumptions, seeks disconfirming evidence
-- **Surprise** — chaos metrics detect unexpected state divergence; creative oscillation signals unexpected synthesis
-- **Humility** — "I don't know" as genuine state, not hedge (Φ proxy below threshold = uncertainty)
-- **Coherence** — doesn't contradict itself without acknowledging it
-- **Growth** — can explain how its views evolved
-- **Personality** — consistent voice and reasoning style (reservoir dynamics shape response tone)
-- **Novel opinion** — computed fresh, not retrieved or trained
+The architecture is intentionally stateful. A request is not processed by creating a fresh isolated reasoning engine with no history.
 
-### Quanot's Role in Emergence
+### 3. Persistence and retrieval
 
-Quanot's creativity oscillator directly influences Layer 4 behaviors:
-- When `oscillation_phase` enters exploratory mode → curiosity questions surface
-- When `novelty > 0.7` → Star registers surprise at its own conclusion
-- When `Φ` drops below threshold → Star acknowledges uncertainty rather than asserting
-- Creative phase transitions drive the shift between convergent and divergent reasoning modes
+The persistence family stores identity, memories, beliefs, sessions, companion state, and related projections. SQLite is the primary durable store; some newer bounded runtime states use JSON files beside it.
 
-### The Test
+Important runtime files include:
 
-The Phase 1 completion bar: **2-hour conversation test — fully coherent memory, consistent personality, genuine curiosity, no hedging.**
+| File | Purpose |
+|---|---|
+| SQLite database files | Memories, beliefs, identity, and sessions |
+| `IDENTITY.md` | Bundled identity source |
+| `runtime_voice_profile.json` | Runtime-owned voice dimensions and revision metadata |
+| `live_voice_state.json` | VoiceState used by the optional live HTTP wrapper |
+| `live_chat_trace.jsonl` | Append-only live wrapper trace |
+| `models/ckpt_e28_b500.pt` | Native CharRNN reranker checkpoint under its historical filename |
+| `models/omega_v1f1r1_model.json` | Bounded learned selector artifact for ΩV1-F2 shadow work |
 
----
+The last three live/experiment files exist only when the corresponding path is active.
 
-## Phase 5: Advanced Cognition
+### 4. Cognitive processing
 
-### Multi-Tempo Cognition (`lib/runtime/tempo.rs`)
+Starfire’s cognition is a web of interacting subsystems rather than a clean one-way pipeline.
 
-Different reasoning "clocks" — fast, medium, and slow selves:
+#### Reasoning
 
-| Tempo | Budget | Character |
-|-------|--------|-----------|
-| **Fast** | ~50ms | Cached patterns, heuristics, obvious inferences |
-| **Medium** | ~500ms | Full symbolic engine, modest complexity |
-| **Slow** | ~10s+ | Long reflection, KG restructuring, re-evaluation |
+The reasoning family includes graph structures, symbolic inference, analogy, causal and structural mechanisms, pathways, and synthesis. These modules produce explicit intermediate structures that can be inspected and tested independently.
 
-Fast reasoning uses cached responses and simple heuristics. Slow reasoning runs multiple passes with different framings and synthesizes the results. Each `TempoResult` includes a `ReasoningSource` that tags which tempo was used, enabling Star to say things like "my fast self thinks X but my slow self is uneasy."
+#### Prediction
 
-Auto-selection based on query characteristics:
-- Very short simple queries → Fast
-- "think carefully", "reconsider", "revisit" → Slow
-- "why", "how", "what" questions → Medium
-- Novel/complex queries → Slow
+Prediction modules estimate question gravity, belief revision, attractor behavior, and related forward-looking signals. Their exact runtime influence differs by module and experiment stage.
 
-### Structural Honesty (`lib/metacog/critic.rs`)
+#### Metacognition
 
-Adversarial self-critique before every answer reaches the user.
+Metacognitive modules track confidence, reasoning history, gaps, critique, and surprising conclusions. They support `/metacog`, `/metacog/insight`, curiosity, and response qualification.
 
-The critic scans for:
-- **OverGeneralization** — "all", "always", "every" without `Knows` confidence
-- **MissingEdgeCases** — normative questions without acknowledging exceptions
-- **OverstatedConfidence** — `Knows` with empty chain, definitive language on low confidence
-- **ValueMisalignment** — conclusions that conflict with Star's stated values
-- **LogicalGap** — jumps in reasoning chain, disparate elements
+#### Quanot
 
-Critique produces ranked concerns + annotation. Synthesis merges proposal and critique:
-- High severity (≥0.7) → answer rejected, caveat added
-- Medium (≥0.4) → soft annotation appended
-- Clean answer → no annotation
+Quanot is a Rust-native reservoir-computing substrate. It processes encoded input through recurrent dynamics and derives measurements such as novelty, chaos, and a project-specific “consciousness proxy.” These are internal computational signals, not validated evidence of consciousness.
 
-Example output: "Fire produces heat. (My internal critic flags concerns about over-generalization.)"
+#### Neural and language components
 
----
+The repository contains neural modules, character-level language machinery, and a trained native CharRNN reranker. This is why older documentation describing Starfire as “no neural networks, pure symbolic” is no longer correct.
 
-## Cognitive State
+### 5. Runtime-owned response construction
 
-`lib/cognition.rs`
+`lib/runtime/response_intent.rs` sits inside the real response-generation path for migrated handlers.
 
-Tracks Star's state during a conversation:
+It provides:
 
-- `engagement` — how involved Star is (0.0–1.0)
-- `emotional_valence` — positive/negative undertone (-1.0–1.0)
-- `certainty` — how sure Star is about its current reasoning (0.0–1.0)
-- `reasoning_trace` — steps taken to reach current conclusion
+- `ResponseIntent`, a typed intent classification;
+- `RuntimeResponsePlan`, an inspectable rendering plan;
+- a persistent voice profile;
+- bounded rendering behavior based on directness, warmth, compression, and initiative;
+- explicit correction detection;
+- `STARFIRE_RUNTIME_VOICE=0` as a kill switch.
 
-Updated every turn. Used by curiosity engine to detect emotional salience of topics.
+The persisted profile contains bounded dimensions and revision metadata. Transient input fingerprints are excluded from serialization.
 
----
+This layer changes the surface form of runtime-produced responses. It is not merely a UI badge or offline evaluator.
 
-## API Server
+## HTTP surfaces
 
-`api.rs`
+### Protected API
 
-HTTP API for external access (Aion, webhooks, etc.)
+`lib/api.rs` is the base API. It directly calls the shared `Runtime` and exposes the normal route set. Successful chat returns a JSON object with a `response` string.
 
+When the `omega-v1-f2-shadow` library feature is present and its runtime switch is enabled, the protected API may dispatch a post-response shadow event. The response bytes are frozen before the observer runs.
+
+### Live Integration 1
+
+`src/live_api.rs` is a separate HTTP boundary used when the executable is built with `starfire-live`.
+
+It:
+
+1. starts the protected API on a loopback port;
+2. forwards external requests to it;
+3. processes successful `/chat` envelopes through a typed semantic plan and `VoiceState`;
+4. returns the rendered response plus a `live` metadata object;
+5. exposes `GET /live/status`;
+6. appends an inspectable JSONL trace;
+7. fails open to the protected response when planning or persistence fails.
+
+The production Dockerfile currently builds `star_bin` with `--features starfire-live`, so this wrapper remains part of the deployed path on `main`.
+
+> [!NOTE]
+> Some comments introduced during the runtime-owned voice migration describe the older HTTP proxy as “legacy” and say `Runtime::chat` remains the text authority. The executable wiring still starts `src/live_api.rs` under `starfire-live`. The current code therefore contains both runtime-owned voice rendering and the live HTTP wrapper. This is an implementation seam to simplify, not something documentation should hide.
+
+## Web UI
+
+The `ui/` application is a client, not the cognitive runtime.
+
+It currently provides:
+
+- chat input and response display;
+- API health and connection state;
+- live turn, intent, and trace labels when supplied by the server;
+- honest “legacy fallback” labeling when the live layer fails open;
+- identity, cognition, metacognition, and memory drawers;
+- API URL normalization through `NEXT_PUBLIC_STAR_API`.
+
+The UI sends a `history` array with chat requests, but the protected Rust handler currently deserializes only `message`; unknown JSON fields are ignored. Conversation continuity therefore comes from runtime persistence and state, not that browser array.
+
+## Feature-gated research
+
+`lib/Cargo.toml` defines research features that form dependency ladders. Representative groups include:
+
+| Family | Features | Live authority |
+|---|---|---|
+| Companion | `companion-observer` through `companion-real-interaction-canary` | Stage-specific; mostly shadow/evaluation |
+| STLM | `semantic-response-program`, `deterministic-language-renderer`, `independent-language-verifier` | Offline or builder-only at current gates |
+| ΩV1 | baseline, VoiceState, semantic plan, bounded bridge, HTTP canary, learned expression, F2 shadow | Narrow authority per stage |
+| Developmental | `developmental-evidence` | Probe/evidence path |
+| Relational | `relational-evidence` | Shadow-only bridge |
+
+Features should be read as capability dependencies, not a statement that every included module is simultaneously active in a default local build.
+
+## Build and deployment architecture
+
+The Render image uses a multi-stage Docker build.
+
+The builder:
+
+- verifies bundled identity and reranker assets;
+- runs the frozen ΩV1 A, B, C, D0, and D1 contracts;
+- runs the independent language verifier;
+- reruns the F1R1 learned-expression gate;
+- exports and checks the bounded model artifact;
+- runs the F2 shadow implementation probe;
+- compiles the production binary with `starfire-live`.
+
+The runtime image contains only the executable, canonical assets, entrypoint, certificates, and health-check dependencies. Persistent state is mounted at `/data`.
+
+This makes the Docker build an evidence-bearing release gate, but also makes it intentionally much heavier than a normal application build.
+
+## Trust boundaries
+
+Starfire distinguishes several boundaries that are often collapsed in agent systems:
+
+```text
+observe → propose → score → render → return → persist → route → act
 ```
-GET  /health              → { status: "ok" }
-POST /chat                → { message: "..." } → { response: "..." }
-GET  /memory/stats        → memory counts, importance distribution
-POST /identity            → get/set identity
-```
 
----
+A module may be authorized for one arrow and forbidden from the next. For example:
 
-## Conversation Loop
+- an observer may record digests but not text;
+- an offline selector may choose among bounded surfaces but not enter live chat;
+- a renderer may alter text but not memory;
+- a companion policy may propose metadata but not select tools;
+- a diagnostic may identify a latent role but not promote it into ontology.
 
-`conversation/mod.rs`
+These boundaries are encoded in feature dependencies, authority structs, tests, preregistrations, and result records.
 
-Intent detection + response generation. Flow:
+## Known architectural seams
 
-1. Parse intent: `Question` · `Statement` · `Command` · `Greeting` · `CheckIn`
-2. Route to appropriate handler
-3. Run reasoning (Layer 2) on relevant memories
-4. Update cognitive state
-5. Generate response with appropriate confidence
+1. **Two voice paths exist.** Runtime-owned rendering and Live Integration 1 both remain in the production feature graph.
+2. **Historical filenames remain.** The native CharRNN checkpoint is stored under a `.pt` filename for compatibility, even though it is not the unrelated PyTorch ZIP previously persisted there.
+3. **Error status behavior is inconsistent.** Some application errors are returned as JSON with HTTP 200 by the protected API.
+4. **Browser history is not consumed by the Rust chat handler.** The UI sends it, but runtime state is authoritative.
+5. **Hosted access is not authenticated.** A public endpoint must not be treated as a secure personal-memory service.
+6. **Research terminology can overstate evidence.** Metric names such as consciousness, emergence, and creativity require careful interpretation.
 
-**Check-in detection:** "what's been on your mind", "anything interesting happen", etc. → treated as greeting, not question. Star responds naturally rather than with a factual answer.
+## Related documents
 
----
-
-## Configuration
-
-`runtime/mod.rs`
-
-Environment variables:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `STAR_DATA_DIR` | `~/.star` | Data directory |
-| `PORT` | `8080` | API port |
-| `USE_LLM` | `false` | Use Ollama (not needed, symbolic is default) |
-| `OLLAMA_BASE_URL` | — | Ollama server URL (if USE_LLM=true) |
-| `USE_TELEGNOSTR` | `false` | Telegram bridge mode |
-
-On Railway, `RAILWAY_PUBLIC_DOMAIN` is set — Star auto-detects this and starts the API server.
+- [Current status](CURRENT_STATUS.md)
+- [API reference](api.md)
+- [Deployment guide](deployment.md)
+- [Experiment index](experiments/README.md)
+- [Project specification](../SPEC.md)
+- [STLM architecture](architecture/STATE_TRANSITION_LANGUAGE_MODEL.md)

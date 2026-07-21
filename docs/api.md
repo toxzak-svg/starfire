@@ -1,105 +1,227 @@
-# Star API Reference
+# Starfire API Reference
 
-Star exposes an HTTP API for chat, reasoning, health checks, memory access, and metacognition.
+> **Base implementation:** `lib/api.rs`  
+> **Optional live boundary:** `src/live_api.rs`  
+> **Last reviewed:** 2026-07-21
 
-**Base URL (Railway):** `https://star-production-6458.up.railway.app`
+Starfire exposes a small JSON-over-HTTP API for chat, direct reasoning, memory retrieval, identity, cognitive inspection, metacognition, and autonomous-thought probes.
 
-**Local:** `http://localhost:8080`
+## Base URLs
 
----
+| Environment | URL |
+|---|---|
+| Local | `http://localhost:8080` |
+| Hosted research API | `https://starfire-cuee.onrender.com` |
+
+The hosted endpoint is a research deployment. It does not currently provide built-in authentication, per-user isolation, or production-grade rate limiting.
+
+## Common behavior
+
+- Request and response bodies use JSON.
+- CORS currently allows `*`.
+- The service processes access to the shared runtime through a mutex.
+- Some protected-API application failures are encoded as `{ "error": "..." }` while the HTTP status remains `200`. Clients should inspect both the status code and the JSON body.
+- Unknown routes return `404` with `{ "error": "Not found" }`.
+- `OPTIONS` requests receive an empty `204` response.
+
+## Chat response variants
+
+### Protected API
+
+The base API returns:
+
+```json
+{
+  "response": "Star's completed response"
+}
+```
+
+### Production live envelope
+
+When the executable is built with `starfire-live`, successful chat responses may include a `live` object:
+
+```json
+{
+  "response": "Star's rendered response",
+  "live": {
+    "enabled": true,
+    "pipeline": "live-integration-1",
+    "trace_id": "live-...",
+    "turn": 14,
+    "intent": "Reflection",
+    "voice_before": {},
+    "voice_after": {},
+    "semantic_plan": {}
+  }
+}
+```
+
+If the live planning or persistence layer fails, the protected response is preserved and the envelope is labeled:
+
+```json
+{
+  "response": "Protected response",
+  "live": {
+    "enabled": false,
+    "pipeline": "live-integration-1",
+    "failed_open": true,
+    "error": "..."
+  }
+}
+```
+
+Clients must treat the `response` field as the stable contract and the `live` object as optional metadata.
+
+## Endpoint summary
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/` | Service name, version, and endpoint list |
+| `GET` | `/health` | Health check |
+| `POST` | `/chat` | Process a conversational message |
+| `POST` | `/reason` | Run a reasoning query with optional supplied memories |
+| `POST` | `/remember` | Retrieve memories by topic |
+| `GET` | `/identity` | Inspect identity and session information |
+| `GET` | `/memory/stats` | Inspect persistence counts |
+| `GET` | `/cognitive` | Inspect current cognitive state |
+| `GET` | `/metacog` | Inspect beliefs, gaps, and reasoning history |
+| `GET` | `/metacog/insight` | Generate a metacognitive insight |
+| `GET` | `/think` | Trigger one autonomous-thought cycle |
+| `GET` | `/thought` | Read the most recent autonomous thought |
+| `POST` | `/webhook/telegram` | Receive a Telegram update |
+| `GET` | `/live/status` | Inspect Live Integration 1 state; live wrapper only |
 
 ## Root
 
 ### `GET /`
 
-Service info and endpoint list.
+Returns service metadata and the protected API route list.
 
-**Response:**
+```bash
+curl http://localhost:8080/
+```
+
+Representative response:
+
 ```json
 {
   "name": "Star",
   "version": "0.1",
   "endpoints": [
-    "/reason", "/chat", "/remember", "/identity",
-    "/memory/stats", "/health", "/cognitive", "/metacog",
-    "/metacog/insight", "/think", "/thought", "/webhook/telegram"
+    "/reason",
+    "/chat",
+    "/remember",
+    "/identity",
+    "/memory/stats",
+    "/health",
+    "/cognitive",
+    "/metacog",
+    "/metacog/insight",
+    "/think",
+    "/thought",
+    "/webhook/telegram"
   ]
 }
 ```
 
----
+`/live/status` is implemented by the outer live server and is therefore not listed by the protected root response.
 
 ## Health
 
 ### `GET /health`
 
-Health check.
-
-**Response:**
-```json
-{ "status": "ok" }
+```bash
+curl http://localhost:8080/health
 ```
 
----
+```json
+{
+  "status": "ok"
+}
+```
+
+The Docker health check uses this endpoint.
 
 ## Chat
 
 ### `POST /chat`
 
-Send a message and receive a response.
+Processes one message through the persistent runtime.
 
-**Request:**
+Request:
+
 ```json
-{ "message": "what causes intelligence?" }
+{
+  "message": "What are you uncertain about right now?"
+}
 ```
 
-**Response:**
-```json
-{ "response": "I'm Star — a reasoning intelligence created by Zachary Maronek." }
-```
+Example:
 
-**Example:**
 ```bash
-curl https://star-production-6458.up.railway.app/chat \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"message": "what causes intelligence?"}'
+curl http://localhost:8080/chat \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"message":"What are you uncertain about right now?"}'
 ```
 
----
+The web UI currently also sends a `history` field. The protected Rust handler ignores unknown fields and deserializes only `message`; runtime persistence and session state remain authoritative.
+
+Error body examples:
+
+```json
+{
+  "error": "Invalid request: missing field `message`"
+}
+```
+
+```json
+{
+  "error": "Chat error: ..."
+}
+```
 
 ## Reasoning
 
 ### `POST /reason`
 
-Pure reasoning query with optional context memories. Returns answer + confidence + reasoning chain.
+Runs the runtime reasoning engine against a query and optional caller-supplied memory strings.
 
-**Request:**
+Request:
+
 ```json
 {
-  "query": "what is the relationship between curiosity and intelligence?",
-  "memories": ["curiosity is a gap in knowledge", "intelligence is reasoning ability"]
+  "query": "How are curiosity and uncertainty related?",
+  "memories": [
+    "Curiosity can be driven by an unresolved gap.",
+    "Uncertainty represents incomplete support for a conclusion."
+  ]
 }
 ```
 
-**Response:**
+Response shape:
+
 ```json
 {
-  "answer": "Curiosity drives the acquisition of information that reasoning processes...",
-  "confidence": "knows",
-  "confidence_score": 0.85,
-  "reasoning_chain": ["analyzed relationship", "applied analogy", "synthesized conclusion"]
+  "answer": "...",
+  "confidence": "thinks",
+  "confidence_score": 0.72,
+  "reasoning_chain": [
+    "..."
+  ]
 }
 ```
 
----
+The supplied strings are converted into temporary episodic `Memory` values for this request. The endpoint does not itself persist them.
 
 ## Memory
 
 ### `POST /remember`
 
-Retrieve memories on a topic.
+Retrieves memories matching a topic.
 
-**Request:**
+Request:
+
 ```json
 {
   "topic": "curiosity",
@@ -107,11 +229,12 @@ Retrieve memories on a topic.
 }
 ```
 
-**Response:**
+Response:
+
 ```json
 [
   {
-    "content": "curiosity is a gap in knowledge",
+    "content": "...",
     "domain": "empirical",
     "importance": 0.7,
     "confidence": 0.8
@@ -119,13 +242,12 @@ Retrieve memories on a topic.
 ]
 ```
 
----
+`limit` is optional and defaults to `5`.
 
 ### `GET /memory/stats`
 
-Memory statistics for current session.
+Returns counts from the persistence snapshot.
 
-**Response:**
 ```json
 {
   "memory_count": 142,
@@ -141,196 +263,192 @@ Memory statistics for current session.
 }
 ```
 
----
-
 ## Identity
 
 ### `GET /identity`
 
-Get Star's current identity state.
+Returns the current identity summary, relationship summary, and session identifier.
 
-**Response:**
 ```json
 {
   "name": "Star",
-  "summary": "a reasoning intelligence created by Zachary Maronek",
-  "relationship": "Star values Zachary's curiosity and honesty",
-  "session_id": 1
+  "summary": "...",
+  "relationship": "...",
+  "session_id": 14
 }
 ```
 
----
+This endpoint is read-only. Older documentation describing `POST /identity` does not match the current route table.
 
-## Cognitive State
+## Cognitive state
 
 ### `GET /cognitive`
 
-Current cognitive state — focus, certainty, open questions, reasoning trace.
+Returns the current focus, certainty, open questions, last reasoning summary, and structured reasoning trace.
 
-**Response:**
 ```json
 {
-  "current_focus": "relationship between curiosity and intelligence",
-  "certainty": 0.8,
-  "open_questions": ["why does curiosity precede reasoning?"],
-  "last_reasoning": "analyzed the gap-driven nature of curiosity",
+  "current_focus": "...",
+  "certainty": 0.74,
+  "open_questions": [
+    "..."
+  ],
+  "last_reasoning": "...",
   "reasoning_trace": [
     {
-      "input": "what causes intelligence?",
-      "conclusion": "reasoning from first principles",
-      "chain": ["retrieved", "analyzed", "synthesized"],
-      "confidence": "knows",
-      "timestamp": 1745000000
+      "input": "...",
+      "conclusion": "...",
+      "chain": ["..."],
+      "confidence": "thinks",
+      "timestamp": 1784640000
     }
   ]
 }
 ```
 
----
-
-## Meta-Cognition
+## Metacognition
 
 ### `GET /metacog`
 
-Full meta-cognition state — beliefs, reasoning history, surprising conclusions, knowledge gaps.
+Returns current beliefs, recent reasoning history, surprising conclusions, the top tracked gap, and curiosity topics.
 
-**Response:**
 ```json
 {
   "beliefs": [
-    { "topic": "curiosity", "content": "curiosity is a gap in knowledge", "confidence": "thinks" }
-  ],
-  "reasoning_history": [
     {
-      "query": "what causes intelligence?",
-      "conclusion": "reasoning from first principles",
-      "confidence": "knows",
-      "was_surprising": false,
-      "timestamp": 1745000000
+      "topic": "...",
+      "content": "...",
+      "confidence": "thinks"
     }
   ],
+  "reasoning_history": [],
   "surprising_conclusions": [],
-  "top_gap": {
-    "topic": "intelligence",
-    "importance": 0.7,
-    "investigated": false,
-    "progress": 0.3
-  },
-  "curiosity_topics": ["intelligence", "curiosity"]
+  "top_gap": null,
+  "curiosity_topics": []
 }
 ```
-
----
 
 ### `GET /metacog/insight`
 
-Generated metacognitive insight — a self-reflective observation about Star's own reasoning.
+Generates one structured metacognitive insight when available.
 
-**Response:**
 ```json
 {
   "has_insight": true,
-  "insight": "My confidence about intelligence was higher than warranted — I was conflating reasoning ability with the drive to reason."
+  "kind": "ConfidenceCalibration",
+  "topic": "...",
+  "insight": "..."
 }
 ```
 
----
+When none is available, the structured fields may be `null`.
 
-## Autonomous Thinking
+## Autonomous thought
 
 ### `GET /think`
 
-Trigger Star's background thinking process. Generates a thought (question, insight, or connection) without a user message.
+Triggers one runtime thought cycle.
 
-**Response:**
 ```json
 {
-  "thought": { "type": "question", "text": "Why do I find causality more compelling than correlation?" },
-  "topic": "causality",
+  "thought": {
+    "type": "question",
+    "text": "..."
+  },
+  "topic": "...",
   "confidence": "thinks",
   "generated_by": "curious_engine",
-  "tentative_answer": "Because causality implies agency, which connects to my identity as a reasoning system."
+  "tentative_answer": "..."
 }
 ```
 
----
+This is an explicit request-triggered action. It should not be interpreted as proof that the hosted process is continuously thinking between requests.
 
 ### `GET /thought`
 
-Get Star's last autonomous thought (for external observers).
+Returns the latest autonomous thought when one exists.
 
-**Response:**
 ```json
 {
-  "thought": { "type": "insight", "text": "The relationship between curiosity and gaps is circular — gaps cause curiosity, but pursuing curiosity fills gaps, creating new gaps." },
-  "topic": "curiosity",
+  "thought": {
+    "type": "insight",
+    "text": "..."
+  },
+  "topic": "...",
   "confidence": "thinks",
   "generated_by": "thinker"
 }
 ```
 
-Or if no pending thought:
+No pending thought:
+
 ```json
-{ "thought": null, "message": "Star has no pending autonomous thoughts" }
+{
+  "thought": null,
+  "message": "Star has no pending autonomous thoughts"
+}
 ```
 
----
+## Live status
 
-## Telegram Integration
+### `GET /live/status`
+
+Available only when the outer `starfire-live` server is active.
+
+Representative response:
+
+```json
+{
+  "enabled": true,
+  "pipeline": "live-integration-1",
+  "turn": 14,
+  "voice_state": {},
+  "last_trace": {}
+}
+```
+
+The response may include the last raw and rendered response inside `last_trace`. Treat this endpoint and its backing trace file as potentially sensitive.
+
+## Telegram webhook
 
 ### `POST /webhook/telegram`
 
-Receive Telegram bot updates. Star processes the message and sends the response back to the user via the Telegram API.
+Accepts a Telegram Update JSON object. Text messages are passed to `Runtime::chat`. When `TELEGRAM_BOT_TOKEN` is configured, Starfire sends a reply through Telegram’s Bot API on a spawned thread.
 
-Set `TELEGRAM_BOT_TOKEN` environment variable.
+Representative response:
 
-**Request:** Telegram Update JSON (see [Telegram docs](https://core.telegram.org/bots/api#update))
-
-**Response:**
 ```json
 {
   "ok": true,
-  "response": "That's an interesting question about causality.",
+  "response": "...",
   "chat_id": 123456789,
   "update_id": 12345
 }
 ```
 
----
+The route does not currently implement Telegram signature verification or an independent shared secret.
 
-## Error Responses
+## Client guidance
 
-```json
-{ "error": "Invalid request: ..." }
-{ "error": "Lock poisoned: ..." }
-{ "error": "Chat error: ..." }
-{ "error": "Not found" }
-```
+A resilient client should:
 
----
+1. use the `response` field as the chat contract;
+2. treat `live` as optional;
+3. check for an `error` field even after HTTP 200;
+4. use timeouts and retry only transport failures;
+5. avoid exposing `/identity`, `/memory/*`, `/cognitive`, `/metacog`, or `/live/status` publicly without access control;
+6. not assume browser-provided history is consumed by the Rust handler.
 
-## Local Development
-
-Start the API server locally:
+## Local server command
 
 ```bash
-cargo run --release -- api --host 0.0.0.0 --port 8080
+cargo run --release -p star_bin --bin star -- \
+  --data-dir ./data/dev \
+  api --host 0.0.0.0 --port 8080
 ```
 
-### Health check
-```bash
-curl http://localhost:8080/health
-```
+## Related documents
 
-### Chat
-```bash
-curl http://localhost:8080/chat \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"message": "hello"}'
-```
-
----
-
-## Rate Limits
-
-No rate limits on Railway. Star processes one message at a time (no parallel inference). Expect ~100ms–2s latency per response depending on reasoning complexity.
+- [Architecture](architecture.md)
+- [Deployment](deployment.md)
+- [Current status](CURRENT_STATUS.md)

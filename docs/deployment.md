@@ -1,178 +1,280 @@
-# Deployment Guide
+# Starfire Deployment Guide
 
-Star deploys to Railway. This guide covers setup, environment variables, and troubleshooting.
+> **Backend:** Render Docker service  
+> **Frontend:** Vercel-compatible Next.js app  
+> **Last reviewed:** 2026-07-21
 
----
+The current deployment path uses `render.yaml`, `Dockerfile`, and `entrypoint.sh`. Older Railway instructions are historical and no longer describe the active service.
 
-## Prerequisites
+## Deployment topology
 
-- [Railway CLI](https://docs.railway.app/reference/cli) installed and authenticated
-- GitHub repo forked from `toxzak-svg/star`
+```mermaid
+flowchart LR
+    GH[GitHub main] --> R[Render Docker build]
+    R --> G[Asset and experiment gates]
+    G --> API[Starfire API container]
+    D[(Render persistent disk /data)] <--> API
 
----
+    GH --> V[Vercel build from ui/]
+    V --> WEB[Next.js web client]
+    WEB --> API
+```
 
-## One-Command Deploy
+## Current service endpoints
+
+| Surface | Address |
+|---|---|
+| Hosted API | `https://starfire-cuee.onrender.com` |
+| Health check | `https://starfire-cuee.onrender.com/health` |
+| Local API | `http://localhost:8080` |
+
+The web UI defaults to the hosted API when `NEXT_PUBLIC_STAR_API` is not supplied.
+
+## Render backend
+
+### Blueprint
+
+`render.yaml` defines one Docker web service:
+
+- service name: `starfire`;
+- branch: `main`;
+- Docker context: repository root;
+- health check: `/health`;
+- auto-deploy: commit;
+- persistent data root: `/data`.
+
+Create or refresh the service from the Render dashboard using the repository blueprint. No Railway CLI is involved.
+
+### Why the build is long
+
+The Dockerfile is also a release-evidence gate. Before compiling the production executable, it verifies:
+
+- the full identity asset;
+- the native CharRNN reranker checkpoint;
+- ΩV1-A baseline fixtures;
+- ΩV1-B VoiceState replay;
+- ΩV1-C semantic-plan contracts;
+- ΩV1-D0 bounded bridge behavior;
+- ΩV1-D1 HTTP canary behavior;
+- the ΩV1-E independent verifier;
+- the F1R1 learned-expression remediation;
+- the exported bounded model artifact;
+- the F2 shadow implementation boundary.
+
+A failure in any required assertion prevents the image from being published.
+
+The final production command is equivalent to:
 
 ```bash
-railway link --project <project-id>
-railway up
+cargo build --release --locked \
+  -p star_bin \
+  --bin star \
+  --features starfire-live
 ```
 
-Railway auto-detects the `Dockerfile` and starts the API server. No environment configuration required.
+### Persistent disk
 
----
+Mount a Render persistent disk at:
 
-## Project ID
-
-Find your project ID from the Railway dashboard or:
-
-```bash
-railway list --json | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-for p in d['projects']:
-    print(p['id'], p['name'])
-"
+```text
+/data
 ```
 
-The Star Claw project ID is: `a24765ef-9885-4da8-849c-5a525f4a22fb`
+The container sets:
 
----
-
-## What Gets Deployed
-
-```
-toxzak-svg/starfire
-└── Dockerfile          → builds Rust binary
-    └── CMD ["star"]    → Railway overrides, runs binary
-                          (auto-starts API because RAILWAY_PUBLIC_DOMAIN is set)
+```text
+STARFIRE_HOME=/data
+STARFIRE_DATA=/data
 ```
 
-Star auto-detects Railway via `RAILWAY_PUBLIC_DOMAIN` env var and starts the API server on port 8080 instead of the chat CLI.
+The entrypoint seeds canonical assets only when the persistent target is absent or empty. This preserves runtime state and user-edited assets across deployments.
 
----
+Expected persistent contents include SQLite state, identity, model artifacts, runtime voice state, and optional live traces.
 
-## Environment Variables
-
-Star works out of the box on Railway. No env vars required.
+### Backend environment variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `STAR_DATA_DIR` | `/data/star-data` | SQLite + memory files |
-| `PORT` | `8080` | HTTP server port |
-| `USE_LLM` | `false` | Ollama for text generation (not needed) |
-| `OLLAMA_BASE_URL` | — | Ollama server URL |
-| `USE_TELEGNOSTR` | `false` | Telegram bridge mode |
-| `TELEGRAM_BOT_TOKEN` | — | Bot token (Aion only) |
-| `STAR_API_URL` | — | Star's public URL (Aion only) |
+|---|---:|---|
+| `STARFIRE_DATA` | `/data` | Persistent data root |
+| `STARFIRE_HOME` | `/data` in the image | Fallback state root |
+| `STARFIRE_PORT` | `PORT` or `8080` | API port |
+| `PORT` | host supplied | Common platform port fallback |
+| `STARFIRE_LOG` | `info` | Logging level |
+| `STARFIRE_RUNTIME_VOICE` | `1` | Set to `0` to disable runtime-owned voice modulation |
+| `STARFIRE_OMEGA_V1F2_SHADOW` | `0` | Enables the F2 post-response shadow observer |
+| `STARFIRE_INTERNAL_PORT` | external port + 1 | Loopback protected-API port used by Live Integration 1 |
+| `TELEGRAM_BOT_TOKEN` | unset | Telegram Bot API token |
 
----
+Do not enable an experiment switch merely because its code compiled. Follow the corresponding preregistration and result document.
 
-## Adding a Persistent Volume
+## Container behavior
 
-Star's memory lives at `/data/star-data`. On Railway, add a persistent volume:
+With no explicit command, `entrypoint.sh` starts:
 
-1. Railway dashboard → Star service → Settings → Volumes
-2. Add volume mounted at `/data/star-data`
-
-This preserves memory across deployments.
-
----
-
-## Railway Architecture
-
-```
-GitHub (toxzak-svg/starfire, layer4 branch)
-    └── railway up
-            └── Railway build
-                    ├── rust:1.77-slim (builder)
-                    │       └── cargo build --release
-                    └── debian:bookworm-slim (runtime)
-                            └── star binary
-                                    └── star api (auto, RAILWAY_PUBLIC_DOMAIN set)
-                                            └── port 8080
-                                                    └── Railway proxy (HTTPS)
-                                                            └── https://star-production-6458.up.railway.app
+```bash
+star --data-dir "$STARFIRE_DATA" \
+  api --host 0.0.0.0 --port "$STARFIRE_PORT"
 ```
 
----
+The health check runs:
+
+```bash
+curl -f "http://localhost:${STARFIRE_PORT:-8080}/health"
+```
+
+The runtime image contains:
+
+- the `star` executable;
+- the canonical `IDENTITY.md`;
+- the native CharRNN checkpoint;
+- the bounded ΩV1-F1R1 model artifact;
+- the entrypoint and health-check dependencies.
+
+## Local Docker run
+
+Build:
+
+```bash
+docker build -t starfire .
+```
+
+Run with a named persistent volume:
+
+```bash
+docker run --rm \
+  -p 8080:8080 \
+  -v starfire-data:/data \
+  starfire
+```
+
+Inspect health:
+
+```bash
+curl http://localhost:8080/health
+```
+
+The full Docker build is intentionally expensive. For ordinary development, run targeted Cargo tests and use a local non-container API process.
+
+## Web UI deployment
+
+The frontend lives under `ui/` and uses Next.js 16 with React 19.
+
+### Vercel settings
+
+| Setting | Value |
+|---|---|
+| Root directory | `ui` |
+| Framework preset | Next.js |
+| Build command | `npm run build` |
+| Install command | `npm install` |
+| Environment variable | `NEXT_PUBLIC_STAR_API=https://starfire-cuee.onrender.com` |
+
+The API client normalizes a scheme-less value and removes trailing slashes.
+
+### Local UI
+
+```bash
+cd ui
+npm install
+NEXT_PUBLIC_STAR_API=http://localhost:8080 npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Deployment verification
+
+After a backend deploy, verify in this order:
+
+```bash
+curl -fsS https://starfire-cuee.onrender.com/health
+```
+
+```bash
+curl -fsS https://starfire-cuee.onrender.com/identity
+```
+
+```bash
+curl -fsS https://starfire-cuee.onrender.com/chat \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Give me a one-sentence status check."}'
+```
+
+When the live wrapper is active:
+
+```bash
+curl -fsS https://starfire-cuee.onrender.com/live/status
+```
+
+Check that:
+
+- `/health` returns `{"status":"ok"}`;
+- identity is the full bundled identity, not a minimal fallback;
+- chat returns a `response` string;
+- optional live metadata is honestly labeled;
+- the persistent turn or session state survives a redeploy.
 
 ## Troubleshooting
 
-### 502 Bad Gateway
+### Build fails during an ΩV1 gate
 
-Star's container is restarting. Check the build logs:
+The Dockerfile prints a report under `/tmp` for each gate and then checks exact fields with `grep`. Find the first failed `RUN` layer. Do not bypass it by deleting the assertion unless the experiment contract is intentionally revised and preregistered.
 
-```bash
-railway logs --service star
-```
+For faster diagnosis, run the exact Cargo command from the failing Docker layer locally or in another external builder.
 
-If the logs show Chat mode ("Type /quit to end the conversation"), the deployment is using an older build. Push the latest and redeploy:
+### Service starts in chat mode
 
-```bash
-git push origin layer4
-railway up
-```
+The container entrypoint should supply the `api` command automatically. Confirm the deployed image uses the current `entrypoint.sh` and has no platform command override replacing it.
 
 ### Health check fails
 
-The Dockerfile includes a health check:
+Confirm:
 
-```dockerfile
-HEALTHCHECK --interval=10s --timeout=5s --start-period=8s --retries=5 \
-    CMD curl -sf http://localhost:${PORT}/health || exit 1
-```
+- the service binds to `0.0.0.0`;
+- `STARFIRE_PORT` resolves to the platform port;
+- the outer live API successfully started its loopback protected API;
+- no stale process already occupies the internal port.
 
-If it keeps failing, check that the API server is actually starting:
+Relevant startup messages include the public address and protected loopback port.
 
-```bash
-railway logs --service star | grep "API"
-```
+### Identity or reranker falls back
 
-Should see: `Starting Star API server at http://0.0.0.0:8080`
+The builder validates both assets before publishing. At runtime, inspect `/data/IDENTITY.md` and `/data/models/ckpt_e28_b500.pt`.
 
-### Star not responding to chat
+The entrypoint replaces one known-bad historical case: a persisted PyTorch ZIP file stored under the native reranker filename. It otherwise preserves non-empty user files.
 
-The chat endpoint requires a POST with JSON:
+### Memory resets after deploy
 
-```bash
-curl https://star-production-6458.up.railway.app/chat \
-  -X POST -H "Content-Type: application/json" \
-  -d '{"message": "hello"}'
-```
+Confirm a persistent disk is mounted at `/data` and `STARFIRE_DATA` still points there. An ephemeral filesystem will lose SQLite state, runtime voice state, and traces whenever the instance is replaced.
 
-A GET request returns 405 Method Not Allowed.
+### UI says offline
 
-### Memory not persisting
+Check browser access to the API health endpoint and verify `NEXT_PUBLIC_STAR_API` was set at build time. Also confirm HTTPS is used when the UI itself is served over HTTPS.
 
-Star needs a persistent volume at `/data/star-data`. Without it, memory resets on every redeploy.
+### UI says `online · legacy`
 
-1. Railway dashboard → Star service → Volumes
-2. Add volume named `star-data`
-3. Mount at `/data/star-data`
+The API is reachable, but the last response lacked live metadata. Check `/live/status` and backend logs. The UI intentionally distinguishes this from a fully active live response path.
 
----
+### Render cold start
 
-## Branch Strategy
+A sleeping or newly deployed service may take time to load assets and initialize the runtime. The client should use a reasonable timeout and treat transport failure separately from an application-level JSON error.
 
-- **layer4** — the active development branch
-- **main** — stable (merge from layer4 after testing)
+## Security notes
 
-Push to layer4 to trigger a deploy:
+The current service has no built-in authentication or tenant separation. Before using it with private personal memory on a public URL, add an access-control layer and restrict inspection endpoints such as:
 
-```bash
-git push origin layer4
-railway up
-```
+- `/identity`;
+- `/remember`;
+- `/memory/stats`;
+- `/cognitive`;
+- `/metacog`;
+- `/live/status`.
 
----
+The live trace may contain raw and rendered responses. Treat the persistent disk as sensitive.
 
-## Aion Deployment
+## Related documents
 
-Aion is a separate Railway service that polls Telegram and forwards messages to Star.
-
-See `aion/RAILWAY_DEPLOY.md` for Aion-specific setup.
-
-Environment variables for Aion:
-- `STAR_API_URL=https://star-production-6458.up.railway.app`
-- `TELEGRAM_BOT_TOKEN=<your bot token>`
+- [API reference](api.md)
+- [Architecture](architecture.md)
+- [Current status](CURRENT_STATUS.md)
+- [Experiment index](experiments/README.md)
