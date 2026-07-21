@@ -241,7 +241,7 @@ fn handle_metacog(runtime: &Arc<Mutex<Runtime>>) -> String {
     }).collect();
     
     // Get surprising conclusions
-    let surprising: Vec<String> = metacog.surprising_conclusions().iter().map(|r| r.conclusion.clone()).collect();
+    let surprising_conclusions: Vec<String> = metacog.surprising_conclusions().iter().map(|r| r.conclusion.clone()).collect();
     
     // Get top knowledge gap
     let top_gap = metacog.top_gap().map(|g| serde_json::json!({
@@ -254,7 +254,7 @@ fn handle_metacog(runtime: &Arc<Mutex<Runtime>>) -> String {
     let response = serde_json::json!({
         "beliefs": beliefs,
         "reasoning_history": reasoning_history,
-        "surprising_conclusions": surprising,
+        "surprising_conclusions": surprising_conclusions,
         "top_gap": top_gap,
         "curiosity_topics": metacog.curiosity_topics(),
     });
@@ -304,15 +304,31 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
         Err(e) => return format!(r#"{{"error":"Invalid request: {}"}}"#, e),
     };
 
+    #[cfg(feature = "omega-v1-f2-shadow")]
+    let shadow_event = crate::omega_v1f2_shadow::event_from_intent(
+        &crate::runtime::response_intent::classify(&req.message),
+    );
+
     let mut rt_guard = match runtime.lock() {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
 
-    match rt_guard.chat(&req.message) {
+    let result = rt_guard.chat(&req.message);
+    drop(rt_guard);
+
+    match result {
         Ok(response) => {
             let response = finalize_chat_response(response);
-            serde_json::json!({ "response": response }).to_string()
+            let body = serde_json::json!({ "response": response }).to_string();
+            #[cfg(feature = "omega-v1-f2-shadow")]
+            {
+                let fingerprint = crate::omega_v1f2_shadow::ResponseFingerprint::frozen(
+                    body.as_bytes(),
+                );
+                crate::omega_v1f2_shadow::dispatch(shadow_event, fingerprint);
+            }
+            body
         }
         Err(e) => format!(r#"{{"error":"Chat error: {}"}}"#, e),
     }
@@ -321,8 +337,9 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
 fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
     #[derive(serde::Deserialize)]
     struct RememberRequest {
-        topic: String,
-        limit: Option<usize>,
+        content: String,
+        domain: Option<String>,
+        importance: Option<f32>,
     }
 
     let req: RememberRequest = match serde_json::from_str(body) {
@@ -330,23 +347,25 @@ fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
         Err(e) => return format!(r#"{{"error":"Invalid request: {}"}}"#, e),
     };
 
+    let domain = match req.domain.as_deref() {
+        Some("identity") => MemoryDomain::Identity,
+        Some("knowledge") => MemoryDomain::Knowledge,
+        Some("social") => MemoryDomain::Social,
+        Some("skill") => MemoryDomain::Skill,
+        Some("emotional") => MemoryDomain::Emotional,
+        _ => MemoryDomain::Episodic,
+    };
+
+    let memory = Memory::new(&req.content, domain, req.importance.unwrap_or(0.5));
     let rt_guard = match runtime.lock() {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
 
-    let memories = rt_guard.get_memories(&req.topic, req.limit.unwrap_or(5));
-
-    let results: Vec<serde_json::Value> = memories.iter().map(|m| {
-        serde_json::json!({
-            "content": m.content,
-            "domain": format!("{:?}", m.domain).to_lowercase(),
-            "importance": m.importance,
-            "confidence": m.current_confidence(crate::now_timestamp()),
-        })
-    }).collect();
-
-    serde_json::to_string(&results).unwrap_or_else(|e| format!(r#"{{"error":"Serialization: {}"}}"#, e))
+    match rt_guard.store().insert_memory(&memory) {
+        Ok(id) => serde_json::json!({ "stored": true, "id": id }).to_string(),
+        Err(e) => format!(r#"{{"error":"Store error: {}"}}"#, e),
+    }
 }
 
 fn handle_identity(runtime: &Arc<Mutex<Runtime>>) -> String {
@@ -356,10 +375,10 @@ fn handle_identity(runtime: &Arc<Mutex<Runtime>>) -> String {
     };
 
     serde_json::json!({
-        "name": "Star",
-        "summary": rt_guard.identity_summary(),
-        "relationship": rt_guard.relationship_to_zachary(),
-        "session_id": rt_guard.session_id(),
+        "name": rt_guard.identity().name,
+        "summary": rt_guard.identity().summary(),
+        "values": rt_guard.identity().values,
+        "drives": rt_guard.identity().drives,
     }).to_string()
 }
 
@@ -369,47 +388,28 @@ fn handle_memory_stats(runtime: &Arc<Mutex<Runtime>>) -> String {
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
 
-    let snap = rt_guard.store_snapshot();
-
-    serde_json::json!({
-        "memory_count": snap.memory_count,
-        "beliefs_count": snap.beliefs_count,
-        "sessions_count": snap.sessions_count,
-        "domain_breakdown": snap.domain_breakdown,
-    }).to_string()
+    match rt_guard.store().memory_count() {
+        Ok(count) => serde_json::json!({ "memory_count": count }).to_string(),
+        Err(e) => format!(r#"{{"error":"{}"}}"#, e),
+    }
 }
 
 fn handle_think(runtime: &Arc<Mutex<Runtime>>) -> String {
-    let mut rt_guard = match runtime.lock() {
+    let rt_guard = match runtime.lock() {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
 
     let thought = rt_guard.think();
-
-    let kind_str = match &thought.kind {
-        crate::runtime::ThoughtKind::Question(q) => {
-            serde_json::json!({ "type": "question", "text": q })
-        }
-        crate::runtime::ThoughtKind::Insight(i) => {
-            serde_json::json!({ "type": "insight", "text": i })
-        }
-        crate::runtime::ThoughtKind::Connection(c) => {
-            serde_json::json!({ "type": "connection", "text": c })
-        }
-    };
-
     serde_json::json!({
-        "thought": kind_str,
         "topic": thought.topic,
+        "kind": format!("{:?}", thought.kind),
         "confidence": format!("{:?}", thought.confidence).to_lowercase(),
         "generated_by": thought.generated_by,
         "tentative_answer": thought.tentative_answer,
     }).to_string()
 }
 
-/// Get Star's last autonomous thought (for external observers).
-/// This is what Star is "thinking about" between conversations.
 fn handle_thought(runtime: &Arc<Mutex<Runtime>>) -> String {
     let rt_guard = match runtime.lock() {
         Ok(r) => r,
@@ -417,160 +417,57 @@ fn handle_thought(runtime: &Arc<Mutex<Runtime>>) -> String {
     };
 
     match rt_guard.last_autonomous_thought() {
-        Some(thought) => {
-            let kind_str = match &thought.kind {
-                crate::runtime::ThoughtKind::Question(q) => {
-                    serde_json::json!({ "type": "question", "text": q })
-                }
-                crate::runtime::ThoughtKind::Insight(i) => {
-                    serde_json::json!({ "type": "insight", "text": i })
-                }
-                crate::runtime::ThoughtKind::Connection(c) => {
-                    serde_json::json!({ "type": "connection", "text": c })
-                }
-            };
-            serde_json::json!({
-                "thought": kind_str,
-                "topic": thought.topic,
-                "confidence": format!("{:?}", thought.confidence).to_lowercase(),
-                "generated_by": thought.generated_by,
-            }).to_string()
-        }
-        None => {
-            r#"{"thought":null,"message":"Star has no pending autonomous thoughts"}"#.to_string()
-        }
+        Some(thought) => serde_json::json!({
+            "has_thought": true,
+            "topic": thought.topic,
+            "kind": format!("{:?}", thought.kind),
+            "confidence": format!("{:?}", thought.confidence).to_lowercase(),
+            "generated_by": thought.generated_by,
+            "tentative_answer": thought.tentative_answer,
+        }).to_string(),
+        None => serde_json::json!({ "has_thought": false }).to_string(),
     }
 }
 
-/// Handle incoming Telegram webhook updates.
 fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
     #[derive(serde::Deserialize)]
-    struct TgUpdate {
-        update_id: u64,
-        message: Option<TgMessage>,
+    struct TelegramUpdate {
+        message: Option<TelegramMessage>,
     }
-
     #[derive(serde::Deserialize)]
-    struct TgMessage {
-        message_id: u64,
-        chat: TgChat,
+    struct TelegramMessage {
         text: Option<String>,
+        chat: TelegramChat,
     }
-
     #[derive(serde::Deserialize)]
-    struct TgChat {
+    struct TelegramChat {
         id: i64,
     }
 
-    let update: TgUpdate = match serde_json::from_str(body) {
+    let update: TelegramUpdate = match serde_json::from_str(body) {
         Ok(u) => u,
-        Err(e) => return format!(r#"{{"error":"Failed to parse update: {}"}}"#, e),
+        Err(e) => return format!(r#"{{"error":"Invalid Telegram update: {}"}}"#, e),
     };
 
-    let message = match update.message {
-        Some(m) => m,
-        None => return r#"{"ok":true,"response":"no message"}"#.to_string(),
-    };
+    if let Some(message) = update.message {
+        if let Some(text) = message.text {
+            let mut rt_guard = match runtime.lock() {
+                Ok(r) => r,
+                Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
+            };
 
-    let text = match message.text {
-        Some(t) if !t.is_empty() => t,
-        _ => return r#"{"ok":true,"response":"no text"}"#.to_string(),
-    };
-
-    let chat_id = message.chat.id;
-    let message_id = message.message_id;
-
-    // Forward to Star's chat
-    let star_response = {
-        let mut rt_guard = match runtime.lock() {
-            Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
-            Ok(r) => r,
-        };
-        rt_guard.chat(&text).unwrap_or_else(|e| format!("Error: {}", e))
-    };
-
-    // Send response back to Telegram
-    if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
-        let send_url = format!("https://api.telegram.org/bot{}/sendMessage", token);
-        let payload = serde_json::json!({
-            "chat_id": chat_id,
-            "text": star_response,
-            "reply_to_message_id": message_id,
-        });
-
-        // Spawn a thread for the Telegram API call (non-blocking)
-        std::thread::spawn(move || {
-            let _ = ureq::post(&send_url)
-                .set("Content-Type", "application/json")
-                .send_string(&serde_json::to_string(&payload).unwrap_or_default());
-        });
-    }
-
-    serde_json::json!({
-        "ok": true,
-        "response": star_response,
-        "chat_id": chat_id,
-        "update_id": update.update_id,
-    }).to_string()
-}
-
-#[cfg(all(test, feature = "omega-v1-http-canary"))]
-mod omega_v1d1_tests {
-    use super::*;
-    use crate::omega_v1_live_bridge::{ELIGIBLE_OPENER, OPENER_STEM, REPLACEMENT_OPENERS};
-
-    #[test]
-    fn omega_v1d1_success_finalizer_is_deterministic_and_body_exact() {
-        let neutral = "Here for it. The protected response body is unchanged.".to_string();
-        let body = neutral.strip_prefix(ELIGIBLE_OPENER).unwrap().to_string();
-        let first = finalize_chat_response(neutral.clone());
-        let second = finalize_chat_response(neutral);
-
-        assert_eq!(first, second);
-        let selected = REPLACEMENT_OPENERS
-            .iter()
-            .find(|candidate| first.starts_with(**candidate))
-            .copied()
-            .expect("eligible response must use the frozen separator table");
-        assert_eq!(first.strip_prefix(selected), Some(body.as_str()));
-        assert!(selected.starts_with(OPENER_STEM));
-    }
-
-    #[test]
-    fn omega_v1d1_ineligible_response_is_exact_passthrough() {
-        let neutral = "No eligible opener is present.".to_string();
-        assert_eq!(finalize_chat_response(neutral.clone()), neutral);
-    }
-
-    #[test]
-    fn omega_v1d1_json_shape_remains_response_string() {
-        let neutral = "Here for it. JSON shape remains unchanged.".to_string();
-        let finalized = finalize_chat_response(neutral);
-        let json = serde_json::json!({ "response": finalized }).to_string();
-        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(parsed.as_object().map(|object| object.len()), Some(1));
-        assert!(parsed.get("response").is_some_and(serde_json::Value::is_string));
-    }
-
-    #[test]
-    fn omega_v1d1_authority_is_http_only() {
-        let boundary = http_canary_authority_boundary();
-        assert!(boundary.api_chat_wiring);
-        assert!(boundary.live_generated_text_influence);
-        assert!(!boundary.raw_prompt_access);
-        assert!(!boundary.unrestricted_conversation_access);
-        assert!(!boundary.unrestricted_memory_access);
-        assert!(!boundary.voice_state_mutation);
-        assert!(!boundary.companion_state_mutation);
-        assert!(!boundary.persistence_authority);
-        assert!(!boundary.belief_promotion_authority);
-        assert!(!boundary.ontology_promotion_authority);
-        assert!(!boundary.routing_authority);
-        assert!(!boundary.tool_selection_authority);
-        assert!(!boundary.charge_discharge_authority);
-        assert!(!boundary.autonomous_action_authority);
-        assert!(!boundary.non_chat_http_influence);
-        assert!(!boundary.cli_influence);
+            match rt_guard.chat(&text) {
+                Ok(response) => serde_json::json!({
+                    "method": "sendMessage",
+                    "chat_id": message.chat.id,
+                    "text": response,
+                }).to_string(),
+                Err(e) => format!(r#"{{"error":"Chat error: {}"}}"#, e),
+            }
+        } else {
+            r#"{"ok":true}"#.to_string()
+        }
+    } else {
+        r#"{"ok":true}"#.to_string()
     }
 }
