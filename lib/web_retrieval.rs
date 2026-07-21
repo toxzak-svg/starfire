@@ -1,10 +1,11 @@
-//! Bounded, local-first web retrieval contracts and executor.
+//! Bounded, local-first web search and retrieval primitives.
 //!
-//! This module is disabled by default. It can fetch authorized HTTP(S) resources,
-//! follow a bounded redirect chain, classify content, retain exact bytes, and save
-//! a download atomically. It does not execute downloaded content, render JavaScript,
-//! mutate companion state, call `Runtime::chat()`, or grant autonomous action authority.
+//! The feature is disabled by default. It can validate search contracts, fetch an
+//! authorized HTTP(S) URL, follow validated redirects, classify and retain exact
+//! bytes, and atomically save a caller-approved download. It cannot execute files,
+//! render JavaScript, mutate memory, enter `Runtime::chat()`, or authorize actions.
 
+use crate::now_timestamp;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
@@ -14,8 +15,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use thiserror::Error;
 use url::Url;
-
-use crate::now_timestamp;
 
 const HARD_MAX_BYTES: usize = 128 * 1024 * 1024;
 const HARD_MAX_REDIRECTS: usize = 10;
@@ -54,6 +53,7 @@ pub struct WebSearchHit {
     pub snippet: Option<String>,
 }
 
+/// Provider-neutral boundary for Brave, Bing, Exa, Tavily, or a self-hosted index.
 pub trait SearchProvider: Send + Sync {
     fn search(&self, request: &WebSearchRequest) -> Result<Vec<WebSearchHit>, RetrievalError>;
 }
@@ -151,8 +151,8 @@ impl RetrievedResource {
         }
     }
 
-    /// Saves bytes to a caller-selected path without overwriting an existing file.
-    /// The temporary file is created in the same directory and renamed atomically.
+    /// Saves without overwriting. The temporary file is created beside the target
+    /// and renamed only after all bytes have been flushed.
     pub fn save_atomic(&self, target: impl AsRef<Path>) -> Result<PathBuf, RetrievalError> {
         let target = target.as_ref();
         if target.exists() {
@@ -167,7 +167,6 @@ impl RetrievedResource {
             operation: "create target directory",
             source,
         })?;
-
         let name = target
             .file_name()
             .and_then(|value| value.to_str())
@@ -183,22 +182,19 @@ impl RetrievedResource {
                 operation: "create temporary download",
                 source,
             })?;
-
-        let write_result = (|| {
+        let result = (|| {
             file.write_all(&self.bytes)?;
             file.sync_all()?;
             fs::rename(&temporary, target)?;
             Ok::<(), std::io::Error>(())
         })();
-
-        if let Err(source) = write_result {
+        if let Err(source) = result {
             let _ = fs::remove_file(&temporary);
             return Err(RetrievalError::Io {
                 operation: "commit download",
                 source,
             });
         }
-
         Ok(target.to_path_buf())
     }
 }
@@ -265,7 +261,7 @@ pub enum RetrievalError {
     SearchProvider(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BoundedRetriever {
     policy: RetrievalPolicy,
     agent: ureq::Agent,
@@ -291,7 +287,7 @@ impl BoundedRetriever {
     pub fn fetch(&self, request: &WebFetchRequest) -> Result<RetrievedResource, RetrievalError> {
         validate_request(request)?;
         let requested_url = request.url.clone();
-        let mut current = parse_and_validate_url(&request.url, &self.policy)?;
+        let mut current = parse_url(&request.url, &self.policy)?;
         let mut redirects = 0usize;
 
         loop {
@@ -300,7 +296,10 @@ impl BoundedRetriever {
                 .agent
                 .get(current.as_str())
                 .set("User-Agent", &self.policy.user_agent)
-                .set("Accept", "text/html,application/xhtml+xml,application/json,text/plain,application/pdf,*/*;q=0.5")
+                .set(
+                    "Accept",
+                    "text/html,application/xhtml+xml,application/json,text/plain,application/pdf,*/*;q=0.5",
+                )
                 .call()
             {
                 Ok(response) => response,
@@ -370,15 +369,14 @@ impl BoundedRetriever {
             }
 
             let kind = classify_content(content_type.as_deref(), &bytes);
-            let suggested_filename = suggested_filename(&current, content_type.as_deref(), kind);
             return Ok(RetrievedResource {
                 requested_url,
                 final_url: current.to_string(),
                 status,
-                content_type,
+                content_type: content_type.clone(),
                 content_length_header,
                 kind,
-                suggested_filename,
+                suggested_filename: suggested_filename(&current, content_type.as_deref(), kind),
                 fingerprint_fnv1a64: fnv1a64_hex(&bytes),
                 retrieved_at_unix: now_timestamp(),
                 redirect_count: redirects,
@@ -398,7 +396,7 @@ fn validate_request(request: &WebFetchRequest) -> Result<(), RetrievalError> {
     Ok(())
 }
 
-fn parse_and_validate_url(raw: &str, policy: &RetrievalPolicy) -> Result<Url, RetrievalError> {
+fn parse_url(raw: &str, policy: &RetrievalPolicy) -> Result<Url, RetrievalError> {
     let url = Url::parse(raw).map_err(|error| RetrievalError::InvalidUrl(error.to_string()))?;
     match url.scheme() {
         "https" => {}
@@ -415,7 +413,7 @@ fn parse_and_validate_url(raw: &str, policy: &RetrievalPolicy) -> Result<Url, Re
 }
 
 fn validate_destination(url: &Url, policy: &RetrievalPolicy) -> Result<(), RetrievalError> {
-    let checked = parse_and_validate_url(url.as_str(), policy)?;
+    let checked = parse_url(url.as_str(), policy)?;
     if policy.allow_private_network {
         return Ok(());
     }
@@ -428,7 +426,6 @@ fn validate_destination(url: &Url, policy: &RetrievalPolicy) -> Result<(), Retri
     {
         return Err(RetrievalError::PrivateNetworkBlocked(host.to_string()));
     }
-
     if let Ok(ip) = IpAddr::from_str(host) {
         return reject_non_public_ip(ip, host);
     }
@@ -481,19 +478,19 @@ fn is_blocked_ipv4(ip: Ipv4Addr) -> bool {
         || (a == 100 && (64..=127).contains(&b))
         || (a == 169 && b == 254)
         || (a == 192 && b == 0 && c == 0)
-        || (a == 198 && (b == 18 || b == 19))
         || (a == 192 && b == 88 && c == 99)
+        || (a == 198 && (b == 18 || b == 19))
         || (a == 255 && b == 255 && c == 255 && d == 255)
 }
 
 fn is_blocked_ipv6(ip: Ipv6Addr) -> bool {
-    let segments = ip.segments();
+    let first = ip.segments()[0];
     ip.is_loopback()
         || ip.is_unspecified()
         || ip.is_multicast()
-        || (segments[0] & 0xfe00) == 0xfc00
-        || (segments[0] & 0xffc0) == 0xfe80
-        || ip.to_ipv4_mapped().map(is_blocked_ipv4).unwrap_or(false)
+        || (first & 0xfe00) == 0xfc00
+        || (first & 0xffc0) == 0xfe80
+        || ip.to_ipv4().map(is_blocked_ipv4).unwrap_or(false)
 }
 
 fn is_redirect(status: u16) -> bool {
@@ -511,22 +508,17 @@ pub fn classify_content(content_type: Option<&str>, bytes: &[u8]) -> RetrievedKi
     {
         return RetrievedKind::Archive;
     }
+    let webp = bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(&b"WEBP"[..]);
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n")
         || bytes.starts_with(b"\xff\xd8\xff")
         || bytes.starts_with(b"GIF87a")
         || bytes.starts_with(b"GIF89a")
-        || bytes.starts_with(b"RIFF") && bytes.get(8..12) == Some(b"WEBP")
+        || webp
     {
         return RetrievedKind::Image;
     }
 
-    let mime = content_type
-        .unwrap_or_default()
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_ascii_lowercase();
+    let mime = normalized_mime(content_type);
     match mime.as_str() {
         "text/html" | "application/xhtml+xml" => RetrievedKind::Html,
         "application/json" | "application/ld+json" | "application/geo+json" => {
@@ -543,53 +535,60 @@ pub fn classify_content(content_type: Option<&str>, bytes: &[u8]) -> RetrievedKi
         | "application/x-gzip"
         | "application/x-7z-compressed"
         | "application/vnd.rar" => RetrievedKind::Archive,
-        _ => {
-            let trimmed = bytes
-                .iter()
-                .copied()
-                .skip_while(u8::is_ascii_whitespace)
-                .take(64)
-                .collect::<Vec<_>>();
-            if trimmed.starts_with(b"<!DOCTYPE html")
-                || trimmed.starts_with(b"<!doctype html")
-                || trimmed.starts_with(b"<html")
-            {
-                RetrievedKind::Html
-            } else if trimmed.starts_with(b"{") || trimmed.starts_with(b"[") {
-                RetrievedKind::Json
-            } else if std::str::from_utf8(bytes).is_ok() {
-                RetrievedKind::PlainText
-            } else {
-                RetrievedKind::Binary
-            }
-        }
+        _ => classify_unlabelled(bytes),
     }
 }
 
-fn suggested_filename(url: &Url, content_type: Option<&str>, kind: RetrievedKind) -> String {
-    let from_url = url
-        .path_segments()
-        .and_then(|mut segments| segments.next_back())
-        .filter(|segment| !segment.is_empty())
-        .map(sanitize_filename)
-        .filter(|name| !name.is_empty());
-    if let Some(name) = from_url {
-        return name;
+fn classify_unlabelled(bytes: &[u8]) -> RetrievedKind {
+    let trimmed = bytes
+        .iter()
+        .copied()
+        .skip_while(u8::is_ascii_whitespace)
+        .take(64)
+        .collect::<Vec<_>>();
+    if trimmed.starts_with(b"<!DOCTYPE html")
+        || trimmed.starts_with(b"<!doctype html")
+        || trimmed.starts_with(b"<html")
+    {
+        RetrievedKind::Html
+    } else if trimmed.starts_with(b"{") || trimmed.starts_with(b"[") {
+        RetrievedKind::Json
+    } else if std::str::from_utf8(bytes).is_ok() {
+        RetrievedKind::PlainText
+    } else {
+        RetrievedKind::Binary
     }
-
-    let extension = extension_for(content_type, kind);
-    format!("download-{timestamp}.{extension}", timestamp = now_timestamp())
 }
 
-fn extension_for(content_type: Option<&str>, kind: RetrievedKind) -> &'static str {
-    let mime = content_type
+fn normalized_mime(content_type: Option<&str>) -> String {
+    content_type
         .unwrap_or_default()
         .split(';')
         .next()
         .unwrap_or_default()
         .trim()
-        .to_ascii_lowercase();
-    match mime.as_str() {
+        .to_ascii_lowercase()
+}
+
+fn suggested_filename(url: &Url, content_type: Option<&str>, kind: RetrievedKind) -> String {
+    if let Some(name) = url
+        .path_segments()
+        .and_then(|mut segments| segments.next_back())
+        .filter(|segment| !segment.is_empty())
+        .map(sanitize_filename)
+        .filter(|name| !name.is_empty())
+    {
+        return name;
+    }
+    format!(
+        "download-{}.{}",
+        now_timestamp(),
+        extension_for(content_type, kind)
+    )
+}
+
+fn extension_for(content_type: Option<&str>, kind: RetrievedKind) -> &'static str {
+    match normalized_mime(content_type).as_str() {
         "text/html" | "application/xhtml+xml" => "html",
         "application/json" | "application/ld+json" | "application/geo+json" => "json",
         "application/pdf" => "pdf",
@@ -669,7 +668,7 @@ mod tests {
     }
 
     #[test]
-    fn search_request_validation_is_bounded() {
+    fn search_contract_is_bounded() {
         assert!(WebSearchRequest {
             query: "public records".to_string(),
             max_results: 10,
@@ -687,7 +686,7 @@ mod tests {
     }
 
     #[test]
-    fn blocks_private_network_by_default() {
+    fn private_network_is_blocked_by_default() {
         let retriever = BoundedRetriever::new(RetrievalPolicy {
             allow_http: true,
             ..RetrievalPolicy::default()
@@ -704,15 +703,18 @@ mod tests {
     }
 
     #[test]
-    fn follows_bounded_redirect_and_classifies_html() {
+    fn redirect_fetches_and_classifies_html() {
+        let body = "<html><body>Starfire</body></html>";
         let base = spawn_server(vec![
             "HTTP/1.1 302 Found\r\nLocation: /final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
                 .to_string(),
-            "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 31\r\nConnection: close\r\n\r\n<html><body>Starfire</body></html>"
-                .to_string(),
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            ),
         ]);
-        let retriever = BoundedRetriever::new(local_policy(1_024)).expect("valid policy");
-        let result = retriever
+        let result = BoundedRetriever::new(local_policy(1_024))
+            .expect("valid policy")
             .fetch(&WebFetchRequest {
                 url: format!("{base}/start"),
                 purpose: "retrieve public test page".to_string(),
@@ -724,21 +726,25 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_body_that_crosses_the_limit() {
+    fn body_limit_is_enforced_without_content_length() {
         let body = "x".repeat(65);
         let base = spawn_server(vec![format!(
             "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n{body}"
         )]);
-        let retriever = BoundedRetriever::new(local_policy(64)).expect("valid policy");
-        let result = retriever.fetch(&WebFetchRequest {
-            url: format!("{base}/large.bin"),
-            purpose: "test bounded body".to_string(),
-        });
-        assert!(matches!(result, Err(RetrievalError::BodyTooLarge { limit: 64 })));
+        let result = BoundedRetriever::new(local_policy(64))
+            .expect("valid policy")
+            .fetch(&WebFetchRequest {
+                url: format!("{base}/large.bin"),
+                purpose: "test bounded body".to_string(),
+            });
+        assert!(matches!(
+            result,
+            Err(RetrievalError::BodyTooLarge { limit: 64 })
+        ));
     }
 
     #[test]
-    fn magic_bytes_override_an_incorrect_content_type() {
+    fn magic_bytes_override_incorrect_mime() {
         assert_eq!(
             classify_content(Some("text/plain"), b"%PDF-1.7\n"),
             RetrievedKind::Pdf
@@ -746,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    fn atomic_save_refuses_to_overwrite() {
+    fn atomic_save_refuses_overwrite() {
         let directory = std::env::temp_dir().join(format!(
             "starfire-web-retrieval-{}-{}",
             std::process::id(),
