@@ -37,6 +37,9 @@ jobs:
         run: |
           rustfmt --edition 2021 --check \
             lib/arise_edge/mod.rs \
+            lib/arise_edge/types.rs \
+            lib/arise_edge/engine.rs \
+            lib/arise_edge/runtime_shadow.rs \
             lib/examples/arise_a0_edge_bridge.rs
 
       - name: Confirm default build remains unchanged
