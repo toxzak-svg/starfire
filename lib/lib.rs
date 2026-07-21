@@ -112,6 +112,13 @@ pub mod companion_bounded_live_policy;
 #[cfg(feature = "companion-real-interaction-canary")]
 pub mod companion_real_interaction_canary;
 
+// ARISE-A0: terminal-first reverse-obligation planning with bounded forward
+// span realization and independent reconstruction. Disabled by default. The
+// current integration exposes the reusable engine and an inert runtime-shadow
+// observer only; it cannot alter returned text or acquire cognitive authority.
+#[cfg(feature = "arise-edge")]
+pub mod arise_edge;
+
 // STLM L0-B: typed semantic response authorization, validation, canonical
 // digesting, and in-memory replay. Disabled by default and intentionally has no
 // renderer, Runtime::chat(), persistence, routing, mutation, tool, or action authority.
