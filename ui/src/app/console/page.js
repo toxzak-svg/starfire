@@ -14,12 +14,18 @@ import {
 } from "lucide-react";
 import { getHealth, sendMessage } from "@/lib/api";
 import { ConsoleControls, ConsoleMessage } from "./components";
-import { currentTime, restoreConsole, STORAGE_KEY } from "./utils";
+import {
+  compactLive,
+  currentTime,
+  DEFAULT_SETTINGS,
+  restoreConsole,
+  STORAGE_KEY,
+} from "./utils";
 
 export default function ConsolePage() {
-  const initial = useMemo(() => restoreConsole(), []);
-  const [messages, setMessages] = useState(initial.messages);
-  const [settings, setSettings] = useState(initial.settings);
+  const [messages, setMessages] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [restored, setRestored] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null);
@@ -28,13 +34,20 @@ export default function ConsolePage() {
   const endRef = useRef(null);
 
   useEffect(() => {
+    const saved = restoreConsole();
+    setMessages(saved.messages);
+    setSettings(saved.settings);
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
     getHealth()
       .then(() => setConnected(true))
       .catch(() => setConnected(false));
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!restored || typeof window === "undefined") return;
     if (!settings.persist) {
       window.localStorage.removeItem(STORAGE_KEY);
       return;
@@ -42,12 +55,19 @@ export default function ConsolePage() {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ messages: messages.slice(-100), settings }),
+        JSON.stringify({
+          messages: messages.slice(-100).map((message) => ({
+            ...message,
+            animate: false,
+            live: compactLive(message.live),
+          })),
+          settings,
+        }),
       );
     } catch {
       // Browser storage is optional.
     }
-  }, [messages, settings]);
+  }, [messages, restored, settings]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,7 +81,7 @@ export default function ConsolePage() {
   }, [messages]);
 
   const run = useCallback(
-    async (text, appendUser = true) => {
+    async (text, appendUser = true, baseMessages = messages) => {
       const clean = text.trim();
       if (!clean || loading) return;
 
@@ -71,7 +91,7 @@ export default function ConsolePage() {
         text: clean,
         time: currentTime(),
       };
-      const source = appendUser ? [...messages, user] : messages;
+      const source = appendUser ? [...baseMessages, user] : baseMessages;
       if (appendUser) setMessages((current) => [...current, user]);
       setInput("");
       setLoading(true);
@@ -139,10 +159,11 @@ export default function ConsolePage() {
   function regenerate() {
     const latest = messages[latestStarIndex];
     if (!latest?.prompt || loading) return;
-    setMessages((current) =>
-      current.filter((_, index) => index !== latestStarIndex),
+    const baseMessages = messages.filter(
+      (_, index) => index !== latestStarIndex,
     );
-    run(latest.prompt, false);
+    setMessages(baseMessages);
+    run(latest.prompt, false, baseMessages);
   }
 
   function clear() {
