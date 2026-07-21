@@ -68,6 +68,12 @@ pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
 
+// A0: bounded public-web acquisition contracts and executor. Disabled by
+// default. It does not execute downloads, render JavaScript, mutate memory,
+// enter Runtime::chat(), select tools, or grant autonomous action authority.
+#[cfg(feature = "web-retrieval-a0")]
+pub mod web_retrieval;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
