@@ -4,13 +4,13 @@
 //! Run with: `star chat`
 
 use clap::{Parser, Subcommand};
-#[cfg(not(feature = "omega-v1-f2-shadow"))]
+#[cfg(not(feature = "starfire-live"))]
 use star::api;
 use star::Runtime;
 use std::path::PathBuf;
 use tracing::info;
 
-#[cfg(feature = "omega-v1-f2-shadow")]
+#[cfg(feature = "starfire-live")]
 mod live_api;
 
 #[derive(Parser)]
@@ -98,12 +98,12 @@ fn main() -> anyhow::Result<()> {
             let runtime = Runtime::new(&life_dir)?;
             let rt = std::sync::Arc::new(std::sync::Mutex::new(runtime));
 
-            #[cfg(feature = "omega-v1-f2-shadow")]
+            #[cfg(feature = "starfire-live")]
             {
                 live_api::start(rt, &host, port, &life_dir)?;
             }
 
-            #[cfg(not(feature = "omega-v1-f2-shadow"))]
+            #[cfg(not(feature = "starfire-live"))]
             {
                 api::start(rt, &host, port)?;
             }
