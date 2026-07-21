@@ -151,15 +151,23 @@ fn main() -> Result<()> {
         .render(&program, &lexical_table)
         .context("render verifier-ready A1 surface")?;
     let original_body = surface.payload.text;
-    let response = Response {
+    let original_response = Response {
         intent: ResponseIntent::Teaching,
         style_hint: None,
         body: original_body.clone(),
         slots: Vec::new(),
-    }
-    .observe_semantic_shadow(&program, &lexical_table);
+    };
+    let response_before = serde_json::to_vec(&original_response)
+        .context("serialize response before A1 shadow observation")?;
+    let response = original_response.observe_semantic_shadow(&program, &lexical_table);
+    let response_after = serde_json::to_vec(&response)
+        .context("serialize response after A1 shadow observation")?;
     let snapshot = live_typed_plan_snapshot();
 
+    ensure!(
+        response_before == response_after,
+        "A1 altered serialized response text or metadata"
+    );
     ensure!(response.body == original_body, "A1 altered the returned response body");
     ensure!(
         snapshot.terminal_classification == TypedPlanTerminalClassification::Pass,
