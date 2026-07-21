@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "bash scripts/vercel-arise-a0-verify.sh && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "verify:arise-a0": "bash scripts/vercel-arise-a0-verify.sh"
   },
   "dependencies": {
     "lucide-react": "^0.525.0",
