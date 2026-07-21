@@ -7,6 +7,7 @@ REPO_ROOT="$(cd "$UI_DIR/.." && pwd)"
 EVIDENCE_DIR="$UI_DIR/public/arise-a0-evidence"
 FORMATTED_DIR="$EVIDENCE_DIR/formatted"
 TRACE_FILE="$EVIDENCE_DIR/execution-trace.json"
+REPLAY_FILE="$EVIDENCE_DIR/execution-trace-replay.json"
 STATUS_FILE="$EVIDENCE_DIR/status.json"
 
 mkdir -p "$EVIDENCE_DIR" "$FORMATTED_DIR"
@@ -32,14 +33,14 @@ NODE
 
 on_error() {
   local exit_code=$?
-  write_status "failed" "Rust verification exited with code ${exit_code}. Inspect the Vercel build log."
+  write_status "failed" "Strict Rust verification exited with code ${exit_code}. Inspect the Vercel build log."
   exit "$exit_code"
 }
 trap on_error ERR
 
-write_status "running" "Rust verification is executing."
+write_status "running" "Strict Rust verification is executing."
 
-echo "== ARISE-A0 Vercel verifier =="
+echo "== ARISE-A0 strict Vercel verifier =="
 echo "Repository root: $REPO_ROOT"
 echo "Commit: ${VERCEL_GIT_COMMIT_SHA:-unknown}"
 echo "Branch: ${VERCEL_GIT_COMMIT_REF:-unknown}"
@@ -77,13 +78,16 @@ export CARGO_TERM_COLOR=always
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/starfire-arise-a0-target}"
 cd "$REPO_ROOT"
 
-echo "== Formatting disposable build copy =="
-rustfmt --edition 2021 \
-  lib/arise_edge/mod.rs \
-  lib/arise_edge/types.rs \
-  lib/arise_edge/engine.rs \
-  lib/arise_edge/runtime_shadow.rs \
+ARISE_SOURCES=(
+  lib/arise_edge/mod.rs
+  lib/arise_edge/types.rs
+  lib/arise_edge/engine.rs
+  lib/arise_edge/runtime_shadow.rs
   lib/examples/arise_a0_edge_bridge.rs
+)
+
+echo "== Strict source formatting =="
+rustfmt --edition 2021 --check "${ARISE_SOURCES[@]}"
 
 cp lib/arise_edge/mod.rs "$FORMATTED_DIR/mod.rs.txt"
 cp lib/arise_edge/types.rs "$FORMATTED_DIR/types.rs.txt"
@@ -118,13 +122,16 @@ if grep -E 'lib/arise_edge/|lib/examples/arise_a0_edge_bridge' "$CLIPPY_LOG" \
   exit 92
 fi
 
-echo "== Executable edge probe =="
-cargo run -p star --example arise_a0_edge_bridge --features arise-edge --locked \
-  | tee "$TRACE_FILE"
+echo "== Deterministic executable edge probe =="
+cargo build -p star --example arise_a0_edge_bridge --features arise-edge --locked
+PROBE_BIN="$CARGO_TARGET_DIR/debug/examples/arise_a0_edge_bridge"
+"$PROBE_BIN" | tee "$TRACE_FILE"
+"$PROBE_BIN" > "$REPLAY_FILE"
+cmp -s "$TRACE_FILE" "$REPLAY_FILE"
 grep -F '"terminal_classification": "Pass"' "$TRACE_FILE"
 grep -F '"final_residual": 0' "$TRACE_FILE"
 
-write_status "passed" "Disposable Rustfmt, compilation, tests, scoped Clippy, and executable probe passed."
+write_status "passed" "Strict Rustfmt, compilation, tests, scoped Clippy, deterministic replay, and executable probe passed."
 trap - ERR
 
-echo "ARISE-A0 Vercel verification PASS"
+echo "ARISE-A0 strict Vercel verification PASS"
