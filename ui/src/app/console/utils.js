@@ -48,7 +48,10 @@ export function restoreConsole() {
     );
     return {
       messages: Array.isArray(parsed?.messages)
-        ? parsed.messages.slice(-100)
+        ? parsed.messages.slice(-100).map((message) => ({
+            ...message,
+            animate: false,
+          }))
         : [],
       settings: { ...DEFAULT_SETTINGS, ...(parsed?.settings || {}) },
     };
@@ -108,4 +111,29 @@ export function processTraceSteps(live, mode) {
     },
     summary[2],
   ];
+}
+
+export function compactLive(live) {
+  if (!live) return null;
+  const plan = live.semantic_plan || {};
+  return {
+    enabled: live.enabled === true,
+    pipeline: live.pipeline,
+    trace_id: live.trace_id,
+    turn: live.turn,
+    intent: live.intent,
+    reason: live.reason,
+    error: live.error,
+    voice_after: live.voice_after ? { present: true } : null,
+    semantic_plan: {
+      intent: plan.intent,
+      operations: Array.isArray(plan.operations) ? plan.operations : [],
+      detail_budget: plan.detail_budget,
+      stance: plan.stance,
+      confidence: plan.confidence,
+      prohibited_implications: Array.isArray(plan.prohibited_implications)
+        ? plan.prohibited_implications
+        : [],
+    },
+  };
 }
