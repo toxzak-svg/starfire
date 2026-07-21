@@ -110,6 +110,11 @@ path = "examples/omega_v1f2_shadow_probe.rs"
 required-features = ["omega-v1-f2-shadow"]
 
 [[example]]
+name = "omega_v1f2_ledger_report"
+path = "examples/omega_v1f2_ledger_report.rs"
+required-features = ["omega-v1-f2-shadow"]
+
+[[example]]
 name = "h_infant_typed_pressure_routing_probe"
 path = "examples/h_infant_typed_pressure_routing_probe.rs"
 required-features = ["developmental-evidence"]
