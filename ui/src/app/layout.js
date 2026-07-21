@@ -1,4 +1,5 @@
 import "./globals.css";
+import ConsoleLauncher from "./ConsoleLauncher";
 
 export const metadata = {
   title: "Star — Desktop Intelligence",
@@ -14,7 +15,10 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ConsoleLauncher />
+      </body>
     </html>
   );
 }
