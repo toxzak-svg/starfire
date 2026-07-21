@@ -1,0 +1,84 @@
+name: ARISE-A0 Edge Bridge CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/arise_edge/**"
+      - "lib/examples/arise_a0_edge_bridge.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "docs/experiments/ARISE_A0_EDGE_BRIDGE.md"
+      - ".github/workflows/arise-a0-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arise-a0-edge-bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/arise_edge/mod.rs \
+            lib/examples/arise_a0_edge_bridge.rs
+
+      - name: Confirm default build remains unchanged
+        run: cargo check -p star --lib --locked
+
+      - name: Compile ARISE feature and probe
+        run: |
+          cargo check -p star --lib --features arise-edge --locked
+          cargo check -p star --example arise_a0_edge_bridge --features arise-edge --locked
+
+      - name: Lint scoped ARISE sources
+        run: |
+          set -o pipefail
+          cargo clippy -p star --lib --features arise-edge --locked --message-format=short \
+            2>&1 | tee arise-a0-clippy.log
+          cargo clippy -p star --example arise_a0_edge_bridge --features arise-edge --locked \
+            --message-format=short 2>&1 | tee -a arise-a0-clippy.log
+          if grep -E 'lib/arise_edge/|lib/examples/arise_a0_edge_bridge' arise-a0-clippy.log | grep -E 'warning:|error:'; then
+            echo "ARISE-A0 scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run ARISE contracts
+        run: |
+          cargo test -p star --lib --features arise-edge --locked \
+            arise_edge:: -- --test-threads=1
+
+      - name: Run executable edge bridge
+        run: |
+          set -o pipefail
+          cargo run -p star --example arise_a0_edge_bridge --features arise-edge --locked \
+            | tee arise-a0-report.json
+          grep -F '"terminal_classification": "Pass"' arise-a0-report.json
+          grep -F '"final_residual": 0' arise-a0-report.json
+
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arise-a0-edge-bridge-ci
+          path: |
+            arise-a0-report.json
+            arise-a0-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
