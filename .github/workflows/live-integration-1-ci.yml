@@ -1,0 +1,44 @@
+name: Live Integration 1 CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/main.rs"
+      - "src/live_api.rs"
+      - "src/Cargo.toml"
+      - ".github/workflows/live-integration-1-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: rustfmt --edition 2021 --check src/main.rs src/live_api.rs
+
+      - name: Compile production binary
+        run: cargo check -p star_bin --bin star --features omega-v1-f2-shadow --locked
+
+      - name: Lint production binary
+        run: cargo clippy -p star_bin --bin star --features omega-v1-f2-shadow --locked -- -D warnings
+
+      - name: Test live integration contracts
+        run: cargo test -p star_bin --bin star --features omega-v1-f2-shadow --locked live_api::tests:: -- --test-threads=1
