@@ -14,7 +14,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 use thiserror::Error;
-use url::Url;
 
 const HARD_MAX_BYTES: usize = 128 * 1024 * 1024;
 const HARD_MAX_REDIRECTS: usize = 10;
@@ -185,6 +184,7 @@ impl RetrievedResource {
         let result = (|| {
             file.write_all(&self.bytes)?;
             file.sync_all()?;
+            drop(file);
             fs::rename(&temporary, target)?;
             Ok::<(), std::io::Error>(())
         })();
@@ -215,9 +215,9 @@ pub enum RetrievalError {
     InvalidRedirectLimit { requested: usize, hard_max: usize },
     #[error("user agent must contain between 1 and 256 bytes")]
     InvalidUserAgent,
-    #[error("URL is empty or exceeds {HARD_MAX_URL_BYTES} bytes")]
+    #[error("URL is empty or exceeds 8192 bytes")]
     InvalidUrlLength,
-    #[error("retrieval purpose is empty or exceeds {HARD_MAX_PURPOSE_BYTES} bytes")]
+    #[error("retrieval purpose is empty or exceeds 512 bytes")]
     InvalidPurpose,
     #[error("invalid URL: {0}")]
     InvalidUrl(String),
@@ -227,6 +227,8 @@ pub enum RetrievalError {
     EmbeddedCredentials,
     #[error("URL has no host")]
     MissingHost,
+    #[error("URL port is invalid: {0}")]
+    InvalidPort(String),
     #[error("private or local network destination is blocked: {0}")]
     PrivateNetworkBlocked(String),
     #[error("DNS resolution failed for {host}: {message}")]
@@ -287,7 +289,7 @@ impl BoundedRetriever {
     pub fn fetch(&self, request: &WebFetchRequest) -> Result<RetrievedResource, RetrievalError> {
         validate_request(request)?;
         let requested_url = request.url.clone();
-        let mut current = parse_url(&request.url, &self.policy)?;
+        let mut current = ParsedHttpUrl::parse(&request.url, &self.policy)?;
         let mut redirects = 0usize;
 
         loop {
@@ -305,13 +307,13 @@ impl BoundedRetriever {
                 Ok(response) => response,
                 Err(ureq::Error::Status(status, _)) => {
                     return Err(RetrievalError::HttpStatus {
-                        url: current.to_string(),
+                        url: current.as_str().to_string(),
                         status,
                     });
                 }
                 Err(ureq::Error::Transport(error)) => {
                     return Err(RetrievalError::Transport {
-                        url: current.to_string(),
+                        url: current.as_str().to_string(),
                         message: error.to_string(),
                     });
                 }
@@ -327,11 +329,9 @@ impl BoundedRetriever {
                 let location = response
                     .header("Location")
                     .ok_or_else(|| RetrievalError::RedirectMissingLocation {
-                        url: current.to_string(),
+                        url: current.as_str().to_string(),
                     })?;
-                current = current
-                    .join(location)
-                    .map_err(|error| RetrievalError::InvalidUrl(error.to_string()))?;
+                current = current.resolve(location, &self.policy)?;
                 redirects += 1;
                 continue;
             }
@@ -369,14 +369,16 @@ impl BoundedRetriever {
             }
 
             let kind = classify_content(content_type.as_deref(), &bytes);
+            let suggested_filename =
+                suggested_filename(current.path_and_query(), content_type.as_deref(), kind);
             return Ok(RetrievedResource {
                 requested_url,
-                final_url: current.to_string(),
+                final_url: current.into_string(),
                 status,
-                content_type: content_type.clone(),
+                content_type,
                 content_length_header,
                 kind,
-                suggested_filename: suggested_filename(&current, content_type.as_deref(), kind),
+                suggested_filename,
                 fingerprint_fnv1a64: fnv1a64_hex(&bytes),
                 retrieved_at_unix: now_timestamp(),
                 redirect_count: redirects,
@@ -384,6 +386,196 @@ impl BoundedRetriever {
             });
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedHttpUrl {
+    raw: String,
+    scheme: String,
+    authority: String,
+    host: String,
+    port: u16,
+    path_and_query: String,
+}
+
+impl ParsedHttpUrl {
+    fn parse(raw: &str, policy: &RetrievalPolicy) -> Result<Self, RetrievalError> {
+        if raw.trim().is_empty() || raw.len() > HARD_MAX_URL_BYTES {
+            return Err(RetrievalError::InvalidUrlLength);
+        }
+        if raw.chars().any(char::is_whitespace) || raw.contains('\\') {
+            return Err(RetrievalError::InvalidUrl(
+                "whitespace and backslashes are not allowed".to_string(),
+            ));
+        }
+
+        let without_fragment = raw.split('#').next().unwrap_or(raw);
+        let (scheme, remainder) = without_fragment
+            .split_once("://")
+            .ok_or_else(|| RetrievalError::InvalidUrl("missing scheme separator".to_string()))?;
+        let scheme = scheme.to_ascii_lowercase();
+        match scheme.as_str() {
+            "https" => {}
+            "http" if policy.allow_http => {}
+            other => return Err(RetrievalError::UnsupportedScheme(other.to_string())),
+        }
+
+        let authority_end = remainder
+            .find(|character| matches!(character, '/' | '?'))
+            .unwrap_or(remainder.len());
+        let authority = &remainder[..authority_end];
+        if authority.is_empty() {
+            return Err(RetrievalError::MissingHost);
+        }
+        if authority.contains('@') {
+            return Err(RetrievalError::EmbeddedCredentials);
+        }
+
+        let suffix = &remainder[authority_end..];
+        let path_and_query = if suffix.is_empty() {
+            "/".to_string()
+        } else if suffix.starts_with('?') {
+            format!("/{suffix}")
+        } else {
+            suffix.to_string()
+        };
+        let (host, port) = parse_authority(authority, &scheme)?;
+        let raw = format!("{scheme}://{authority}{path_and_query}");
+
+        Ok(Self {
+            raw,
+            scheme,
+            authority: authority.to_string(),
+            host,
+            port,
+            path_and_query,
+        })
+    }
+
+    fn resolve(
+        &self,
+        location: &str,
+        policy: &RetrievalPolicy,
+    ) -> Result<Self, RetrievalError> {
+        let location = location.trim();
+        if location.is_empty() || location.len() > HARD_MAX_URL_BYTES {
+            return Err(RetrievalError::InvalidUrlLength);
+        }
+        if location.starts_with("http://") || location.starts_with("https://") {
+            return Self::parse(location, policy);
+        }
+        if location.starts_with("//") {
+            return Self::parse(&format!("{}:{location}", self.scheme), policy);
+        }
+        if location.starts_with('/') {
+            return Self::parse(
+                &format!("{}://{}{}", self.scheme, self.authority, location),
+                policy,
+            );
+        }
+        if location.starts_with('?') {
+            let path = self.path_and_query.split('?').next().unwrap_or("/");
+            return Self::parse(
+                &format!("{}://{}{}{}", self.scheme, self.authority, path, location),
+                policy,
+            );
+        }
+
+        let base_path = self.path_and_query.split('?').next().unwrap_or("/");
+        let directory = base_path
+            .rsplit_once('/')
+            .map(|(prefix, _)| format!("{prefix}/"))
+            .unwrap_or_else(|| "/".to_string());
+        let relative = normalize_relative_path(&format!("{directory}{location}"));
+        Self::parse(
+            &format!("{}://{}{}", self.scheme, self.authority, relative),
+            policy,
+        )
+    }
+
+    fn as_str(&self) -> &str {
+        &self.raw
+    }
+
+    fn into_string(self) -> String {
+        self.raw
+    }
+
+    fn path_and_query(&self) -> &str {
+        &self.path_and_query
+    }
+}
+
+fn parse_authority(authority: &str, scheme: &str) -> Result<(String, u16), RetrievalError> {
+    let default_port = if scheme == "https" { 443 } else { 80 };
+    if authority.starts_with('[') {
+        let closing = authority
+            .find(']')
+            .ok_or_else(|| RetrievalError::InvalidUrl("unterminated IPv6 host".to_string()))?;
+        let host = &authority[1..closing];
+        if host.is_empty() {
+            return Err(RetrievalError::MissingHost);
+        }
+        let trailing = &authority[closing + 1..];
+        let port = if trailing.is_empty() {
+            default_port
+        } else {
+            let value = trailing
+                .strip_prefix(':')
+                .ok_or_else(|| RetrievalError::InvalidPort(trailing.to_string()))?;
+            parse_port(value)?
+        };
+        return Ok((host.to_string(), port));
+    }
+
+    if authority.matches(':').count() > 1 {
+        return Err(RetrievalError::InvalidUrl(
+            "IPv6 hosts must be enclosed in brackets".to_string(),
+        ));
+    }
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, value)) => (host, parse_port(value)?),
+        None => (authority, default_port),
+    };
+    if host.is_empty() {
+        return Err(RetrievalError::MissingHost);
+    }
+    Ok((host.trim_end_matches('.').to_string(), port))
+}
+
+fn parse_port(value: &str) -> Result<u16, RetrievalError> {
+    let port = value
+        .parse::<u16>()
+        .map_err(|_| RetrievalError::InvalidPort(value.to_string()))?;
+    if port == 0 {
+        return Err(RetrievalError::InvalidPort(value.to_string()));
+    }
+    Ok(port)
+}
+
+fn normalize_relative_path(input: &str) -> String {
+    let (path, query) = input
+        .split_once('?')
+        .map_or((input, None), |(path, query)| (path, Some(query)));
+    let mut segments = Vec::new();
+    for segment in path.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                segments.pop();
+            }
+            value => segments.push(value),
+        }
+    }
+    let mut normalized = format!("/{}", segments.join("/"));
+    if path.ends_with('/') && !normalized.ends_with('/') {
+        normalized.push('/');
+    }
+    if let Some(query) = query {
+        normalized.push('?');
+        normalized.push_str(query);
+    }
+    normalized
 }
 
 fn validate_request(request: &WebFetchRequest) -> Result<(), RetrievalError> {
@@ -396,28 +588,14 @@ fn validate_request(request: &WebFetchRequest) -> Result<(), RetrievalError> {
     Ok(())
 }
 
-fn parse_url(raw: &str, policy: &RetrievalPolicy) -> Result<Url, RetrievalError> {
-    let url = Url::parse(raw).map_err(|error| RetrievalError::InvalidUrl(error.to_string()))?;
-    match url.scheme() {
-        "https" => {}
-        "http" if policy.allow_http => {}
-        other => return Err(RetrievalError::UnsupportedScheme(other.to_string())),
-    }
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(RetrievalError::EmbeddedCredentials);
-    }
-    if url.host_str().is_none() {
-        return Err(RetrievalError::MissingHost);
-    }
-    Ok(url)
-}
-
-fn validate_destination(url: &Url, policy: &RetrievalPolicy) -> Result<(), RetrievalError> {
-    let checked = parse_url(url.as_str(), policy)?;
+fn validate_destination(
+    url: &ParsedHttpUrl,
+    policy: &RetrievalPolicy,
+) -> Result<(), RetrievalError> {
     if policy.allow_private_network {
         return Ok(());
     }
-    let host = checked.host_str().ok_or(RetrievalError::MissingHost)?;
+    let host = url.host.as_str();
     let normalized = host.trim_end_matches('.').to_ascii_lowercase();
     if normalized == "localhost"
         || normalized.ends_with(".localhost")
@@ -430,10 +608,7 @@ fn validate_destination(url: &Url, policy: &RetrievalPolicy) -> Result<(), Retri
         return reject_non_public_ip(ip, host);
     }
 
-    let port = checked.port_or_known_default().ok_or_else(|| {
-        RetrievalError::InvalidUrl("URL does not resolve to a known port".to_string())
-    })?;
-    let addresses = (host, port)
+    let addresses = (host, url.port)
         .to_socket_addrs()
         .map_err(|error| RetrievalError::DnsResolution {
             host: host.to_string(),
@@ -466,21 +641,17 @@ fn reject_non_public_ip(ip: IpAddr, display: &str) -> Result<(), RetrievalError>
 }
 
 fn is_blocked_ipv4(ip: Ipv4Addr) -> bool {
-    let [a, b, c, d] = ip.octets();
+    let [a, b, c, _] = ip.octets();
     ip.is_private()
         || ip.is_loopback()
         || ip.is_link_local()
-        || ip.is_broadcast()
         || ip.is_documentation()
-        || ip.is_unspecified()
         || a == 0
         || a >= 224
         || (a == 100 && (64..=127).contains(&b))
-        || (a == 169 && b == 254)
         || (a == 192 && b == 0 && c == 0)
         || (a == 192 && b == 88 && c == 99)
         || (a == 198 && (b == 18 || b == 19))
-        || (a == 255 && b == 255 && c == 255 && d == 255)
 }
 
 fn is_blocked_ipv6(ip: Ipv6Addr) -> bool {
@@ -570,10 +741,15 @@ fn normalized_mime(content_type: Option<&str>) -> String {
         .to_ascii_lowercase()
 }
 
-fn suggested_filename(url: &Url, content_type: Option<&str>, kind: RetrievedKind) -> String {
-    if let Some(name) = url
-        .path_segments()
-        .and_then(|mut segments| segments.next_back())
+fn suggested_filename(
+    path_and_query: &str,
+    content_type: Option<&str>,
+    kind: RetrievedKind,
+) -> String {
+    if let Some(name) = path_and_query
+        .split('?')
+        .next()
+        .and_then(|path| path.rsplit('/').next())
         .filter(|segment| !segment.is_empty())
         .map(sanitize_filename)
         .filter(|name| !name.is_empty())
@@ -723,6 +899,20 @@ mod tests {
         assert_eq!(result.redirect_count, 1);
         assert_eq!(result.kind, RetrievedKind::Html);
         assert!(result.as_text().expect("text").contains("Starfire"));
+    }
+
+    #[test]
+    fn relative_redirect_is_normalized() {
+        let policy = local_policy(1_024);
+        let base = ParsedHttpUrl::parse("http://example.com/a/b/start", &policy)
+            .expect("base URL parses");
+        let resolved = base
+            .resolve("../document.pdf?download=1", &policy)
+            .expect("relative redirect resolves");
+        assert_eq!(
+            resolved.as_str(),
+            "http://example.com/a/document.pdf?download=1"
+        );
     }
 
     #[test]
