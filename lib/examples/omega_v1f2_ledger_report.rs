@@ -136,9 +136,7 @@ fn main() -> Result<()> {
     let verifier_acceptance_rate = ratio(verifier_accepts, eligible_successes);
     let explained_failure_rate = ratio(typed_failure_reasons, failure_count);
     let unexplained_fallback_rate = ratio(unexplained_failure_count, eligible_attempts);
-    let identities_stable = authority_digests.len() == 1
-        && model_digests.len() <= 1
-        && lattice_digests.len() <= 1;
+    let frozen_identities_stable = authority_digests.len() == 1 && model_digests.len() <= 1;
     let hard_gates_passed = response_isolation_rate == 1.0
         && duplicate_event_count == 0
         && schema_or_version_mismatch_count == 0
@@ -150,7 +148,7 @@ fn main() -> Result<()> {
         && p95_micros <= SHADOW_P95_TARGET_MS * 1_000
         && unexplained_fallback_rate <= 0.01
         && (failure_count == 0 || explained_failure_rate == 1.0)
-        && identities_stable;
+        && frozen_identities_stable;
     let gate_passed = sample_complete && hard_gates_passed;
     let terminal_classification = if gate_passed {
         "PASS"
@@ -188,7 +186,7 @@ fn main() -> Result<()> {
         "schema_or_version_mismatch_count":schema_or_version_mismatch_count,
         "authority_matrix_digest_count":authority_digests.len(),
         "model_digest_count":model_digests.len(),
-        "lattice_digest_count":lattice_digests.len(),
+        "per_program_lattice_digest_count":lattice_digests.len(),
         "intent_distribution":intent_counts,
         "family_distribution":family_counts,
         "phase_distribution":phase_counts,
