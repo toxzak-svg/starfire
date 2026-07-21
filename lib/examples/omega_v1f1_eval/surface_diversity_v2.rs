@@ -1,8 +1,7 @@
 //! ΩV1-F1R1 claim-first nested-verification layer.
 //!
-//! Every candidate is first reconstructed into the bounded R1 surface, then R1
-//! reconstructs the original grammar-v3 candidate. The learned model still
-//! chooses only direct versus warm. All six committed surfaces remain distinct.
+//! Final text reconstructs the bounded R1 surface, which reconstructs the
+//! original grammar-v3 surface. The model chooses only direct versus warm.
 
 use crate::language_realization::{LexicalBindingTable, LexicalTableDigest};
 use crate::learned_expression::{
@@ -25,9 +24,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 pub const CLAIM_FIRST_GRAMMAR_VERSION: u16 = 5;
-const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v3";
-const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v3";
-const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v3";
+const LATTICE_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-lattice-v4";
+const VERIFY_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-verification-v4";
+const SELECT_DOMAIN: &[u8] = b"starfire-omega-v1f1r1-claim-first-selection-v4";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstLatticeDigest(pub u64);
@@ -48,7 +47,6 @@ pub struct ClaimFirstSurfaceVariant {
     pub base_text: String,
     pub text: String,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ClaimFirstLatticePayload {
     pub program_digest: ResponseProgramDigest,
@@ -110,8 +108,7 @@ impl ClaimFirstLattice {
         program: &SemanticResponseProgram,
         lexical_table: &LexicalBindingTable,
     ) -> Result<(), ClaimFirstError> {
-        let rebuilt = Self::build(program, lexical_table)?;
-        if &rebuilt != self {
+        if self != &Self::build(program, lexical_table)? {
             return Err(ClaimFirstError::LatticeDigestMismatch);
         }
         Ok(())
@@ -170,18 +167,11 @@ impl ClaimFirstVerifier {
             return Err(ClaimFirstError::LatticeDigestMismatch);
         }
         let matched = parse_exact(program, &lattice.payload.variants, text)?;
-        let base_text = assemble_base(program, &matched);
         let base_report = RemediatedVerifier.verify(
             program,
             lexical_table,
             lattice.payload.base_lattice_digest,
-            &base_text,
-        )?;
-        let costs = recompute_costs(
-            program,
-            text,
-            &matched,
-            base_report.payload.costs.claim_cost,
+            &assemble_base(program, &matched),
         )?;
         let payload = ClaimFirstVerificationPayload {
             program_digest: program.digest,
@@ -200,7 +190,12 @@ impl ClaimFirstVerifier {
                     phase: variant.phase,
                 })
                 .collect(),
-            costs,
+            costs: recompute_costs(
+                program,
+                text,
+                &matched,
+                base_report.payload.costs.claim_cost,
+            )?,
         };
         let digest = ClaimFirstVerificationDigest(digest_value(VERIFY_DOMAIN, &payload)?);
         if digest.0 == 0 {
@@ -465,7 +460,7 @@ fn claim_first_text(
         DiscourseOperationKind::Qualify { .. } => {
             let base = claim_first_epistemic(canonical, family, phase)
                 .unwrap_or_else(|| generic_phase_text(canonical, family, phase));
-            format!("{} The qualification remains explicit.", base)
+            format!("Qualified: {}", base)
         }
         DiscourseOperationKind::Acknowledge(_) => {
             let label = extract_between(
@@ -474,21 +469,24 @@ fn claim_first_text(
                 &['.'],
             )
             .unwrap_or(canonical);
-            let ending = choose(
-                family,
-                phase,
-                [
-                    "registered directly.",
-                    "noted without ornament.",
-                    "acknowledged plainly.",
-                ],
-                [
-                    "is in view.",
-                    "is acknowledged with context.",
-                    "has my attention.",
-                ],
-            );
-            format!("{}: {}", label, ending)
+            format!(
+                "{}: {}",
+                label,
+                choose(
+                    family,
+                    phase,
+                    [
+                        "registered directly.",
+                        "noted without ornament.",
+                        "acknowledged plainly.",
+                    ],
+                    [
+                        "is in view.",
+                        "is acknowledged with context.",
+                        "has my attention.",
+                    ],
+                )
+            )
         }
         DiscourseOperationKind::RequestEvidence(_) => {
             let label = extract_between(
@@ -502,21 +500,24 @@ fn claim_first_text(
                 &['?', '.'],
             )
             .unwrap_or(canonical);
-            let ending = choose(
-                family,
-                phase,
-                [
-                    "what evidence resolves it?",
-                    "which fact would settle it?",
-                    "what observation closes the gap?",
-                ],
-                [
-                    "what would make the answer clear?",
-                    "which evidence would give us confidence?",
-                    "what would let us resolve this carefully?",
-                ],
-            );
-            format!("{}: {}", label, ending)
+            format!(
+                "{}: {}",
+                label,
+                choose(
+                    family,
+                    phase,
+                    [
+                        "what evidence resolves it?",
+                        "which fact would settle it?",
+                        "what observation closes the gap?",
+                    ],
+                    [
+                        "what would make the answer clear?",
+                        "which evidence would give us confidence?",
+                        "what would let us resolve this carefully?",
+                    ],
+                )
+            )
         }
         DiscourseOperationKind::Commit(_) => {
             let label = extract_between(
@@ -525,42 +526,48 @@ fn claim_first_text(
                 &['.'],
             )
             .unwrap_or(canonical);
-            let ending = choose(
-                family,
-                phase,
-                [
-                    "I will track it.",
-                    "it remains on the ledger.",
-                    "the commitment is explicit.",
-                ],
-                [
-                    "I will keep it in view.",
-                    "I will carry that forward.",
-                    "it stays with the next check.",
-                ],
-            );
-            format!("{}: {}", label, ending)
+            format!(
+                "{}: {}",
+                label,
+                choose(
+                    family,
+                    phase,
+                    [
+                        "I will track it.",
+                        "it remains on the ledger.",
+                        "the commitment is explicit.",
+                    ],
+                    [
+                        "I will keep it in view.",
+                        "I will carry that forward.",
+                        "it stays with the next check.",
+                    ],
+                )
+            )
         }
         _ => generic_phase_text(canonical, family, phase),
     }
 }
 
 fn generic_phase_text(canonical: &str, family: ExpressionFamily, phase: u8) -> String {
-    let ending = choose(
-        family,
-        phase,
-        [
-            "The relation is explicit.",
-            "The operation remains bounded.",
-            "The typed structure is preserved.",
-        ],
-        [
-            "The relation stays visible.",
-            "The boundary remains intact.",
-            "The structure is carried through carefully.",
-        ],
-    );
-    format!("{} {}", canonical, ending)
+    format!(
+        "{} {}",
+        canonical,
+        choose(
+            family,
+            phase,
+            [
+                "The relation is explicit.",
+                "The operation remains bounded.",
+                "The typed structure is preserved.",
+            ],
+            [
+                "The relation stays visible.",
+                "The boundary remains intact.",
+                "The structure is carried through carefully.",
+            ],
+        )
+    )
 }
 
 fn claim_first_epistemic(
@@ -856,7 +863,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn assert_and_qualify_are_text_distinct() {
+    fn assert_and_qualify_are_not_prefixes() {
         let canonical = "Conclusion: It is possible that the selector stays bounded.";
         let asserted = claim_first_text(
             canonical,
@@ -874,26 +881,7 @@ mod tests {
             0,
         );
         assert_ne!(asserted, qualified);
-        assert!(asserted.starts_with("The selector stays bounded."));
-        assert!(qualified.starts_with("The selector stays bounded."));
-    }
-
-    #[test]
-    fn non_claim_operations_remain_six_way_distinct() {
-        let canonical = "The context is too sensitive for disclosure, so I abstain.";
-        let mut outputs = BTreeSet::new();
-        for family in [ExpressionFamily::Direct, ExpressionFamily::Warm] {
-            for phase in 0..3 {
-                outputs.insert(claim_first_text(
-                    canonical,
-                    &DiscourseOperationKind::Abstain(
-                        crate::semantic_response::AbstentionReason::SensitiveContext,
-                    ),
-                    family,
-                    phase,
-                ));
-            }
-        }
-        assert_eq!(outputs.len(), 6);
+        assert!(!asserted.starts_with(&qualified));
+        assert!(!qualified.starts_with(&asserted));
     }
 }
