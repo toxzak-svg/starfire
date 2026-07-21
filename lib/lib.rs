@@ -140,6 +140,13 @@ pub mod verifier_ready_realization;
 #[cfg(feature = "independent-language-verifier")]
 pub mod language_verification;
 
+// ARISE-A1: adapt validated semantic response programs into terminal-first
+// obligations, then reconstruct the final text with the independent verifier.
+// Shadow-only and default-off: no response, persistence, routing, tool, CHARGE,
+// belief, ontology, memory, or autonomous-action authority.
+#[cfg(feature = "arise-typed-plan")]
+pub mod arise_typed_plan_shadow;
+
 // ΩV1-F1: bounded offline learned expression selection over a closed grammar-v3
 // surface lattice. The ranker is integer-only and every selected candidate is
 // independently reconstructed from text. Disabled by default, with no live
