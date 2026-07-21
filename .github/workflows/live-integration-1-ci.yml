@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - "Dockerfile"
       - "src/main.rs"
       - "src/live_api.rs"
       - "src/Cargo.toml"
@@ -35,10 +36,10 @@ jobs:
         run: cargo fmt --all
 
       - name: Compile production binary
-        run: cargo check -p star_bin --bin star --features omega-v1-f2-shadow --locked
+        run: cargo check -p star_bin --bin star --features starfire-live --locked
 
       - name: Lint production binary
-        run: cargo clippy -p star_bin --bin star --features omega-v1-f2-shadow --locked -- -D warnings
+        run: cargo clippy -p star_bin --bin star --features starfire-live --locked -- -D warnings
 
       - name: Test live integration contracts
-        run: cargo test -p star_bin --bin star --features omega-v1-f2-shadow --locked live_api::tests:: -- --test-threads=1
+        run: cargo test -p star_bin --bin star --features starfire-live --locked live_api::tests:: -- --test-threads=1
