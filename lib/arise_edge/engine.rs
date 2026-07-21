@@ -1,9 +1,9 @@
 use super::types::{
     AcceptedSpan, AriseConfig, AriseError, AriseExecutionTrace, AriseRequest,
-    AriseTerminalClassification, MAX_CONFIG_OBLIGATIONS, MAX_CONFIG_OBLIGATIONS_PER_SPAN,
-    MAX_CONFIG_REPAIR_DEPTH, MAX_CONFIG_SPAN_BYTES, MAX_PROHIBITED_FRAGMENT_BYTES,
-    MAX_SEMANTIC_KEY_BYTES, MAX_WITNESS_BYTES, ObligationId, PlannedSpan, RejectedSpan,
-    ReversePlan, SemanticObligation, TransitionVerification, VerificationReason,
+    AriseTerminalClassification, ObligationId, PlannedSpan, RejectedSpan, ReversePlan,
+    SemanticObligation, TransitionVerification, VerificationReason, MAX_CONFIG_OBLIGATIONS,
+    MAX_CONFIG_OBLIGATIONS_PER_SPAN, MAX_CONFIG_REPAIR_DEPTH, MAX_CONFIG_SPAN_BYTES,
+    MAX_PROHIBITED_FRAGMENT_BYTES, MAX_SEMANTIC_KEY_BYTES, MAX_WITNESS_BYTES,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -45,7 +45,7 @@ impl SpanRenderer for LexicalSpanRenderer {
                 obligation
                     .witness
                     .trim()
-                    .trim_end_matches(|character| matches!(character, '.' | '!' | '?')),
+                    .trim_end_matches(['.', '!', '?']),
             );
         }
         if !rendered.is_empty() {
@@ -430,10 +430,7 @@ where
     }
 }
 
-fn residual_count(
-    required: &BTreeSet<ObligationId>,
-    satisfied: &BTreeSet<ObligationId>,
-) -> usize {
+fn residual_count(required: &BTreeSet<ObligationId>, satisfied: &BTreeSet<ObligationId>) -> usize {
     required
         .iter()
         .filter(|obligation| !satisfied.contains(obligation))
@@ -591,13 +588,7 @@ fn reverse_visit(
         .copied()
         .ok_or(AriseError::UnknownObligationReference)?;
     for dependency in &obligation.dependencies {
-        reverse_visit(
-            *dependency,
-            obligations,
-            visiting,
-            visited,
-            ordered,
-        )?;
+        reverse_visit(*dependency, obligations, visiting, visited, ordered)?;
     }
     visiting.remove(&id);
     visited.insert(id);
@@ -637,15 +628,13 @@ fn valid_semantic_key(value: &str) -> bool {
 
 fn valid_bounded_text(value: &str, maximum_bytes: usize) -> bool {
     let trimmed = value.trim();
-    !trimmed.is_empty()
-        && trimmed.len() <= maximum_bytes
-        && !trimmed.chars().any(char::is_control)
+    !trimmed.is_empty() && trimmed.len() <= maximum_bytes && !trimmed.chars().any(char::is_control)
 }
 
 pub(crate) fn canonical_clause(value: &str) -> String {
     value
         .trim()
-        .trim_end_matches(|character| matches!(character, '.' | '!' | '?'))
+        .trim_end_matches(['.', '!', '?'])
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -654,7 +643,7 @@ pub(crate) fn canonical_clause(value: &str) -> String {
 
 pub(crate) fn split_clauses(value: &str) -> Vec<&str> {
     value
-        .split(|character| matches!(character, '.' | '!' | '?'))
+        .split(['.', '!', '?'])
         .map(str::trim)
         .filter(|clause| !clause.is_empty())
         .collect()
@@ -704,7 +693,10 @@ mod tests {
         let trace = AriseEngine::default()
             .execute(&chain_request())
             .expect("execution should pass");
-        assert_eq!(trace.terminal_classification, AriseTerminalClassification::Pass);
+        assert_eq!(
+            trace.terminal_classification,
+            AriseTerminalClassification::Pass
+        );
         assert_eq!(trace.final_residual, 0);
         assert!(trace
             .accepted_spans
@@ -761,7 +753,10 @@ mod tests {
         )
         .expect("config should validate");
         let trace = engine.execute(&request).expect("repair should complete");
-        assert_eq!(trace.terminal_classification, AriseTerminalClassification::Pass);
+        assert_eq!(
+            trace.terminal_classification,
+            AriseTerminalClassification::Pass
+        );
         assert_eq!(trace.final_residual, 0);
         assert_eq!(trace.repair_count, 1);
         assert_eq!(trace.accepted_spans.len(), 2);
