@@ -20,6 +20,7 @@ thiserror = "2.0"
 # chrono intentionally removed — use std::time::SystemTime instead
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 ureq = "2"
+url = "2"
 urlencoding = "2"
 tiny_http = "0.12"
 clap = { version = "4.3.24", features = ["derive"] }
