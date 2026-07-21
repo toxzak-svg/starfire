@@ -100,6 +100,11 @@ path = "examples/omega_v1f1_offline_evaluation.rs"
 required-features = ["omega-v1-learned-expression"]
 
 [[example]]
+name = "omega_v1f1_model_export"
+path = "examples/omega_v1f1_model_export.rs"
+required-features = ["omega-v1-learned-expression"]
+
+[[example]]
 name = "omega_v1f2_shadow_probe"
 path = "examples/omega_v1f2_shadow_probe.rs"
 required-features = ["omega-v1-f2-shadow"]
