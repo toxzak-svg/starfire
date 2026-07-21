@@ -12,6 +12,7 @@ This index separates them.
 | What is actually active now? | [Current Status](CURRENT_STATUS.md) |
 | What are the system contracts? | [Specification](../SPEC.md) |
 | How does the code fit together? | [Architecture](architecture.md) |
+| How do I work on it locally? | [Development Guide](development.md) |
 | How do I call the service? | [API Reference](api.md) |
 | How is it deployed? | [Deployment Guide](deployment.md) |
 | Which experiments ran and what did they authorize? | [Experiment Index](experiments/README.md) |
@@ -27,6 +28,7 @@ Living documents describe the current main branch and should be updated when the
 - [`CURRENT_STATUS.md`](CURRENT_STATUS.md)
 - [`../SPEC.md`](../SPEC.md)
 - [`architecture.md`](architecture.md)
+- [`development.md`](development.md)
 - [`api.md`](api.md)
 - [`deployment.md`](deployment.md)
 - this index
@@ -140,6 +142,7 @@ Start at:
 
 ### Deployment and user-facing system
 
+- [`development.md`](development.md)
 - [`deployment.md`](deployment.md)
 - [`api.md`](api.md)
 - [`CURRENT_STATUS.md`](CURRENT_STATUS.md)
