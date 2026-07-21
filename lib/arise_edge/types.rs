@@ -11,9 +11,7 @@ pub(crate) const MAX_CONFIG_REPAIR_DEPTH: u8 = 8;
 pub(crate) const RUNTIME_MAX_SEGMENTS: usize = 16;
 pub(crate) const RUNTIME_PIPELINE: &str = "arise-a0-runtime-shadow-v1";
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ObligationId(pub u16);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
