@@ -4,7 +4,12 @@ use star::arise_edge::{
     SemanticObligation,
 };
 
-fn obligation(id: u16, dependencies: &[u16], semantic_key: &str, witness: &str) -> SemanticObligation {
+fn obligation(
+    id: u16,
+    dependencies: &[u16],
+    semantic_key: &str,
+    witness: &str,
+) -> SemanticObligation {
     SemanticObligation {
         id: ObligationId(id),
         semantic_key: semantic_key.to_string(),
@@ -45,7 +50,10 @@ fn main() -> Result<()> {
         trace.terminal_classification == AriseTerminalClassification::Pass,
         "ARISE terminal classification was not PASS"
     );
-    ensure!(trace.final_residual == 0, "semantic residual was not discharged");
+    ensure!(
+        trace.final_residual == 0,
+        "semantic residual was not discharged"
+    );
     ensure!(
         trace
             .accepted_spans
