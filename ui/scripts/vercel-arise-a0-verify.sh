@@ -9,6 +9,7 @@ FORMATTED_DIR="$EVIDENCE_DIR/formatted"
 TRACE_FILE="$EVIDENCE_DIR/execution-trace.json"
 REPLAY_FILE="$EVIDENCE_DIR/execution-trace-replay.json"
 STATUS_FILE="$EVIDENCE_DIR/status.json"
+export ARISE_GATE_VERSION="strict-v2"
 
 mkdir -p "$EVIDENCE_DIR" "$FORMATTED_DIR"
 
@@ -20,6 +21,7 @@ const fs = require('fs');
 const [path, state, detail] = process.argv.slice(2);
 const report = {
   verifier: 'ARISE-A0 Vercel Rust gate',
+  gateVersion: process.env.ARISE_GATE_VERSION || 'unknown',
   state,
   detail,
   commit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'unknown',
@@ -40,7 +42,7 @@ trap on_error ERR
 
 write_status "running" "Strict Rust verification is executing."
 
-echo "== ARISE-A0 strict Vercel verifier =="
+echo "== ARISE-A0 strict Vercel verifier (${ARISE_GATE_VERSION}) =="
 echo "Repository root: $REPO_ROOT"
 echo "Commit: ${VERCEL_GIT_COMMIT_SHA:-unknown}"
 echo "Branch: ${VERCEL_GIT_COMMIT_REF:-unknown}"
