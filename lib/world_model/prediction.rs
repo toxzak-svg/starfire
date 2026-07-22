@@ -303,7 +303,7 @@ impl WorldModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::world_model::Entity;
+    use crate::world_model::{Entity, RelationType};
 
     fn test_model() -> WorldModel {
         let mut model = WorldModel::new();

@@ -162,6 +162,7 @@ impl CurriculumScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::curriculum::{GapType, KnowledgeGap};
 
     #[test]
     fn test_should_trigger_threshold() {
