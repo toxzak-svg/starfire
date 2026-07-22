@@ -1278,9 +1278,9 @@ mod tests {
     use crate::semantic_response::{
         AcknowledgmentLevel, CognitiveStateVersion, ComputeBudget, DialogueMode,
         DiscourseOperation, EpistemicConstraint, EpistemicStatus, OutputBudget, ProhibitedClaim,
-        ResponseProgramId,
-        SemanticResponseIntent, SemanticResponseProgramPayload, SemanticValidationContext,
-        SensitivityLevel, SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+        ResponseProgramId, SemanticResponseIntent, SemanticResponseProgramPayload,
+        SemanticValidationContext, SensitivityLevel, SensitivityPolicy, StyleEnvelope,
+        SubjectScope, VocabularyLevel,
     };
 
     const SUBJECT: SubjectScope = SubjectScope(7);
