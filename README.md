@@ -2,25 +2,31 @@
 
 # ✦ Starfire
 
-### A local-first experimental cognitive architecture built in Rust
+### A local-first developmental intelligence research system built in Rust
 
-Starfire combines persistent memory, symbolic and neural components, metacognition, typed response construction, and tightly bounded research experiments in one inspectable system.
+Starfire studies whether persistent memory, prediction, structured reasoning, bounded learning, and proof-carrying abstraction can produce measurable cumulative improvement without relying on model scale alone.
 
 [![Rust](https://img.shields.io/badge/Rust-2021-000000?logo=rust)](Cargo.toml)
 [![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active%20research-6f42c1)](docs/CURRENT_STATUS.md)
 [![Deployment](https://img.shields.io/badge/API-Render-46E3B7?logo=render&logoColor=000)](docs/deployment.md)
 
-[Documentation](docs/README.md) · [Current status](docs/CURRENT_STATUS.md) · [Architecture](docs/architecture.md) · [API](docs/api.md) · [Experiments](docs/experiments/README.md)
+[Documentation](docs/README.md) · [Current status](docs/CURRENT_STATUS.md) · [EI plan](plans/EMERGING_INTELLIGENCE_PIVOT.md) · [EI-0 tracker](https://github.com/toxzak-svg/starfire/issues/149) · [Architecture](docs/architecture.md) · [Experiments](docs/experiments/README.md)
 
 </div>
 
 > [!IMPORTANT]
-> **Starfire is research software, not a demonstrated AGI or a validated consciousness system.** The repository contains working runtime capabilities alongside preregistered, feature-gated experiments. Documentation uses explicit status labels so ambition, implementation, and evidence do not blur together.
+> **Starfire is research software, not a demonstrated AGI, an established emerging intelligence, or a validated consciousness system.** The repository contains working runtime capabilities alongside preregistered, feature-gated experiments. Documentation uses explicit status labels so ambition, implementation, and evidence do not blur together.
 
 ## What Starfire is
 
-Starfire is an attempt to build useful intelligence from **system architecture rather than model scale alone**. The project is centered on a long-lived Rust runtime that can preserve identity and memory, reason over structured state, inspect its own uncertainty, and construct responses through typed internal contracts.
+Starfire is an attempt to build useful intelligence from **developmental system architecture rather than model scale alone**. The project is centered on a long-lived Rust runtime that can preserve identity and memory, reason over structured state, inspect uncertainty, and construct responses through typed internal contracts.
+
+The active research program asks one central question:
+
+> **Does Starfire become measurably better because it experienced the past?**
+
+The Emerging Intelligence program requires any positive answer to survive matched no-update, memory-disabled, random-update, and fixed-policy controls, plus held-out transfer and deterministic replay. Until that evidence exists, emerging intelligence remains the research target rather than a present capability.
 
 The repository includes:
 
@@ -32,6 +38,22 @@ The repository includes:
 - typed response intents, persistent runtime voice dimensions, and inspectable response plans;
 - a Next.js web chat with memory, cognition, and live-response metadata views;
 - a large experimental program with frozen controls, neutral fallbacks, and explicit authority boundaries.
+
+## Active research program
+
+The merged [Emerging Intelligence pivot](plans/EMERGING_INTELLIGENCE_PIVOT.md) changes the unit of progress from **module completed** to **capability acquired and independently measured**.
+
+The first milestone is **EI-0: Developmental Loop**. Its implementation and evidence sequence is tracked in [issue #149](https://github.com/toxzak-svg/starfire/issues/149):
+
+1. secure and isolate untrusted runtime surfaces;
+2. define canonical episode and prediction contracts;
+3. build frozen developmental environments and matched controls;
+4. add append-only replayable episode evidence;
+5. implement narrow reversible learning updates;
+6. preregister and execute the terminal EI-0 comparison;
+7. consider shadow runtime observation only after a bounded PASS.
+
+No EI stage automatically authorizes the next stage, and no stage authorizes unrestricted self-modification, ontology promotion, tools, or autonomy.
 
 ## System map
 
@@ -69,6 +91,7 @@ The diagram is deliberately asymmetric: experiments do not automatically gain ru
 | Learned component | Bundled native CharRNN reranker checkpoint |
 | Web interface | Next.js 16 / React 19 chat UI with cognitive and memory drawers |
 | Deployment | Dockerized API on Render; web UI designed for Vercel or local use |
+| Active research direction | EI-0 developmental loop, currently planned and tracked but not yet established by a terminal result |
 | Experimental tracks | Companion policy, STLM, ΩV1 voice, developmental, relational, and grammar-abstraction probes |
 | Default safety posture | Research features default off unless explicitly compiled or enabled |
 
@@ -186,11 +209,12 @@ Starfire’s experiment tree is intentionally stricter than a normal application
 
 A PASS in an offline selector does not silently authorize live text. A shadow observer does not silently authorize routing. A promising diagnostic does not authorize automatic ontology promotion. These separations are part of the architecture, not paperwork around it.
 
-Start with the [experiment index](docs/experiments/README.md) and the [documentation map](docs/README.md).
+For the current critical path, use the [EI plan](plans/EMERGING_INTELLIGENCE_PIVOT.md) and [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149). For prior evidence, use the [experiment index](docs/experiments/README.md) and [documentation map](docs/README.md).
 
 ## Known limits
 
 - Starfire is not currently competitive with frontier LLMs for broad fluent conversation or world knowledge.
+- EI-0 has no terminal result yet, so the project has not established emerging intelligence under its own definition.
 - Several subsystems are research prototypes whose scientific labels are narrower than their names may suggest.
 - Some older documents are historical records and intentionally retain the language and assumptions of their time.
 - The hosted system is a research deployment. It has no built-in authentication, multitenant isolation, or production-grade rate limiting.
