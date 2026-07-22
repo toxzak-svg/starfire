@@ -5,19 +5,28 @@ from pathlib import Path
 def replace_once(path: str, old: str, new: str) -> None:
     file = Path(path)
     text = file.read_text()
+    if new and new in text:
+        return
     old_count = text.count(old)
-    new_count = text.count(new)
     if old_count == 1:
         file.write_text(text.replace(old, new))
         return
-    if old_count == 0 and new_count == 1:
-        return
-    if old_count == 0 and new_count == 0:
+    if old_count == 0:
         print(f"pattern already transformed or unavailable in {path}")
         return
-    raise RuntimeError(
-        f"ambiguous replacement state in {path}: old={old_count}, new={new_count}"
-    )
+    raise RuntimeError(f"ambiguous replacement state in {path}: old={old_count}")
+
+
+def remove_once(path: str, old: str) -> None:
+    file = Path(path)
+    text = file.read_text()
+    old_count = text.count(old)
+    if old_count == 1:
+        file.write_text(text.replace(old, ""))
+        return
+    if old_count == 0:
+        return
+    raise RuntimeError(f"ambiguous removal state in {path}: old={old_count}")
 
 
 # H5-B intentionally includes the complete frozen H4 executable as a fixture,
@@ -35,10 +44,9 @@ replace_once(
     '    pub nodes: HashMap<NodeId, BasinNode>,\n',
     '    nodes: HashMap<NodeId, BasinNode>,\n',
 )
-replace_once(
+remove_once(
     "lib/prediction/basin.rs",
     '    pub id: NodeId,\n',
-    '',
 )
 replace_once(
     "lib/prediction/basin.rs",
