@@ -56,12 +56,20 @@ jobs:
           fi
 
       - name: Check all Starfire targets
+        id: check
         continue-on-error: true
-        run: cargo check -p star --all-targets --locked 2>&1 | tee warning-cleanup-check.log
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo check -p star --all-targets --locked 2>&1 | tee warning-cleanup-check.log
 
       - name: Run Starfire tests
+        id: test
         continue-on-error: true
-        run: cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
 
       - name: Upload warning inventory
         if: always()
@@ -73,3 +81,10 @@ jobs:
             warning-cleanup-check.log
             warning-cleanup-test.log
           if-no-files-found: warn
+
+      - name: Enforce validation results
+        if: always()
+        shell: bash
+        run: |
+          test "${{ steps.check.outcome }}" = "success"
+          test "${{ steps.test.outcome }}" = "success"
