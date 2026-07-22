@@ -50,9 +50,12 @@ jobs:
 
       - name: Compile scoped feature and evaluator
         run: |
-          cargo check -p star --lib --features omega-v1-learned-expression --locked
-          cargo check -p star --example omega_v1f1_offline_evaluation \
-            --features omega-v1-learned-expression --locked
+          set -o pipefail
+          {
+            cargo check -p star --lib --features omega-v1-learned-expression --locked
+            cargo check -p star --example omega_v1f1_offline_evaluation \
+              --features omega-v1-learned-expression --locked
+          } 2>&1 | tee omega-v1f1r1-compile.log
 
       - name: Lint scoped sources
         run: |
@@ -96,6 +99,7 @@ jobs:
         with:
           name: omega-v1f1r1-template-remediation-ci
           path: |
+            omega-v1f1r1-compile.log
             omega-v1f1r1-report.json
             omega-v1f1r1-clippy.log
           if-no-files-found: ignore
