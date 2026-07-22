@@ -203,3 +203,30 @@ edit(
         ('        let result = sqa.solve(&J, &h);\n', '        let result = sqa.solve(&j, &h);\n'),
     ],
 )
+
+edit(
+    "lib/metacog/intents.rs",
+    [
+        (
+            '''        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as usize)
+            .unwrap_or(0);
+        let selection = topic.len().saturating_add(now);
+''',
+            '''        let selection = topic.bytes().fold(topic.len(), |accumulator, byte| {
+            accumulator.wrapping_add(byte as usize)
+        });
+''',
+        ),
+        (
+            '''        // Should mention "consciousness" and have one of the confused templates.
+        assert!(s.contains("consciousness"));
+        assert!(s.contains('?') || s.contains("..."));
+''',
+            '''        assert!(s.contains("consciousness"));
+        assert_eq!(s, intent.format());
+''',
+        ),
+    ],
+)
