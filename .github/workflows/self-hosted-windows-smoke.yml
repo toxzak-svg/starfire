@@ -1,0 +1,36 @@
+name: Self-hosted Windows runner smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Verify starfire-windows
+    runs-on: [self-hosted, windows, x64, starfire]
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify Windows runner environment
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Runner: $env:RUNNER_NAME"
+          Write-Host "Machine: $env:COMPUTERNAME"
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+          git --version
+          pwsh --version
+          rustc --version
+          cargo --version
+
+      - name: Check repository metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git status --short
+          git rev-parse HEAD
