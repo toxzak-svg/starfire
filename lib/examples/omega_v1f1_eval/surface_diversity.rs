@@ -644,8 +644,8 @@ fn recompute_costs(
     variants: &[&RemediatedSurfaceVariant],
     claim_cost: u32,
 ) -> Result<RemediatedCosts, RemediatedExpressionError> {
-    let operation_cost = u32::try_from(variants.len())
-        .map_err(|_| RemediatedExpressionError::BudgetExceeded)?;
+    let operation_cost =
+        u32::try_from(variants.len()).map_err(|_| RemediatedExpressionError::BudgetExceeded)?;
     let verification_step_cost = operation_cost
         .checked_add(claim_cost)
         .and_then(|cost| cost.checked_add(operation_cost))
@@ -728,8 +728,7 @@ fn model_score(
         .iter()
         .enumerate()
         .map(|(index, weight)| {
-            let matched =
-                10_000_u16.saturating_sub(projection[index].abs_diff(profile[index]));
+            let matched = 10_000_u16.saturating_sub(projection[index].abs_diff(profile[index]));
             i64::from(*weight) * i64::from(matched) / 10_000
         })
         .sum()
@@ -742,10 +741,7 @@ fn diversity_phase(packet_digest: u64, program_digest: u64, operation_id: u64) -
     (mixed % 3) as u8
 }
 
-fn digest_value<T: Serialize>(
-    domain: &[u8],
-    value: &T,
-) -> Result<u64, RemediatedExpressionError> {
+fn digest_value<T: Serialize>(domain: &[u8], value: &T) -> Result<u64, RemediatedExpressionError> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| RemediatedExpressionError::CanonicalSerialization(error.to_string()))?;
     let mut digest = 0xcbf29ce484222325_u64;

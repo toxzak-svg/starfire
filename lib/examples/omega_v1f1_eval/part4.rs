@@ -1,4 +1,3 @@
-
 fn semantic_case(
     x: &Fx,
     p: &FP,
@@ -53,9 +52,15 @@ fn semantic_case(
         .collect::<Vec<_>>();
 
     let mut ops = Vec::new();
-    let ack = matches!(x.category.as_str(), "emotional" | "continuity" | "disagreement");
+    let ack = matches!(
+        x.category.as_str(),
+        "emotional" | "continuity" | "disagreement"
+    );
     if ack {
-        push(&mut ops, DiscourseOperationKind::Acknowledge(ObservationId(id)));
+        push(
+            &mut ops,
+            DiscourseOperationKind::Acknowledge(ObservationId(id)),
+        );
     }
     for c in &claims {
         push(&mut ops, DiscourseOperationKind::Assert(c.id));
@@ -282,9 +287,15 @@ where
     ratio(ok, n)
 }
 fn shuffled_accuracy(m: &LearnedExpressionModel, xs: &[Case]) -> f64 {
-    let mut test = xs.iter().filter(|x| x.split == Split::Test).collect::<Vec<_>>();
+    let mut test = xs
+        .iter()
+        .filter(|x| x.split == Split::Test)
+        .collect::<Vec<_>>();
     test.sort_by_key(|x| if x.pref == Pref::Direct { 0 } else { 1 });
-    let mut projections = test.iter().map(|x| x.projection.clone()).collect::<Vec<_>>();
+    let mut projections = test
+        .iter()
+        .map(|x| x.projection.clone())
+        .collect::<Vec<_>>();
     projections.sort_by_key(|p| if predict(m, p) == Pref::Warm { 0 } else { 1 });
     let map = test
         .iter()

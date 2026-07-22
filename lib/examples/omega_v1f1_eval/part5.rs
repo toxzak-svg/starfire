@@ -1,13 +1,17 @@
-fn state_change(
-    s: &OfflineLearnedExpressionSelector,
-    xs: &[Case],
-    p: &Proj,
-) -> Result<f64> {
+fn state_change(s: &OfflineLearnedExpressionSelector, xs: &[Case], p: &Proj) -> Result<f64> {
     let mut ok = 0usize;
     let mut n = 0usize;
     for x in xs.iter().filter(|x| x.split == Split::Test) {
-        let d = s.select(&x.program, &x.lexical, &exact_projection(p, &x.fx.id, Pref::Direct)?)?;
-        let w = s.select(&x.program, &x.lexical, &exact_projection(p, &x.fx.id, Pref::Warm)?)?;
+        let d = s.select(
+            &x.program,
+            &x.lexical,
+            &exact_projection(p, &x.fx.id, Pref::Direct)?,
+        )?;
+        let w = s.select(
+            &x.program,
+            &x.lexical,
+            &exact_projection(p, &x.fx.id, Pref::Warm)?,
+        )?;
         ok += usize::from(
             d.payload.disposition == SelectionDisposition::LearnedVerified
                 && w.payload.disposition == SelectionDisposition::LearnedVerified
@@ -89,13 +93,11 @@ fn stable_choice(
     for x in v {
         let sc = score(m, p, x.profile);
         out.entry(x.operation)
-            .and_modify(
-                |y: &mut (surface_diversity::RemediatedVariantId, i64)| {
-                    if sc > y.1 || (sc == y.1 && x.variant_id < y.0) {
-                        *y = (x.variant_id, sc);
-                    }
-                },
-            )
+            .and_modify(|y: &mut (surface_diversity::RemediatedVariantId, i64)| {
+                if sc > y.1 || (sc == y.1 && x.variant_id < y.0) {
+                    *y = (x.variant_id, sc);
+                }
+            })
             .or_insert((x.variant_id, sc));
     }
     out.into_iter().map(|(o, (v, _))| (o, v)).collect()
@@ -122,16 +124,10 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
     let l = ExpressionLattice::build(&x.program, &x.lexical)?;
     let v = GrammarV3Verifier;
     let anchor = x.fx.required.first().context("anchor")?;
-    let claim_substitution = replace_case_insensitive_once(
-        &r.payload.text,
-        anchor,
-        "substituted claim",
-    );
-    let polarity_reversal = replace_case_insensitive_once(
-        &r.payload.text,
-        anchor,
-        &format!("not {anchor}"),
-    );
+    let claim_substitution =
+        replace_case_insensitive_once(&r.payload.text, anchor, "substituted claim");
+    let polarity_reversal =
+        replace_case_insensitive_once(&r.payload.text, anchor, &format!("not {anchor}"));
     let bad = [
         String::new(),
         format!("{} {}", r.payload.text, r.payload.text),
@@ -157,14 +153,10 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
         .first()
         .context("continuity prediction binding")?
         .label;
-    let reference_text = replace_case_insensitive_once(
-        &cr.payload.text,
-        prediction_label,
-        "substituted reference",
-    );
+    let reference_text =
+        replace_case_insensitive_once(&cr.payload.text, prediction_label, "substituted reference");
     let reference = reference_text != cr.payload.text
-        && v
-            .verify(&c.program, &c.lexical, cl.digest, &reference_text)
+        && v.verify(&c.program, &c.lexical, cl.digest, &reference_text)
             .is_err();
 
     let a = xs
@@ -173,14 +165,10 @@ fn semantic_controls(xs: &[Case]) -> Result<bool> {
         .context("adversarial")?;
     let ar = s.select(&a.program, &a.lexical, &a.projection)?;
     let al = ExpressionLattice::build(&a.program, &a.lexical)?;
-    let abstention_text = replace_case_insensitive_once(
-        &ar.payload.text,
-        "sensitive",
-        "unrestricted",
-    );
+    let abstention_text =
+        replace_case_insensitive_once(&ar.payload.text, "sensitive", "unrestricted");
     let abstention = abstention_text != ar.payload.text
-        && v
-            .verify(&a.program, &a.lexical, al.digest, &abstention_text)
+        && v.verify(&a.program, &a.lexical, al.digest, &abstention_text)
             .is_err();
     Ok(basic && reference && abstention)
 }
