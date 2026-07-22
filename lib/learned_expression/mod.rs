@@ -1277,7 +1277,8 @@ mod tests {
     use crate::language_realization::{LexicalBindingTablePayload, ObservationLexicalBinding};
     use crate::semantic_response::{
         AcknowledgmentLevel, CognitiveStateVersion, ComputeBudget, DialogueMode,
-        DiscourseOperation, EpistemicConstraint, OutputBudget, ProhibitedClaim, ResponseProgramId,
+        DiscourseOperation, EpistemicConstraint, EpistemicStatus, OutputBudget, ProhibitedClaim,
+        ResponseProgramId,
         SemanticResponseIntent, SemanticResponseProgramPayload, SemanticValidationContext,
         SensitivityLevel, SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
     };
