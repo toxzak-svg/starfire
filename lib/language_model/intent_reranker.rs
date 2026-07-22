@@ -1247,12 +1247,12 @@ mod tests {
 
     #[test]
     fn post_process_truncates_long_output() {
-        let r = IntentReranker::with_default_backend();
+        let _r = IntentReranker::with_default_backend();
         let response = make_response(
             ResponseIntent::Statement,
             "This is a body that is definitely longer than the max_chars limit we set.",
         );
-        let mut state = make_state(0.2, 0.5, 0.0, 0.5);
+        let state = make_state(0.2, 0.5, 0.0, 0.5);
         let _ = state; // not used by post_process directly
         // Use a custom config with very small max_chars.
         let cfg = RerankConfig {
