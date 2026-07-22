@@ -130,6 +130,7 @@ pub struct ShadowInputBundle {
 }
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum PendingShadowEvent {
     Eligible(ShadowInputBundle),
     Ineligible(ShadowIneligibility),

@@ -63,7 +63,7 @@ pub const fn http_canary_authority_boundary() -> HttpCanaryAuthorityBoundary {
 pub fn finalize_chat_response(response: String) -> String {
     #[cfg(feature = "omega-v1-http-canary")]
     {
-        return crate::omega_v1_live_bridge::render_or_neutral(&response);
+        crate::omega_v1_live_bridge::render_or_neutral(&response)
     }
 
     #[cfg(not(feature = "omega-v1-http-canary"))]
