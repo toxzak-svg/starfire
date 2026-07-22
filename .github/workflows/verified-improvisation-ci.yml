@@ -13,62 +13,58 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verified-improvisation:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
-      - name: Check out pull request branch
+      - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          components: rustfmt, clippy
 
-      - name: Apply explicit evaluator lint repairs
-        shell: bash
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
+          rustfmt --edition 2021 --check lib/verified_improvisation.rs
+          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
 
-          replacements = {
-              Path("lib/examples/omega_v1f1_eval/surface_diversity.rs"): [
-                  (
-                      "&& index % operations_per_paragraph == 0",
-                      "&& index.is_multiple_of(operations_per_paragraph)",
-                  ),
-              ],
-              Path("lib/examples/omega_v1f1_eval/surface_diversity_v2.rs"): [
-                  (
-                      ".trim_end_matches(|character| matches!(character, '.' | '?' | '!'));",
-                      ".trim_end_matches(['.', '?', '!']);",
-                  ),
-                  (
-                      "&& index % operations_per_paragraph == 0",
-                      "&& index.is_multiple_of(operations_per_paragraph)",
-                  ),
-              ],
-              Path("lib/examples/omega_v1f1_eval/part3.rs"): [
-                  ("let v = if n % 2 == 0 {", "let v = if n.is_multiple_of(2) {"),
-              ],
-          }
+      - name: Compile scoped feature
+        run: cargo check -p star --lib --features verified-improvisation --locked
 
-          for path, changes in replacements.items():
-              text = path.read_text()
-              for old, new in changes:
-                  count = text.count(old)
-                  if count != 1:
-                      raise SystemExit(f"expected one match in {path} for {old!r}, found {count}")
-                  text = text.replace(old, new, 1)
-              path.write_text(text)
-          PY
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            lib/examples/omega_v1f1_eval/surface_diversity.rs \
-            lib/examples/omega_v1f1_eval/surface_diversity_v2.rs \
-            lib/examples/omega_v1f1_eval/part3.rs
-          git commit -m "chore(language): resolve evaluator lint findings"
-          git push
+      - name: Lint scoped feature
+        run: |
+          set -o pipefail
+          cargo clippy -p star --lib --features verified-improvisation --locked \
+            --message-format=short 2>&1 | tee verified-improvisation-clippy.log
+          if grep -E 'lib/verified_improvisation\.rs|lib/lib\.rs' \
+            verified-improvisation-clippy.log; then
+            echo "Verified improvisation scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run verifier-backed improvisation contracts
+        run: |
+          set -o pipefail
+          cargo test -p star --lib --features verified-improvisation --locked \
+            verified_improvisation:: -- --test-threads=1 --nocapture \
+            2>&1 | tee verified-improvisation-test.log
+
+      - name: Preserve diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-improvisation-ci
+          path: |
+            verified-improvisation-clippy.log
+            verified-improvisation-test.log
+          if-no-files-found: ignore
+          retention-days: 30
