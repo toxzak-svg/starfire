@@ -38,8 +38,14 @@ jobs:
               | tee -a cargo-fix.log || true
           done
 
-      - name: Apply reviewed cleanup script
-        run: python .github/scripts/rust_warning_cleanup.py
+      - name: Apply reviewed cleanup scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in .github/scripts/rust_warning_cleanup*.py; do
+            echo "Running ${script}"
+            python "${script}"
+          done
 
       - name: Check all Starfire targets
         id: check
@@ -85,6 +91,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No cleanup changes were produced."
           else
-            git commit -m "chore: reduce Rust warnings and repair vacuous tests"
+            git commit -m "chore: eliminate stale private state and dead helpers"
             git push origin HEAD:maintenance/rust-warning-cleanup
           fi
