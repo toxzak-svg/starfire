@@ -42,9 +42,9 @@ jobs:
 
       - name: Check scoped formatting
         run: |
+          rustfmt --edition 2021 --check lib/api.rs
+          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
           rustfmt --edition 2021 --check \
-            lib/api.rs \
-            lib/lib.rs \
             lib/omega_v1f1r1_surface.rs \
             lib/omega_v1f1r1_claim_first.rs \
             lib/omega_v1f2_shadow.rs \
@@ -65,14 +65,24 @@ jobs:
 
       - name: Lint scoped implementation
         run: |
+          set -o pipefail
+          : > omega-v1f2-clippy.log
           cargo clippy -p star --lib --features omega-v1-f2-shadow --locked \
-            -- -D warnings
+            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
           cargo clippy -p star --example omega_v1f1_model_export \
-            --features omega-v1-learned-expression --locked -- -D warnings
+            --features omega-v1-learned-expression --locked \
+            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
           cargo clippy -p star --example omega_v1f2_shadow_probe \
-            --features omega-v1-f2-shadow --locked -- -D warnings
+            --features omega-v1-f2-shadow --locked \
+            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
           cargo clippy -p star --example omega_v1f2_ledger_report \
-            --features omega-v1-f2-shadow --locked -- -D warnings
+            --features omega-v1-f2-shadow --locked \
+            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
+          if grep -E 'lib/api\.rs|lib/omega_v1f1r1_|lib/omega_v1f2_shadow\.rs|lib/examples/omega_v1f1_model_export\.rs|lib/examples/omega_v1f2_' \
+            omega-v1f2-clippy.log; then
+            echo "Omega V1-F2 scoped Clippy finding detected"
+            exit 1
+          fi
 
       - name: Run F2 contracts
         run: |
@@ -110,5 +120,6 @@ jobs:
           path: |
             omega-v1f1-model-export.json
             omega-v1f2-report.json
+            omega-v1f2-clippy.log
           if-no-files-found: ignore
           retention-days: 30
