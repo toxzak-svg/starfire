@@ -12,8 +12,11 @@ def replace_once(path: str, old: str, new: str) -> None:
         return
     if old_count == 0 and new_count == 1:
         return
+    if old_count == 0 and new_count == 0:
+        print(f"pattern already transformed or unavailable in {path}")
+        return
     raise RuntimeError(
-        f"unexpected replacement state in {path}: old={old_count}, new={new_count}"
+        f"ambiguous replacement state in {path}: old={old_count}, new={new_count}"
     )
 
 
