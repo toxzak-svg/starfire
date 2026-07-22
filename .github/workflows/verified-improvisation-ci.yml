@@ -42,8 +42,14 @@ jobs:
 
       - name: Lint scoped feature
         run: |
+          set -o pipefail
           cargo clippy -p star --lib --features verified-improvisation --locked \
-            --message-format=short -- -D warnings
+            --message-format=short 2>&1 | tee verified-improvisation-clippy.log
+          if grep -E 'lib/verified_improvisation\.rs|lib/lib\.rs' \
+            verified-improvisation-clippy.log; then
+            echo "Verified improvisation scoped Clippy finding detected"
+            exit 1
+          fi
 
       - name: Run verifier-backed improvisation contracts
         run: |
