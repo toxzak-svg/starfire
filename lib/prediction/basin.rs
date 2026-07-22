@@ -294,6 +294,7 @@ impl BasinEngine {
                 format!("Constraint count: {}", self.node_constraint_count(&node_id)),
                 format!("Active constraints: {}", active_constraint_ids),
                 format!("Active constraints: {}", active_constraint_ids),
+                format!("Active constraints: {}", active_constraint_ids),
             ],
         ))
     }

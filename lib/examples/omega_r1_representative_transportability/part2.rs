@@ -84,7 +84,7 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
     let mut budget = BudgetLedger::default();
     let mut selected_program = None;
     let mut baseline_program = None;
-    let mut proposal_succeeded = false;
+    let proposal_succeeded = true;
     let mut validation_succeeded = false;
     let mut validation_rejected = false;
     let mut admission_succeeded_during_window = false;
@@ -111,7 +111,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
     match path {
         PathKind::OrbitAwareStateful => {
             let (proof, certificate) = prepare_transport(&root.problem, &moving_suite(), &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             capture_transport_metrics(
                 &proof,
@@ -134,7 +133,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         }
         PathKind::PartitionOnlyBaseline => {
             let (proof, language) = prepare_partition_only(&root.problem, &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             baseline_program = Some(proof.program.canonical_string());
             selected_program = baseline_program.clone();
@@ -151,7 +149,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         PathKind::TargetStationaryMatchedCalibration => {
             let (proof, certificate) =
                 prepare_transport(&root.problem, &stationary_suite(), &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             capture_transport_metrics(
                 &proof,
@@ -175,7 +172,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         PathKind::RewiredCorrespondenceCalibration => {
             let suite = rewired_suite();
             let proof = propose_transport(&root.problem, &suite, &mut budget)?;
-            proposal_succeeded = true;
             capture_transport_metrics(
                 &proof,
                 &mut selected_program,
@@ -200,7 +196,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         }
         PathKind::TransportPayloadOnly => {
             let (proof, _certificate) = prepare_transport(&root.problem, &moving_suite(), &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             payload_preserved = true;
             capture_transport_metrics(
@@ -221,7 +216,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         PathKind::CounterfeitTransportProof => {
             let suite = moving_suite();
             let mut proof = propose_transport(&root.problem, &suite, &mut budget)?;
-            proposal_succeeded = true;
             capture_transport_metrics(
                 &proof,
                 &mut selected_program,
@@ -248,7 +242,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         PathKind::ForeignRootTransportCertificate => {
             let donor_problem = foreign_problem(&root.problem);
             let (proof, certificate) = prepare_transport(&donor_problem, &moving_suite(), &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             capture_transport_metrics(
                 &proof,
@@ -278,7 +271,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         }
         PathKind::DelayedTransportAdmission => {
             let (proof, certificate) = prepare_transport(&root.problem, &moving_suite(), &mut budget)?;
-            proposal_succeeded = true;
             validation_succeeded = true;
             capture_transport_metrics(
                 &proof,

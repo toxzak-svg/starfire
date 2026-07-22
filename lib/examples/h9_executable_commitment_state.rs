@@ -29,13 +29,16 @@ const FAMILY_NAMES: [&str; TRAIN_FAMILIES + HOLDOUT_FAMILIES + FUTURE_FAMILIES] 
 
 #[derive(Debug, Clone)]
 struct Task {
+    #[allow(dead_code)] // Frozen task provenance.
     id: u64,
     family_index: usize,
+    #[allow(dead_code)] // Frozen family label.
     family_name: &'static str,
     source: Atom,
     middle: Atom,
     goal: Atom,
     decoy_source: Atom,
+    #[allow(dead_code)] // Retained control-fixture endpoint.
     decoy_goal: Atom,
     target_witness_id: u64,
     decoy_witness_id: u64,

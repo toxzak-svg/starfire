@@ -178,6 +178,7 @@ struct PreparedMechanism {
     registry: ShadowTransportRegistry,
     irrelevant_proof: LatentRoleProof,
     irrelevant_registry: ShadowAbstractionRegistry,
+    #[allow(dead_code)] // Frozen proposal-budget provenance.
     proposal_budget: TransportBudget,
     validation_budget: TransportBudget,
 }
