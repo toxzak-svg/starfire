@@ -24,8 +24,8 @@ use crate::semantic_response::{
     ComputeBudget, DetailLevel, DialogueMode, DiscourseOperation, DiscourseOperationKind,
     EpistemicConstraint, EpistemicStatus, OperationId, OutputBudget, ProhibitedClaim,
     ResponseProgramId, SemanticResponseIntent, SemanticResponseProgram,
-    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-    SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel, SensitivityPolicy,
+    StyleEnvelope, SubjectScope, VocabularyLevel,
 };
 use crate::voice_state::VoiceState;
 use serde::{Deserialize, Serialize};
@@ -305,7 +305,12 @@ pub fn event_from_intent(intent: &ResponseIntent) -> PendingShadowEvent {
 #[must_use]
 pub fn shadow_enabled() -> bool {
     std::env::var("STARFIRE_OMEGA_V1F2_SHADOW")
-        .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "on" | "enabled"))
+        .map(|value| {
+            matches!(
+                value.to_ascii_lowercase().as_str(),
+                "1" | "true" | "on" | "enabled"
+            )
+        })
         .unwrap_or(false)
 }
 
@@ -344,7 +349,8 @@ fn dispatch_inner(event: PendingShadowEvent, response: ResponseFingerprint) {
             let worker = thread::Builder::new()
                 .name("omega-v1f2-selector".to_owned())
                 .spawn(move || {
-                    let result = std::panic::catch_unwind(|| evaluate_bundle(worker_bundle, response));
+                    let result =
+                        std::panic::catch_unwind(|| evaluate_bundle(worker_bundle, response));
                     let _ = sender.send(result);
                 });
 
@@ -371,14 +377,9 @@ fn dispatch_inner(event: PendingShadowEvent, response: ResponseFingerprint) {
                     false,
                     0,
                 ),
-                Ok(Err(_)) => failure_record(
-                    &bundle,
-                    response,
-                    "shadow_worker_panic",
-                    false,
-                    true,
-                    0,
-                ),
+                Ok(Err(_)) => {
+                    failure_record(&bundle, response, "shadow_worker_panic", false, true, 0)
+                }
                 Err(mpsc::RecvTimeoutError::Timeout) => timeout_record,
                 Err(mpsc::RecvTimeoutError::Disconnected) => failure_record(
                     &bundle,
@@ -451,11 +452,19 @@ fn evaluate_bundle(
             .payload
             .family
             .map(|family| format!("{:?}", family).to_ascii_lowercase()),
-        variant_ids: selection.payload.variant_ids.iter().map(|id| id.0).collect(),
+        variant_ids: selection
+            .payload
+            .variant_ids
+            .iter()
+            .map(|id| id.0)
+            .collect(),
         selection_disposition: Some(
             format!("{:?}", selection.payload.disposition).to_ascii_lowercase(),
         ),
-        fallback_reason: selection.payload.fallback_reason.map(|reason| bounded_reason(&reason)),
+        fallback_reason: selection
+            .payload
+            .fallback_reason
+            .map(|reason| bounded_reason(&reason)),
         complete_candidates_scored: Some(selection.payload.complete_candidates_scored),
         verifier_accepted: verification.is_some(),
         response_before_digest: response.before_digest,
@@ -493,7 +502,10 @@ fn build_bundle(seed: ShadowSemanticSeed) -> Result<ShadowInputBundle, ShadowErr
     let mut operations = Vec::new();
     for claim in &claims {
         push_operation(&mut operations, DiscourseOperationKind::Assert(claim.id));
-        if matches!(seed.intent, ShadowIntent::SelfCheck | ShadowIntent::Consciousness) {
+        if matches!(
+            seed.intent,
+            ShadowIntent::SelfCheck | ShadowIntent::Consciousness
+        ) {
             push_operation(
                 &mut operations,
                 DiscourseOperationKind::Qualify {
@@ -591,7 +603,8 @@ fn build_bundle(seed: ShadowSemanticSeed) -> Result<ShadowInputBundle, ShadowErr
         &program,
     )?;
     let voice_state = VoiceState::default();
-    let projection = VerifiedVoiceProjection::from_debug_projection(&voice_state.debug_projection()?)?;
+    let projection =
+        VerifiedVoiceProjection::from_debug_projection(&voice_state.debug_projection()?)?;
     let mut event_material = Vec::new();
     event_material.extend_from_slice(&program.digest.0.to_le_bytes());
     event_material.extend_from_slice(&lexical_table.digest.0.to_le_bytes());
@@ -758,10 +771,12 @@ fn load_model_path(path: &Path) -> Result<LearnedExpressionModel, ShadowError> {
 
 fn load_model_bytes(bytes: &[u8]) -> Result<LearnedExpressionModel, ShadowError> {
     if bytes.is_empty() || bytes.len() > MAX_MODEL_BYTES {
-        return Err(ShadowError::Model("artifact length outside bounds".to_owned()));
+        return Err(ShadowError::Model(
+            "artifact length outside bounds".to_owned(),
+        ));
     }
-    let model: LearnedExpressionModel = serde_json::from_slice(bytes)
-        .map_err(|error| ShadowError::Model(error.to_string()))?;
+    let model: LearnedExpressionModel =
+        serde_json::from_slice(bytes).map_err(|error| ShadowError::Model(error.to_string()))?;
     model.verify_integrity()?;
     if model.parameter_count() > MAX_TRAINABLE_PARAMETERS {
         return Err(ShadowError::Model("parameter bound exceeded".to_owned()));
@@ -890,7 +905,9 @@ fn failure_record(
 fn bounded_reason(reason: &str) -> String {
     let normalized = reason
         .chars()
-        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ' '))
+        .filter(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ' ')
+        })
         .take(96)
         .collect::<String>();
     if normalized.trim().is_empty() {
@@ -957,11 +974,16 @@ pub fn run_builder_probe(model_path: &Path) -> Result<ShadowProbeReport, ShadowE
     let bundle = match event {
         PendingShadowEvent::Eligible(bundle) => bundle,
         PendingShadowEvent::Ineligible(_) => {
-            return Err(ShadowError::Model("identity probe was ineligible".to_owned()))
+            return Err(ShadowError::Model(
+                "identity probe was ineligible".to_owned(),
+            ))
         }
     };
     let eligible_bundle_valid = bundle.program.verify_replay_integrity().is_ok()
-        && bundle.lexical_table.verify_integrity(&bundle.program).is_ok()
+        && bundle
+            .lexical_table
+            .verify_integrity(&bundle.program)
+            .is_ok()
         && bundle.projection.verify_integrity().is_ok();
     let response = ResponseFingerprint::frozen(br#"{"response":"unchanged"}"#);
     let first = evaluate_bundle_with_model(bundle.clone(), response, model.clone())?;
@@ -985,7 +1007,8 @@ pub fn run_builder_probe(model_path: &Path) -> Result<ShadowProbeReport, ShadowE
     let stale_projection_fail_closed =
         stale_selection.payload.disposition == SelectionDisposition::NeutralFallback;
 
-    let missing_model_rejected = load_model_path(Path::new("/definitely/missing/f2-model.json")).is_err();
+    let missing_model_rejected =
+        load_model_path(Path::new("/definitely/missing/f2-model.json")).is_err();
     let corrupt_model_rejected = load_model_bytes(b"not-json").is_err();
     let oversized_model_rejected = load_model_bytes(&vec![b'x'; MAX_MODEL_BYTES + 1]).is_err();
 
@@ -1000,12 +1023,9 @@ pub fn run_builder_probe(model_path: &Path) -> Result<ShadowProbeReport, ShadowE
     ) && response.byte_identical();
     let panic_isolated = std::panic::catch_unwind(|| panic!("forced ΩV1-F2 probe panic")).is_err()
         && response.byte_identical();
-    let unavailable_ledger_isolated = append_record_at(
-        Path::new("/proc/omega-v1f2-ledger/record.jsonl"),
-        &first,
-    )
-    .is_err()
-        && response.byte_identical();
+    let unavailable_ledger_isolated =
+        append_record_at(Path::new("/proc/omega-v1f2-ledger/record.jsonl"), &first).is_err()
+            && response.byte_identical();
     let authority_boundary_closed = authority_boundary_closed();
     let no_runtime_response_influence = response.byte_identical();
     let gate_passed = model_loaded
@@ -1089,11 +1109,19 @@ fn evaluate_bundle_with_model(
             .payload
             .family
             .map(|family| format!("{:?}", family).to_ascii_lowercase()),
-        variant_ids: selection.payload.variant_ids.iter().map(|id| id.0).collect(),
+        variant_ids: selection
+            .payload
+            .variant_ids
+            .iter()
+            .map(|id| id.0)
+            .collect(),
         selection_disposition: Some(
             format!("{:?}", selection.payload.disposition).to_ascii_lowercase(),
         ),
-        fallback_reason: selection.payload.fallback_reason.map(|reason| bounded_reason(&reason)),
+        fallback_reason: selection
+            .payload
+            .fallback_reason
+            .map(|reason| bounded_reason(&reason)),
         complete_candidates_scored: Some(selection.payload.complete_candidates_scored),
         verifier_accepted: verification.is_some(),
         response_before_digest: response.before_digest,
@@ -1118,7 +1146,10 @@ mod tests {
         };
         assert_eq!(bundle.intent, ShadowIntent::Identity);
         assert!(bundle.program.verify_replay_integrity().is_ok());
-        assert!(bundle.lexical_table.verify_integrity(&bundle.program).is_ok());
+        assert!(bundle
+            .lexical_table
+            .verify_integrity(&bundle.program)
+            .is_ok());
         assert!(bundle.projection.verify_integrity().is_ok());
     }
 

@@ -69,7 +69,8 @@ fn main() -> Result<()> {
         if let Some(digest) = record.lattice_digest {
             lattice_digests.insert(digest);
         }
-        if record.schema_version != 1 || record.implementation_version != F2_IMPLEMENTATION_VERSION {
+        if record.schema_version != 1 || record.implementation_version != F2_IMPLEMENTATION_VERSION
+        {
             schema_or_version_mismatch_count += 1;
         }
         let response_isolated = record.response_before_digest == record.response_after_digest
@@ -129,9 +130,8 @@ fn main() -> Result<()> {
     elapsed.sort_unstable();
     let p95_micros = percentile(&elapsed, 95);
     let maximum_micros = elapsed.last().copied().unwrap_or_default();
-    let sample_complete = eligible_successes >= 200
-        && distinct_days.len() >= 7
-        && ineligible_events >= 50;
+    let sample_complete =
+        eligible_successes >= 200 && distinct_days.len() >= 7 && ineligible_events >= 50;
     let response_isolation_rate = ratio(response_isolation_passes, records.len());
     let verifier_acceptance_rate = ratio(verifier_accepts, eligible_successes);
     let explained_failure_rate = ratio(typed_failure_reasons, failure_count);
