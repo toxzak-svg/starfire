@@ -952,11 +952,8 @@ mod tests {
 
     fn test_store() -> Store {
         let unique = NEXT_TEST_STORE.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "star_test_store_{}_{}",
-            std::process::id(),
-            unique
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("star_test_store_{}_{}", std::process::id(), unique));
         std::fs::create_dir_all(&dir).unwrap();
         Store::open(&dir.join("test.db")).unwrap()
     }
