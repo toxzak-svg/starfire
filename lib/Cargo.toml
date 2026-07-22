@@ -171,6 +171,7 @@ dirs.workspace = true
 rand.workspace = true
 rand_distr.workspace = true
 regex.workspace = true
+url.workspace = true
 
 # Voice-refine Phase 3: in-process SLM reranker. Off by default — turning
 # this on pulls in lm.rs (or a fork) and its quantization/tokenizer deps.

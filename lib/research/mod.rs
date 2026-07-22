@@ -3,6 +3,8 @@
 //! When Star doesn't know something, she can go on a "research walkabout" to
 //! explore the topic, gather data, and integrate it into her beliefs/knowledge.
 
+pub mod web;
+
 use crate::persistence::BeliefState;
 use crate::reasoning::ReasoningEngine;
 use crate::knowledge::search::WebSearcher;
@@ -269,6 +271,31 @@ impl Clone for ResearchWalkabout {
             is_researching: self.is_researching,
             active_research: self.active_research.clone(),
             completed_research: self.completed_research.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod web_reader_tests {
+    use super::web::ResearchUrl;
+
+    #[test]
+    fn accepts_a_public_https_source() {
+        let source = ResearchUrl::parse("https://www.rust-lang.org/learn").unwrap();
+
+        assert_eq!(source.as_str(), "https://www.rust-lang.org/learn");
+    }
+
+    #[test]
+    fn rejects_non_web_and_private_network_sources() {
+        for source in [
+            "file:///etc/passwd",
+            "http://localhost:8080/admin",
+            "http://127.0.0.1/private",
+            "http://192.168.1.20/private",
+            "ftp://example.com/archive",
+        ] {
+            assert!(ResearchUrl::parse(source).is_err(), "{source} should be rejected");
         }
     }
 }
