@@ -1,0 +1,56 @@
+name: Rust Warning Cleanup Autofix
+
+on:
+  push:
+    branches:
+      - maintenance/rust-warning-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: maintenance/rust-warning-cleanup
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply compiler suggestions
+        run: cargo fix -p star --all-targets --locked --allow-dirty --allow-staged
+
+      - name: Format workspace
+        run: cargo fmt --all
+
+      - name: Check all Starfire targets
+        run: cargo check -p star --all-targets --locked 2>&1 | tee warning-cleanup-check.log
+
+      - name: Commit mechanical fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib
+          if git diff --cached --quiet; then
+            echo "No compiler-applicable changes were produced."
+            exit 0
+          fi
+          git commit -m "chore: apply Rust compiler warning fixes"
+          git push origin HEAD:maintenance/rust-warning-cleanup
+
+      - name: Upload warning inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-warning-cleanup-check
+          path: warning-cleanup-check.log
+          if-no-files-found: warn
