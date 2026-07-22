@@ -1,4 +1,4 @@
-name: Rust Warning Cleanup Diff Compaction
+name: Rust Warning Cleanup Scoped Formatting
 
 on:
   pull_request:
@@ -8,11 +8,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: rust-warning-cleanup-compaction
+  group: rust-warning-cleanup-formatting
   cancel-in-progress: false
 
 jobs:
-  compact:
+  format:
     if: >-
       github.event.pull_request.head.ref == 'maintenance/rust-warning-cleanup' &&
       github.actor != 'github-actions[bot]'
@@ -23,38 +23,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: maintenance/rust-warning-cleanup
-          fetch-depth: 0
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
 
-      - name: Rebuild noisy files from semantic patches
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin main
-          files=(
-            lib/personality/mod.rs
-            lib/prediction/basin.rs
-            lib/prediction/belief_revision.rs
-            lib/prediction/meta_prediction.rs
-          )
-          for file in "${files[@]}"; do
-            patch="$(mktemp)"
-            git diff --ignore-all-space --no-ext-diff origin/main...HEAD -- "$file" > "$patch"
-            git checkout origin/main -- "$file"
-            if [ -s "$patch" ]; then
-              git apply --ignore-whitespace "$patch"
-            fi
-            rm -f "$patch"
-          done
-
-      - name: Apply repository-scoped formatting
+      - name: Format CHARGE-scoped source
         run: rustfmt --edition 2021 lib/persistence/store.rs
 
-      - name: Validate compacted source
+      - name: Validate formatted source
         shell: bash
         run: |
           set -euo pipefail
@@ -63,21 +41,16 @@ jobs:
           ! grep -F "warning:" warning-cleanup-check.log
           cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
 
-      - name: Commit compacted diff
+      - name: Commit scoped formatting
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            lib/personality/mod.rs \
-            lib/prediction/basin.rs \
-            lib/prediction/belief_revision.rs \
-            lib/prediction/meta_prediction.rs \
-            lib/persistence/store.rs
+          git add lib/persistence/store.rs
           if git diff --cached --quiet; then
-            echo "No diff compaction changes were needed."
+            echo "Scoped source already formatted."
           else
-            git commit -m "chore: compact warning-cleanup diff and format scoped source"
+            git commit -m "style: format persistence store after warning cleanup"
             git push origin HEAD:maintenance/rust-warning-cleanup
           fi
