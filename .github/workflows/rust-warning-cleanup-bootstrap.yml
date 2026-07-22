@@ -26,8 +26,6 @@ jobs:
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
 
       - name: Apply compiler suggestions by target
         shell: bash
@@ -42,9 +40,6 @@ jobs:
 
       - name: Apply reviewed cleanup script
         run: python .github/scripts/rust_warning_cleanup.py
-
-      - name: Format workspace
-        run: cargo fmt --all
 
       - name: Commit cleanup changes
         shell: bash
