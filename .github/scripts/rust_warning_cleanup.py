@@ -112,3 +112,21 @@ replace_once(
     }
 ''',
 )
+
+# Cargo can remove imports that are unused in production but required by tests.
+# Keep those dependencies next to the test modules that use them.
+replace_once(
+    "lib/world_model/prediction.rs",
+    '    use crate::world_model::Entity;\n',
+    '    use crate::world_model::{Entity, RelationType};\n',
+)
+replace_once(
+    "lib/curriculum/scheduler.rs",
+    '''mod tests {
+    use super::*;
+''',
+    '''mod tests {
+    use super::*;
+    use crate::curriculum::{GapType, KnowledgeGap};
+''',
+)
