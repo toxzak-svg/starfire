@@ -54,16 +54,12 @@ pub fn pick_unused_in_last_4(key: &'static str, options_len: usize, seed: usize)
         .entry(key)
         .or_insert_with(|| VecDeque::with_capacity(RING_SIZE));
 
-    // Build candidate set: indices NOT in the last RING_SIZE picks.
     let recent: Vec<usize> = ring.iter().take(RING_SIZE).copied().collect();
     let candidates: Vec<usize> = (0..options_len)
-        .filter(|i| !recent.contains(i))
+        .filter(|index| !recent.contains(index))
         .collect();
 
     let picked = if candidates.is_empty() {
-        // All options appeared in the recent ring — reset and pick fresh.
-        // Resetting means the next call will see only the pick we just made,
-        // so we won't repeat it immediately (the other candidates come back).
         ring.clear();
         seed % options_len
     } else {
@@ -82,6 +78,16 @@ pub fn pick_unused_in_last_4(key: &'static str, options_len: usize, seed: usize)
 #[cfg(test)]
 fn clear_key_for_tests(key: &'static str) {
     RINGS.lock().unwrap().remove(key);
+}
+
+/// Compatibility reset for voice tests. Production-style keys are cleared,
+/// while `test.*` keys used by parallel variation tests remain isolated.
+#[cfg(test)]
+pub fn _clear_for_tests() {
+    RINGS
+        .lock()
+        .unwrap()
+        .retain(|key, _| key.starts_with("test."));
 }
 
 #[cfg(test)]
@@ -105,11 +111,15 @@ mod tests {
     fn avoids_consecutive_repeats_when_pool_larger_than_ring() {
         clear_key_for_tests("test.large");
         let mut picks = Vec::new();
-        for i in 0..20 {
-            picks.push(pick_unused_in_last_4("test.large", 7, i));
+        for seed in 0..20 {
+            picks.push(pick_unused_in_last_4("test.large", 7, seed));
         }
         for window in picks.windows(2) {
-            assert_ne!(window[0], window[1], "consecutive picks should differ: {:?}", window);
+            assert_ne!(
+                window[0], window[1],
+                "consecutive picks should differ: {:?}",
+                window
+            );
         }
     }
 
@@ -117,8 +127,8 @@ mod tests {
     fn covers_pool_over_time_when_pool_larger_than_ring() {
         clear_key_for_tests("test.cover");
         let mut picks = Vec::new();
-        for i in 0..28 {
-            picks.push(pick_unused_in_last_4("test.cover", 7, i));
+        for seed in 0..28 {
+            picks.push(pick_unused_in_last_4("test.cover", 7, seed));
         }
         let unique: HashSet<_> = picks.iter().copied().collect();
         assert_eq!(
@@ -133,8 +143,8 @@ mod tests {
     fn resets_when_pool_equals_ring_size() {
         clear_key_for_tests("test.4");
         let mut picks = Vec::new();
-        for i in 0..12 {
-            picks.push(pick_unused_in_last_4("test.4", 4, i));
+        for seed in 0..12 {
+            picks.push(pick_unused_in_last_4("test.4", 4, seed));
         }
         let unique: HashSet<_> = picks.iter().copied().collect();
         assert!(
@@ -148,10 +158,13 @@ mod tests {
     fn two_option_pool_never_consecutive_repeats() {
         clear_key_for_tests("test.2");
         let picks: Vec<_> = (0..10)
-            .map(|i| pick_unused_in_last_4("test.2", 2, i))
+            .map(|seed| pick_unused_in_last_4("test.2", 2, seed))
             .collect();
         for window in picks.windows(2) {
-            assert_ne!(window[0], window[1], "consecutive picks in 2-option pool must differ");
+            assert_ne!(
+                window[0], window[1],
+                "consecutive picks in 2-option pool must differ"
+            );
         }
     }
 
@@ -159,8 +172,8 @@ mod tests {
     fn different_keys_dont_share_state() {
         clear_key_for_tests("test.iso.A");
         clear_key_for_tests("test.iso.B");
-        for i in 0..10 {
-            pick_unused_in_last_4("test.iso.A", 5, i);
+        for seed in 0..10 {
+            pick_unused_in_last_4("test.iso.A", 5, seed);
         }
         let first_b = pick_unused_in_last_4("test.iso.B", 5, 42);
         assert!(first_b < 5);
@@ -170,11 +183,11 @@ mod tests {
     fn deterministic_for_same_seed_sequence() {
         clear_key_for_tests("test.det");
         let first: Vec<_> = (0..6)
-            .map(|i| pick_unused_in_last_4("test.det", 5, i))
+            .map(|seed| pick_unused_in_last_4("test.det", 5, seed))
             .collect();
         clear_key_for_tests("test.det");
         let second: Vec<_> = (0..6)
-            .map(|i| pick_unused_in_last_4("test.det", 5, i))
+            .map(|seed| pick_unused_in_last_4("test.det", 5, seed))
             .collect();
         assert_eq!(first, second, "same seed sequence must produce same picks");
     }
@@ -185,6 +198,9 @@ mod tests {
         let first = pick_unused_in_last_4("test.seed", 5, 0);
         clear_key_for_tests("test.seed");
         let second = pick_unused_in_last_4("test.seed", 5, 1);
-        assert_ne!(first, second, "different seeds should select different first picks");
+        assert_ne!(
+            first, second,
+            "different seeds should select different first picks"
+        );
     }
 }
