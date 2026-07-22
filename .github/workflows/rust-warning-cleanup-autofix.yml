@@ -1,3 +1,4 @@
+# Disposable trigger revision for PR synchronization.
 name: Rust Warning Cleanup Autofix
 
 on:
