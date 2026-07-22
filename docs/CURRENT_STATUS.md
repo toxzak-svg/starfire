@@ -1,6 +1,6 @@
 # Starfire Current Status
 
-> **Snapshot date:** 2026-07-21  
+> **Snapshot date:** 2026-07-22  
 > **Branch covered:** `main`  
 > **Purpose:** authoritative present-tense summary
 
@@ -14,7 +14,17 @@ Starfire is an active Rust research system with a functioning local runtime, per
 
 It can chat, remember, expose cognitive state, run explicit reasoning and thought endpoints, and alter parts of its response style through a persistent runtime voice profile. It is deployed as a Docker service on Render and connected to a web interface.
 
-It is not currently AGI, a frontier-quality language model, an unrestricted autonomous agent, or validated evidence of consciousness.
+It is not currently AGI, an established emerging intelligence, a frontier-quality language model, an unrestricted autonomous agent, or validated evidence of consciousness.
+
+## Active research direction: Emerging Intelligence
+
+PR [#148](https://github.com/toxzak-svg/starfire/pull/148) merged the active [Emerging Intelligence pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md).
+
+The program defines emerging intelligence narrowly: accumulated experience must cause measurable improvement in future behavior, that improvement must transfer beyond exact development episodes, and the causal contribution of learned state must survive matched controls.
+
+This is a research target, not a current capability claim. No EI terminal experiment has run. The immediate implementation target is **EI-0A: Canonical episode contracts**, with no runtime wiring or learning authority. The complete critical path and pre-pivot work disposition are tracked in [issue #149](https://github.com/toxzak-svg/starfire/issues/149).
+
+During EI-0, progress is measured by acquired and independently evaluated capability rather than subsystem count. Existing modules may contribute only when they improve a frozen EI metric under the required controls.
 
 ## Main-branch runtime
 
@@ -33,6 +43,8 @@ It is not currently AGI, a frontier-quality language model, an unrestricted auto
 | Next.js web chat | **Active** | Shows memory/cognition drawers and live labels |
 | Telegram webhook | **Implemented** | Requires bot token; lacks independent webhook authentication |
 | Built-in authentication | **Absent** | Hosted API is a research surface, not a private multitenant service |
+| Canonical EI episode contract | **Planned** | EI-0A is next; not implemented on this snapshot |
+| Live EI learning authority | **Absent** | Explicitly prohibited before offline evidence and separate promotion |
 | Unrestricted tools/actions | **Not authorized** | No general live autonomy boundary |
 | Automatic ontology promotion | **Not authorized** | Remains gated pending stronger controls and transfer evidence |
 
@@ -56,6 +68,8 @@ cargo build --release --locked \
 ```
 
 The runtime container persists state under `/data`.
+
+The hosted surface currently lacks built-in authentication, tenant isolation, production rate limits, and an independently authenticated Telegram webhook. Security and deployment isolation are prerequisites before shared or public live EI evaluation.
 
 ## Current response path
 
@@ -93,6 +107,8 @@ That wrapper:
 Comments added during the runtime-owned voice change describe the HTTP proxy as legacy and emphasize `Runtime::chat` as text authority. The actual feature wiring still starts the wrapper in the production image. Both layers therefore remain present.
 
 **Recommended cleanup:** split the F2 observer feature from the outer wrapper, decide which voice state is canonical, and collapse the response path to one clearly named authority boundary.
+
+This cleanup supports EI attribution but does not itself count as an intelligence gain.
 
 ## ΩV1 cognitive-to-voice track
 
@@ -135,38 +151,41 @@ Main includes executable probes and modules for:
 - ΩG4 intervention-guided abstraction selection;
 - endogenous state-space and bounded autonomous-kernel research.
 
-These are research artifacts. Their presence does not mean they are wired into ordinary chat or that their named capability has generalized beyond the tested task.
+These are research artifacts. Their presence does not mean they are wired into ordinary chat or that their named capability has generalized beyond the tested task. Under the EI program, they count toward the critical path only if a frozen EI evaluation shows that they improve later behavior over matched controls.
 
 ## Work not on main
 
-### ARISE-A0
+Several open pull requests predate the EI pivot. They are not automatically part of the EI critical path and must preserve their original evidence boundaries.
 
-The ARISE-A0 reverse-obligation edge bridge exists in draft pull request `#128` on an experiment branch. It has external Vercel compilation/test evidence but remains draft and unmerged as of this snapshot.
+| Pull request | Current classification under EI-0 |
+|---|---|
+| [#145](https://github.com/toxzak-svg/starfire/pull/145) Rust warning and technical-debt cleanup | Compatible maintenance; evaluate and merge on its own verification |
+| [#144](https://github.com/toxzak-svg/starfire/pull/144) bounded retrieval stack | Compatible while feature-gated and non-authoritative; live or shared use requires security prerequisites |
+| [#128](https://github.com/toxzak-svg/starfire/pull/128) ARISE-A0 | Independent bounded research; not an EI capability without frozen metric advantage |
+| [#139](https://github.com/toxzak-svg/starfire/pull/139) ARISE-A1 | Stacked draft research; no new runtime authority during EI-0 without an explicit gate |
+| [#98](https://github.com/toxzak-svg/starfire/pull/98) ΩG2-S0 observer | Optional diagnostic research; no EI credit without causal behavioral evidence |
+| [#73](https://github.com/toxzak-svg/starfire/pull/73) S6-D canary | Separate companion gate; must not bypass EI security or evidence controls |
 
-Therefore:
-
-- it is not part of `main`;
-- it is not part of the production Docker image;
-- it must not be listed as a shipped Starfire capability;
-- its evidence should be evaluated within the authority boundary documented in that pull request.
+The authoritative disposition is maintained in [EI-0 tracker #149](https://github.com/toxzak-svg/starfire/issues/149). Old experimental records must not be rewritten merely to fit the new program.
 
 ## Current user-facing quality
 
 Starfire’s runtime is real, stateful, and inspectable, but its broad conversational fluency remains substantially below frontier hosted LLMs. Its strongest distinction is the explicit architecture and evidence discipline around memory, state, response authority, and experimental promotion.
 
-The highest-leverage product work is not adding more named modules. It is:
+The highest-leverage work is now:
 
-1. simplifying the live response path;
-2. improving fluent generation without discarding typed plans and verification;
-3. making state and trace inspection understandable in the UI;
-4. separating private single-user deployment from public demo deployment;
-5. running held-out behavioral evaluations that measure user-visible improvement.
+1. implementing EI-0A canonical episode contracts without runtime learning authority;
+2. securing and isolating HTTP, Telegram, file, command, and user-state boundaries;
+3. simplifying the live response path so behavioral attribution is possible;
+4. building frozen developmental environments and matched controls;
+5. improving fluent realization under typed verification without counting style gains as intelligence gains;
+6. turning the experimental record into a compact, navigable scorecard.
 
 ## Known documentation policy
 
 During this refresh:
 
-- living docs were rewritten to match current code;
+- living docs were rewritten to match current code and the merged EI program;
 - stale Railway instructions were removed from authoritative guides;
 - historical preregistrations and result records were preserved;
 - old files may still contain now-outdated language when that language is part of the historical record.
@@ -175,20 +194,30 @@ Use the [documentation index](README.md) to distinguish living documents from ev
 
 ## Next engineering decisions
 
-The immediate architectural fork is:
+### Immediate critical-path decision
 
-### Option A: runtime-owned response path
+Implement **EI-0A** as a small, authority-closed code slice containing typed episode, prediction, outcome, evaluation, authority, and provenance contracts plus canonical serialization, digest, and invariant tests.
+
+EI-0A must not alter `Runtime::chat()`, persistence authority, tool selection, response generation, ontology, or autonomous action.
+
+### Supporting response-architecture decision
+
+The response path still requires one canonical text authority:
+
+#### Option A: runtime-owned response path
 
 Make `Runtime::chat` the sole text authority, expose its typed plan and voice snapshot directly through `lib/api.rs`, and retire the outer text-transforming proxy.
 
-### Option B: explicit response-boundary service
+#### Option B: explicit response-boundary service
 
 Keep a separate response service, but rename it, remove duplicate voice state, and make the protected/runtime boundary intentional rather than inherited.
 
-Maintaining both indefinitely will make behavior harder to reason about and experiments harder to attribute.
+Maintaining both indefinitely will make behavior harder to reason about and EI experiments harder to attribute.
 
-## Source links
+## Tracking sources
 
+- [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149)
+- [Emerging Intelligence pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md)
 - [Project README](../README.md)
 - [Specification](../SPEC.md)
 - [Architecture](architecture.md)
