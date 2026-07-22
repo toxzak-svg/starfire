@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify Windows runner environment
-        shell: powershell
+        shell: powershell -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           Write-Host "Runner: $env:RUNNER_NAME"
@@ -29,7 +29,7 @@ jobs:
           cargo --version
 
       - name: Check repository metadata
-        shell: powershell
+        shell: powershell -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           git status --short
