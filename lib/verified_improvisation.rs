@@ -144,10 +144,7 @@ impl RecentLanguageTrace {
         if text.trim().is_empty() {
             return Err(VerifiedImprovisationError::InvalidLanguageTrace);
         }
-        push_bounded(
-            &mut self.opening_fingerprints,
-            opening_fingerprint(text),
-        );
+        push_bounded(&mut self.opening_fingerprints, opening_fingerprint(text));
         push_bounded(&mut self.surface_fingerprints, surface_fingerprint(text));
         self.verify_integrity()
     }
@@ -450,7 +447,10 @@ impl VerifiedImprovisationSelector {
         let lattice = ImprovisationLattice::build(program, lexical_table)?;
         let mut by_operation = BTreeMap::<OperationId, Vec<&ImprovisationalSurfaceVariant>>::new();
         for variant in &lattice.payload.variants {
-            by_operation.entry(variant.operation).or_default().push(variant);
+            by_operation
+                .entry(variant.operation)
+                .or_default()
+                .push(variant);
         }
         for variants in by_operation.values_mut() {
             variants.sort_by_key(|variant| variant.variant_id);
@@ -650,7 +650,10 @@ fn validate_variants(
         {
             return Err(VerifiedImprovisationError::InvalidLattice);
         }
-        by_operation.entry(variant.operation).or_default().push(variant);
+        by_operation
+            .entry(variant.operation)
+            .or_default()
+            .push(variant);
     }
     for operation in &program.payload.operations {
         let operation_variants = by_operation
@@ -684,8 +687,8 @@ fn improvise_surface(
     phase: u8,
     operation_index: usize,
 ) -> Result<String, VerifiedImprovisationError> {
-    let body = strip_remediated_lead(remediated)
-        .ok_or(VerifiedImprovisationError::InvalidLattice)?;
+    let body =
+        strip_remediated_lead(remediated).ok_or(VerifiedImprovisationError::InvalidLattice)?;
     let body = humanize_body(body, kind);
     let prefix = improvisation_prefix(family, phase, operation_index);
     Ok(format!("{prefix}{body}"))
@@ -721,11 +724,9 @@ fn improvisation_prefix(
     } else {
         match family {
             ExpressionFamily::Direct => ["Then: ", "Also: ", "Next: "][phase],
-            ExpressionFamily::Warm => [
-                "At the same time: ",
-                "Another piece: ",
-                "From there: ",
-            ][phase],
+            ExpressionFamily::Warm => {
+                ["At the same time: ", "Another piece: ", "From there: "][phase]
+            }
         }
     }
 }
@@ -742,15 +743,15 @@ fn humanize_body(body: &str, kind: &DiscourseOperationKind) -> String {
         DiscourseOperationKind::Correct { .. } => body
             .replacen("Correction: ", "The correction: ", 1)
             .replacen("; instead, ", ". More accurately, ", 1),
-        DiscourseOperationKind::Explain { .. } => {
-            body.replacen("Relevant support: ", "Why: ", 1)
-        }
+        DiscourseOperationKind::Explain { .. } => body.replacen("Relevant support: ", "Why: ", 1),
         DiscourseOperationKind::RequestEvidence(_) => body
             .replacen("What evidence resolves ", "What would settle ", 1)
-            .replacen("Evidence is required for ", "This still needs evidence on ", 1),
-        DiscourseOperationKind::Commit(_) => {
-            body.replacen("I commit to track ", "I'll track ", 1)
-        }
+            .replacen(
+                "Evidence is required for ",
+                "This still needs evidence on ",
+                1,
+            ),
+        DiscourseOperationKind::Commit(_) => body.replacen("I commit to track ", "I'll track ", 1),
         DiscourseOperationKind::Abstain(_) => {
             body.replacen("I abstain because ", "I won't guess because ", 1)
         }
@@ -900,12 +901,10 @@ fn score_variant(
 ) -> i64 {
     let family_fit = match variant.family {
         ExpressionFamily::Direct => {
-            i64::from(microstate.directness_bps) * 3
-                - i64::from(microstate.warmth_bps) / 2
+            i64::from(microstate.directness_bps) * 3 - i64::from(microstate.warmth_bps) / 2
         }
         ExpressionFamily::Warm => {
-            i64::from(microstate.warmth_bps) * 3
-                - i64::from(microstate.directness_bps) / 3
+            i64::from(microstate.warmth_bps) * 3 - i64::from(microstate.directness_bps) / 3
         }
     };
     let preferred_phase = mixed_phase(seed, program_digest, variant.operation.0);
@@ -927,7 +926,8 @@ fn score_variant(
     let compression_penalty = i64::try_from(variant.text.len()).unwrap_or(i64::MAX / 4)
         * i64::from(microstate.compression_bps)
         / 1_000;
-    family_fit + phase_fit + energy_fit + playfulness_fit - compression_penalty
+    family_fit + phase_fit + energy_fit + playfulness_fit
+        - compression_penalty
         - blandness_penalty(&variant.text)
 }
 
@@ -958,8 +958,8 @@ fn score_complete_candidate(
         .count();
     let rhythm_score = i64::try_from(punctuation).unwrap_or_default() * 900
         + i64::try_from(text.matches(". ").count()).unwrap_or_default() * 300;
-    let compression_target = 18usize
-        + usize::from(10_000_u16.saturating_sub(microstate.compression_bps)) / 250;
+    let compression_target =
+        18usize + usize::from(10_000_u16.saturating_sub(microstate.compression_bps)) / 250;
     let compression_distance = words.abs_diff(compression_target);
     let compression_score = -i64::try_from(compression_distance).unwrap_or(i64::MAX / 4) * 250;
     let seed_tiebreak = i64::try_from(mix64(seed ^ surface) % 997).unwrap_or_default();
@@ -989,8 +989,7 @@ fn blandness_penalty(text: &str) -> i64 {
 
 fn mixed_phase(seed: u64, program_digest: u64, operation_id: u64) -> u8 {
     (mix64(
-        seed ^ program_digest.rotate_left(17)
-            ^ operation_id.wrapping_mul(0x9e37_79b9_7f4a_7c15),
+        seed ^ program_digest.rotate_left(17) ^ operation_id.wrapping_mul(0x9e37_79b9_7f4a_7c15),
     ) % 3) as u8
 }
 
@@ -1045,7 +1044,11 @@ fn fingerprint(bytes: &[u8]) -> u64 {
         digest ^= u64::from(*byte);
         digest = digest.wrapping_mul(0x1000_0000_01b3);
     }
-    if digest == 0 { 1 } else { digest }
+    if digest == 0 {
+        1
+    } else {
+        digest
+    }
 }
 
 fn push_bounded(values: &mut Vec<u64>, value: u64) {
@@ -1070,10 +1073,7 @@ fn reject_forbidden_text(
     Ok(())
 }
 
-fn digest_value<T: Serialize>(
-    domain: &[u8],
-    value: &T,
-) -> Result<u64, VerifiedImprovisationError> {
+fn digest_value<T: Serialize>(domain: &[u8], value: &T) -> Result<u64, VerifiedImprovisationError> {
     let bytes = serde_json::to_vec(value)
         .map_err(|error| VerifiedImprovisationError::CanonicalSerialization(error.to_string()))?;
     let mut digest = 0xcbf2_9ce4_8422_2325_u64;
@@ -1103,7 +1103,13 @@ mod tests {
             id: ClaimId(id),
             semantic_key: key.to_owned(),
             polarity: ClaimPolarity::Positive,
-            confidence_bps: 8_000,
+            confidence_bps: match status {
+                EpistemicStatus::Certain => 9_500,
+                EpistemicStatus::Probable => 8_000,
+                EpistemicStatus::Possible => 4_000,
+                EpistemicStatus::Uncertain => 3_000,
+                EpistemicStatus::Unknown => 0,
+            },
             epistemic_status: status,
             sensitivity: SensitivityLevel::Public,
             disclosure_scope: SubjectScope(77),
@@ -1280,12 +1286,9 @@ mod tests {
         trace
             .record_text(&first.payload.text)
             .expect("trace update must validate");
-        let repeated_request = ImprovisationRequest::new(
-            19,
-            ConversationalMicrostate::default(),
-            trace,
-        )
-        .expect("repeated request must validate");
+        let repeated_request =
+            ImprovisationRequest::new(19, ConversationalMicrostate::default(), trace)
+                .expect("repeated request must validate");
         let second = selector
             .select(&program, &table, &repeated_request)
             .expect("second selection must complete");
