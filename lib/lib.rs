@@ -156,6 +156,13 @@ pub use omega_v1f1r1_surface as surface_diversity;
 #[cfg(feature = "omega-v1-learned-expression")]
 pub mod omega_v1f1r1_claim_first;
 
+// STLM L1-A: replayable candidate search over the committed F1R1 surface
+// lattice. Bounded conversational microstate and recent-language fingerprints
+// may rank wording only; every candidate is mapped back to a committed surface
+// and independently verified. Offline-only, with no live response authority.
+#[cfg(feature = "verified-improvisation")]
+pub mod verified_improvisation;
+
 // ΩV1-F2: post-response learned-expression shadow observation. The live HTTP
 // response is frozen first; only typed intent-derived semantics, sealed VoiceState
 // projection data, bounded fingerprints, and metadata enter the isolated worker.
