@@ -10,6 +10,8 @@ This index separates them.
 |---|---|
 | What is Starfire? | [Project README](../README.md) |
 | What is actually active now? | [Current Status](CURRENT_STATUS.md) |
+| What is the active research direction? | [Emerging Intelligence Pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md) |
+| Where is EI-0 implementation tracked? | [EI-0 master tracker #149](https://github.com/toxzak-svg/starfire/issues/149) |
 | What are the system contracts? | [Specification](../SPEC.md) |
 | How does the code fit together? | [Architecture](architecture.md) |
 | How do I work on it locally? | [Development Guide](development.md) |
@@ -69,6 +71,8 @@ Rules:
 
 Plans describe intended work and may contain speculative architecture. They do not prove implementation or success.
 
+The active top-level plan is the [Emerging Intelligence Pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md). Its first milestone is tracked in [issue #149](https://github.com/toxzak-svg/starfire/issues/149).
+
 See [`../plans/README.md`](../plans/README.md).
 
 ### Operational workspace documents
@@ -88,6 +92,7 @@ Files such as `AGENTS.md`, `IDENTITY.md`, `SOUL.md`, memory instructions, or too
 | **Draft** | Not accepted into `main` |
 | **Historical** | Preserved record that may not describe current code |
 | **Planned** | Intended but not established |
+| **Tracked** | Assigned to an issue or stage, but not necessarily implemented or verified |
 
 Avoid using “complete” without naming the exact scope. “F2 implementation complete” and “learned voice complete” are very different claims.
 
@@ -108,6 +113,19 @@ flowchart TD
 ```
 
 ## Major documentation areas
+
+### Emerging intelligence program
+
+The EI program is the active evidence-centered roadmap. It asks whether scored experience causes cumulative behavioral improvement that survives matched controls, transfer, rollback, and replay.
+
+Start at:
+
+- [`../plans/EMERGING_INTELLIGENCE_PIVOT.md`](../plans/EMERGING_INTELLIGENCE_PIVOT.md)
+- [EI-0 master tracker #149](https://github.com/toxzak-svg/starfire/issues/149)
+- [`CURRENT_STATUS.md`](CURRENT_STATUS.md)
+- [`../plans/README.md`](../plans/README.md)
+
+EI is not an established capability. The first code target is EI-0A, which is limited to canonical typed episode contracts with no runtime learning authority.
 
 ### Cognitive-to-voice and STLM
 
@@ -140,6 +158,8 @@ Start at:
 - [`research/`](research/)
 - [`experiments/README.md`](experiments/README.md)
 
+These tracks retain their original evidence boundaries. Under EI-0, they count toward the active program only when they improve a frozen developmental metric beyond matched controls.
+
 ### Deployment and user-facing system
 
 - [`development.md`](development.md)
@@ -153,12 +173,13 @@ Start at:
 When a runtime or deployment change lands:
 
 1. update `CURRENT_STATUS.md`;
-2. update the README portrait if the user-visible capability changed;
+2. update the README portrait if the user-visible capability or active program changed;
 3. update `architecture.md` if authority or data flow changed;
 4. update `api.md` if a route or envelope changed;
 5. update `deployment.md` if build, host, feature, or storage behavior changed;
 6. update a plan only when its roadmap changed;
-7. append to an experiment record only when the record’s own rules allow it.
+7. update the EI tracker when a stage, prerequisite, or pre-pivot work disposition changes;
+8. append to an experiment record only when the record’s own rules allow it.
 
 ## Known historical seams
 
@@ -171,4 +192,4 @@ Older documents may still mention:
 - implemented components that have since been superseded;
 - broad philosophical language stronger than the evidence supports.
 
-Those statements should not be copied into new summaries without checking current code and `CURRENT_STATUS.md`.
+Those statements should not be copied into new summaries without checking current code, `CURRENT_STATUS.md`, and the active EI tracker.

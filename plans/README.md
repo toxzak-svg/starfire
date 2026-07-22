@@ -8,9 +8,12 @@ For present-tense status, use [`../docs/CURRENT_STATUS.md`](../docs/CURRENT_STAT
 
 ### Emerging intelligence
 
-- [`EMERGING_INTELLIGENCE_PIVOT.md`](EMERGING_INTELLIGENCE_PIVOT.md)
+- Plan: [`EMERGING_INTELLIGENCE_PIVOT.md`](EMERGING_INTELLIGENCE_PIVOT.md)
+- Master tracker: [EI-0 issue #149](https://github.com/toxzak-svg/starfire/issues/149)
 
 Recenters Starfire around measurable cumulative improvement caused by experience. The first milestone, EI-0, requires a canonical developmental loop, matched controls, held-out transfer, reversible learning updates, and a full causal report before any live learning authority is considered.
+
+The tracker is the operational source for stage status, security prerequisites, and the disposition of open work that predates the pivot. A checkbox is completed only after the relevant implementation and required verification have merged.
 
 ### Cognitive-to-voice
 
@@ -110,6 +113,17 @@ Use one of these labels near the top of a plan:
 
 Avoid a bare “complete.” State what scope completed and what authority, if any, changed.
 
+## EI tracking rules
+
+1. Every EI implementation pull request references [issue #149](https://github.com/toxzak-svg/starfire/issues/149) and exactly one EI stage.
+2. A stage remains open until code and its required verification have merged.
+3. EI-0A through EI-0D do not establish emerging intelligence. They build the bounded experiment machinery.
+4. EI-0E freezes the terminal contract before results are known.
+5. EI-0F records PASS or FAIL without rewriting the preregistration.
+6. EI-0G is prohibited unless EI-0F passes and a separate shadow preregistration is merged.
+7. Pre-pivot pull requests remain maintenance or independent research unless their EI role is explicitly accepted.
+8. Historical evidence is never relabeled to make it appear part of EI-0.
+
 ## Current planning priorities
 
 Based on the 2026-07-22 main branch, the highest-leverage planning work is:
@@ -136,6 +150,7 @@ Do not rewrite a plan merely to make an observed result appear inevitable.
 
 ## Related indexes
 
+- [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149)
 - [Documentation map](../docs/README.md)
 - [Current status](../docs/CURRENT_STATUS.md)
 - [Experiment index](../docs/experiments/README.md)
