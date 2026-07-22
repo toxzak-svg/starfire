@@ -13,8 +13,8 @@ use crate::language_realization::{
 };
 use crate::semantic_response::{
     AbstentionReason, AuthorizedClaim, ClaimId, ClaimPolarity, DetailLevel, DiscourseOperation,
-    DiscourseOperationKind, EpistemicStatus, MissingVariableId, ObservationId, OperationId,
-    PredictionId, ResponseProgramDigest, SemanticProgramError, SemanticResponseProgram,
+    DiscourseOperationKind, MissingVariableId, ObservationId, OperationId, PredictionId,
+    ResponseProgramDigest, SemanticProgramError, SemanticResponseProgram,
 };
 use crate::verifier_ready_realization::{
     abstention_text, epistemic_marker, VerifierReadyRealizationError, VerifierReadyRenderer,
@@ -1170,7 +1170,7 @@ fn separator_before(program: &SemanticResponseProgram, index: usize) -> &'static
         .div_ceil(target_paragraphs)
         .max(1);
     if program.payload.style.detail == DetailLevel::Detailed
-        && index % operations_per_paragraph == 0
+        && index.is_multiple_of(operations_per_paragraph)
     {
         "\n\n"
     } else {

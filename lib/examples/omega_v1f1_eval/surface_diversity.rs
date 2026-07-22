@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::type_complexity)]
 //! ΩV1-F1R1 bounded surface-family remediation.
 //!
 //! This layer keeps the F1 learned direct-vs-warm ranker, but expands each

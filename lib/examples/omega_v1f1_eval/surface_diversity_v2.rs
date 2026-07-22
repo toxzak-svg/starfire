@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::type_complexity)]
 //! ΩV1-F1R1 claim-first nested-verification layer.
 //!
 //! Final text reconstructs the bounded R1 surface, which reconstructs the

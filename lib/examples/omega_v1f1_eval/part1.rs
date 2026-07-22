@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::type_complexity)]
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use serde_json::json;

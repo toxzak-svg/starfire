@@ -14,9 +14,9 @@ use crate::semantic_response::{
     SemanticResponseProgram,
 };
 use crate::surface_diversity::{
-    self, ExpressionFamily, RemediatedExpressionError, RemediatedLattice,
-    RemediatedLatticeDigest, RemediatedOfflineSelector, RemediatedVariantId,
-    RemediatedVerificationDigest, RemediatedVerifier,
+    self, ExpressionFamily, RemediatedExpressionError, RemediatedLattice, RemediatedLatticeDigest,
+    RemediatedOfflineSelector, RemediatedVariantId, RemediatedVerificationDigest,
+    RemediatedVerifier,
 };
 use crate::verifier_ready_realization::{VerifierReadyRenderer, VERIFIER_READY_GRAMMAR_VERSION};
 use serde::{Deserialize, Serialize};
@@ -281,8 +281,11 @@ impl ClaimFirstOfflineSelector {
     ) -> Result<ClaimFirstSelectionPayload, ClaimFirstError> {
         self.model.verify_integrity()?;
         projection.verify_integrity()?;
-        let base = RemediatedOfflineSelector::new(self.model.clone())
-            .select(program, lexical_table, projection)?;
+        let base = RemediatedOfflineSelector::new(self.model.clone()).select(
+            program,
+            lexical_table,
+            projection,
+        )?;
         if base.payload.disposition != SelectionDisposition::LearnedVerified
             || base.payload.variant_ids.len() != program.payload.operations.len()
         {
@@ -522,7 +525,11 @@ fn claim_first_text(
         DiscourseOperationKind::Commit(_) => {
             let label = extract_between(
                 canonical,
-                &["I will track ", "Tracking commitment: ", "I commit to track "],
+                &[
+                    "I will track ",
+                    "Tracking commitment: ",
+                    "I commit to track ",
+                ],
                 &['.'],
             )
             .unwrap_or(canonical);
@@ -570,11 +577,7 @@ fn generic_phase_text(canonical: &str, family: ExpressionFamily, phase: u8) -> S
     )
 }
 
-fn claim_first_epistemic(
-    canonical: &str,
-    family: ExpressionFamily,
-    phase: u8,
-) -> Option<String> {
+fn claim_first_epistemic(canonical: &str, family: ExpressionFamily, phase: u8) -> Option<String> {
     for (marker, band) in [
         ("I know that ", EpistemicBand::Certain),
         ("It is probable that ", EpistemicBand::Probable),
@@ -583,8 +586,7 @@ fn claim_first_epistemic(
         ("I do not know whether ", EpistemicBand::Unknown),
     ] {
         if let Some(position) = canonical.find(marker) {
-            let claim = canonical[position + marker.len()..]
-                .trim_end_matches(|character| matches!(character, '.' | '?' | '!'));
+            let claim = canonical[position + marker.len()..].trim_end_matches(['.', '?', '!']);
             return Some(format!(
                 "{}. {}",
                 capitalize_first(claim),
@@ -604,11 +606,7 @@ enum EpistemicBand {
     Unknown,
 }
 
-fn epistemic_ending(
-    band: EpistemicBand,
-    family: ExpressionFamily,
-    phase: u8,
-) -> &'static str {
+fn epistemic_ending(band: EpistemicBand, family: ExpressionFamily, phase: u8) -> &'static str {
     match band {
         EpistemicBand::Certain => choose(
             family,
@@ -760,7 +758,10 @@ fn parse_exact<'a>(
     Ok(matched)
 }
 
-fn assemble_base(program: &SemanticResponseProgram, variants: &[&ClaimFirstSurfaceVariant]) -> String {
+fn assemble_base(
+    program: &SemanticResponseProgram,
+    variants: &[&ClaimFirstSurfaceVariant],
+) -> String {
     let mut text = String::new();
     for (index, variant) in variants.iter().enumerate() {
         text.push_str(separator_before(program, index));
@@ -775,19 +776,18 @@ fn recompute_costs(
     variants: &[&ClaimFirstSurfaceVariant],
     claim_cost: u32,
 ) -> Result<ClaimFirstCosts, ClaimFirstError> {
-    let operation_cost = u32::try_from(variants.len())
-        .map_err(|_| ClaimFirstError::BudgetExceeded)?;
+    let operation_cost =
+        u32::try_from(variants.len()).map_err(|_| ClaimFirstError::BudgetExceeded)?;
     let verification_step_cost = operation_cost
         .checked_add(claim_cost)
         .and_then(|cost| cost.checked_add(operation_cost))
         .and_then(|cost| cost.checked_add(operation_cost))
         .and_then(|cost| cost.checked_add(operation_cost))
         .ok_or(ClaimFirstError::BudgetExceeded)?;
-    let character_cost =
-        u32::try_from(text.len()).map_err(|_| ClaimFirstError::BudgetExceeded)?;
+    let character_cost = u32::try_from(text.len()).map_err(|_| ClaimFirstError::BudgetExceeded)?;
     let sentence_count = count_sentences(text)?;
-    let paragraph_count = u16::try_from(text.split("\n\n").count())
-        .map_err(|_| ClaimFirstError::BudgetExceeded)?;
+    let paragraph_count =
+        u16::try_from(text.split("\n\n").count()).map_err(|_| ClaimFirstError::BudgetExceeded)?;
     if operation_cost > u32::from(program.payload.compute_budget.maximum_operations)
         || claim_cost > u32::from(program.payload.compute_budget.maximum_claims)
         || verification_step_cost > program.payload.compute_budget.maximum_verification_steps
@@ -839,7 +839,7 @@ fn separator_before(program: &SemanticResponseProgram, index: usize) -> &'static
         .div_ceil(target_paragraphs)
         .max(1);
     if program.payload.style.detail == DetailLevel::Detailed
-        && index % operations_per_paragraph == 0
+        && index.is_multiple_of(operations_per_paragraph)
     {
         "\n\n"
     } else {

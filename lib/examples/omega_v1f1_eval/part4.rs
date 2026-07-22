@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::type_complexity)]
 fn semantic_case(
     x: &Fx,
     p: &FP,
