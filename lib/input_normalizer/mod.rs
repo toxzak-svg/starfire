@@ -404,7 +404,7 @@ impl InputNormalizer {
         }
 
         // Handle common leet multi-char patterns
-        let text_lower = result.to_lowercase();
+        let _text_lower = result.to_lowercase();
 
         // Common word-level leet patterns
         let word_leet = [
@@ -607,7 +607,7 @@ impl InputNormalizer {
         }
 
         // Check if it contains adjacent keyboard proximity errors
-        let qwerty_proximity = [
+        let _qwerty_proximity = [
             ("q", "wa"), ("w", "qe"), ("e", "wr"), ("r", "et"), ("t", "ry"),
             ("y", "tu"), ("u", "yi"), ("i", "uo"), ("o", "ip"), ("p", "o"),
             ("a", "qs"), ("s", "ad"), ("d", "sf"), ("f", "dg"), ("g", "fh"),
@@ -985,8 +985,7 @@ mod tests {
     #[test]
     fn test_only_emoji() {
         let result = n("❤️😂🤣");
-        // Should process without crashing - output may contain text or markers
-        assert!(result.uncertain_tokens.len() >= 0);
+        assert!(result.markers.has_emoji);
     }
 
     #[test]
@@ -1053,9 +1052,7 @@ mod tests {
     #[test]
     fn test_uncertain_tokens_tracked() {
         let result = n("xyzqwerty asdfghjkl");
-        // These aren't common typos so should be flagged as uncertain
-        // But the normalizer should NOT crash
-        assert!(result.uncertain_tokens.len() >= 0);
+        assert!(!result.uncertain_tokens.is_empty());
     }
 
     // === Emoji unicode edge cases ===

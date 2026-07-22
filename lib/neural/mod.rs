@@ -26,7 +26,7 @@ pub mod serialization {
     //! Serialization support for Neural Networks
 
     use serde::{Deserialize, Serialize};
-    use crate::neural::{NeuralNet, NetworkConfig, Topology, Connection, NeuronId, NeuralSignal};
+    use crate::neural::{NeuralNet, NetworkConfig, Topology, Connection, NeuronId};
 
     /// Serializable representation of a connection
     #[derive(Debug, Clone, Serialize, Deserialize)]

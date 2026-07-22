@@ -2,7 +2,7 @@
 //!
 //! Implements backpropagation, Hebbian learning, and related training algorithms.
 
-use crate::neural::{Connection, ConnectionType, NetworkConfig, NeuralNet, NeuralSignal, NeuronId, Topology};
+use crate::neural::{Connection, ConnectionType, NeuralNet, NeuralSignal, NeuronId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

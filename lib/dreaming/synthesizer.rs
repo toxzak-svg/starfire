@@ -1,6 +1,6 @@
 //! Dream synthesizer — generates synthetic conversation episodes
 
-use super::dream_engine::{DreamEngine, DreamTheme, DreamEpisode};
+use super::dream_engine::DreamTheme;
 
 /// Synthesizes dream episodes from themes
 pub struct DreamSynthesizer {

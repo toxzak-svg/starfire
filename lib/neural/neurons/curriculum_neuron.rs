@@ -4,7 +4,7 @@
 //! identifies knowledge gaps and generates learning tasks.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::curriculum::{CurriculumEngine, KnowledgeGap, LearningTask, GapId};
+use crate::curriculum::CurriculumEngine;
 use std::collections::HashMap;
 
 const CURRICULUM_INPUT_DIM: usize = 64;

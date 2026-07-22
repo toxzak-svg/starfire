@@ -18,7 +18,7 @@
 //! - **Layer 2 (Reasoning):** Fast uses cached patterns and shortcuts; Slow re-runs expensive abduction, analogy, re-derivation
 //! - **Layer 3 (Meta-Cognition):** Tracks which tempo produced which belief; marks fast "provisional," slow "deep commitment"
 
-use crate::reasoning::{ReasoningEngine, ReasoningResult, QueryType};
+use crate::reasoning::{ReasoningEngine, ReasoningResult};
 use crate::persistence::BeliefState;
 
 /// The three tempo bands — different reasoning clocks.

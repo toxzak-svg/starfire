@@ -57,13 +57,13 @@ impl QuanotNeuron {
 
         // Encode consciousness proxy (0-1) -> spread across first few dims
         let phi = result.consciousness_proxy as f32;
-        for i in 0..8 {
+        for _i in 0..8 {
             vec.push(phi * 2.0 - 1.0); // Map to -1,1 range
         }
 
         // Encode novelty
         let novelty = result.novelty as f32;
-        for i in 0..8 {
+        for _i in 0..8 {
             vec.push(novelty * 2.0 - 1.0);
         }
 
@@ -117,7 +117,7 @@ impl Neuron for QuanotNeuron {
         // Full impl would decode NeuralSignal to extract text
 
         // For now, pass through with some transformation
-        let mut output_vec = input.vector.clone();
+        let output_vec = input.vector.clone();
 
         // Apply some internal dynamics (simplified ESN-like behavior)
         // In real implementation, would use self.quanot.process(text)

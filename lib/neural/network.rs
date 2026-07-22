@@ -2,7 +2,7 @@
 //!
 //! Manages neurons, routing, topology, and forward/backward passes.
 
-use crate::neural::neuron::{Activation, Neuron, NeuronId, NeuralSignal, NeuronConfig, ConnectionType};
+use crate::neural::neuron::{Activation, Neuron, NeuronId, NeuralSignal, ConnectionType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -190,7 +190,7 @@ impl NeuralNet {
                 self.topology.add_connection(from, to, -weight.abs());
             }
             ConnectionType::Modulatory => {
-                let mut conn = Connection::modulated(from, to, weight);
+                let conn = Connection::modulated(from, to, weight);
                 self.topology.connections.push(conn);
             }
             _ => {

@@ -4,7 +4,7 @@
 //! learns patterns from few examples.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::learning::{FewShotLearner, Example, Hypothesis};
+use crate::learning::{FewShotLearner, Example};
 use std::collections::HashMap;
 
 const FEWSHOT_INPUT_DIM: usize = 64;

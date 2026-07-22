@@ -1,7 +1,7 @@
 //! A concept as a software object with lifecycle
 
 use serde::{Deserialize, Serialize};
-use super::lifecycle::{LifecycleStage, LifecycleEvent};
+use super::lifecycle::LifecycleStage;
 
 /// A concept with full lifecycle tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]

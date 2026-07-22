@@ -3,7 +3,6 @@
 //! Different layer architectures that neurons can use internally.
 
 use crate::neural::neuron::Activation;
-use crate::neural::neuron::NeuronConfig;
 use serde::{Deserialize, Serialize};
 
 /// Type of layer computation
@@ -127,7 +126,7 @@ pub fn dense(input_dim: usize, output_dim: usize, activation: Activation) -> Lay
 }
 
 /// Reservoir (ESN) layer
-pub fn reservoir(input_dim: usize, reservoir_dim: usize, output_dim: usize) -> Layer {
+pub fn reservoir(input_dim: usize, _reservoir_dim: usize, output_dim: usize) -> Layer {
     Layer::new(input_dim, output_dim, LayerType::Reservoir, Activation::Tanh)
 }
 

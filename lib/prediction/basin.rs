@@ -11,7 +11,7 @@ use std::fmt;
 /// Attractor Basin Engine — constraint satisfaction as prediction
 pub struct BasinEngine {
     /// Constraint graph nodes
-    pub nodes: HashMap<NodeId, BasinNode>,
+    nodes: HashMap<NodeId, BasinNode>,
     /// Constraints between nodes
     constraints: Vec<Constraint>,
     /// Current basin assignments
@@ -39,7 +39,6 @@ impl fmt::Display for NodeId {
 /// A node in the constraint graph
 #[derive(Debug, Clone)]
 struct BasinNode {
-    pub id: NodeId,
     /// Current most-confident value
     pub value: PropertyValue,
     /// Confidence in current value
@@ -124,12 +123,14 @@ impl BasinEngine {
     /// Add a node to the constraint graph
     pub fn add_node(&mut self, id: &str, value: PropertyValue, confidence: f64) {
         let node_id = NodeId::new(id);
-        
+        if self.nodes.len() >= self.max_nodes && !self.nodes.contains_key(&node_id) {
+            return;
+        }
+
         // Generate alternatives based on value type
         let alternatives = Self::generate_alternatives(&value);
         
-        self.nodes.insert(node_id.clone(), BasinNode {
-            id: node_id,
+        self.nodes.insert(node_id, BasinNode {
             value,
             confidence,
             alternatives,
@@ -231,7 +232,7 @@ impl BasinEngine {
 
     /// Compute where a basin wants to move under constraint pressure
     fn compute_pressure(&self, node_id: &NodeId) -> Option<BasinPressure> {
-        let node = self.nodes.get(node_id)?;
+        let _node = self.nodes.get(node_id)?;
 
         // Sum constraint forces
         let mut force_direction: HashMap<String, f64> = HashMap::new();
@@ -422,8 +423,10 @@ mod tests {
         
         let predictions = engine.predict_equilibrium();
         
-        // Should have at least one prediction (the necessary truth)
-        assert!(!predictions.is_empty() || predictions.len() >= 0);
+        assert!(
+            !predictions.is_empty(),
+            "a causal constraint should produce an equilibrium prediction"
+        );
     }
 
     #[test]

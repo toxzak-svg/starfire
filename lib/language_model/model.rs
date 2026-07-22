@@ -869,7 +869,7 @@ impl CharRNN {
         };
 
         // Persistent carry-over state for dh_next / dc_next across timesteps.
-        let mut dh_next = vec![vec![0.0f32; hidden_size]; num_layers];
+        let dh_next = vec![vec![0.0f32; hidden_size]; num_layers];
         let mut dc_next = vec![vec![0.0f32; hidden_size]; num_layers];
 
         // Per-call scratch — sized to the widest per-layer requirement
@@ -1127,7 +1127,7 @@ impl CharRNN {
 
     /// Load model from binary format
     pub fn load(path: &str) -> std::io::Result<Self> {
-        use std::io::{Read, BufRead};
+        use std::io::Read;
 
         let file = std::fs::File::open(path)?;
         let mut reader = std::io::BufReader::new(file);

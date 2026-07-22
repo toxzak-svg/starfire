@@ -260,7 +260,7 @@ impl BeliefRevisionEngine {
 
         let avg_distance = total_distance / count as f64;
         // High distance = low consistency
-        (1.0 - avg_distance.min(1.0))
+        1.0 - avg_distance.min(1.0)
     }
 
     /// Get current trajectory length

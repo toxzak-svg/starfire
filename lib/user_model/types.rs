@@ -1,6 +1,5 @@
 //! Shared types for user-cognition model
 
-use std::collections::HashMap;
 
 /// User-Cognition Model — tracks what Star knows about Zachary's cognition
 #[derive(Debug, Clone)]
@@ -146,7 +145,7 @@ impl UserCognitionModel {
     }
 
     /// Format a response adapted to Zachary's preferences
-    pub fn adapt_response(&self, content: &str, topic: &str) -> String {
+    pub fn adapt_response(&self, content: &str, _topic: &str) -> String {
         let style = self.infer_argument_style();
 
         match style {

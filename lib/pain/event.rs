@@ -1,7 +1,6 @@
 //! Pain events — what causes computational pain
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::hash::Hash;
 
 /// Source of pain

@@ -260,7 +260,7 @@ impl PersonalityEmergence {
     /// This does NOT generate a response — it updates Star's internal state
     /// so that the NEXT response is shaped by this interaction.
     pub fn process_interaction(&mut self, zach_input: &str) {
-        let normalized = self.normalizer.normalize(zach_input);
+        let _normalized = self.normalizer.normalize(zach_input);
 
         // Update conversational state
         self.state.conversational.turn_count += 1;
@@ -296,7 +296,7 @@ impl PersonalityEmergence {
     /// as one input into her response generation.
     pub fn determine_response_style(&self) -> ResponseStyle {
         let history = &self.state.relational_history;
-        let markers = &self.state.conversational;
+        let _markers = &self.state.conversational;
         let tension = self.state.tension;
 
         // If Star is uncertain, lean toward curious/minimal

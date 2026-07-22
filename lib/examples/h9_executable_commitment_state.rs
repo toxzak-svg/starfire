@@ -275,7 +275,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let future_scalar = path_from_report(&future_report, PathMode::ScalarOnly);
     let future_rewired = path_from_report(&future_report, PathMode::Rewired);
     let future_random = path_from_report(&future_report, PathMode::RandomValid);
-    let future_invalid = path_from_report(&future_report, PathMode::InvalidMatched);
+    let _future_invalid = path_from_report(&future_report, PathMode::InvalidMatched);
     let future_delayed = path_from_report(&future_report, PathMode::Delayed);
 
     let all_reports = [&training, &holdout_report, &future_report];
