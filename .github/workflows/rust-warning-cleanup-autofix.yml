@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - maintenance/rust-warning-cleanup
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/**"
+      - ".github/workflows/rust-warning-cleanup-autofix.yml"
 
 permissions:
   contents: write
