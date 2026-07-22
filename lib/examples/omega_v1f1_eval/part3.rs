@@ -107,7 +107,7 @@ fn projection(p: &Proj, id: &str, pref: Pref, n: u16) -> Result<LearnedVoiceProj
     } else {
         p.warm
     };
-    let v = if n % 2 == 0 {
+    let v = if n.is_multiple_of(2) {
         target
     } else {
         mix(p.neutral, target, 1, 4)

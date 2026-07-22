@@ -588,7 +588,7 @@ fn claim_first_epistemic(canonical: &str, family: ExpressionFamily, phase: u8) -
     ] {
         if let Some(position) = canonical.find(marker) {
             let claim = canonical[position + marker.len()..]
-                .trim_end_matches(|character| matches!(character, '.' | '?' | '!'));
+                .trim_end_matches(['.', '?', '!']);
             return Some(format!(
                 "{}. {}",
                 capitalize_first(claim),
@@ -841,7 +841,7 @@ fn separator_before(program: &SemanticResponseProgram, index: usize) -> &'static
         .div_ceil(target_paragraphs)
         .max(1);
     if program.payload.style.detail == DetailLevel::Detailed
-        && index % operations_per_paragraph == 0
+        && index.is_multiple_of(operations_per_paragraph)
     {
         "\n\n"
     } else {
