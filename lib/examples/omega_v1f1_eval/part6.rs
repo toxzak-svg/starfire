@@ -1,4 +1,3 @@
-#![allow(dead_code, clippy::type_complexity)]
 fn fallback_controls(m: &LearnedExpressionModel, x: &Case, p: &Proj) -> Result<f64> {
     let neutral = VerifierReadyRenderer.render(&x.program, &x.lexical)?;
     let projection = exact_projection(p, &x.fx.id, Pref::Direct)?;

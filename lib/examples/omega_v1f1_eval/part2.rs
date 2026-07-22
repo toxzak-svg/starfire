@@ -1,4 +1,3 @@
-#![allow(dead_code, clippy::type_complexity)]
 fn main() -> Result<()> {
     let f1: FM = serde_json::from_str(F1)?;
     let a: AM = serde_json::from_str(A)?;

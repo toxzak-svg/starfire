@@ -1,4 +1,3 @@
-#![allow(dead_code, clippy::type_complexity)]
 fn validate_headers(f: &FM) -> Result<()> {
     if f.schema_version != 2
         || f.experiment != "OMEGAV1F1R1_OFFLINE_LEARNED_SELECTOR"

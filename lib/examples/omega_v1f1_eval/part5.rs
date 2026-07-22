@@ -1,4 +1,3 @@
-#![allow(dead_code, clippy::type_complexity)]
 fn state_change(s: &OfflineLearnedExpressionSelector, xs: &[Case], p: &Proj) -> Result<f64> {
     let mut ok = 0usize;
     let mut n = 0usize;
