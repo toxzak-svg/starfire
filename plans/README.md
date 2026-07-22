@@ -6,6 +6,12 @@ For present-tense status, use [`../docs/CURRENT_STATUS.md`](../docs/CURRENT_STAT
 
 ## Active program maps
 
+### Emerging intelligence
+
+- [`EMERGING_INTELLIGENCE_PIVOT.md`](EMERGING_INTELLIGENCE_PIVOT.md)
+
+Recenters Starfire around measurable cumulative improvement caused by experience. The first milestone, EI-0, requires a canonical developmental loop, matched controls, held-out transfer, reversible learning updates, and a full causal report before any live learning authority is considered.
+
 ### Cognitive-to-voice
 
 - [`OMEGAV1_COGNITIVE_TO_VOICE_BRIDGE.md`](OMEGAV1_COGNITIVE_TO_VOICE_BRIDGE.md)
@@ -106,14 +112,15 @@ Avoid a bare “complete.” State what scope completed and what authority, if a
 
 ## Current planning priorities
 
-Based on the 2026-07-21 main branch, the highest-leverage planning work is:
+Based on the 2026-07-22 main branch, the highest-leverage planning work is:
 
-1. **Unify the response authority path.** Decide whether runtime-owned response plans or a separate response-boundary service is canonical.
-2. **Improve fluent realization under typed verification.** User-visible language quality is the main bottleneck between the architecture and a compelling companion product.
-3. **Turn experiment evidence into a compact scorecard.** The current record is rigorous but difficult to navigate.
-4. **Separate public demo and private companion deployment.** Add authentication and per-user data boundaries before exposing personal continuity publicly.
-5. **Prioritize held-out transfer.** More named mechanisms matter less than showing reusable advantage on unfamiliar tasks under matched budgets.
-6. **Keep ontology promotion gated.** Do not convert diagnostic latent structures into live concepts until controls and transfer support it.
+1. **Implement EI-0A canonical episode contracts.** Establish typed observation, prediction, strategy, action, outcome, evaluation, learning-update, authority, and provenance records without granting runtime learning authority.
+2. **Secure and isolate the runtime surfaces.** Separate trusted CLI capabilities from HTTP chat, authenticate private deployments, and isolate user state before shared evaluation.
+3. **Unify the response authority path.** Decide whether runtime-owned response plans or a separate response-boundary service is canonical.
+4. **Improve fluent realization under typed verification.** User-visible language quality remains a product bottleneck, but it must be evaluated separately from intelligence gains.
+5. **Build held-out developmental controls.** More named mechanisms matter less than causal advantage over no-update, memory-disabled, random-update, and fixed-policy baselines.
+6. **Turn experiment evidence into a compact scorecard.** The current record is rigorous but difficult to navigate.
+7. **Keep ontology promotion gated.** Do not convert diagnostic latent structures into live concepts until controls and transfer support it.
 
 ## When to update a plan
 
