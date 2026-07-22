@@ -587,8 +587,7 @@ fn claim_first_epistemic(canonical: &str, family: ExpressionFamily, phase: u8) -
         ("I do not know whether ", EpistemicBand::Unknown),
     ] {
         if let Some(position) = canonical.find(marker) {
-            let claim = canonical[position + marker.len()..]
-                .trim_end_matches(['.', '?', '!']);
+            let claim = canonical[position + marker.len()..].trim_end_matches(['.', '?', '!']);
             return Some(format!(
                 "{}. {}",
                 capitalize_first(claim),
