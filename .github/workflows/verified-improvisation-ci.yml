@@ -18,7 +18,7 @@ permissions:
 jobs:
   verified-improvisation:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
       - name: Check out pull request branch
@@ -26,24 +26,49 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Apply evaluator-only Clippy fixes
+      - name: Apply explicit evaluator lint repairs
+        shell: bash
         run: |
-          cargo clippy --fix -p star --example omega_v1f1_offline_evaluation \
-            --features omega-v1-learned-expression --locked \
-            --allow-dirty --allow-staged
-          rustfmt --edition 2021 \
-            lib/examples/omega_v1f1_offline_evaluation.rs \
-            lib/examples/omega_v1f1_eval/*.rs
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path("lib/examples/omega_v1f1_eval/surface_diversity.rs"): [
+                  (
+                      "&& index % operations_per_paragraph == 0",
+                      "&& index.is_multiple_of(operations_per_paragraph)",
+                  ),
+              ],
+              Path("lib/examples/omega_v1f1_eval/surface_diversity_v2.rs"): [
+                  (
+                      ".trim_end_matches(|character| matches!(character, '.' | '?' | '!'));",
+                      ".trim_end_matches(['.', '?', '!']);",
+                  ),
+                  (
+                      "&& index % operations_per_paragraph == 0",
+                      "&& index.is_multiple_of(operations_per_paragraph)",
+                  ),
+              ],
+              Path("lib/examples/omega_v1f1_eval/part3.rs"): [
+                  ("let v = if n % 2 == 0 {", "let v = if n.is_multiple_of(2) {"),
+              ],
+          }
+
+          for path, changes in replacements.items():
+              text = path.read_text()
+              for old, new in changes:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f"expected one match in {path} for {old!r}, found {count}")
+                  text = text.replace(old, new, 1)
+              path.write_text(text)
+          PY
           git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            lib/examples/omega_v1f1_offline_evaluation.rs \
-            lib/examples/omega_v1f1_eval/*.rs
-          git commit -m "chore(language): apply evaluator Clippy fixes"
+            lib/examples/omega_v1f1_eval/surface_diversity.rs \
+            lib/examples/omega_v1f1_eval/surface_diversity_v2.rs \
+            lib/examples/omega_v1f1_eval/part3.rs
+          git commit -m "chore(language): resolve evaluator lint findings"
           git push
