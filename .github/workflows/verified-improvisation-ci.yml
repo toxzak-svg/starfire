@@ -61,11 +61,14 @@ jobs:
               raise SystemExit("fixture confidence pattern not found")
           PY
           rustfmt --edition 2021 lib/verified_improvisation.rs lib/lib.rs
+          cargo clippy --fix -p star --lib --features verified-improvisation --locked \
+            --allow-dirty --allow-staged -- -D warnings || true
+          rustfmt --edition 2021 lib/verified_improvisation.rs lib/lib.rs
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add lib/verified_improvisation.rs lib/lib.rs
-            git commit -m "style(language): normalize verified improvisation source"
+            git commit -m "style(language): apply scoped clippy fixes"
             git push
           fi
 
