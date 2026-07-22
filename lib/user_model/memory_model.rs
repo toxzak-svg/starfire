@@ -22,8 +22,6 @@ pub struct UserMemoryModel {
     strengths: HashMap<String, MemoryStrength>,
     /// Topics Zachary has introduced and might remember
     introduced_topics: Vec<String>,
-    /// Topics that faded or were not retained
-    forgotten_topics: Vec<String>,
 }
 
 impl UserMemoryModel {
@@ -31,7 +29,6 @@ impl UserMemoryModel {
         Self {
             strengths: HashMap::new(),
             introduced_topics: Vec::new(),
-            forgotten_topics: Vec::new(),
         }
     }
 

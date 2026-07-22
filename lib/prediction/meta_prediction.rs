@@ -24,7 +24,6 @@ pub struct MetaPredictionEngine {
 
 #[derive(Debug, Clone)]
 struct EngineHistory {
-    pub engine: PredictionEngine,
     /// Cumulative accuracy
     pub accuracy: f64,
     /// Accuracy trend (improving or degrading?)
@@ -34,9 +33,8 @@ struct EngineHistory {
 }
 
 impl EngineHistory {
-    fn new(engine: PredictionEngine) -> Self {
+    fn new() -> Self {
         EngineHistory {
-            engine,
             accuracy: 0.5, // Start with moderate confidence
             trend: 0.0,
             recent_outcomes: Vec::new(),
@@ -78,15 +76,13 @@ impl EngineHistory {
 
 #[derive(Debug, Clone)]
 struct KindHistory {
-    pub kind: PredictionKind,
     pub accuracy: f64,
     pub sample_count: usize,
 }
 
 impl KindHistory {
-    fn new(kind: PredictionKind) -> Self {
+    fn new() -> Self {
         KindHistory {
-            kind,
             accuracy: 0.5,
             sample_count: 0,
         }
@@ -196,7 +192,7 @@ impl MetaPredictionEngine {
             PredictionEngine::Basin,
             PredictionEngine::Meta,
         ] {
-            engine_histories.insert(engine, EngineHistory::new(engine));
+            engine_histories.insert(engine, EngineHistory::new());
         }
 
         let mut kind_histories = HashMap::new();
@@ -207,7 +203,7 @@ impl MetaPredictionEngine {
             PredictionKind::BeliefChange,
             PredictionKind::StateChange,
         ] {
-            kind_histories.insert(kind, KindHistory::new(kind));
+            kind_histories.insert(kind, KindHistory::new());
         }
 
         MetaPredictionEngine {

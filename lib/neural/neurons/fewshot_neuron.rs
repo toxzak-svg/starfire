@@ -35,13 +35,6 @@ impl FewShotNeuron {
         }
     }
 
-    fn encode_text(&self, text: &str) -> Vec<f32> {
-        let mut vec = vec![0.0; FEWSHOT_INPUT_DIM];
-        for (i, c) in text.bytes().enumerate().take(FEWSHOT_INPUT_DIM) {
-            vec[i] = (c as f32) / 255.0;
-        }
-        vec
-    }
 
     pub fn add_example(&mut self, input: &str, output: &str, domain: &str) {
         let example = Example::new(input, output, domain);

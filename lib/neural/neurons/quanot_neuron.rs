@@ -4,7 +4,7 @@
 //! in the StarNet architecture.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::quanot::{Quanot, QuanotResult};
+use crate::quanot::Quanot;
 use std::collections::HashMap;
 
 /// Quanot wrapped as a neuron
@@ -51,49 +51,6 @@ impl QuanotNeuron {
         0.0 // Placeholder
     }
 
-    /// Encode QuanotResult as a vector for downstream neurons
-    fn encode_result(&self, result: &QuanotResult) -> Vec<f32> {
-        let mut vec: Vec<f32> = Vec::with_capacity(128);
-
-        // Encode consciousness proxy (0-1) -> spread across first few dims
-        let phi = result.consciousness_proxy as f32;
-        for _i in 0..8 {
-            vec.push(phi * 2.0 - 1.0); // Map to -1,1 range
-        }
-
-        // Encode novelty
-        let novelty = result.novelty as f32;
-        for _i in 0..8 {
-            vec.push(novelty * 2.0 - 1.0);
-        }
-
-        // Encode creativity
-        let cs = &result.creativity_scores;
-        vec.push(cs.creative_state as f32 * 2.0 - 1.0);
-        vec.push(cs.divergence_metric as f32 * 2.0 - 1.0);
-        vec.push(cs.diversity_index as f32 * 2.0 - 1.0);
-        vec.push(cs.originality_score as f32 * 2.0 - 1.0);
-
-        // Encode chaos metrics
-        let cm = &result.chaos_metrics;
-        vec.push(cm.lyapunov_exponent as f32 * 2.0 - 1.0);
-        vec.push(cm.recurrence as f32 * 2.0 - 1.0);
-        vec.push(cm.determinism as f32 * 2.0 - 1.0);
-
-        // Pad or truncate reservoir state to fixed size
-        let reservoir = &result.reservoir_state;
-        let target_len = 100; // Use subset of reservoir state
-        for r in reservoir.iter().take(target_len) {
-            vec.push(*r as f32);
-        }
-        while vec.len() < 128 {
-            vec.push(0.0);
-        }
-
-        // Ensure exactly 128 dims
-        vec.resize(128, 0.0);
-        vec
-    }
 }
 
 impl Neuron for QuanotNeuron {

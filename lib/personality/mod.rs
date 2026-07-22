@@ -366,23 +366,6 @@ impl PersonalityEmergence {
         }
     }
 
-    /// Detect what style Zach is using in this message.
-    fn detect_zach_style(&self, normalized: &crate::input_normalizer::NormalizedInput) -> ResponseStyle {
-        let markers = &normalized.markers;
-
-        if markers.is_leet && markers.is_txtspk {
-            ResponseStyle::LeetMatch
-        } else if markers.is_shouting {
-            ResponseStyle::Playful // Match intensity
-        } else if markers.is_interrogative {
-            ResponseStyle::Curious // Zach is asking → Star responds analytically
-        } else if markers.is_terse {
-            ResponseStyle::Minimal
-        } else {
-            ResponseStyle::Direct
-        }
-    }
-
     /// Detect what style Zach is using from the RAW (unnormalized) input.
     /// This preserves shouting, leet, and other personality markers.
     fn detect_zach_style_raw(&self, raw_input: &str) -> ResponseStyle {

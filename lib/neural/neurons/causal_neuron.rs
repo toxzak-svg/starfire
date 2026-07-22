@@ -45,13 +45,6 @@ impl CausalNeuron {
         vec
     }
 
-    fn decode_vector(&self, vec: &[f32]) -> String {
-        vec.iter()
-            .map(|&v| (v * 255.0) as u8 as char)
-            .collect::<String>()
-            .trim_matches('\0')
-            .to_string()
-    }
 
     pub fn add_causal_edge(&mut self, cause: &str, effect: &str, confidence: f64) -> CausalEdgeId {
         self.engine.add_edge(cause, effect, confidence, None)

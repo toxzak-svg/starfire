@@ -232,11 +232,11 @@ mod tests {
     fn test_sqa_simple() {
         // Simple anti-ferromagnetic problem
         let n = 10;
-        let J = vec![vec![0.0; n]; n];
+        let j = vec![vec![0.0; n]; n];
         let h = vec![0.0; n];
 
         let mut sqa = SimulatedQuantumAnnealing::new(n, 5, 100);
-        let result = sqa.solve(&J, &h);
+        let result = sqa.solve(&j, &h);
 
         assert_eq!(result.best_spins.len(), n);
         assert!(result.best_energy.is_finite());

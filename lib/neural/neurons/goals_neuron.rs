@@ -4,7 +4,7 @@
 //! goals and action planning.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::goals::{GoalEngine, GoalId, Goal};
+use crate::goals::{GoalEngine, GoalId};
 use std::collections::HashMap;
 
 const GOALS_INPUT_DIM: usize = 64;
@@ -37,14 +37,6 @@ impl GoalsNeuron {
         }
     }
 
-    fn encode_goal(&self, goal: &Goal) -> Vec<f32> {
-        let mut vec = vec![0.0; GOALS_INPUT_DIM];
-        let content = &goal.content;
-        for (i, c) in content.bytes().enumerate().take(GOALS_INPUT_DIM) {
-            vec[i] = (c as f32) / 255.0;
-        }
-        vec
-    }
 
     pub fn add_goal(&mut self, goal: &str, priority: f64) -> GoalId {
         let id = self.engine.create_goal(goal, None);

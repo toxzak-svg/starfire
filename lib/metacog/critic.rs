@@ -111,8 +111,6 @@ pub struct Critic {
 }
 
 struct CritiqueRecord {
-    concerns: Vec<Concern>,
-    answer: String,
     was_correct: bool,
 }
 
@@ -166,8 +164,6 @@ impl Critic {
 
         // Record for learning
         self.critique_history.push(CritiqueRecord {
-            concerns: concerns.clone(),
-            answer: result.answer.clone().unwrap_or_default(),
             was_correct: false, // Will be updated later
         });
 

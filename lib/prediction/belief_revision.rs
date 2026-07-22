@@ -105,6 +105,8 @@ impl BeliefRevisionEngine {
         // Use the nearest neighbor in trajectory history as the "template"
         if let Some(conclusion) = self.find_nearest_known_conclusion(&projected) {
             let confidence = self.compute_projection_confidence(&trajectory_field, horizon);
+            let revision_distance =
+                self.cosine_distance(&conclusion.pre_state, &conclusion.post_state);
 
             vec![Prediction::new(
                 PredictionEngine::BeliefRevision,
@@ -122,9 +124,15 @@ impl BeliefRevisionEngine {
                 horizon,
                 vec![
                     format!("Trajectory length: {} exchanges", self.trajectory.len()),
+                    format!("Current exchange: {}", current.exchange),
+                    format!(
+                        "Snapshot age: {} seconds",
+                        crate::now_timestamp().saturating_sub(current.at)
+                    ),
                     format!("Consciousness proxy: {:.3}", current.consciousness_proxy),
                     format!("Creativity phase: {:.3}", current.creativity_phase),
                     format!("Nearest known conclusion: {}", conclusion.predicate),
+                    format!("Template revision distance: {:.3}", revision_distance),
                     format!("Projection confidence: {:.3}", confidence),
                 ],
             ).with_expiry(horizon as i64 * 180)]
