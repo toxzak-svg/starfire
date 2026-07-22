@@ -1,21 +1,19 @@
-name: Rust Warning Cleanup Scoped Formatting
+name: Rust Warning Cleanup Final Validation
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: rust-warning-cleanup-formatting
-  cancel-in-progress: false
+  group: rust-warning-cleanup-final-validation
+  cancel-in-progress: true
 
 jobs:
-  format:
-    if: >-
-      github.event.pull_request.head.ref == 'maintenance/rust-warning-cleanup' &&
-      github.actor != 'github-actions[bot]'
+  validate:
+    if: github.event.pull_request.head.ref == 'maintenance/rust-warning-cleanup'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -29,28 +27,44 @@ jobs:
         with:
           components: rustfmt
 
-      - name: Format CHARGE-scoped source
-        run: rustfmt --edition 2021 lib/persistence/store.rs
-
-      - name: Validate formatted source
+      - name: Verify CHARGE-scoped formatting
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check
+          rustfmt --edition 2021 \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
+          git diff --exit-code -- \
+            lib/persistence/companion.rs \
+            lib/persistence/store.rs \
+            lib/persistence/mod.rs \
+            lib/charge/mod.rs \
+            lib/user_model/companion_projection.rs \
+            lib/user_model/mod.rs
+
+      - name: Check all Starfire targets without warnings
+        shell: bash
+        run: |
+          set -euo pipefail
           cargo check -p star --all-targets --locked 2>&1 | tee warning-cleanup-check.log
           ! grep -F "warning:" warning-cleanup-check.log
-          cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
 
-      - name: Commit scoped formatting
+      - name: Run Starfire tests
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/persistence/store.rs
-          if git diff --cached --quiet; then
-            echo "Scoped source already formatted."
-          else
-            git commit -m "style: format persistence store after warning cleanup"
-            git push origin HEAD:maintenance/rust-warning-cleanup
-          fi
+          cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
+
+      - name: Upload final validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-warning-cleanup-final-validation
+          path: |
+            warning-cleanup-check.log
+            warning-cleanup-test.log
+          if-no-files-found: warn
