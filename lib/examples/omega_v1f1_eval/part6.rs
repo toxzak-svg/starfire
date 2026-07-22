@@ -3,15 +3,19 @@ fn fallback_controls(m: &LearnedExpressionModel, x: &Case, p: &Proj) -> Result<f
     let projection = exact_projection(p, &x.fx.id, Pref::Direct)?;
     let mut corrupt = m.clone();
     corrupt.digest.0 ^= 1;
-    let r = OfflineLearnedExpressionSelector::new(corrupt)
-        .select(&x.program, &x.lexical, &projection)?;
+    let r = OfflineLearnedExpressionSelector::new(corrupt).select(
+        &x.program,
+        &x.lexical,
+        &projection,
+    )?;
     let model = r.payload.disposition == SelectionDisposition::NeutralFallback
         && r.payload.text == neutral.payload.text;
     let mut stale = x.projection.clone();
     stale.source_digest.push_str(":stale");
-    let stale_result = OfflineLearnedExpressionSelector::new(m.clone())
-        .select(&x.program, &x.lexical, &stale)?;
-    let projection_guard = stale_result.payload.disposition == SelectionDisposition::NeutralFallback
+    let stale_result =
+        OfflineLearnedExpressionSelector::new(m.clone()).select(&x.program, &x.lexical, &stale)?;
+    let projection_guard = stale_result.payload.disposition
+        == SelectionDisposition::NeutralFallback
         && stale_result.payload.text == neutral.payload.text;
     Ok(ratio(usize::from(model) + usize::from(projection_guard), 2))
 }

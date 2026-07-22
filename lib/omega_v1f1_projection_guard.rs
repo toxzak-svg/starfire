@@ -7,8 +7,8 @@
 
 use crate::language_realization::LexicalBindingTable;
 use crate::learned_expression::{
-    LearnedExpressionError, LearnedExpressionModel, LearnedSelectionResult,
-    LearnedVoiceProjection, OfflineLearnedExpressionSelector,
+    LearnedExpressionError, LearnedExpressionModel, LearnedSelectionResult, LearnedVoiceProjection,
+    OfflineLearnedExpressionSelector,
 };
 use crate::semantic_response::SemanticResponseProgram;
 use crate::voice_state::VoiceDebugProjection;

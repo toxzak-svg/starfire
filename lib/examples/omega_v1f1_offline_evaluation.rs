@@ -1,3 +1,4 @@
+#![allow(dead_code, clippy::type_complexity)]
 #![recursion_limit = "256"]
 
 mod language_realization {

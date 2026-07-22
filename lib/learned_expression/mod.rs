@@ -12,10 +12,9 @@ use crate::language_realization::{
     SurfaceReference,
 };
 use crate::semantic_response::{
-    AbstentionReason, AuthorizedClaim, ClaimId, ClaimPolarity, DetailLevel,
-    DiscourseOperation, DiscourseOperationKind, EpistemicStatus, MissingVariableId, ObservationId,
-    OperationId, PredictionId, ResponseProgramDigest, SemanticProgramError,
-    SemanticResponseProgram,
+    AbstentionReason, AuthorizedClaim, ClaimId, ClaimPolarity, DetailLevel, DiscourseOperation,
+    DiscourseOperationKind, MissingVariableId, ObservationId, OperationId, PredictionId,
+    ResponseProgramDigest, SemanticProgramError, SemanticResponseProgram,
 };
 use crate::verifier_ready_realization::{
     abstention_text, epistemic_marker, VerifierReadyRealizationError, VerifierReadyRenderer,
@@ -300,10 +299,7 @@ impl ExpressionLattice {
             variants.extend(operation_variants);
         }
 
-        validate_lattice_variants(
-            &variants,
-            &lexical_table.payload.forbidden_surface_forms,
-        )?;
+        validate_lattice_variants(&variants, &lexical_table.payload.forbidden_surface_forms)?;
         let payload = ExpressionLatticePayload {
             program_digest: program.digest,
             lexical_table_digest: lexical_table.digest,
@@ -450,10 +446,7 @@ impl LearnedExpressionModel {
     }
 
     fn score(&self, projection: &LearnedVoiceProjection, profile: VariantProfile) -> i64 {
-        weighted_score(
-            &self.payload.weights,
-            &feature_matches(projection, profile),
-        )
+        weighted_score(&self.payload.weights, &feature_matches(projection, profile))
     }
 }
 
@@ -543,10 +536,8 @@ impl GrammarV3Verifier {
             costs,
             terminal_classification: VerificationTerminalClassification::Pass,
         };
-        let digest = GrammarV3VerificationDigest(digest_value(
-            VERIFICATION_DIGEST_DOMAIN,
-            &payload,
-        )?);
+        let digest =
+            GrammarV3VerificationDigest(digest_value(VERIFICATION_DIGEST_DOMAIN, &payload)?);
         if digest.0 == 0 {
             return Err(LearnedExpressionError::EmptyDigest);
         }
@@ -647,7 +638,10 @@ impl OfflineLearnedExpressionSelector {
         let lattice = ExpressionLattice::build(program, lexical_table)?;
         let mut by_operation = BTreeMap::<OperationId, Vec<&OperationSurfaceVariant>>::new();
         for variant in &lattice.payload.variants {
-            by_operation.entry(variant.operation).or_default().push(variant);
+            by_operation
+                .entry(variant.operation)
+                .or_default()
+                .push(variant);
         }
         for variants in by_operation.values_mut() {
             variants.sort_by_key(|variant| variant.variant_id);
@@ -695,12 +689,9 @@ impl OfflineLearnedExpressionSelector {
             .map_err(|_| LearnedExpressionError::CandidateBudgetExceeded)?;
         let verifier = GrammarV3Verifier;
         for candidate in beam {
-            if let Ok(report) = verifier.verify(
-                program,
-                lexical_table,
-                lattice.digest,
-                &candidate.text,
-            ) {
+            if let Ok(report) =
+                verifier.verify(program, lexical_table, lattice.digest, &candidate.text)
+            {
                 return Ok(LearnedSelectionPayload {
                     program_digest: program.digest,
                     lexical_table_digest: lexical_table.digest,
@@ -786,7 +777,9 @@ pub enum LearnedExpressionError {
     ModelBudgetExceeded,
     #[error("the training configuration is invalid")]
     InvalidTrainingConfiguration,
-    #[error("the expression lattice contains an empty, duplicate, ambiguous, or malformed surface")]
+    #[error(
+        "the expression lattice contains an empty, duplicate, ambiguous, or malformed surface"
+    )]
     InvalidLattice,
     #[error("the expression lattice digest is stale or mismatched")]
     LatticeDigestMismatch,
@@ -870,8 +863,14 @@ fn build_operation_variants(
             (
                 vec![
                     format!("Correction: {}; instead, {}.", prior_text, replacement_text),
-                    format!("Correction pair: {}; replacement: {}.", prior_text, replacement_text),
-                    format!("The correction is explicit: {}; instead, {}.", prior_text, replacement_text),
+                    format!(
+                        "Correction pair: {}; replacement: {}.",
+                        prior_text, replacement_text
+                    ),
+                    format!(
+                        "The correction is explicit: {}; instead, {}.",
+                        prior_text, replacement_text
+                    ),
                 ],
                 vec![*prior, *replacement],
                 Vec::new(),
@@ -946,11 +945,9 @@ fn build_operation_variants(
                 vec![SurfaceReference::Prediction(*prediction)],
             )
         }
-        DiscourseOperationKind::Abstain(reason) => (
-            abstention_variants(*reason),
-            Vec::new(),
-            Vec::new(),
-        ),
+        DiscourseOperationKind::Abstain(reason) => {
+            (abstention_variants(*reason), Vec::new(), Vec::new())
+        }
     };
 
     let profiles = [
@@ -1025,7 +1022,11 @@ fn render_claim(
         ClaimPolarity::Positive => &binding.positive_clause,
         ClaimPolarity::Negative => &binding.negative_clause,
     };
-    Ok(format!("{} {}", epistemic_marker(claim.epistemic_status), clause))
+    Ok(format!(
+        "{} {}",
+        epistemic_marker(claim.epistemic_status),
+        clause
+    ))
 }
 
 fn validate_lattice_variants(
@@ -1110,8 +1111,8 @@ fn recompute_costs(
     text: &str,
     variants: &[&OperationSurfaceVariant],
 ) -> Result<GrammarV3Costs, LearnedExpressionError> {
-    let operation_cost = u32::try_from(variants.len())
-        .map_err(|_| LearnedExpressionError::BudgetExceeded)?;
+    let operation_cost =
+        u32::try_from(variants.len()).map_err(|_| LearnedExpressionError::BudgetExceeded)?;
     let claim_cost = u32::try_from(
         variants
             .iter()
@@ -1169,7 +1170,7 @@ fn separator_before(program: &SemanticResponseProgram, index: usize) -> &'static
         .div_ceil(target_paragraphs)
         .max(1);
     if program.payload.style.detail == DetailLevel::Detailed
-        && index % operations_per_paragraph == 0
+        && index.is_multiple_of(operations_per_paragraph)
     {
         "\n\n"
     } else {
@@ -1215,7 +1216,10 @@ fn feature_matches(
     matches
 }
 
-fn weighted_score(weights: &[i32; VOICE_FEATURE_COUNT], matches: &[u16; VOICE_FEATURE_COUNT]) -> i64 {
+fn weighted_score(
+    weights: &[i32; VOICE_FEATURE_COUNT],
+    matches: &[u16; VOICE_FEATURE_COUNT],
+) -> i64 {
     weights
         .iter()
         .zip(matches)
@@ -1270,12 +1274,10 @@ fn mix_u64(mut digest: u64, value: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::language_realization::{
-        LexicalBindingTablePayload, ObservationLexicalBinding,
-    };
+    use crate::language_realization::{LexicalBindingTablePayload, ObservationLexicalBinding};
     use crate::semantic_response::{
         AcknowledgmentLevel, CognitiveStateVersion, ComputeBudget, DialogueMode,
-        DiscourseOperation, EpistemicConstraint, OutputBudget, ProhibitedClaim,
+        DiscourseOperation, EpistemicConstraint, EpistemicStatus, OutputBudget, ProhibitedClaim,
         ResponseProgramId, SemanticResponseIntent, SemanticResponseProgramPayload,
         SemanticValidationContext, SensitivityLevel, SensitivityPolicy, StyleEnvelope,
         SubjectScope, VocabularyLevel,
@@ -1311,9 +1313,7 @@ mod tests {
                 },
                 DiscourseOperation {
                     id: OperationId(3),
-                    kind: DiscourseOperationKind::Abstain(
-                        AbstentionReason::InsufficientEvidence,
-                    ),
+                    kind: DiscourseOperationKind::Abstain(AbstentionReason::InsufficientEvidence),
                 },
             ],
             required_claims: vec![claim],
@@ -1386,13 +1386,27 @@ mod tests {
     fn projection(direct: bool) -> LearnedVoiceProjection {
         if direct {
             LearnedVoiceProjection::new(
-                1, 9_000, 2_000, 9_000, 8_000, 9_000, 8_500, 5_000,
+                1,
+                9_000,
+                2_000,
+                9_000,
+                8_000,
+                9_000,
+                8_500,
+                5_000,
                 "direct-projection",
             )
             .unwrap()
         } else {
             LearnedVoiceProjection::new(
-                1, 5_000, 8_500, 4_500, 6_000, 4_000, 7_500, 6_500,
+                1,
+                5_000,
+                8_500,
+                4_500,
+                6_000,
+                4_000,
+                7_500,
+                6_500,
                 "warm-projection",
             )
             .unwrap()
@@ -1455,8 +1469,14 @@ mod tests {
         let warm = selector
             .select(&program, &lexical, &projection(false))
             .unwrap();
-        assert_eq!(direct.payload.disposition, SelectionDisposition::LearnedVerified);
-        assert_eq!(warm.payload.disposition, SelectionDisposition::LearnedVerified);
+        assert_eq!(
+            direct.payload.disposition,
+            SelectionDisposition::LearnedVerified
+        );
+        assert_eq!(
+            warm.payload.disposition,
+            SelectionDisposition::LearnedVerified
+        );
         assert_ne!(direct.payload.variant_ids, warm.payload.variant_ids);
         assert_ne!(direct.payload.text, warm.payload.text);
     }
@@ -1482,7 +1502,10 @@ mod tests {
             .select(&program, &lexical, &projection(true))
             .unwrap();
         let neutral = VerifierReadyRenderer.render(&program, &lexical).unwrap();
-        assert_eq!(result.payload.disposition, SelectionDisposition::NeutralFallback);
+        assert_eq!(
+            result.payload.disposition,
+            SelectionDisposition::NeutralFallback
+        );
         assert_eq!(result.payload.text, neutral.payload.text);
         assert_eq!(result.payload.selected_grammar_version, 2);
     }

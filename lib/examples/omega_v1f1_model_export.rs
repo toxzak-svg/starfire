@@ -188,7 +188,7 @@ fn projection(
         Preference::Direct => profiles.direct,
         Preference::Warm => profiles.warm,
     };
-    let values = if suffix % 2 == 0 {
+    let values = if suffix.is_multiple_of(2) {
         target
     } else {
         mix(profiles.neutral, target, 1, 4)

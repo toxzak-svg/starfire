@@ -17,12 +17,8 @@ fn main() -> Result<()> {
             .get(&fx.category)
             .cloned()
             .unwrap_or_default();
-        let (program, lexical) = semantic_case(
-            &fx,
-            profile,
-            &category_prohibited,
-            u64::try_from(i + 1)?,
-        )?;
+        let (program, lexical) =
+            semantic_case(&fx, profile, &category_prohibited, u64::try_from(i + 1)?)?;
         cases.push(Case {
             fx,
             split,
@@ -92,17 +88,19 @@ fn main() -> Result<()> {
         let mut fc = false;
         let mut fs = false;
         if s1.payload.disposition == SelectionDisposition::LearnedVerified {
-            let ld = s1.payload.lattice_digest.context("missing lattice digest")?;
+            let ld = s1
+                .payload
+                .lattice_digest
+                .context("missing lattice digest")?;
             let r1 = verifier.verify(&c.program, &c.lexical, ld, &s1.payload.text)?;
             let r2 = verifier.verify(&c.program, &c.lexical, ld, &s1.payload.text)?;
             det_verify &= r1 == r2;
             fv = true;
             verified += 1;
-            fc = c
-                .fx
-                .required
-                .iter()
-                .all(|x| s1.payload.text.to_lowercase().contains(&x.to_lowercase()));
+            fc =
+                c.fx.required
+                    .iter()
+                    .all(|x| s1.payload.text.to_lowercase().contains(&x.to_lowercase()));
             fs = prohibited(&a, &c.fx)
                 .iter()
                 .all(|x| !s1.payload.text.to_lowercase().contains(&x.to_lowercase()));
@@ -131,7 +129,11 @@ fn main() -> Result<()> {
         }
     }
 
-    let pref_acc = accuracy(&model, cases.iter().filter(|c| c.split == Split::Test), None);
+    let pref_acc = accuracy(
+        &model,
+        cases.iter().filter(|c| c.split == Split::Test),
+        None,
+    );
     let shuffled_acc = shuffled_accuracy(&model, &cases);
     let shuffle_drop = (pref_acc - shuffled_acc).max(0.0);
     let state_change = state_change(&selector, &cases, &f1.projection_profiles)?;
@@ -225,8 +227,7 @@ fn main() -> Result<()> {
         && state_change >= bps(f1.thresholds.state_pair_difference_min_bps)
         && shuffle_drop >= bps(f1.thresholds.shuffle_accuracy_drop_min_bps)
         && shuffled_acc <= bps(f1.thresholds.shuffled_accuracy_max_bps)
-        && opener_reduction
-            >= bps(f1.thresholds.repeated_opener_relative_reduction_min_bps)
+        && opener_reduction >= bps(f1.thresholds.repeated_opener_relative_reduction_min_bps)
         && trigram_reduction >= bps(f1.thresholds.top_trigram_relative_reduction_min_bps)
         && zeroed == 1.0
         && dup_rejected

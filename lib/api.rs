@@ -2,8 +2,8 @@
 //!
 //! A simple HTTP wrapper around Star's reasoning engine.
 
-use crate::{Runtime, Memory};
 use crate::persistence::MemoryDomain;
+use crate::{Memory, Runtime};
 use anyhow::Result;
 #[cfg(feature = "omega-v1-http-canary")]
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ pub const fn http_canary_authority_boundary() -> HttpCanaryAuthorityBoundary {
 pub fn finalize_chat_response(response: String) -> String {
     #[cfg(feature = "omega-v1-http-canary")]
     {
-        return crate::omega_v1_live_bridge::render_or_neutral(&response);
+        crate::omega_v1_live_bridge::render_or_neutral(&response)
     }
 
     #[cfg(not(feature = "omega-v1-http-canary"))]
@@ -77,8 +77,8 @@ pub fn start(runtime: Arc<Mutex<Runtime>>, host: &str, port: u16) -> Result<()> 
     let addr = format!("{}:{}", host, port);
     info!("Starting Star API server at http://{}", addr);
 
-    let server = tiny_http::Server::http(&addr)
-        .map_err(|e| anyhow::anyhow!("Server error: {}", e))?;
+    let server =
+        tiny_http::Server::http(&addr).map_err(|e| anyhow::anyhow!("Server error: {}", e))?;
     info!("Star API ready at http://{}/", addr);
 
     for request in server.incoming_requests() {
@@ -86,7 +86,7 @@ pub fn start(runtime: Arc<Mutex<Runtime>>, host: &str, port: u16) -> Result<()> 
             warn!("Request failed: {}", e);
         }
     }
-    
+
     Ok(())
 }
 
@@ -97,7 +97,7 @@ fn header(name: &str, value: &str) -> tiny_http::Header {
 fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request) -> Result<()> {
     let path = request.url().to_string();
     let method = request.method().as_str().to_string();
-    
+
     // Handle CORS preflight immediately
     if method == "OPTIONS" {
         let response = tiny_http::Response::from_string(String::new())
@@ -112,7 +112,10 @@ fn handle_request(runtime: &Arc<Mutex<Runtime>>, mut request: tiny_http::Request
     } else {
         // Read request body
         let mut body = Vec::new();
-        request.as_reader().read_to_end(&mut body).map_err(|e| anyhow::anyhow!("Read error: {}", e))?;
+        request
+            .as_reader()
+            .read_to_end(&mut body)
+            .map_err(|e| anyhow::anyhow!("Read error: {}", e))?;
         let body_str = String::from_utf8_lossy(&body).to_string();
 
         // Build response based on route
@@ -160,7 +163,8 @@ fn handle_reason(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
         Err(e) => return format!(r#"{{"error":"Invalid request: {}"}}"#, e),
     };
 
-    let memories: Vec<Memory> = req.memories
+    let memories: Vec<Memory> = req
+        .memories
         .unwrap_or_default()
         .into_iter()
         .map(|s| Memory::new(&s, MemoryDomain::Episodic, 0.5))
@@ -181,7 +185,8 @@ fn handle_reason(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
         "confidence": format!("{:?}", result.confidence).to_lowercase(),
         "confidence_score": result.confidence_score,
         "reasoning_chain": result.reasoning_chain,
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn handle_cognitive(runtime: &Arc<Mutex<Runtime>>) -> String {
@@ -189,18 +194,22 @@ fn handle_cognitive(runtime: &Arc<Mutex<Runtime>>) -> String {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
-    
+
     let cog = rt_guard.cognition();
-    let reasoning_trace: Vec<serde_json::Value> = cog.reasoning_trace.iter().map(|step| {
-        serde_json::json!({
-            "input": step.input,
-            "conclusion": step.conclusion,
-            "chain": step.chain,
-            "confidence": format!("{:?}", step.confidence).to_lowercase(),
-            "timestamp": step.timestamp,
+    let reasoning_trace: Vec<serde_json::Value> = cog
+        .reasoning_trace
+        .iter()
+        .map(|step| {
+            serde_json::json!({
+                "input": step.input,
+                "conclusion": step.conclusion,
+                "chain": step.chain,
+                "confidence": format!("{:?}", step.confidence).to_lowercase(),
+                "timestamp": step.timestamp,
+            })
         })
-    }).collect();
-    
+        .collect();
+
     let response = serde_json::json!({
         "current_focus": cog.current_focus,
         "certainty": cog.certainty,
@@ -208,7 +217,7 @@ fn handle_cognitive(runtime: &Arc<Mutex<Runtime>>) -> String {
         "last_reasoning": cog.last_reasoning,
         "reasoning_trace": reasoning_trace,
     });
-    
+
     serde_json::to_string(&response).unwrap_or_else(|e| format!(r#"{{"error":"{}",}}"#, e))
 }
 
@@ -217,40 +226,56 @@ fn handle_metacog(runtime: &Arc<Mutex<Runtime>>) -> String {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
     };
-    
+
     let metacog = rt_guard.metacognition_ref();
-    
+
     // Get reasoning history
-    let reasoning_history: Vec<serde_json::Value> = metacog.reasoning_history().iter().rev().take(10).map(|r| {
-        serde_json::json!({
-            "query": r.query,
-            "conclusion": r.conclusion,
-            "confidence": format!("{:?}", r.confidence).to_lowercase(),
-            "was_surprising": r.was_surprising,
-            "timestamp": r.timestamp,
+    let reasoning_history: Vec<serde_json::Value> = metacog
+        .reasoning_history()
+        .iter()
+        .rev()
+        .take(10)
+        .map(|r| {
+            serde_json::json!({
+                "query": r.query,
+                "conclusion": r.conclusion,
+                "confidence": format!("{:?}", r.confidence).to_lowercase(),
+                "was_surprising": r.was_surprising,
+                "timestamp": r.timestamp,
+            })
         })
-    }).collect();
-    
+        .collect();
+
     // Get beliefs
-    let beliefs: Vec<serde_json::Value> = metacog.all_beliefs().iter().map(|(topic, belief)| {
-        serde_json::json!({
-            "topic": topic,
-            "content": belief.content,
-            "confidence": format!("{:?}", belief.confidence_state).to_lowercase(),
+    let beliefs: Vec<serde_json::Value> = metacog
+        .all_beliefs()
+        .iter()
+        .map(|(topic, belief)| {
+            serde_json::json!({
+                "topic": topic,
+                "content": belief.content,
+                "confidence": format!("{:?}", belief.confidence_state).to_lowercase(),
+            })
         })
-    }).collect();
-    
+        .collect();
+
     // Get surprising conclusions
-    let surprising: Vec<String> = metacog.surprising_conclusions().iter().map(|r| r.conclusion.clone()).collect();
-    
+    let surprising: Vec<String> = metacog
+        .surprising_conclusions()
+        .iter()
+        .map(|r| r.conclusion.clone())
+        .collect();
+
     // Get top knowledge gap
-    let top_gap = metacog.top_gap().map(|g| serde_json::json!({
-        "topic": g.topic,
-        "importance": g.importance,
-        "investigated": g.investigated,
-        "progress": g.progress,
-    }));
-    
+    let top_gap = metacog.top_gap().map(|g| {
+        serde_json::json!({
+            "topic": g.topic,
+            "importance": g.importance,
+            "investigated": g.investigated,
+            "progress": g.progress,
+        })
+    });
+
     let response = serde_json::json!({
         "beliefs": beliefs,
         "reasoning_history": reasoning_history,
@@ -258,7 +283,7 @@ fn handle_metacog(runtime: &Arc<Mutex<Runtime>>) -> String {
         "top_gap": top_gap,
         "curiosity_topics": metacog.curiosity_topics(),
     });
-    
+
     serde_json::to_string(&response).unwrap_or_else(|e| format!(r#"{{"error":"{}",}}"#, e))
 }
 
@@ -327,9 +352,8 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
             let response_json = serde_json::json!({ "response": response }).to_string();
             #[cfg(feature = "omega-v1-f2-shadow")]
             if let Some(shadow_event) = shadow_event {
-                let fingerprint = crate::omega_v1f2_shadow::ResponseFingerprint::frozen(
-                    response_json.as_bytes(),
-                );
+                let fingerprint =
+                    crate::omega_v1f2_shadow::ResponseFingerprint::frozen(response_json.as_bytes());
                 crate::omega_v1f2_shadow::dispatch(shadow_event, fingerprint);
             }
             response_json
@@ -357,16 +381,20 @@ fn handle_remember(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
 
     let memories = rt_guard.get_memories(&req.topic, req.limit.unwrap_or(5));
 
-    let results: Vec<serde_json::Value> = memories.iter().map(|m| {
-        serde_json::json!({
-            "content": m.content,
-            "domain": format!("{:?}", m.domain).to_lowercase(),
-            "importance": m.importance,
-            "confidence": m.current_confidence(crate::now_timestamp()),
+    let results: Vec<serde_json::Value> = memories
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "content": m.content,
+                "domain": format!("{:?}", m.domain).to_lowercase(),
+                "importance": m.importance,
+                "confidence": m.current_confidence(crate::now_timestamp()),
+            })
         })
-    }).collect();
+        .collect();
 
-    serde_json::to_string(&results).unwrap_or_else(|e| format!(r#"{{"error":"Serialization: {}"}}"#, e))
+    serde_json::to_string(&results)
+        .unwrap_or_else(|e| format!(r#"{{"error":"Serialization: {}"}}"#, e))
 }
 
 fn handle_identity(runtime: &Arc<Mutex<Runtime>>) -> String {
@@ -380,7 +408,8 @@ fn handle_identity(runtime: &Arc<Mutex<Runtime>>) -> String {
         "summary": rt_guard.identity_summary(),
         "relationship": rt_guard.relationship_to_zachary(),
         "session_id": rt_guard.session_id(),
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn handle_memory_stats(runtime: &Arc<Mutex<Runtime>>) -> String {
@@ -396,7 +425,8 @@ fn handle_memory_stats(runtime: &Arc<Mutex<Runtime>>) -> String {
         "beliefs_count": snap.beliefs_count,
         "sessions_count": snap.sessions_count,
         "domain_breakdown": snap.domain_breakdown,
-    }).to_string()
+    })
+    .to_string()
 }
 
 fn handle_think(runtime: &Arc<Mutex<Runtime>>) -> String {
@@ -425,7 +455,8 @@ fn handle_think(runtime: &Arc<Mutex<Runtime>>) -> String {
         "confidence": format!("{:?}", thought.confidence).to_lowercase(),
         "generated_by": thought.generated_by,
         "tentative_answer": thought.tentative_answer,
-    }).to_string()
+    })
+    .to_string()
 }
 
 /// Get Star's last autonomous thought (for external observers).
@@ -454,7 +485,8 @@ fn handle_thought(runtime: &Arc<Mutex<Runtime>>) -> String {
                 "topic": thought.topic,
                 "confidence": format!("{:?}", thought.confidence).to_lowercase(),
                 "generated_by": thought.generated_by,
-            }).to_string()
+            })
+            .to_string()
         }
         None => {
             r#"{"thought":null,"message":"Star has no pending autonomous thoughts"}"#.to_string()
@@ -506,7 +538,9 @@ fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String 
             Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
             Ok(r) => r,
         };
-        rt_guard.chat(&text).unwrap_or_else(|e| format!("Error: {}", e))
+        rt_guard
+            .chat(&text)
+            .unwrap_or_else(|e| format!("Error: {}", e))
     };
 
     // Send response back to Telegram
@@ -531,7 +565,8 @@ fn handle_webhook_telegram(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String 
         "response": star_response,
         "chat_id": chat_id,
         "update_id": update.update_id,
-    }).to_string()
+    })
+    .to_string()
 }
 
 #[cfg(all(test, feature = "omega-v1-http-canary"))]
@@ -570,7 +605,9 @@ mod omega_v1d1_tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.as_object().map(|object| object.len()), Some(1));
-        assert!(parsed.get("response").is_some_and(serde_json::Value::is_string));
+        assert!(parsed
+            .get("response")
+            .is_some_and(serde_json::Value::is_string));
     }
 
     #[test]

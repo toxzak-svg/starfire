@@ -46,7 +46,10 @@ fn validate_corpus(a: &AM, f: &[Fx]) -> Result<()> {
 fn validate_split(
     f: &FM,
     xs: &[Fx],
-) -> Result<(BTreeMap<String, usize>, BTreeMap<String, BTreeMap<String, usize>>)> {
+) -> Result<(
+    BTreeMap<String, usize>,
+    BTreeMap<String, BTreeMap<String, usize>>,
+)> {
     let mut totals = BTreeMap::new();
     let mut cats: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
     let mut suffixes: BTreeMap<String, BTreeSet<u16>> = BTreeMap::new();
@@ -99,8 +102,12 @@ fn pref(p: &PP, profile: &str) -> Result<Pref> {
     }
 }
 fn projection(p: &Proj, id: &str, pref: Pref, n: u16) -> Result<LearnedVoiceProjection> {
-    let target = if pref == Pref::Direct { p.direct } else { p.warm };
-    let v = if n % 2 == 0 {
+    let target = if pref == Pref::Direct {
+        p.direct
+    } else {
+        p.warm
+    };
+    let v = if n.is_multiple_of(2) {
         target
     } else {
         mix(p.neutral, target, 1, 4)
@@ -116,14 +123,22 @@ fn projection(p: &Proj, id: &str, pref: Pref, n: u16) -> Result<LearnedVoiceProj
         v[6],
         format!(
             "omega-v1f1r1-projection-v1:{id}:{}:{:016x}",
-            if pref == Pref::Direct { "direct" } else { "warm" },
+            if pref == Pref::Direct {
+                "direct"
+            } else {
+                "warm"
+            },
             hash(&v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>())
         ),
     )
     .map_err(Into::into)
 }
 fn exact_projection(p: &Proj, id: &str, pref: Pref) -> Result<LearnedVoiceProjection> {
-    let v = if pref == Pref::Direct { p.direct } else { p.warm };
+    let v = if pref == Pref::Direct {
+        p.direct
+    } else {
+        p.warm
+    };
     LearnedVoiceProjection::new(
         1,
         v[0],
@@ -135,7 +150,11 @@ fn exact_projection(p: &Proj, id: &str, pref: Pref) -> Result<LearnedVoiceProjec
         v[6],
         format!(
             "omega-v1f1r1-exact:{id}:{}",
-            if pref == Pref::Direct { "direct" } else { "warm" }
+            if pref == Pref::Direct {
+                "direct"
+            } else {
+                "warm"
+            }
         ),
     )
     .map_err(Into::into)

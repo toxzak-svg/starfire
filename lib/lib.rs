@@ -15,51 +15,51 @@ pub fn now_timestamp() -> i64 {
 }
 
 pub mod api;
-pub mod cognition;
-pub mod persistence;
-pub mod reasoning;
-pub mod knowledge;
-pub mod conversation;
-pub mod metacog;
-pub mod context;
-pub mod capabilities;
-pub mod training_db;
-pub mod learning;
-pub mod runtime;
-pub mod voice;
-pub mod math;
-pub mod curiosity;
-pub mod world_model;
-pub mod quanot;
-pub mod multimodal;
-pub mod causal;
-pub mod goals;
-pub mod curriculum;
-pub mod research;
-pub mod prediction;
-pub mod input_normalizer;
-pub mod personality;
-pub mod pain;
-pub mod dreaming;
-pub mod concepts;
-pub mod user_model;
-pub mod companion_state;
-pub mod neural;
-pub mod language_model;
-pub mod variation;
-pub mod charge;
-pub mod environment;
-pub mod cognitive_cycle;
 pub mod autonomy;
+pub mod capabilities;
+pub mod causal;
+pub mod charge;
+pub mod cognition;
+pub mod cognitive_cycle;
 pub mod commitment_state;
-pub mod rule_induction;
-pub mod graph_discovery;
-pub mod latent_roles;
-pub mod structural_transfer;
-pub mod representation_genesis;
+pub mod companion_state;
+pub mod concepts;
+pub mod context;
+pub mod conversation;
+pub mod curiosity;
+pub mod curriculum;
+pub mod dreaming;
+pub mod environment;
+pub mod goals;
 pub mod grammar_extension;
-pub mod recursive_grammar_composition;
+pub mod graph_discovery;
+pub mod input_normalizer;
+pub mod knowledge;
+pub mod language_model;
+pub mod latent_roles;
+pub mod learning;
+pub mod math;
+pub mod metacog;
+pub mod multimodal;
 pub mod multistep_abstraction_reuse;
+pub mod neural;
+pub mod pain;
+pub mod persistence;
+pub mod personality;
+pub mod prediction;
+pub mod quanot;
+pub mod reasoning;
+pub mod recursive_grammar_composition;
+pub mod representation_genesis;
+pub mod research;
+pub mod rule_induction;
+pub mod runtime;
+pub mod structural_transfer;
+pub mod training_db;
+pub mod user_model;
+pub mod variation;
+pub mod voice;
+pub mod world_model;
 // ΩG4 is exercised through its public integration-test target. The production
 // module remains available to normal library users and executable probes.
 #[cfg(not(test))]
@@ -129,9 +129,9 @@ pub mod language_realization;
 // Render builder gate. It has no Runtime::chat(), response, memory, persistence,
 // routing, companion-state, belief, ontology, tool, CHARGE, or action authority.
 #[cfg(feature = "independent-language-verifier")]
-pub mod verifier_ready_realization;
-#[cfg(feature = "independent-language-verifier")]
 pub mod language_verification;
+#[cfg(feature = "independent-language-verifier")]
+pub mod verifier_ready_realization;
 
 // ΩV1-F1: bounded offline learned expression selection over a closed grammar-v3
 // surface lattice. The ranker is integer-only and every selected candidate is
@@ -155,6 +155,13 @@ pub mod omega_v1f1r1_surface;
 pub use omega_v1f1r1_surface as surface_diversity;
 #[cfg(feature = "omega-v1-learned-expression")]
 pub mod omega_v1f1r1_claim_first;
+
+// STLM L1-A: replayable candidate search over the committed F1R1 surface
+// lattice. Bounded conversational microstate and recent-language fingerprints
+// may rank wording only; every candidate is mapped back to a committed surface
+// and independently verified. Offline-only, with no live response authority.
+#[cfg(feature = "verified-improvisation")]
+pub mod verified_improvisation;
 
 // ΩV1-F2: post-response learned-expression shadow observation. The live HTTP
 // response is frozen first; only typed intent-derived semantics, sealed VoiceState
@@ -202,11 +209,11 @@ pub mod developmental;
 pub mod relational;
 
 // Re-export commonly used types at crate root for ergonomic access
-pub use runtime::Runtime;
+pub use persistence::memory::Belief;
+pub use persistence::memory::BeliefState;
 pub use persistence::Memory;
 pub use persistence::Store;
-pub use persistence::memory::BeliefState;
-pub use persistence::memory::Belief;
+pub use runtime::Runtime;
 
 // Multi-tempo cognition exports
-pub use runtime::tempo::{Tempo, TempoEngine, TempoResult, tempo_for_query};
+pub use runtime::tempo::{tempo_for_query, Tempo, TempoEngine, TempoResult};

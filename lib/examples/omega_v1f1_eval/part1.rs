@@ -14,11 +14,11 @@ use star::omega_v1f1_projection_guard::VerifiedVoiceProjection as LearnedVoicePr
 use star::semantic_response::{
     AbstentionReason, AcknowledgmentLevel, AuthorizedClaim, ClaimId, ClaimPolarity,
     CognitiveStateVersion, ComputeBudget, DetailLevel, DialogueMode, DiscourseOperation,
-    DiscourseOperationKind, EpistemicConstraint, EpistemicStatus, MissingVariableId,
-    ObservationId, OperationId, OutputBudget, PredictionId, ProhibitedClaim,
-    ResponseProgramId, SemanticResponseIntent, SemanticResponseProgram,
-    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-    SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+    DiscourseOperationKind, EpistemicConstraint, EpistemicStatus, MissingVariableId, ObservationId,
+    OperationId, OutputBudget, PredictionId, ProhibitedClaim, ResponseProgramId,
+    SemanticResponseIntent, SemanticResponseProgram, SemanticResponseProgramPayload,
+    SemanticValidationContext, SensitivityLevel, SensitivityPolicy, StyleEnvelope, SubjectScope,
+    VocabularyLevel,
 };
 use star::verifier_ready_realization::VerifierReadyRenderer;
 use std::collections::{BTreeMap, BTreeSet};
@@ -26,20 +26,40 @@ use surface_diversity_v2::{
     authority_boundary, ClaimFirstLattice as ExpressionLattice,
     ClaimFirstLatticeDigest as ExpressionLatticeDigest,
     ClaimFirstOfflineSelector as OfflineLearnedExpressionSelector,
-    ClaimFirstSurfaceVariant as OperationSurfaceVariant,
-    ClaimFirstVerifier as GrammarV3Verifier,
+    ClaimFirstSurfaceVariant as OperationSurfaceVariant, ClaimFirstVerifier as GrammarV3Verifier,
 };
 
 const F1: &str = include_str!("../../fixtures/omega_v1f1/manifest.json");
 const A: &str = include_str!("../../fixtures/omega_v1a/manifest.json");
 const SHARDS: [(&str, &str); 7] = [
-    ("ordinary", include_str!("../../fixtures/omega_v1a/ordinary.json")),
-    ("technical", include_str!("../../fixtures/omega_v1a/technical.json")),
-    ("emotional", include_str!("../../fixtures/omega_v1a/emotional.json")),
-    ("disagreement", include_str!("../../fixtures/omega_v1a/disagreement.json")),
-    ("uncertainty", include_str!("../../fixtures/omega_v1a/uncertainty.json")),
-    ("continuity", include_str!("../../fixtures/omega_v1a/continuity.json")),
-    ("adversarial", include_str!("../../fixtures/omega_v1a/adversarial.json")),
+    (
+        "ordinary",
+        include_str!("../../fixtures/omega_v1a/ordinary.json"),
+    ),
+    (
+        "technical",
+        include_str!("../../fixtures/omega_v1a/technical.json"),
+    ),
+    (
+        "emotional",
+        include_str!("../../fixtures/omega_v1a/emotional.json"),
+    ),
+    (
+        "disagreement",
+        include_str!("../../fixtures/omega_v1a/disagreement.json"),
+    ),
+    (
+        "uncertainty",
+        include_str!("../../fixtures/omega_v1a/uncertainty.json"),
+    ),
+    (
+        "continuity",
+        include_str!("../../fixtures/omega_v1a/continuity.json"),
+    ),
+    (
+        "adversarial",
+        include_str!("../../fixtures/omega_v1a/adversarial.json"),
+    ),
 ];
 const SUBJECT: SubjectScope = SubjectScope(77);
 
