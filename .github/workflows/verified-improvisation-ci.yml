@@ -1,0 +1,52 @@
+name: Verified Improvisation CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/verified_improvisation.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - ".github/workflows/verified-improvisation-ci.yml"
+      - "docs/experiments/STLM_L1A_VERIFIED_IMPROVISATION.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verified-improvisation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/verified_improvisation.rs \
+            lib/lib.rs
+
+      - name: Compile scoped feature
+        run: cargo check -p star --lib --features verified-improvisation --locked
+
+      - name: Lint scoped feature
+        run: |
+          cargo clippy -p star --lib --features verified-improvisation --locked \
+            --message-format=short -- -D warnings
+
+      - name: Run verifier-backed improvisation contracts
+        run: |
+          cargo test -p star --lib --features verified-improvisation --locked \
+            verified_improvisation:: -- --test-threads=1
