@@ -1,0 +1,80 @@
+name: Rust Warning Cleanup Bootstrap
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rust-warning-cleanup-bootstrap
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    if: >-
+      github.event.pull_request.head.ref == 'maintenance/rust-warning-cleanup' &&
+      github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: maintenance/rust-warning-cleanup
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply compiler suggestions by target
+        shell: bash
+        run: |
+          set -uo pipefail
+          : > cargo-fix.log
+          for target in --lib --tests --examples; do
+            echo "===== cargo fix ${target} =====" | tee -a cargo-fix.log
+            cargo fix -p star "${target}" --locked --allow-dirty --allow-staged 2>&1 \
+              | tee -a cargo-fix.log || true
+          done
+
+      - name: Apply reviewed cleanup script
+        run: python .github/scripts/rust_warning_cleanup.py
+
+      - name: Format workspace
+        run: cargo fmt --all
+
+      - name: Commit cleanup changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib
+          if git diff --cached --quiet; then
+            echo "No cleanup changes were produced."
+          else
+            git commit -m "chore: reduce Rust warnings and repair vacuous tests"
+            git push origin HEAD:maintenance/rust-warning-cleanup
+          fi
+
+      - name: Check all Starfire targets
+        continue-on-error: true
+        run: cargo check -p star --all-targets --locked 2>&1 | tee warning-cleanup-check.log
+
+      - name: Run Starfire tests
+        continue-on-error: true
+        run: cargo test -p star --locked 2>&1 | tee warning-cleanup-test.log
+
+      - name: Upload warning inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-warning-cleanup-check
+          path: |
+            cargo-fix.log
+            warning-cleanup-check.log
+            warning-cleanup-test.log
+          if-no-files-found: warn
