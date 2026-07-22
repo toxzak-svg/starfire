@@ -1,3 +1,4 @@
+# Reviewed, idempotent cleanup pass for PR #145.
 from pathlib import Path
 
 
