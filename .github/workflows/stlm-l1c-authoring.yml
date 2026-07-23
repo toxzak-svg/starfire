@@ -1,0 +1,54 @@
+name: STLM L1-C Authoring
+
+on:
+  push:
+    branches:
+      - feat/stlm-l1c-shadow-observation
+    paths:
+      - "scripts/apply_stlm_l1c_authoring.py"
+      - ".github/workflows/stlm-l1c-authoring.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  author:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out authoring branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/stlm-l1c-shadow-observation
+
+      - name: Install Rust formatter
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply bounded L1-C implementation
+        run: |
+          python3 scripts/apply_stlm_l1c_authoring.py
+          rustfmt --edition 2021 lib/api.rs
+          rustfmt --edition 2021 --config skip_children=true lib/lib.rs
+          rustfmt --edition 2021 \
+            lib/stlm_l1c_shadow.rs \
+            lib/examples/stlm_l1c_shadow_probe.rs
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/api.rs \
+            lib/lib.rs \
+            lib/Cargo.toml \
+            lib/stlm_l1c_shadow.rs \
+            lib/examples/stlm_l1c_shadow_probe.rs \
+            src/Cargo.toml \
+            Dockerfile \
+            entrypoint.sh \
+            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_PREREGISTRATION.md \
+            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_STATUS.md \
+            .github/workflows/stlm-l1c-shadow-ci.yml
+          git commit -m "feat(language): add L1-C verified improvisation shadow"
+          git push
