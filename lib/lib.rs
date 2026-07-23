@@ -115,6 +115,12 @@ pub mod web_research;
 #[cfg(feature = "web-search-searxng")]
 pub mod web_search_searxng;
 
+// ARISE-A0: bounded reverse-obligation planning, verified span execution, and
+// inert completed-response observation. Disabled by default and not wired into
+// Runtime::chat(), persistence, routing, tools, CHARGE, beliefs, or actions.
+#[cfg(feature = "arise-edge")]
+pub mod arise_edge;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
