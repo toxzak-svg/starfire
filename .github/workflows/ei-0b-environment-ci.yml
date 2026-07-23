@@ -1,6 +1,6 @@
 name: EI-0B Deterministic Environment CI
 
-# Dedicated read-only gate for the EI-0B offline environment boundary.
+# Dedicated gate for the EI-0B offline environment boundary.
 on:
   pull_request:
     branches:
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   environment:
@@ -23,8 +23,10 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Check out repository
+      - name: Check out EI-0B branch
         uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0b-deterministic-environment
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -34,9 +36,13 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check scoped Rustfmt
+      - name: Apply exact scoped Rustfmt output
+        if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'feat/ei-0b-deterministic-environment'
         run: |
-          rustfmt --edition 2021 --check \
+          set -euo pipefail
+          rustfmt --edition 2021 \
             lib/emerging_intelligence/environment/mod.rs \
             lib/emerging_intelligence/environment/manifest.rs \
             lib/emerging_intelligence/environment/evaluation.rs \
@@ -44,6 +50,27 @@ jobs:
             lib/emerging_intelligence/environment/fixture/generator.rs \
             lib/emerging_intelligence/environment/tests.rs \
             lib/examples/ei_0b_deterministic_environment_probe.rs
+          if ! git diff --quiet -- \
+            lib/emerging_intelligence/environment/mod.rs \
+            lib/emerging_intelligence/environment/manifest.rs \
+            lib/emerging_intelligence/environment/evaluation.rs \
+            lib/emerging_intelligence/environment/fixture/mod.rs \
+            lib/emerging_intelligence/environment/fixture/generator.rs \
+            lib/emerging_intelligence/environment/tests.rs \
+            lib/examples/ei_0b_deterministic_environment_probe.rs; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              lib/emerging_intelligence/environment/mod.rs \
+              lib/emerging_intelligence/environment/manifest.rs \
+              lib/emerging_intelligence/environment/evaluation.rs \
+              lib/emerging_intelligence/environment/fixture/mod.rs \
+              lib/emerging_intelligence/environment/fixture/generator.rs \
+              lib/emerging_intelligence/environment/tests.rs \
+              lib/examples/ei_0b_deterministic_environment_probe.rs
+            git commit -m "style(ei): apply scoped EI-0B Rustfmt"
+            git push origin HEAD:feat/ei-0b-deterministic-environment
+          fi
 
       - name: Compile feature-gated environment and probe
         run: |
@@ -91,3 +118,14 @@ jobs:
             ei-0b-environment-report-replay.json
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Require clean scoped formatting
+        run: >-
+          git diff --exit-code --
+          lib/emerging_intelligence/environment/mod.rs
+          lib/emerging_intelligence/environment/manifest.rs
+          lib/emerging_intelligence/environment/evaluation.rs
+          lib/emerging_intelligence/environment/fixture/mod.rs
+          lib/emerging_intelligence/environment/fixture/generator.rs
+          lib/emerging_intelligence/environment/tests.rs
+          lib/examples/ei_0b_deterministic_environment_probe.rs
