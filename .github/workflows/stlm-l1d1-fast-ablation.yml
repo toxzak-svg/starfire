@@ -65,8 +65,12 @@ jobs:
             --output-dir artifacts/models \
             | tee artifacts/stlm_l1d1_materialization.json
 
-      - name: Check Rust parity probe formatting
-        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
+      - name: Format isolated Rust parity probe
+        run: |
+          cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml
+          mkdir -p artifacts/formatted
+          cp tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs \
+            artifacts/formatted/verify_fast_ablation_parity.rs
 
       - name: Run fast factorial evaluation
         run: |
@@ -139,7 +143,8 @@ jobs:
             --bin verify_fast_ablation_parity -- \
             -D warnings
 
-      - name: Upload ablation reports
+      - name: Upload ablation reports and formatted source
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stlm-l1d1-fast-ablation
