@@ -1,0 +1,81 @@
+name: STLM L1-B Held-Out Evaluation CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/examples/stlm_l1b_heldout_conversation_evaluation.rs"
+      - "lib/verified_improvisation.rs"
+      - "docs/experiments/STLM_L1B_HELDOUT_CONVERSATIONAL_EVALUATION.md"
+      - "docs/experiments/STLM_L1B_HELDOUT_CONVERSATIONAL_EVALUATION_RESULT_TEMPLATE.md"
+      - "docs/experiments/STLM_L1B_HELDOUT_CORPUS_MANIFEST.json"
+      - ".github/workflows/stlm-l1b-heldout-evaluation-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stlm-l1b-heldout-evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        run: rustfmt --edition 2021 --check lib/examples/stlm_l1b_heldout_conversation_evaluation.rs
+
+      - name: Compile held-out evaluator
+        run: |
+          cargo check -p star --example stlm_l1b_heldout_conversation_evaluation \
+            --features verified-improvisation --locked
+
+      - name: Lint held-out evaluator
+        run: |
+          set -o pipefail
+          cargo clippy -p star --example stlm_l1b_heldout_conversation_evaluation \
+            --features verified-improvisation --locked --message-format=short \
+            2>&1 | tee stlm-l1b-clippy.log
+          if grep -F 'lib/examples/stlm_l1b_heldout_conversation_evaluation.rs' stlm-l1b-clippy.log; then
+            echo "STLM L1-B scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run frozen held-out evaluation
+        run: |
+          set -o pipefail
+          cargo run -p star --example stlm_l1b_heldout_conversation_evaluation \
+            --features verified-improvisation --locked \
+            | tee stlm-l1b-heldout-report.json
+          grep -F '"experiment": "STLM_L1B_HELDOUT_CONVERSATIONAL_EVALUATION"' stlm-l1b-heldout-report.json
+          grep -F '"corpus_version": "stlm-l1b-heldout-v1"' stlm-l1b-heldout-report.json
+          grep -F '"scenario_count": 10' stlm-l1b-heldout-report.json
+          grep -F '"verification_pass_rate_bps": 10000' stlm-l1b-heldout-report.json
+          grep -F '"replay_pass_rate_bps": 10000' stlm-l1b-heldout-report.json
+          grep -F '"fallback_count": 0' stlm-l1b-heldout-report.json
+          grep -F '"legacy_lead_hits": 0' stlm-l1b-heldout-report.json
+          grep -F '"authority_boundary_closed": true' stlm-l1b-heldout-report.json
+          grep -F '"no_runtime_influence": true' stlm-l1b-heldout-report.json
+          grep -F '"gate_passed": true' stlm-l1b-heldout-report.json
+
+      - name: Preserve held-out diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l1b-heldout-evaluation
+          path: |
+            stlm-l1b-clippy.log
+            stlm-l1b-heldout-report.json
+          if-no-files-found: ignore
+          retention-days: 30

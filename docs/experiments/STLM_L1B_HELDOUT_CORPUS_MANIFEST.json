@@ -1,0 +1,21 @@
+{
+  "experiment": "STLM_L1B_HELDOUT_CONVERSATIONAL_EVALUATION",
+  "corpus_version": "stlm-l1b-heldout-v1",
+  "scenario_count": 10,
+  "seeds_per_scenario": 16,
+  "scenarios": [
+    "iteration_tradeoff",
+    "fluency_correction",
+    "causal_explanation",
+    "uncertainty_disclosure",
+    "relational_acknowledgment",
+    "evidence_request",
+    "bounded_commitment",
+    "careful_abstention",
+    "capability_boundary",
+    "factual_status"
+  ],
+  "live_influence": false,
+  "runtime_authority": false,
+  "thresholds_frozen_before_result": true
+}
