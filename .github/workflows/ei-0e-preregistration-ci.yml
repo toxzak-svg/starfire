@@ -1,5 +1,6 @@
 name: EI-0E Frozen Terminal Preregistration CI
 
+# Owner-triggered verification after the current-main source rebind.
 on:
   pull_request:
     branches: [main]
