@@ -1,0 +1,68 @@
+name: EI-0C Exact Rustfmt
+
+on:
+  push:
+    branches:
+      - feat/ei-0c-append-only-ledger
+    paths:
+      - "lib/lib.rs"
+      - "lib/emerging_intelligence/ledger.rs"
+      - "lib/examples/ei_0c_append_only_ledger_probe.rs"
+      - ".github/workflows/ei-0c-exact-rustfmt.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ei-0c-exact-rustfmt
+  cancel-in-progress: false
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out EI-0C branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0c-append-only-ledger
+          fetch-depth: 0
+
+      - name: Install pinned Rustfmt
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt
+
+      - name: Apply exact scoped formatting
+        run: |
+          rustfmt --edition 2021 \
+            lib/lib.rs \
+            lib/emerging_intelligence/ledger.rs \
+            lib/examples/ei_0c_append_only_ledger_probe.rs
+
+      - name: Verify write scope
+        run: |
+          set -euo pipefail
+          unexpected="$(git diff --name-only | grep -Ev '^(lib/lib.rs|lib/emerging_intelligence/ledger.rs|lib/examples/ei_0c_append_only_ledger_probe.rs)$' || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected formatted paths:\n%s\n' "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Commit exact formatter output
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "EI-0C files already match pinned Rustfmt."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/lib.rs \
+            lib/emerging_intelligence/ledger.rs \
+            lib/examples/ei_0c_append_only_ledger_probe.rs
+          git commit -m "style(ei): apply pinned EI-0C Rustfmt"
+          git push origin HEAD:feat/ei-0c-append-only-ledger
