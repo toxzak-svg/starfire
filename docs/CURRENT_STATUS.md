@@ -1,33 +1,20 @@
 # Starfire Current Status
 
 > **Snapshot date:** 2026-07-23  
-> **Branch covered:** `main` after PR #201 merges  
+> **Branch covered:** `main` after PR #221  
 > **Purpose:** authoritative present-tense summary
 
-This page records what is actually established. Plans describe intended work, preregistrations freeze future tests, and result records preserve evidence even when the result is negative.
+This page records what is actually established. Plans describe intended work, preregistrations freeze future tests, and result records preserve both failures and passes.
 
 ## Executive summary
 
 Starfire is an active Rust research system with a functioning local runtime, persistent SQLite state, HTTP API, Next.js client, native reranker, typed response machinery, bounded retrieval infrastructure, and a large suite of controlled cognitive experiments.
 
-It can chat, remember, expose cognitive state, run explicit reasoning and thought endpoints, and vary parts of its response style through persistent runtime voice state. It is not AGI, an established emerging intelligence, a frontier-quality language model, an unrestricted autonomous agent, or evidence of consciousness.
+It can chat, remember, expose cognitive state, run explicit reasoning and thought endpoints, and vary parts of its response style through persistent runtime voice state. It is not AGI, consciousness, a frontier-quality language model, an unrestricted autonomous agent, or evidence of safe open-ended self-improvement.
 
-The Emerging Intelligence critical path now has six completed records:
+The Emerging Intelligence program now has one frozen bounded terminal PASS. Under a two-family, six-partition, five-arm experiment, prior independently scored experience caused held-out improvement beyond every matched non-learning control, survived renamed-vocabulary and structural transfer, retained prior-task performance, produced a reconstructable causal chain, and survived an exact harmful-update rollback challenge.
 
-- **EI-0A:** canonical developmental episode contracts;
-- **EI-0B:** deterministic developmental environments and matched controls;
-- **EI-0C:** append-only episode history and exact fresh-state replay;
-- **EI-0D:** provenance-bound reversible learning updates with independent harmful-update detection and exact restoration;
-- **EI-0E:** digest-bound terminal preregistration with frozen source, seeds, budgets, thresholds, classifier, report schema, and dormant runner;
-- **EI-0F:** first frozen terminal execution, classified **FAIL** under the preregistered fail-closed rules.
-
-EI-0F did not reach arm evaluation. The exact frozen runner panicked with:
-
-```text
-InvalidDigestText("learning proposal digest")
-```
-
-The process exited with code `101` before emitting a terminal report. The failure was sealed as a schema-valid crash record, classified by the frozen classifier, and was not rerun under the same preregistration identifier.
+That result is narrow. It does not authorize live learning, production influence, ontology promotion, unrestricted tools, or autonomous action.
 
 ## Emerging Intelligence critical path
 
@@ -36,23 +23,58 @@ The process exited with code `101` before emitting a terminal report. The failur
 | EI-0A | PR [#155](https://github.com/toxzak-svg/starfire/pull/155), `3fd8ec8` | Versioned cognitive episodes, provenance, deterministic sealing and replay | Persistence, learning or live influence |
 | EI-0B | PR [#176](https://github.com/toxzak-svg/starfire/pull/176), `087ca263` | Frozen task partitions, five matched arms, independent evaluation and matched budgets | Improvement from experience |
 | EI-0C | PR [#187](https://github.com/toxzak-svg/starfire/pull/187), `979f4798` | Append-only canonical history, digest chaining, corruption rejection and fresh-state reconstruction | Live persistence or learning authority |
-| EI-0D | PR [#194](https://github.com/toxzak-svg/starfire/pull/194), `c41e6574` | Fixed-schema offline updates, causal provenance, independent safety evaluation, atomic apply and byte-exact rollback | Cumulative improvement, transfer learning or safe live learning |
+| EI-0D | PR [#194](https://github.com/toxzak-svg/starfire/pull/194), `c41e6574` | Fixed-schema offline updates, causal provenance, independent safety evaluation, atomic apply and byte-exact rollback | Cumulative improvement or safe live learning |
 | EI-0E | PR [#196](https://github.com/toxzak-svg/starfire/pull/196), `2da7eeed` | Exact source, fixtures, seeds, arms, budgets, hypotheses, thresholds, report schema, classifier and fail-closed rules | Any terminal experimental result |
-| EI-0F | PR [#201](https://github.com/toxzak-svg/starfire/pull/201) | Preserved first qualifying execution, crash evidence, frozen FAIL classification and no-rerun proof | Held-out improvement, transfer, causal learning advantage or live promotion |
+| EI-0F original | PR [#201](https://github.com/toxzak-svg/starfire/pull/201), `2e74746e` | Preserved first qualifying execution and literal FAIL | Held-out improvement |
+| EI-0F remediation preflight | PR [#206](https://github.com/toxzak-svg/starfire/pull/206), `b9b5f70d` | Bounded proposal-digest correction across all five arms | Terminal result |
+| EI-0F R1B freeze | PR [#214](https://github.com/toxzak-svg/starfire/pull/214), `f400a6a1` | Exact repaired runner package | Valid execution package; reused schema was incompatible, so this freeze remained unexecuted |
+| EI-0F R2 freeze | PR [#219](https://github.com/toxzak-svg/starfire/pull/219), `16ca9717` | Matching runner, schema, manifest, lock and classifier package | Terminal result |
+| EI-0F R2 result | PR [#221](https://github.com/toxzak-svg/starfire/pull/221), `13c18527` | **PASS for the frozen bounded EI-0 claim** | AGI, consciousness, safe production learning or general autonomy |
+| EI-0G | Issue [#222](https://github.com/toxzak-svg/starfire/issues/222) | Will preregister a read-only shadow observer | Live influence or promotion |
 
-EI-0E remains frozen under preregistration ID `ei-0e-terminal-v1`, source base `ad03f7d67016e32574f47ba836bc5d52ab42c77b`, and canonical manifest SHA-256 `5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73`.
+## Authoritative EI-0 PASS
 
-The EI-0F execution identity is commit `5c4fded7eda16cbf3a6673880557c2242e430c14`, workflow run `30027946179`, and job `89277029959`. Frozen source and lock verification passed before execution. No second qualifying execution was performed.
+- preregistration ID: `ei-0f-remediation-v2`;
+- freeze merge: `16ca9717ee4514ccc4bc25e92a95c95be38824a7`;
+- manifest SHA-256: `89909b52cadd394207bafc7526e992a3c20ca0a923e35c2bea7290a306eefec5`;
+- runner Git blob: `2c9663ab2e01152fc9c83e8fc818e3e848d54bc8`;
+- report schema Git blob: `7ef8bb3d72a8ad6f2219dd62d2f8d4c0f2954d43`;
+- execution commit: `133b82ba6d4fe14e5a5965e45cf2658845d533f1`;
+- workflow run: `30036385291`;
+- execution count: `1`;
+- second execution: `false`;
+- result merge: `13c1852724a16a9d22177b8858d35760d2432214`;
+- classification: `PASS`.
 
-## EI-0F verdict
+### Observed scores
 
-**Classification:** `FAIL`
+| Arm | Within-family holdout | Renamed transfer | Structural transfer | Regression | Applied updates |
+|---|---:|---:|---:|---:|---:|
+| learning | 10,000 | 10,000 | 10,000 | 10,000 | 2 |
+| no update | 3,500 | 3,875 | 3,875 | 3,875 | 0 |
+| memory disabled | 3,500 | 3,875 | 3,875 | 3,875 | 0 |
+| random update | 3,500 | 3,875 | 3,875 | 3,875 | 2 |
+| fixed policy | 3,500 | 3,875 | 3,875 | 3,875 | 0 |
 
-Mandatory fail-closed conditions include the crash, incomplete run, 60 missing evaluations, absent independent evaluator evidence, absent causal chain, absent learning-update count, absent harmful-challenge evidence, and all unavailable arm-advantage thresholds.
+Additional frozen evidence:
 
-The immediate technical defect is narrower than the scientific verdict: the runner attempted to construct an update proposal using digest text rejected as `InvalidDigestText("learning proposal digest")`. That defect can be investigated, but any repaired experiment must receive a new preregistration identifier and preserve EI-0F unchanged.
+- one complete causal chain;
+- one harmful challenge detected and exactly rolled back;
+- final rollback bytes matched pre-state bytes;
+- zero replay mismatches;
+- zero missing evaluations;
+- zero invalid or corrupt records;
+- all five arms used equal action and evidence budgets;
+- source matched and authority remained closed;
+- runner exit code `0` with empty stderr.
 
-**EI-0G runtime shadow promotion is not authorized.**
+## Evidence identities
+
+- canonical report SHA-256: `32d05ff9a29987089b70905d697604b5c9b81bcd12cd34723016707cd9d1d462`;
+- classifier output SHA-256: `f1e9ae1e3e749224db3d5606352365b9363df9635b905efbf30cb5103a0ae841`;
+- raw execution artifact: `sha256:0fe1466f08e2ef1d7612fee357a533b8b77438f04fecc51bb8c7e5aaef96140a`;
+- read-only replay run: `30037025275`;
+- replay artifact: `sha256:74e0de7728963fb5d7ef5d3173e36bdf129932d196c89a0b2a04edb9b189f4bb`.
 
 ## Main-branch runtime
 
@@ -69,14 +91,13 @@ The immediate technical defect is narrower than the scientific verdict: the runn
 | Persistent runtime voice | **Active by default** | Disable with `STARFIRE_RUNTIME_VOICE=0` |
 | Verifier-backed improvisation | **Merged, offline-only** | Bounded wording search with independent verification |
 | Bounded web retrieval | **Merged, feature-gated** | Deterministic extraction; no autonomous chat authority |
-| ARISE-A0 edge bridge | **Merged, feature-gated** | Merge `24e7ce03`; bounded reverse-obligation execution and shadow observation |
-| ARISE-A1 semantic-program shadow | **Merged, feature-gated** | Merge `ad03f7d6`; typed planning and independent reconstruction in shadow |
-| EI-0A through EI-0E | **Merged, default-off** | Infrastructure and frozen specification only |
-| EI-0F | **FAIL, preserved** | Runner crash before terminal report; no rerun |
-| Live EI learning | **Absent** | Prohibited after EI-0F FAIL |
-| Automatic ontology promotion | **Not authorized** | Prohibited during EI-0 and any remediation |
+| ARISE-A0 and A1 | **Merged, feature-gated** | Typed bounded planning and reconstruction in shadow |
+| EI-0A through EI-0F | **Merged evidence program** | Bounded offline terminal PASS; no live authority |
+| Live EI learning | **Absent** | Not authorized by the bounded PASS |
+| EI-0G shadow observer | **Preregistration open** | Issue #222; no qualifying collection yet |
+| Automatic ontology promotion | **Not authorized** | Requires a later separately frozen program |
 | Unrestricted tools/actions | **Not authorized** | No general live autonomy boundary |
-| Repository-wide Clippy baseline | **Legacy debt tracked** | Rust 1.96+ findings outside scoped surfaces remain under issue #183 |
+| Repository-wide Clippy baseline | **Legacy debt tracked** | Findings outside scoped surfaces remain under issue #183 |
 
 ## Deployment and security
 
@@ -86,7 +107,7 @@ The backend remains defined by `render.yaml` and `Dockerfile`, with the document
 https://starfire-cuee.onrender.com
 ```
 
-The hosted surface lacks built-in authentication, tenant isolation, production rate limits, and independently authenticated Telegram webhooks. Security and deployment isolation remain prerequisites before shared or public live evaluation.
+The hosted surface lacks built-in authentication, tenant isolation, production rate limits, and independently authenticated Telegram webhooks. Security and deployment isolation remain prerequisites before shared or public live EI evaluation.
 
 ## Response and language path
 
@@ -96,35 +117,27 @@ Verifier-backed improvisation, ARISE, and the STLM/ΩV1 tracks provide bounded p
 
 ## Highest-leverage work
 
-1. diagnose the rejected `learning proposal digest` contract without altering EI-0F evidence;
-2. preregister a separately identified remediation experiment with exact source bindings and no threshold changes;
-3. execute that remediation once and preserve PASS or FAIL;
-4. secure and isolate HTTP, Telegram, file, command and user-state boundaries;
-5. simplify the live response path for clean attribution;
-6. eliminate repository-wide Rust 1.96+ Clippy debt without mixing maintenance into EI evidence.
+1. complete EI-0G preregistration as a zero-influence shadow observer with matched controls and privacy isolation;
+2. secure and isolate HTTP, Telegram, file, command and user-state boundaries;
+3. simplify the live response path for clean attribution;
+4. expand EI evidence only through separately frozen task families and transfer tests;
+5. eliminate repository-wide Rust 1.96+ Clippy debt without mixing maintenance into EI evidence.
 
 ## Immediate engineering decision
 
-Do not repair and rerun `ei-0e-terminal-v1`. Preserve its FAIL result permanently.
+Proceed with issue #222 only as a preregistration and compile/test-only shadow contract. Freeze the input and output schemas, privacy boundary, no-observer and inert-observer controls, latency and resource budgets, zero-divergence thresholds, evaluator, replay rules, kill switch, and removal procedure before collecting any qualifying sample.
 
-Create a new remediation identifier that changes only the malformed proposal-digest construction or validation contract, proves the repaired digest is canonical in an isolated fixture, freezes the new source identity, and then executes a fresh matched-budget terminal experiment. Thresholds, arms, partitions, evaluator independence, safety checks, and claim boundaries remain unchanged unless a new preregistration explicitly justifies a change before observing output.
+Do not connect EI state to live response, routing, memory, beliefs, persistence, tools, or actions during the preregistration stage.
 
 ## Tracking sources
 
 - [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149)
-- [EI-0E completed preregistration issue](https://github.com/toxzak-svg/starfire/issues/195)
-- [EI-0F terminal execution issue](https://github.com/toxzak-svg/starfire/issues/200)
-- [EI-0F result PR](https://github.com/toxzak-svg/starfire/pull/201)
-- [EI-0A contract record](experiments/EI_0A_EPISODE_CONTRACTS.md)
-- [EI-0B environment record](experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md)
-- [EI-0C ledger record](experiments/EI_0C_APPEND_ONLY_LEDGER.md)
-- [EI-0D implementation record](experiments/EI_0D_REVERSIBLE_UPDATES.md)
-- [EI-0D result record](experiments/EI_0D_RESULT.md)
-- [EI-0E frozen preregistration](experiments/EI_0E_TERMINAL_PREREGISTRATION.md)
-- [EI-0F frozen result](experiments/EI_0F_TERMINAL_RESULT.md)
-- [EI-0F raw crash report](experiments/EI_0F_TERMINAL_REPORT.json)
-- [EI-0F frozen classification](experiments/EI_0F_TERMINAL_CLASSIFICATION.json)
-- [EI-0F evidence record](experiments/EI_0F_TERMINAL_EVIDENCE.json)
-- [EI-0F preserved failure log](experiments/EI_0F_TERMINAL_EXECUTION_FAILURE.log)
+- [EI-0F original FAIL](https://github.com/toxzak-svg/starfire/pull/201)
+- [EI-0F R2 PASS](https://github.com/toxzak-svg/starfire/pull/221)
+- [EI-0G preregistration issue](https://github.com/toxzak-svg/starfire/issues/222)
+- [EI-0F R2 result record](experiments/EI_0F_R2_RESULT_2026-07-23.md)
+- [EI-0F R2 canonical report](experiments/EI_0F_R2_TERMINAL_REPORT.json)
+- [EI-0F R2 classifier output](experiments/EI_0F_R2_TERMINAL_CLASSIFICATION.json)
+- [EI-0F R2 evidence record](experiments/EI_0F_R2_TERMINAL_EVIDENCE.json)
 - [Emerging Intelligence pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md)
 - [Experiment index](experiments/README.md)
