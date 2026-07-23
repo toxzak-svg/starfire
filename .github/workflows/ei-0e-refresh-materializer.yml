@@ -56,8 +56,10 @@ jobs:
           if set(files) != expected:
               raise SystemExit(f'unexpected refresh targets: {sorted(files)}')
           for path, encoded in files.items():
+              compact = ''.join(encoded.split())
+              compact += '=' * (-len(compact) % 4)
               target = Path(path)
-              target.write_bytes(gzip.decompress(base64.b64decode(encoded, validate=True)))
+              target.write_bytes(gzip.decompress(base64.b64decode(compact)))
           shutil.rmtree(payload_dir)
           PY
 
