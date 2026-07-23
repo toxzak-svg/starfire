@@ -1,5 +1,6 @@
 name: EI-0D Exact Rustfmt
 
+# one-shot trigger: 2
 on:
   push:
     branches:
