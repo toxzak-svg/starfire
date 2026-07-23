@@ -6,7 +6,7 @@
 > **Parent:** issue #156 and EI tracker #149  
 > **Implementation:** PR #176  
 > **Verification baseline:** current `main` merged before the terminal gate  
-> **Gate mode:** pinned Rust 1.96.0 verification run  
+> **Gate mode:** permanent scoped Clippy on pinned Rust 1.96.0  
 > **Verification gate:** `.github/workflows/ei-0b-environment-ci.yml`
 
 ## Purpose
