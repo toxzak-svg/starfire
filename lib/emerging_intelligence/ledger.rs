@@ -6,7 +6,7 @@
 //! persistence, `Runtime::chat()`, response, routing, tool, ontology, learning-
 //! update, or autonomous-action authority.
 
-use super::{
+use crate::emerging_intelligence::{
     AuthoritySnapshot, EpisodeContractError, SealedCognitiveEpisode, EI_0A_SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
