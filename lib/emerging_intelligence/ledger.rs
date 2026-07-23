@@ -199,11 +199,7 @@ impl AppendOnlyEpisodeLedger {
             .entry_count
             .checked_add(1)
             .ok_or(LedgerError::EntryLimitExceeded)?;
-        let entry = LedgerEntry::new(
-            sequence,
-            self.terminal_entry_digest.clone(),
-            episode,
-        )?;
+        let entry = LedgerEntry::new(sequence, self.terminal_entry_digest.clone(), episode)?;
         let appended_digest = entry.entry_digest.clone();
 
         let mut next = self.clone();
@@ -466,8 +462,8 @@ fn digest_serialized<T: Serialize>(
     domain: &[u8],
     payload: &T,
 ) -> Result<LedgerDigest, LedgerError> {
-    let bytes =
-        serde_json::to_vec(payload).map_err(|error| LedgerError::Serialization(error.to_string()))?;
+    let bytes = serde_json::to_vec(payload)
+        .map_err(|error| LedgerError::Serialization(error.to_string()))?;
     Ok(LedgerDigest(checksum128(domain, &bytes)))
 }
 
@@ -578,7 +574,10 @@ mod tests {
     fn same_episode_sequence_produces_identical_bytes_and_root() {
         let first = two_entry_ledger();
         let second = two_entry_ledger();
-        assert_eq!(first.to_canonical_bytes().unwrap(), second.to_canonical_bytes().unwrap());
+        assert_eq!(
+            first.to_canonical_bytes().unwrap(),
+            second.to_canonical_bytes().unwrap()
+        );
         assert_eq!(first.root_digest(), second.root_digest());
     }
 
@@ -599,8 +598,7 @@ mod tests {
         ledger.entries.swap(0, 1);
         assert!(matches!(
             ledger.validate(),
-            Err(LedgerError::SequenceMismatch { .. })
-                | Err(LedgerError::ChainMismatch(_))
+            Err(LedgerError::SequenceMismatch { .. }) | Err(LedgerError::ChainMismatch(_))
         ));
     }
 
@@ -622,10 +620,7 @@ mod tests {
     fn modified_entry_digest_fails_closed() {
         let mut ledger = two_entry_ledger();
         ledger.entries[0].entry_digest = genesis_digest();
-        assert_eq!(
-            ledger.validate(),
-            Err(LedgerError::EntryDigestMismatch(1))
-        );
+        assert_eq!(ledger.validate(), Err(LedgerError::EntryDigestMismatch(1)));
     }
 
     #[test]
