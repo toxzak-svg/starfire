@@ -1,12 +1,12 @@
 name: EI-0D Exact Rustfmt
 
-# one-shot trigger: 2
 on:
-  push:
+  pull_request_target:
     branches:
       - main
-    paths:
-      - ".github/workflows/ei-0d-exact-rustfmt.yml"
+    types:
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   format:
+    if: >-
+      github.event.pull_request.number == 194 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feat/ei-0d-reversible-updates'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
