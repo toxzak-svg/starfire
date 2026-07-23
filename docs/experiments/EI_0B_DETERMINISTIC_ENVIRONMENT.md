@@ -5,6 +5,7 @@
 > **Authority:** offline experiment infrastructure only  
 > **Parent:** issue #156 and EI tracker #149  
 > **Implementation:** PR #176  
+> **Verification baseline:** current `main` merged before the terminal gate  
 > **Verification gate:** `.github/workflows/ei-0b-environment-ci.yml`
 
 ## Purpose
