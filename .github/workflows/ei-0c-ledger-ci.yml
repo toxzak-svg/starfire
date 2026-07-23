@@ -1,0 +1,152 @@
+name: EI-0C Append-Only Ledger CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/ledger.rs"
+      - "lib/examples/ei_0c_append_only_ledger_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0C_APPEND_ONLY_LEDGER.md"
+      - ".github/workflows/ei-0c-ledger-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped Rustfmt
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/lib.rs \
+            lib/emerging_intelligence/ledger.rs \
+            lib/examples/ei_0c_append_only_ledger_probe.rs
+
+      - name: Compile feature-gated ledger and probe
+        run: |
+          cargo check -p star --lib --features emerging-intelligence-ledger --locked
+          cargo check -p star --example ei_0c_append_only_ledger_probe \
+            --features emerging-intelligence-ledger --locked
+
+      - name: Lint EI-0C changed surfaces
+        run: |
+          set -euo pipefail
+          cargo clippy -p star --lib --features emerging-intelligence-ledger --locked \
+            --message-format=json > ei-0c-clippy-lib.json
+          cargo clippy -p star --example ei_0c_append_only_ledger_probe \
+            --features emerging-intelligence-ledger --locked \
+            --message-format=json > ei-0c-clippy-example.json
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          logs = [
+              pathlib.Path("ei-0c-clippy-lib.json"),
+              pathlib.Path("ei-0c-clippy-example.json"),
+          ]
+
+          def is_scoped(filename: str) -> bool:
+              normalized = filename.replace("\\", "/").lstrip("./")
+              return (
+                  normalized == "lib.rs"
+                  or normalized.endswith("/lib.rs")
+                  or normalized == "examples/ei_0c_append_only_ledger_probe.rs"
+                  or normalized.endswith("/examples/ei_0c_append_only_ledger_probe.rs")
+                  or normalized == "emerging_intelligence/ledger.rs"
+                  or normalized.endswith("/emerging_intelligence/ledger.rs")
+              )
+
+          findings = []
+          seen = set()
+          for log in logs:
+              for raw in log.read_text(encoding="utf-8").splitlines():
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") != "warning":
+                      continue
+                  primary = [
+                      span for span in message.get("spans", [])
+                      if span.get("is_primary") and is_scoped(span.get("file_name", ""))
+                  ]
+                  if not primary:
+                      continue
+                  rendered = message.get("rendered") or message.get("message", "Clippy warning")
+                  if rendered not in seen:
+                      seen.add(rendered)
+                      findings.append(rendered.rstrip())
+
+          report = pathlib.Path("ei-0c-clippy-scoped.txt")
+          if findings:
+              report.write_text("\n\n".join(findings) + "\n", encoding="utf-8")
+              print(report.read_text(encoding="utf-8"), file=sys.stderr)
+              raise SystemExit(f"{len(findings)} Clippy warning(s) found in EI-0C changed surfaces")
+
+          report.write_text("EI-0C changed surfaces contain no Clippy warnings.\n", encoding="utf-8")
+          print(report.read_text(encoding="utf-8"), end="")
+          PY
+
+      - name: Test append-only ledger contracts
+        run: >-
+          cargo test -p star --lib --features emerging-intelligence-ledger --locked
+          emerging_intelligence_ledger:: -- --test-threads=1
+
+      - name: Run exact-replay probe twice
+        run: |
+          set -euo pipefail
+          cargo run -p star --example ei_0c_append_only_ledger_probe \
+            --features emerging-intelligence-ledger --locked \
+            > ei-0c-ledger-report.json
+          cargo run -p star --example ei_0c_append_only_ledger_probe \
+            --features emerging-intelligence-ledger --locked \
+            > ei-0c-ledger-report-replay.json
+          cmp ei-0c-ledger-report.json ei-0c-ledger-report-replay.json
+          grep -q '"classification": "pass"' ei-0c-ledger-report.json
+          grep -q '"claim": "ei-0c-ledger-infrastructure-only"' ei-0c-ledger-report.json
+          grep -q '"exact_canonical_replay": true' ei-0c-ledger-report.json
+          grep -q '"fresh_state_episode_replay": true' ei-0c-ledger-report.json
+          grep -q '"duplicate_rejected": true' ei-0c-ledger-report.json
+          grep -q '"corruption_rejected": true' ei-0c-ledger-report.json
+          grep -q '"truncation_rejected": true' ei-0c-ledger-report.json
+          grep -q '"reordering_rejected": true' ei-0c-ledger-report.json
+          grep -q '"stale_schema_rejected": true' ei-0c-ledger-report.json
+          grep -q '"noncanonical_encoding_rejected": true' ei-0c-ledger-report.json
+          grep -q '"runtime_wiring": false' ei-0c-ledger-report.json
+          grep -q '"sqlite_persistence": false' ei-0c-ledger-report.json
+          grep -q '"learning_application_authority": false' ei-0c-ledger-report.json
+          grep -q '"authority_closed": true' ei-0c-ledger-report.json
+
+      - name: Preserve deterministic ledger evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0c-ledger-report
+          path: |
+            ei-0c-ledger-report.json
+            ei-0c-ledger-report-replay.json
+            ei-0c-clippy-scoped.txt
+          if-no-files-found: ignore
+          retention-days: 30
