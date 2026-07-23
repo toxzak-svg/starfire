@@ -1,7 +1,7 @@
 # Starfire Current Status
 
 > **Snapshot date:** 2026-07-23  
-> **Branch covered:** `main` after PR #225  
+> **Branch covered:** `main` after PR #231  
 > **Purpose:** authoritative present-tense summary
 
 This page records what is actually established. Plans describe intended work, preregistrations freeze future tests, and result records preserve both failures and passes.
@@ -14,9 +14,9 @@ It can chat, remember, expose cognitive state, run explicit reasoning and though
 
 The Emerging Intelligence program has one frozen bounded terminal PASS. Under a two-family, six-partition, five-arm experiment, prior independently scored experience caused held-out improvement beyond every matched non-learning control, survived renamed-vocabulary and structural transfer, retained prior-task performance, produced a reconstructable causal chain, and survived an exact harmful-update rollback challenge.
 
-EI-0G now also has a merged contract-only preregistration for a privacy-redacted read-only shadow observer. Its matched no-observer, inert-observer, and EI-observer arms pass deterministic synthetic replay with zero response, route, tool, action, persistence, and cross-user divergence. No qualifying shadow samples were collected, the module is not exported through the production library, and it has no live authority.
+EI-0G now has two completed freeze stages. S1 defines privacy-redacted read-only shadow contracts and matched controls. S2 freezes a possible one-way post-response attachment and qualifying-collection protocol. Neither stage is connected to the runtime, neither is exported through `lib/lib.rs`, active sampling is zero, and no qualifying user-derived sample has been collected.
 
-These results remain narrow. They do not authorize live learning, production influence, ontology promotion, unrestricted tools, or autonomous action.
+The next blocker is SEC-0 issue #232. The hosted shared runtime must receive operator authentication, request and rate limits, independently authenticated Telegram webhooks, correct HTTP errors, and an explicit single-tenant boundary before any shared or public EI shadow evaluation can be considered.
 
 ## Emerging Intelligence critical path
 
@@ -32,8 +32,9 @@ These results remain narrow. They do not authorize live learning, production inf
 | EI-0F R1B freeze | PR [#214](https://github.com/toxzak-svg/starfire/pull/214), `f400a6a1` | Exact repaired runner package | Valid execution package; reused schema was incompatible, so this freeze remained unexecuted |
 | EI-0F R2 freeze | PR [#219](https://github.com/toxzak-svg/starfire/pull/219), `16ca9717` | Matching runner, schema, manifest, lock and classifier package | Terminal result |
 | EI-0F R2 result | PR [#221](https://github.com/toxzak-svg/starfire/pull/221), `13c18527` | **PASS for the frozen bounded EI-0 claim** | AGI, consciousness, safe production learning or general autonomy |
-| EI-0G contracts | PR [#225](https://github.com/toxzak-svg/starfire/pull/225), `803c2ddb` | Privacy-redacted immutable shadow inputs, matched controls, exact budgets, sealed replay, zero-divergence synthetic checks, and removal contracts | Qualifying shadow evidence, live attachment, efficacy or promotion |
-| EI-0G-S2 attachment freeze | Issue [#228](https://github.com/toxzak-svg/starfire/issues/228) | Will bind an exact one-way attachment and qualifying-collection protocol with zero samples | Permission to collect or influence live traffic |
+| EI-0G S1 contracts | PR [#225](https://github.com/toxzak-svg/starfire/pull/225), `803c2ddb` | Privacy-redacted immutable shadow inputs, matched controls, exact budgets, sealed replay, zero-divergence synthetic checks, and removal contracts | Qualifying shadow evidence, live attachment, efficacy or promotion |
+| EI-0G S2 attachment freeze | PR [#231](https://github.com/toxzak-svg/starfire/pull/231), `3f3ec14c` | Exact one-way post-response anchor, inactive matched sampling, privacy exclusions, sink requirements, kill switch, removal and fail-closed authorization | Runtime attachment, traffic collection, observer advantage or production safety |
+| SEC-0 | Issue [#232](https://github.com/toxzak-svg/starfire/issues/232) | Will establish an operator-only security boundary for the hosted shared runtime | Multi-tenant state or permission to collect EI shadow samples by itself |
 
 ## Authoritative EI-0 PASS
 
@@ -71,12 +72,11 @@ Additional frozen evidence:
 - source matched and authority remained closed;
 - runner exit code `0` with empty stderr.
 
-## EI-0G contract preregistration
+## EI-0G S1 contract preregistration
 
 - preregistration ID: `ei-0g-shadow-prereg-v1`;
 - implementation merge: `803c2ddbc1bd8029a2d7308ec973fa3a0a0ed848`;
 - permanent workflow run: `30039338732`;
-- verified source head: `60e69b39ca327265d5c6248fa9bd807e237b24cb`;
 - evidence artifact: `sha256:f86f430d09b10cc13d67785f99c2d98c09ec15bd35ed1fdecf729e57a4586285`;
 - synthetic users: `2`;
 - matched arms per sample: `3`;
@@ -86,7 +86,29 @@ Additional frozen evidence:
 
 The gate verified exact Git blob identities, an allowed-file boundary, static absence of runtime and network authority, scoped formatting and Clippy, isolated tests, privacy stripping, cross-user namespace separation, tamper and budget rejection, complete removal, and byte-identical replay.
 
-The preregistration does not establish observer advantage, calibration, production safety, or permission to attach to user traffic.
+## EI-0G S2 attachment freeze
+
+- preregistration ID: `ei-0g-shadow-attachment-freeze-v1`;
+- implementation merge: `3f3ec14c4e96b4496676267109f9b3adae344b7f`;
+- permanent workflow run: `30040784566`;
+- verified source head: `2e7b86c85aed90d58c648b8b8579740b2206847f`;
+- evidence artifact: `sha256:ba3aaef9de6356e3db67b9bcfd6b4aa701a4d348ca2a71f11f61018ab9eff1dc`;
+- target anchor: successful `/chat`, after response JSON finalization and existing shadow dispatch, before return and network send;
+- configured future sampling: `100` basis points;
+- configured future qualifying cap: `100`;
+- active sampling rate: `0`;
+- active sample cap: `0`;
+- collection enabled: `false`;
+- qualifying samples collected: `0`;
+- security prerequisite satisfied: `false`;
+- actual deployed container digest bound: `false`;
+- evidence-sink writes enabled: `false`;
+- production library export: `false`;
+- runtime, live-learning, response, persistence, routing, belief, ontology, tool, network and action authority: `false`.
+
+The S2 gate verified exact target-runtime and freeze identities, disabled collection, an unbound deployed image, static absence of runtime and I/O authority, formatting, compilation, isolated tests, scoped Clippy, fail-closed execution authorization, complete removal, and byte-identical replay.
+
+Neither EI-0G stage establishes observer advantage, calibration, production safety, or permission to attach to user traffic.
 
 ## Evidence identities
 
@@ -95,7 +117,8 @@ The preregistration does not establish observer advantage, calibration, producti
 - EI-0F raw execution artifact: `sha256:0fe1466f08e2ef1d7612fee357a533b8b77438f04fecc51bb8c7e5aaef96140a`;
 - EI-0F read-only replay run: `30037025275`;
 - EI-0F replay artifact: `sha256:74e0de7728963fb5d7ef5d3173e36bdf129932d196c89a0b2a04edb9b189f4bb`;
-- EI-0G preregistration artifact: `sha256:f86f430d09b10cc13d67785f99c2d98c09ec15bd35ed1fdecf729e57a4586285`.
+- EI-0G S1 artifact: `sha256:f86f430d09b10cc13d67785f99c2d98c09ec15bd35ed1fdecf729e57a4586285`;
+- EI-0G S2 artifact: `sha256:ba3aaef9de6356e3db67b9bcfd6b4aa701a4d348ca2a71f11f61018ab9eff1dc`.
 
 ## Main-branch runtime
 
@@ -114,9 +137,9 @@ The preregistration does not establish observer advantage, calibration, producti
 | Bounded web retrieval | **Merged, feature-gated** | Deterministic extraction; no autonomous chat authority |
 | ARISE-A0 and A1 | **Merged, feature-gated** | Typed bounded planning and reconstruction in shadow |
 | EI-0A through EI-0F | **Merged evidence program** | Bounded offline terminal PASS; no live authority |
-| EI-0G contracts | **Merged, feature-gated, unexported** | Synthetic preregistration only; zero qualifying samples |
+| EI-0G S1 and S2 | **Merged, feature-gated, unexported** | Contract and attachment freezes only; zero qualifying samples |
 | Live EI learning | **Absent** | Not authorized by the bounded PASS |
-| Live EI shadow attachment | **Absent** | #228 must freeze it before any qualifying collection |
+| Live EI shadow attachment | **Absent** | S2 froze a design but implemented no runtime splice |
 | Automatic ontology promotion | **Not authorized** | Requires a later separately frozen program |
 | Unrestricted tools/actions | **Not authorized** | No general live autonomy boundary |
 | Repository-wide Clippy baseline | **Legacy debt tracked** | Findings outside scoped surfaces remain under issue #183 |
@@ -137,7 +160,7 @@ https://toxzak-svg.github.io/starfire/
 
 External production verification confirmed the Render health and identity endpoints and the GitHub Pages HTML surface. The failed Cloudflare Pages alias is not the active frontend path.
 
-The hosted surface still lacks built-in authentication, tenant isolation, production rate limits, and independently authenticated Telegram webhooks. Security and deployment isolation remain prerequisites before shared or public live EI evaluation.
+The hosted API currently wraps a single shared runtime and still lacks built-in operator authentication, tenant isolation, production rate limits, independently authenticated Telegram webhooks, and consistent HTTP error statuses. SEC-0 #232 is the next mandatory engineering stage. Its initial boundary is operator-only and single-tenant; it must not imply multi-tenant memory isolation.
 
 ## Response and language path
 
@@ -147,30 +170,33 @@ Verifier-backed improvisation, ARISE, and the STLM/ΩV1 tracks provide bounded p
 
 ## Highest-leverage work
 
-1. complete #228 as a zero-sample freeze of the EI-0G attachment and qualifying-collection protocol;
-2. secure and isolate HTTP, Telegram, file, command and user-state boundaries;
+1. complete SEC-0 #232 without attaching EI-0G;
+2. verify the hardened hosted API externally while preserving public side-effect-free `/health`;
 3. simplify the live response path for clean attribution;
 4. expand EI evidence only through separately frozen task families and transfer tests;
 5. eliminate repository-wide Rust 1.96+ Clippy debt without mixing maintenance into EI evidence.
 
 ## Immediate engineering decision
 
-Proceed with issue #228 only as a compile-only attachment and collection freeze. Bind the exact one-way post-response observation point, deployed identities, consent and privacy exclusions, deterministic sampling, matched controls, evidence sink, retention and deletion rules, inherited budgets and thresholds, evaluator, literal classifier, kill switch, and complete-removal procedure.
+Proceed with SEC-0 #232. Protect every hosted endpoint except `/health` and CORS preflight with an operator bearer token, independently verify Telegram webhooks, enforce body and rate limits, return correct HTTP statuses, and document the shared single-tenant boundary.
 
-Merge that stage with `qualifying_samples_collected: 0`. Do not connect EI state to response, routing, memory, beliefs, persistence, tools, networks, or actions, and do not collect live or user-derived samples during the freeze PR.
+Do not attach the EI-0G observer, bind an evidence sink, enable sampling, or collect user-derived samples during SEC-0. A later execution stage would still need the actual deployed container digest, bound sink, explicit consent, and a separate execution authorization.
 
 ## Tracking sources
 
 - [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149)
 - [EI-0F original FAIL](https://github.com/toxzak-svg/starfire/pull/201)
 - [EI-0F R2 PASS](https://github.com/toxzak-svg/starfire/pull/221)
-- [EI-0G contract preregistration](https://github.com/toxzak-svg/starfire/pull/225)
-- [EI-0G-S2 attachment freeze](https://github.com/toxzak-svg/starfire/issues/228)
+- [EI-0G S1 contract preregistration](https://github.com/toxzak-svg/starfire/pull/225)
+- [EI-0G S2 attachment freeze](https://github.com/toxzak-svg/starfire/pull/231)
+- [SEC-0 security prerequisite](https://github.com/toxzak-svg/starfire/issues/232)
 - [EI-0F R2 result record](experiments/EI_0F_R2_RESULT_2026-07-23.md)
 - [EI-0F R2 canonical report](experiments/EI_0F_R2_TERMINAL_REPORT.json)
 - [EI-0F R2 classifier output](experiments/EI_0F_R2_TERMINAL_CLASSIFICATION.json)
 - [EI-0F R2 evidence record](experiments/EI_0F_R2_TERMINAL_EVIDENCE.json)
-- [EI-0G human preregistration](experiments/EI_0G_SHADOW_PREREGISTRATION.md)
-- [EI-0G machine preregistration](experiments/ei_0g_shadow_preregistration.json)
+- [EI-0G S1 human preregistration](experiments/EI_0G_SHADOW_PREREGISTRATION.md)
+- [EI-0G S1 machine preregistration](experiments/ei_0g_shadow_preregistration.json)
+- [EI-0G S2 human freeze](experiments/EI_0G_S2_ATTACHMENT_FREEZE.md)
+- [EI-0G S2 machine freeze](experiments/ei_0g_s2_attachment_freeze.json)
 - [Emerging Intelligence pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md)
 - [Experiment index](experiments/README.md)
