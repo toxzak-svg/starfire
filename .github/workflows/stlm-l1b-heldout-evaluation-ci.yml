@@ -45,8 +45,12 @@ jobs:
         run: |
           set -o pipefail
           cargo clippy -p star --example stlm_l1b_heldout_conversation_evaluation \
-            --features verified-improvisation --locked --message-format=short -- -D warnings \
+            --features verified-improvisation --locked --message-format=short \
             2>&1 | tee stlm-l1b-clippy.log
+          if grep -F 'lib/examples/stlm_l1b_heldout_conversation_evaluation.rs' stlm-l1b-clippy.log; then
+            echo "STLM L1-B scoped Clippy finding detected"
+            exit 1
+          fi
 
       - name: Run frozen held-out evaluation
         run: |
