@@ -1,0 +1,113 @@
+name: STLM L1-D phrase critic preflight
+
+on:
+  pull_request:
+    paths:
+      - "lib/phrase_critic.rs"
+      - "lib/identity_genome.rs"
+      - "tools/stlm_l1d/**"
+      - "docs/experiments/STLM_L1D_PHRASE_CRITIC_IDENTITY_GENOME.md"
+      - ".github/workflows/stlm-l1d-phrase-critic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Format isolated sources
+        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml
+
+      - name: Verify formatting is stable
+        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
+
+      - name: Run isolated contract tests
+        run: cargo test --manifest-path tools/stlm_l1d/Cargo.toml
+
+      - name: Run metadata-only probe
+        run: |
+          mkdir -p artifacts/formatted
+          cargo run --quiet --manifest-path tools/stlm_l1d/Cargo.toml | tee artifacts/stlm_l1d_probe.json
+          cp lib/phrase_critic.rs artifacts/formatted/phrase_critic.rs
+          cp lib/identity_genome.rs artifacts/formatted/identity_genome.rs
+          cp tools/stlm_l1d/src/main.rs artifacts/formatted/main.rs
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/stlm_l1d_probe.json").read_text(encoding="utf-8"))
+          assert report["gate_passed"] is True
+          assert report["critic_exact_replay"] is True
+          assert report["identity_slice_exact_replay"] is True
+          assert report["semantic_drift_candidate_rejected"] is True
+          assert report["candidate_text_persisted"] is False
+          assert report["live_text_influence"] is False
+          PY
+
+      - name: Validate training script syntax
+        run: python -m py_compile tools/stlm_l1d/train_phrase_critic.py
+
+      - name: Validate bootstrap preference schema
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("tools/stlm_l1d/data/bootstrap_pairs.jsonl")
+          fields = (
+              "directness_bps",
+              "warmth_bps",
+              "energy_bps",
+              "compression_bps",
+              "playfulness_bps",
+              "novelty_pressure_bps",
+              "identity_relevance_bps",
+              "semantic_specificity_bps",
+          )
+          records = []
+          for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+              if not line.strip():
+                  continue
+              record = json.loads(line)
+              assert record["source_id"]
+              assert record["preferred"].strip()
+              assert record["rejected"].strip()
+              assert record["preferred"] != record["rejected"]
+              assert isinstance(record["failure_labels"], list)
+              for field in fields:
+                  value = record["context"][field]
+                  assert isinstance(value, int) and 0 <= value <= 10_000
+              records.append(record)
+          assert len(records) >= 8
+          assert len({record["source_id"] for record in records}) == len(records)
+          PY
+
+      - name: Run scoped Clippy
+        id: clippy
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --manifest-path tools/stlm_l1d/Cargo.toml --all-targets -- -D warnings 2>&1 | tee artifacts/clippy.log
+
+      - name: Upload preflight report, diagnostics, and formatted sources
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l1d-preflight-report
+          path: artifacts
+          if-no-files-found: error
+
+      - name: Enforce scoped Clippy
+        if: steps.clippy.outcome != 'success'
+        run: exit 1
