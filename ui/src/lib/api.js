@@ -1,5 +1,7 @@
 // Star API client
-// Normalize the configured host so a scheme-less Vercel environment value cannot
+// Production refresh: 2026-07-23. Cloudflare Pages serves this client while
+// Render serves the Rust API at the fallback URL below.
+// Normalize the configured host so a scheme-less environment value cannot
 // silently turn API calls into relative requests against the frontend itself.
 const configuredApi =
   process.env.NEXT_PUBLIC_STAR_API || "https://starfire-cuee.onrender.com";
