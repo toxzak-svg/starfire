@@ -41,11 +41,11 @@ jobs:
           from pathlib import Path
 
           payload_dir = Path('tools/ei0e-materialization')
+          workflow_target = '.github/workflows/ei-0e-preregistration-ci.yml'
           expected = {
               'scripts/ei0e_preregistration.py',
               'docs/experiments/EI_0F_TERMINAL_REPORT.schema.json',
               'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md',
-              '.github/workflows/ei-0e-preregistration-ci.yml',
               'lib/examples/ei_0f_terminal_experiment.rs',
           }
           materialized = set()
@@ -58,6 +58,8 @@ jobs:
               if payload.get('schema_version') != 1:
                   raise SystemExit('unsupported EI-0E payload schema')
               for path, encoded in payload.get('files', {}).items():
+                  if path == workflow_target:
+                      continue
                   if path not in expected or path in materialized:
                       raise SystemExit(f'unexpected or duplicate target: {path}')
                   target = Path(path)
@@ -68,13 +70,12 @@ jobs:
           if materialized != expected:
               raise SystemExit(f'incomplete target set: {sorted(expected - materialized)}')
           shutil.rmtree(payload_dir)
-          Path('.github/workflows/ei-0e-materializer.yml').unlink()
           PY
 
       - name: Verify exact write scope
         run: |
           set -euo pipefail
-          allowed='^(scripts/ei0e_preregistration.py|docs/experiments/EI_0F_TERMINAL_REPORT.schema.json|docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md|.github/workflows/ei-0e-preregistration-ci.yml|lib/examples/ei_0f_terminal_experiment.rs|tools/ei0e-materialization/|.github/workflows/ei-0e-materializer.yml)'
+          allowed='^(scripts/ei0e_preregistration.py|docs/experiments/EI_0F_TERMINAL_REPORT.schema.json|docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md|lib/examples/ei_0f_terminal_experiment.rs|tools/ei0e-materialization/)'
           unexpected="$(git status --short | awk '{print $2}' | grep -Ev "$allowed" || true)"
           if [ -n "$unexpected" ]; then
             printf 'Unexpected EI-0E materialization paths:\n%s\n' "$unexpected" >&2
@@ -86,6 +87,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -A tools/ei0e-materialization scripts/ei0e_preregistration.py docs/experiments/EI_0F_TERMINAL_REPORT.schema.json docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md lib/examples/ei_0f_terminal_experiment.rs
           git commit -m "feat(ei): materialize frozen EI-0E preregistration"
           git push origin HEAD:feat/ei-0e-terminal-preregistration
