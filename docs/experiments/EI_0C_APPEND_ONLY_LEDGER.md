@@ -5,7 +5,8 @@
 > **Authority:** offline ledger infrastructure only  
 > **Parent:** issue #185 and EI tracker #149  
 > **Implementation:** PR #187  
-> **Feature:** `emerging-intelligence-ledger`
+> **Feature:** `emerging-intelligence-ledger`  
+> **Verification gate:** `.github/workflows/ei-0c-ledger-ci.yml`
 
 ## Purpose
 
