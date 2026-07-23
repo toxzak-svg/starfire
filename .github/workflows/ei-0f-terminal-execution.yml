@@ -10,6 +10,8 @@ on:
       - reopened
     paths:
       - "docs/experiments/EI_0F_TERMINAL_*"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
       - "scripts/ei0e_preregistration.py"
       - ".github/workflows/ei-0f-terminal-execution.yml"
   push:
@@ -17,6 +19,8 @@ on:
       - main
     paths:
       - "docs/experiments/EI_0F_TERMINAL_*"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
       - "scripts/ei0e_preregistration.py"
       - ".github/workflows/ei-0f-terminal-execution.yml"
 
@@ -28,11 +32,88 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out repository
+      - name: Check out repository history
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Verify frozen EI-0E identity
-        run: python3 scripts/ei0e_preregistration.py verify
+      - name: Verify frozen EI-0E source and package identities
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path('.')
+          manifest_path = root / 'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json'
+          lock_path = root / 'docs/experiments/EI_0E_FREEZE_LOCK.json'
+          evidence = json.loads(
+              (root / 'docs/experiments/EI_0F_TERMINAL_EVIDENCE.json').read_text()
+          )
+          manifest_bytes = manifest_path.read_bytes()
+          lock_bytes = lock_path.read_bytes()
+          manifest = json.loads(manifest_bytes)
+          lock = json.loads(lock_bytes)
+
+          def sha256(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def blob_sha1(data: bytes) -> str:
+              header = f'blob {len(data)}\0'.encode('ascii')
+              return hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+
+          manifest_digest = sha256(manifest_bytes)
+          lock_digest = sha256(lock_bytes)
+          if manifest_digest != evidence.get('manifest_sha256'):
+              raise SystemExit('manifest SHA-256 changed')
+          if lock_digest != evidence.get('freeze_lock_sha256'):
+              raise SystemExit('freeze-lock SHA-256 changed')
+          if lock.get('manifest_sha256') != manifest_digest:
+              raise SystemExit('freeze lock does not bind the manifest')
+          if manifest.get('preregistration_id') != 'ei-0e-terminal-v1':
+              raise SystemExit('preregistration ID changed')
+          if lock.get('preregistration_id') != manifest.get('preregistration_id'):
+              raise SystemExit('freeze-lock preregistration ID mismatch')
+
+          freeze = manifest.get('freeze_base_commit')
+          if freeze != 'ad03f7d67016e32574f47ba836bc5d52ab42c77b':
+              raise SystemExit('frozen source commit changed')
+          if lock.get('source_rebind_commit') != freeze:
+              raise SystemExit('freeze lock source commit mismatch')
+
+          subprocess.run(
+              ['git', 'cat-file', '-e', f'{freeze}^{{commit}}'],
+              check=True,
+          )
+          for entry in manifest.get('source_files', []):
+              data = subprocess.check_output(
+                  ['git', 'show', f"{freeze}:{entry['path']}"]
+              )
+              actual = blob_sha1(data)
+              if actual != entry.get('git_blob_sha1'):
+                  raise SystemExit(
+                      f"frozen source blob mismatch: {entry['path']}"
+                  )
+
+          for entry in lock.get('files', []):
+              path = root / entry['path']
+              if not path.is_file():
+                  raise SystemExit(f"locked package file missing: {entry['path']}")
+              actual = blob_sha1(path.read_bytes())
+              if actual != entry.get('git_blob_sha1'):
+                  raise SystemExit(
+                      f"locked package blob mismatch: {entry['path']}"
+                  )
+
+          print(json.dumps({
+              'freeze_base_commit': freeze,
+              'manifest_sha256': manifest_digest,
+              'freeze_lock_sha256': lock_digest,
+              'source_files_verified': len(manifest.get('source_files', [])),
+              'package_files_verified': len(lock.get('files', [])),
+          }, sort_keys=True))
+          PY
 
       - name: Replay frozen FAIL classifier
         run: |
