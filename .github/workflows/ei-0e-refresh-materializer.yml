@@ -1,0 +1,78 @@
+name: EI-0E Source Identity Refresh
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ei-0e-source-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: >-
+      github.event.pull_request.number == 196 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feat/ei-0e-terminal-preregistration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact EI-0E branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0e-terminal-preregistration
+          fetch-depth: 0
+
+      - name: Refresh exact source identities
+        run: |
+          python3 - <<'PY'
+          import base64
+          import gzip
+          import json
+          import shutil
+          from pathlib import Path
+
+          payload_dir = Path('tools/ei0e-refresh')
+          pieces = sorted(payload_dir.glob('r-*'))
+          if not pieces:
+              raise SystemExit('missing EI-0E refresh fragments')
+          payload = json.loads(''.join(piece.read_text(encoding='utf-8') for piece in pieces))
+          if payload.get('schema_version') != 1:
+              raise SystemExit('unsupported EI-0E refresh schema')
+          expected = {
+              'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json',
+              'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md',
+              'scripts/ei0e_preregistration.py',
+              'lib/examples/ei_0f_terminal_experiment.rs',
+          }
+          files = payload.get('files', {})
+          if set(files) != expected:
+              raise SystemExit(f'unexpected refresh targets: {sorted(files)}')
+          for path, encoded in files.items():
+              target = Path(path)
+              target.write_bytes(gzip.decompress(base64.b64decode(encoded, validate=True)))
+          shutil.rmtree(payload_dir)
+          PY
+
+      - name: Verify exact refresh scope
+        run: |
+          set -euo pipefail
+          allowed='^(docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json|docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md|scripts/ei0e_preregistration.py|lib/examples/ei_0f_terminal_experiment.rs|tools/ei0e-refresh/)'
+          unexpected="$(git status --short | awk '{print $2}' | grep -Ev "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            printf 'Unexpected EI-0E refresh paths:\n%s\n' "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Commit source identity refresh
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A tools/ei0e-refresh docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md scripts/ei0e_preregistration.py lib/examples/ei_0f_terminal_experiment.rs
+          git commit -m "docs(ei): refresh EI-0E source freeze on current main"
+          git push origin HEAD:feat/ei-0e-terminal-preregistration
