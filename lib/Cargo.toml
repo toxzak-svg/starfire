@@ -194,6 +194,11 @@ name = "ei_0d_reversible_update_probe"
 path = "examples/ei_0d_reversible_update_probe.rs"
 required-features = ["emerging-intelligence-updates"]
 
+[[example]]
+name = "ei_0g_shadow_preregistration_probe"
+path = "examples/ei_0g_shadow_preregistration_probe.rs"
+required-features = ["emerging-intelligence-shadow"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
@@ -247,5 +252,6 @@ emerging-intelligence-contracts = []  # EI-0A canonical episode records only; no
 emerging-intelligence-environment = ["emerging-intelligence-contracts"]  # EI-0B frozen tasks, matched controls, and independent scoring; offline-only
 emerging-intelligence-ledger = ["emerging-intelligence-contracts"]  # EI-0C append-only canonical episode ledger and fresh-state replay; offline-only
 emerging-intelligence-updates = ["emerging-intelligence-environment", "emerging-intelligence-ledger"]  # EI-0D fixed-schema reversible updates and rollback; offline-only
+emerging-intelligence-shadow = ["emerging-intelligence-updates"]  # EI-0G read-only preregistration contracts and synthetic controls; no live wiring
 web-retrieval-a0 = []  # bounded URL fetch/download contracts; no Runtime::chat() or autonomous-action wiring
 web-search-searxng = ["web-retrieval-a0"]  # provider adapter over bounded retrieval; no live chat wiring
