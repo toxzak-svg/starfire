@@ -1,0 +1,158 @@
+name: EI-0F-R1 Runner Materializer
+
+on:
+  push:
+    branches:
+      - feat/ei-0fr1-proposal-digest-preregistration
+    paths:
+      - .github/workflows/ei-0fr1-materialize-runner.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ei-0fr1-runner-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0fr1-proposal-digest-preregistration
+          fetch-depth: 1
+          show-progress: false
+
+      - name: Create separately identified repaired runner
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('lib/examples/ei_0f_terminal_experiment.rs')
+          target = Path('lib/examples/ei_0f_r1_terminal_experiment.rs')
+          text = source.read_text(encoding='utf-8')
+          text = text.replace(
+              'const PREREGISTRATION_ID: &str = "ei-0e-terminal-v1";',
+              'const PREREGISTRATION_ID: &str = "ei-0f-r1-proposal-digest-v1";',
+              1,
+          )
+          old_digest = (
+              'const PREREGISTRATION_DIGEST: &str =\n'
+              '    "5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73";'
+          )
+          new_digest = (
+              'const PREREGISTRATION_DIGEST: &str =\n'
+              '    "0000000000000000000000000000000000000000000000000000000000000000";'
+          )
+          if old_digest not in text:
+              raise SystemExit('original preregistration digest binding not found')
+          text = text.replace(old_digest, new_digest, 1)
+
+          marker = 'fn partition_name(partition: EvaluationPartition) -> &\'static str {'
+          helper = '''fn canonical_proposal_digest(update_id: &str) -> String {
+    format!("preregistered:{}", update_id.replace('_', "-"))
+}
+
+'''
+          if marker not in text:
+              raise SystemExit('partition helper insertion point not found')
+          text = text.replace(marker, helper + marker, 1)
+
+          old_proposal = '            proposal_digest: format!("preregistered:{update_id}"),'
+          new_proposal = '            proposal_digest: canonical_proposal_digest(update_id),'
+          if old_proposal not in text:
+              raise SystemExit('proposal digest construction not found')
+          text = text.replace(old_proposal, new_proposal, 1)
+
+          tests = r'''
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use star::emerging_intelligence::EpisodeContractError;
+
+    const ARMS: [ControlArm; 5] = [
+        ControlArm::Learning,
+        ControlArm::NoUpdate,
+        ControlArm::MemoryDisabled,
+        ControlArm::RandomUpdate,
+        ControlArm::FixedPolicy,
+    ];
+
+    #[test]
+    fn random_update_proposal_digest_is_canonical() {
+        let digest = canonical_proposal_digest("update-random_update-101");
+        assert_eq!(digest, "preregistered:update-random-update-101");
+        assert!(!digest.contains('_'));
+    }
+
+    #[test]
+    fn original_underscore_proposal_digest_is_rejected() {
+        let manifest = FrozenEnvironmentManifest::ei_0b_default();
+        let fixture = generate_frozen_fixture(
+            &manifest,
+            EvaluationPartition::Development,
+            101,
+        )
+        .expect("fixture");
+        let state = novice_state(ControlArm::RandomUpdate, "ei-0fr1/test")
+            .expect("state");
+        let evaluation = evaluate_fixture(&state, &fixture, ControlArm::RandomUpdate)
+            .expect("evaluation");
+        let sealed = evaluated_episode(
+            &fixture,
+            &evaluation,
+            "update-random-update-101",
+        )
+        .expect("valid episode");
+        let mut invalid = sealed.episode.clone();
+        invalid.proposed_updates[0].proposal_digest =
+            "preregistered:update-random_update-101".into();
+        assert_eq!(
+            invalid.validate(),
+            Err(EpisodeContractError::InvalidDigestText(
+                "learning proposal digest"
+            ))
+        );
+    }
+
+    #[test]
+    fn every_arm_proposal_digest_is_deterministic_and_canonical() {
+        for arm in ARMS {
+            let update_id = format!("update-{}-101", arm.as_str());
+            let first = canonical_proposal_digest(&update_id);
+            let second = canonical_proposal_digest(&update_id);
+            assert_eq!(first, second);
+            assert!(!first.contains('_'));
+            assert!(first.chars().all(|character| {
+                character.is_ascii_lowercase()
+                    || character.is_ascii_digit()
+                    || character == ':'
+                    || character == '-'
+            }));
+        }
+    }
+}
+'''
+          text += tests
+          target.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify exact write scope
+        run: |
+          set -euo pipefail
+          expected='?? lib/examples/ei_0f_r1_terminal_experiment.rs'
+          actual="$(git status --short --untracked-files=all | grep -v '^ D .github/workflows/ei-0fr1-materialize-runner.yml$' || true)"
+          test "$actual" = "$expected"
+
+      - name: Remove materializer and commit
+        run: |
+          set -euo pipefail
+          rm .github/workflows/ei-0fr1-materialize-runner.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A .github/workflows/ei-0fr1-materialize-runner.yml lib/examples/ei_0f_r1_terminal_experiment.rs
+          git commit -m "experiment(ei): add dormant EI-0F-R1 digest remediation runner"
+          git push origin HEAD:feat/ei-0fr1-proposal-digest-preregistration
