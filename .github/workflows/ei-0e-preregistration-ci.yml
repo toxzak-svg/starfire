@@ -87,7 +87,9 @@ jobs:
               exit 1
             fi
           done
-          if grep -Fq 'cargo run -p star --example ei_0f_terminal_experiment' .github/workflows/ei-0e-preregistration-ci.yml; then
+          forbidden_execution='cargo run -p star --example '
+          forbidden_execution+='ei_0f_terminal_experiment'
+          if grep -Fq "$forbidden_execution" .github/workflows/ei-0e-preregistration-ci.yml; then
             echo 'EI-0E must not execute EI-0F' >&2
             exit 1
           fi
