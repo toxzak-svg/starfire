@@ -11,21 +11,10 @@ on:
       - "lib/Cargo.toml"
       - "docs/experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md"
       - ".github/workflows/ei-0b-environment-ci.yml"
-  push:
-    branches:
-      - feat/ei-0b-deterministic-environment
-    paths:
-      - "lib/emerging_intelligence/environment/**"
-      - "lib/examples/ei_0b_deterministic_environment_probe.rs"
-      - "lib/lib.rs"
-      - "lib/Cargo.toml"
-      - "docs/experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md"
-      - ".github/workflows/ei-0b-environment-ci.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   environment:
@@ -33,10 +22,8 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Check out EI-0B branch
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          ref: feat/ei-0b-deterministic-environment
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,8 +34,6 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check scoped Rustfmt
-        id: formatting
-        continue-on-error: true
         run: |
           rustfmt --edition 2021 --check \
             lib/emerging_intelligence/environment/mod.rs \
@@ -57,49 +42,35 @@ jobs:
             lib/emerging_intelligence/environment/fixture/mod.rs \
             lib/emerging_intelligence/environment/fixture/generator.rs \
             lib/emerging_intelligence/environment/tests.rs \
-            lib/examples/ei_0b_deterministic_environment_probe.rs \
-            > ei-0b-format.log 2>&1
+            lib/examples/ei_0b_deterministic_environment_probe.rs
 
       - name: Compile feature-gated environment and probe
-        id: compile
-        continue-on-error: true
         run: |
-          {
-            cargo check -p star --lib --features emerging-intelligence-environment --locked
-            cargo check -p star --example ei_0b_deterministic_environment_probe \
-              --features emerging-intelligence-environment --locked
-          } > ei-0b-compile.log 2>&1
+          cargo check -p star --lib --features emerging-intelligence-environment --locked
+          cargo check -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked
 
       - name: Lint EI-0B with warnings denied
-        id: clippy
-        continue-on-error: true
         run: |
-          {
-            cargo clippy -p star --lib --features emerging-intelligence-environment --locked \
-              -- -D warnings
-            cargo clippy -p star --example ei_0b_deterministic_environment_probe \
-              --features emerging-intelligence-environment --locked -- -D warnings
-          } > ei-0b-clippy.log 2>&1
+          cargo clippy -p star --lib --features emerging-intelligence-environment --locked \
+            -- -D warnings
+          cargo clippy -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked -- -D warnings
 
       - name: Test deterministic environment contracts
-        id: tests
-        continue-on-error: true
         run: >-
           cargo test -p star --lib --features emerging-intelligence-environment --locked
           emerging_intelligence_environment:: -- --test-threads=1
-          > ei-0b-tests.log 2>&1
 
       - name: Run exact-replay probe twice
-        id: probe
-        continue-on-error: true
         run: |
           set -euo pipefail
           cargo run -p star --example ei_0b_deterministic_environment_probe \
             --features emerging-intelligence-environment --locked \
-            > ei-0b-environment-report.json 2> ei-0b-probe.log
+            > ei-0b-environment-report.json
           cargo run -p star --example ei_0b_deterministic_environment_probe \
             --features emerging-intelligence-environment --locked \
-            > ei-0b-environment-report-replay.json 2>> ei-0b-probe.log
+            > ei-0b-environment-report-replay.json
           cmp ei-0b-environment-report.json ei-0b-environment-report-replay.json
           grep -q '"classification": "pass"' ei-0b-environment-report.json
           grep -q '"claim": "ei-0b-experiment-infrastructure-only"' ei-0b-environment-report.json
@@ -109,59 +80,6 @@ jobs:
           grep -q '"runtime_wiring": false' ei-0b-environment-report.json
           grep -q '"learning_application_authority": false' ei-0b-environment-report.json
 
-      - name: Publish exact EI-0B verification matrix
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          FORMAT_RESULT: ${{ steps.formatting.outcome }}
-          COMPILE_RESULT: ${{ steps.compile.outcome }}
-          CLIPPY_RESULT: ${{ steps.clippy.outcome }}
-          TEST_RESULT: ${{ steps.tests.outcome }}
-          PROBE_RESULT: ${{ steps.probe.outcome }}
-        run: |
-          failed=""
-          [ "$FORMAT_RESULT" = "success" ] || failed="$failed formatting"
-          [ "$COMPILE_RESULT" = "success" ] || failed="$failed compile"
-          [ "$CLIPPY_RESULT" = "success" ] || failed="$failed clippy"
-          [ "$TEST_RESULT" = "success" ] || failed="$failed tests"
-          [ "$PROBE_RESULT" = "success" ] || failed="$failed probe"
-
-          {
-            echo "## EI-0B exact verification"
-            echo
-            echo "Validated branch \`feat/ei-0b-deterministic-environment\` at \`${GITHUB_SHA}\`."
-            echo
-            echo "- formatting: $FORMAT_RESULT"
-            echo "- compile: $COMPILE_RESULT"
-            echo "- clippy: $CLIPPY_RESULT"
-            echo "- deterministic tests: $TEST_RESULT"
-            echo "- exact-replay probe: $PROBE_RESULT"
-            if [ -n "$failed" ]; then
-              echo
-              echo "Failed stages:$failed"
-              echo '```text'
-              for stage in $failed; do
-                case "$stage" in
-                  formatting) log=ei-0b-format.log ;;
-                  compile) log=ei-0b-compile.log ;;
-                  clippy) log=ei-0b-clippy.log ;;
-                  tests) log=ei-0b-tests.log ;;
-                  probe) log=ei-0b-probe.log ;;
-                esac
-                echo "===== $stage ====="
-                tail -n 100 "$log" 2>/dev/null || true
-              done
-              echo '```'
-            else
-              echo
-              echo "All EI-0B verification stages passed. This establishes experiment infrastructure only, not EI-0 PASS."
-            fi
-          } > ei-0b-diagnostic.md
-
-          jq -n --rawfile body ei-0b-diagnostic.md '{body:$body}' |
-            gh api --method POST "repos/${{ github.repository }}/issues/176/comments" --input -
-          [ -z "$failed" ]
-
       - name: Preserve deterministic environment evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -170,11 +88,5 @@ jobs:
           path: |
             ei-0b-environment-report.json
             ei-0b-environment-report-replay.json
-            ei-0b-format.log
-            ei-0b-compile.log
-            ei-0b-clippy.log
-            ei-0b-tests.log
-            ei-0b-probe.log
-            ei-0b-diagnostic.md
           if-no-files-found: ignore
           retention-days: 30
