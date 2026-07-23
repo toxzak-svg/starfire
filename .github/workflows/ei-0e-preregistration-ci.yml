@@ -1,0 +1,107 @@
+name: EI-0E Frozen Terminal Preregistration CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
+      - "docs/experiments/EI_0F_TERMINAL_REPORT.schema.json"
+      - "scripts/ei0e_preregistration.py"
+      - "lib/examples/ei_0f_terminal_experiment.rs"
+      - ".github/workflows/ei-0e-preregistration-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
+      - "docs/experiments/EI_0F_TERMINAL_REPORT.schema.json"
+      - "scripts/ei0e_preregistration.py"
+      - "lib/examples/ei_0f_terminal_experiment.rs"
+      - ".github/workflows/ei-0e-preregistration-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ei-0e-preregistration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-preregistration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt
+
+      - name: Verify canonical manifest and freeze lock twice
+        run: |
+          set -euo pipefail
+          mkdir -p target/ei-0e-evidence
+          python3 scripts/ei0e_preregistration.py verify 2>&1 | tee target/ei-0e-evidence/verify-a.log
+          python3 scripts/ei0e_preregistration.py verify 2>&1 | tee target/ei-0e-evidence/verify-b.log
+          cmp target/ei-0e-evidence/verify-a.log target/ei-0e-evidence/verify-b.log
+
+      - name: Verify deterministic classifier vectors twice
+        run: |
+          set -euo pipefail
+          python3 scripts/ei0e_preregistration.py self-test 2>&1 | tee target/ei-0e-evidence/classifier-a.log
+          python3 scripts/ei0e_preregistration.py self-test 2>&1 | tee target/ei-0e-evidence/classifier-b.log
+          cmp target/ei-0e-evidence/classifier-a.log target/ei-0e-evidence/classifier-b.log
+
+      - name: Validate canonical JSON and report schema
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          paths = [
+              Path('docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json'),
+              Path('docs/experiments/EI_0E_FREEZE_LOCK.json'),
+              Path('docs/experiments/EI_0F_TERMINAL_REPORT.schema.json'),
+          ]
+          for path in paths:
+              value = json.loads(path.read_text(encoding='utf-8'))
+              canonical = (json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n').encode()
+              if path.read_bytes() != canonical:
+                  raise SystemExit(f'noncanonical JSON: {path}')
+          if json.loads(paths[-1].read_text())['$id'] != 'starfire/ei-0f-terminal-report/v1':
+              raise SystemExit('terminal report schema ID changed')
+          PY
+
+      - name: Enforce specification-only authority
+        run: |
+          set -euo pipefail
+          runner=lib/examples/ei_0f_terminal_experiment.rs
+          for token in 'Runtime::chat' rusqlite reqwest 'std::net' 'tokio::net' Telegram ontology tool_selection; do
+            if grep -Fq "$token" "$runner"; then
+              echo "forbidden authority token: $token" >&2
+              exit 1
+            fi
+          done
+          if grep -Fq 'cargo run -p star --example ei_0f_terminal_experiment' .github/workflows/ei-0e-preregistration-ci.yml; then
+            echo 'EI-0E must not execute EI-0F' >&2
+            exit 1
+          fi
+
+      - name: Check dormant runner formatting
+        run: rustfmt --edition 2021 --check lib/examples/ei_0f_terminal_experiment.rs
+
+      - name: Compile dormant runner without executing it
+        run: cargo check -p star --example ei_0f_terminal_experiment --features emerging-intelligence-updates --locked
+
+      - name: Preserve EI-0E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0e-preregistration-evidence
+          path: target/ei-0e-evidence
+          if-no-files-found: warn
+          retention-days: 30
