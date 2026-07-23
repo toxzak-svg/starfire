@@ -71,7 +71,10 @@ def materialize(entry: dict[str, Any], output_dir: Path) -> dict[str, Any]:
         )
 
     try:
-        compact = json.loads(gzip.decompress(base64.b64decode(encoded, validate=True)))
+        canonical_base64 = b"".join(encoded.split())
+        compact = json.loads(
+            gzip.decompress(base64.b64decode(canonical_base64, validate=True))
+        )
     except Exception as error:
         raise ValueError(f"{encoded_path}: invalid compact fixture: {error}") from error
 
