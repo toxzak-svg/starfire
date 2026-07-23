@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize digest-bound STLM L1-D1 model fixtures from gzip/base64 text."""
+"""Materialize digest-bound STLM L1-D1 models from compact q16 fixtures."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+
+MATRIX_TENSORS = ("embeddings", "recurrent_weights", "context_weights")
+VECTOR_TENSORS = ("hidden_bias", "output_weights")
 
 
 def parse_args() -> argparse.Namespace:
@@ -23,45 +26,63 @@ def sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def expand_quantized(payload: dict[str, Any]) -> dict[str, Any]:
+    if payload.get("fixture_schema_version") != 1:
+        raise ValueError("unsupported compact fixture schema")
+    if payload.get("quantization") != "symmetric_i16_per_tensor":
+        raise ValueError("unsupported quantization scheme")
+
+    model = dict(payload["model_header"])
+    shapes = payload["shapes"]
+    scales = payload["scales"]
+    tensors = payload["tensors"]
+
+    for name in MATRIX_TENSORS:
+        rows, columns = shapes[name]
+        integers = tensors[name]
+        if len(integers) != rows * columns:
+            raise ValueError(f"{name}: compact tensor shape mismatch")
+        values = [int(value) * float(scales[name]) for value in integers]
+        model[name] = [
+            values[index * columns : (index + 1) * columns] for index in range(rows)
+        ]
+
+    for name in VECTOR_TENSORS:
+        expected = shapes[name][0]
+        integers = tensors[name]
+        if len(integers) != expected:
+            raise ValueError(f"{name}: compact tensor shape mismatch")
+        model[name] = [int(value) * float(scales[name]) for value in integers]
+
+    if shapes["output_bias"] != []:
+        raise ValueError("output_bias: compact tensor shape mismatch")
+    model["output_bias"] = int(tensors["output_bias"]) * float(scales["output_bias"])
+    return model
+
+
 def materialize(entry: dict[str, Any], output_dir: Path) -> dict[str, Any]:
     encoded_path = Path(entry["encoded_path"])
     encoded = encoded_path.read_bytes()
-    expected_encoded = entry.get("encoded_sha256")
     observed_encoded = sha256(encoded)
-    if expected_encoded and observed_encoded != expected_encoded:
+    if observed_encoded != entry["encoded_sha256"]:
         raise ValueError(
-            f"{encoded_path}: encoded SHA-256 {observed_encoded} != {expected_encoded}"
+            f"{encoded_path}: encoded SHA-256 {observed_encoded} "
+            f"!= {entry['encoded_sha256']}"
         )
 
     try:
-        compressed = base64.b64decode(encoded, validate=True)
-        raw = gzip.decompress(compressed)
+        compact = json.loads(gzip.decompress(base64.b64decode(encoded, validate=True)))
     except Exception as error:
-        raise ValueError(f"{encoded_path}: invalid gzip/base64 fixture: {error}") from error
+        raise ValueError(f"{encoded_path}: invalid compact fixture: {error}") from error
 
+    model = expand_quantized(compact)
+    raw = (json.dumps(model, sort_keys=True, separators=(",", ":")) + "\n").encode()
     observed_raw = sha256(raw)
-    expected_raw = entry["sha256"]
-    if observed_raw != expected_raw:
+    if observed_raw != entry["sha256"]:
         raise ValueError(
-            f"{encoded_path}: raw SHA-256 {observed_raw} != {expected_raw}"
+            f"{entry['materialized_filename']}: raw SHA-256 {observed_raw} "
+            f"!= {entry['sha256']}"
         )
-
-    payload = json.loads(raw)
-    required = {
-        "schema_version",
-        "vocabulary_size",
-        "hidden_size",
-        "context_size",
-        "embeddings",
-        "recurrent_weights",
-        "context_weights",
-        "hidden_bias",
-        "output_weights",
-        "output_bias",
-    }
-    missing = sorted(required - payload.keys())
-    if missing:
-        raise ValueError(f"{encoded_path}: model JSON missing {missing}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / entry["materialized_filename"]
