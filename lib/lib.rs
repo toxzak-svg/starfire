@@ -206,11 +206,11 @@ pub mod verified_improvisation;
 // its existing API while optionally fanning the same typed event and frozen
 // response fingerprint into STLM L1-C. Neither observer receives response text.
 #[cfg(feature = "omega-v1-f2-shadow")]
-#[path = "omega_v1f2_shadow.rs"]
-pub(crate) mod omega_v1f2_shadow_inner;
-#[cfg(feature = "omega-v1-f2-shadow")]
 #[path = "omega_v1f2_shadow_bridge.rs"]
 pub mod omega_v1f2_shadow;
+#[cfg(feature = "omega-v1-f2-shadow")]
+#[path = "omega_v1f2_shadow.rs"]
+pub(crate) mod omega_v1f2_shadow_inner;
 
 // STLM L1-C: verifier-backed improvisation shadow observation. The observer
 // records bounded metadata only and cannot return or persist candidate text.
