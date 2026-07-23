@@ -82,6 +82,13 @@ pub mod emerging_intelligence;
 #[path = "emerging_intelligence/environment/mod.rs"]
 pub mod emerging_intelligence_environment;
 
+// EI-0C: canonical append-only episode ledger, integrity validation, and fresh-
+// state replay. Offline-only with no live persistence, runtime, learning, response,
+// routing, tool, ontology, or autonomous-action authority.
+#[cfg(feature = "emerging-intelligence-ledger")]
+#[path = "emerging_intelligence/ledger.rs"]
+pub mod emerging_intelligence_ledger;
+
 // A0: bounded public-web acquisition contracts and executor. Disabled by
 // default. It does not execute downloads, render JavaScript, mutate memory,
 // enter Runtime::chat(), select tools, or grant autonomous action authority.
