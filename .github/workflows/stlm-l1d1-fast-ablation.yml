@@ -58,22 +58,28 @@ jobs:
           PY
 
       - name: Materialize digest-bound q16 fixtures
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p artifacts/models
           python tools/stlm_l1d/materialize_fast_ablation_models.py \
             --manifest tools/stlm_l1d/fixtures/fast_ablation_manifest.json \
             --output-dir artifacts/models \
-            | tee artifacts/stlm_l1d1_materialization.json
+            2>&1 | tee artifacts/stlm_l1d1_materialization.log
+          test -s artifacts/models/fast_ablation_full_model.json
+          test -s artifacts/models/fast_ablation_reversed_control.json
+          find artifacts -maxdepth 3 -type f -printf '%p %s bytes\n' \
+            | sort | tee artifacts/after_materialization.txt
 
-      - name: Format isolated Rust parity probe
-        run: |
-          cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml
-          mkdir -p artifacts/formatted
-          cp tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs \
-            artifacts/formatted/verify_fast_ablation_parity.rs
+      - name: Check Rust parity probe formatting
+        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
 
       - name: Run fast factorial evaluation
+        id: evaluation
+        continue-on-error: true
+        shell: bash
         run: |
+          set -o pipefail
           python tools/stlm_l1d/run_fast_ablation.py \
             --model artifacts/models/fast_ablation_full_model.json \
             --control-model artifacts/models/fast_ablation_reversed_control.json \
@@ -83,9 +89,13 @@ jobs:
             --output-md artifacts/stlm_l1d1_report.md \
             --bootstrap-samples 2000 \
             --seed 20260723 \
-            --max-runtime-seconds 60
+            --max-runtime-seconds 60 \
+            2>&1 | tee artifacts/stlm_l1d1_evaluation.log
+          find artifacts -maxdepth 3 -type f -printf '%p %s bytes\n' \
+            | sort | tee artifacts/after_evaluation.txt
 
       - name: Verify frozen evaluation result
+        if: steps.evaluation.outcome == 'success'
         run: |
           python - <<'PY'
           import json
@@ -115,6 +125,7 @@ jobs:
           PY
 
       - name: Run Rust selection and hard-gate parity
+        if: steps.evaluation.outcome == 'success'
         run: |
           cargo run --quiet \
             --manifest-path tools/stlm_l1d/Cargo.toml \
@@ -137,16 +148,21 @@ jobs:
           PY
 
       - name: Run scoped Clippy
+        if: steps.evaluation.outcome == 'success'
         run: |
           cargo clippy \
             --manifest-path tools/stlm_l1d/Cargo.toml \
             --bin verify_fast_ablation_parity -- \
             -D warnings
 
-      - name: Upload ablation reports and formatted source
+      - name: Upload ablation reports and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stlm-l1d1-fast-ablation
           path: artifacts
           if-no-files-found: error
+
+      - name: Enforce evaluation success
+        if: steps.evaluation.outcome != 'success'
+        run: exit 1
