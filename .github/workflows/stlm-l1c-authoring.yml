@@ -2,6 +2,12 @@ name: STLM L1-C Authoring
 
 # Temporary branch-only materialization workflow. Removed before review.
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/apply_stlm_l1c_authoring.py"
+      - ".github/workflows/stlm-l1c-authoring.yml"
   push:
     branches:
       - feat/stlm-l1c-shadow-observation
@@ -14,6 +20,7 @@ permissions:
 
 jobs:
   author:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
