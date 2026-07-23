@@ -93,7 +93,10 @@ pub struct IsolatedPolicyState {
 }
 
 impl IsolatedPolicyState {
-    pub fn baseline(arm: ControlArm, state_namespace: impl Into<String>) -> Result<Self, UpdateError> {
+    pub fn baseline(
+        arm: ControlArm,
+        state_namespace: impl Into<String>,
+    ) -> Result<Self, UpdateError> {
         let state = Self {
             schema_version: EI_0D_SCHEMA_VERSION,
             state_id: format!("ei-0d-state-{}", arm.as_str()),
@@ -513,8 +516,8 @@ impl IndependentHeldoutSafetyEvaluator {
             total_count += count;
         }
 
-        let pre_score_bps = u16::try_from(pre_total / total_count)
-            .map_err(|_| UpdateError::SafetyScoreOverflow)?;
+        let pre_score_bps =
+            u16::try_from(pre_total / total_count).map_err(|_| UpdateError::SafetyScoreOverflow)?;
         let post_score_bps = u16::try_from(post_total / total_count)
             .map_err(|_| UpdateError::SafetyScoreOverflow)?;
         if post_score_bps < pre_score_bps {
@@ -598,7 +601,9 @@ impl UpdateTransaction {
         }
         match self.status {
             TransactionStatus::Applied => {
-                if self.safety.harmful || self.final_state_digest != self.attempted_post_state_digest {
+                if self.safety.harmful
+                    || self.final_state_digest != self.attempted_post_state_digest
+                {
                     return Err(UpdateError::InvalidTransactionStatus);
                 }
             }
@@ -729,7 +734,10 @@ impl ReversibleUpdateEngine {
         let pre_state_bytes = pre_state.to_canonical_bytes()?;
         let pre_state_digest = pre_state.digest()?;
 
-        let mutable_arm = matches!(self.state.arm, ControlArm::Learning | ControlArm::RandomUpdate);
+        let mutable_arm = matches!(
+            self.state.arm,
+            ControlArm::Learning | ControlArm::RandomUpdate
+        );
         let (attempted_state, status, safety) = if mutable_arm {
             let mut attempted = pre_state.clone();
             attempted.set_value(proposal.slot, proposal.after_value);
@@ -890,10 +898,7 @@ fn validate_digest_text(value: &str) -> Result<(), UpdateError> {
 
 fn validate_slot_value(slot: PolicySlot, value: i32) -> Result<(), UpdateError> {
     if !(0..=10_000).contains(&value) {
-        return Err(UpdateError::SlotValueOutOfRange {
-            slot,
-            value,
-        });
+        return Err(UpdateError::SlotValueOutOfRange { slot, value });
     }
     Ok(())
 }
@@ -1037,10 +1042,10 @@ pub enum UpdateError {
 mod tests {
     use super::*;
     use crate::emerging_intelligence::{
-        ActionId, BoundedAction, CognitiveEpisode, EpisodeEvaluation, EpisodeId,
-        EpisodeProvenance, EvaluationId, EvidenceId, EvidenceRecord, EvidenceRef, Intention,
-        LearningUpdate, LearningUpdateId, Observation, ObservationId, Outcome, OutcomeId,
-        Prediction, PredictionAssessment, PredictionId, StrategyId, StrategySelection,
+        ActionId, BoundedAction, CognitiveEpisode, EpisodeEvaluation, EpisodeId, EpisodeProvenance,
+        EvaluationId, EvidenceId, EvidenceRecord, EvidenceRef, Intention, LearningUpdate,
+        LearningUpdateId, Observation, ObservationId, Outcome, OutcomeId, Prediction,
+        PredictionAssessment, PredictionId, StrategyId, StrategySelection,
     };
 
     fn source_episode(update_id: &str) -> SealedCognitiveEpisode {
@@ -1151,7 +1156,10 @@ mod tests {
         let receipt = engine.rollback(&transaction).unwrap();
         assert_eq!(engine.state().to_canonical_bytes().unwrap(), original_bytes);
         assert_eq!(receipt.restored_state_digest, transaction.pre_state_digest);
-        assert_eq!(engine.rollback(&transaction), Err(UpdateError::DuplicateRollback));
+        assert_eq!(
+            engine.rollback(&transaction),
+            Err(UpdateError::DuplicateRollback)
+        );
     }
 
     #[test]

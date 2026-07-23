@@ -135,9 +135,8 @@ fn main() {
     let benign_id = "update-benign-probe";
     let benign_episode = evaluated_episode(benign_id);
     let benign_ledger = ledger_with(&benign_episode);
-    let benign_state =
-        IsolatedPolicyState::baseline(ControlArm::Learning, "ei-0d/probe/learning")
-            .expect("baseline state must initialize");
+    let benign_state = IsolatedPolicyState::baseline(ControlArm::Learning, "ei-0d/probe/learning")
+        .expect("baseline state must initialize");
     let original_bytes = benign_state
         .to_canonical_bytes()
         .expect("baseline state must serialize");
@@ -158,8 +157,8 @@ fn main() {
     let benign_bytes = benign_transaction
         .to_canonical_bytes()
         .expect("transaction must serialize");
-    let benign_replay = UpdateTransaction::from_canonical_bytes(&benign_bytes)
-        .expect("transaction must replay");
+    let benign_replay =
+        UpdateTransaction::from_canonical_bytes(&benign_bytes).expect("transaction must replay");
     let benign_update_applied = benign_transaction.status == TransactionStatus::Applied;
     let receipt = benign_engine
         .rollback(&benign_transaction)
@@ -174,9 +173,8 @@ fn main() {
     let harmful_id = "update-harmful-probe";
     let harmful_episode = evaluated_episode(harmful_id);
     let harmful_ledger = ledger_with(&harmful_episode);
-    let harmful_state =
-        IsolatedPolicyState::baseline(ControlArm::Learning, "ei-0d/probe/harmful")
-            .expect("harmful baseline must initialize");
+    let harmful_state = IsolatedPolicyState::baseline(ControlArm::Learning, "ei-0d/probe/harmful")
+        .expect("harmful baseline must initialize");
     let harmful_original = harmful_state
         .to_canonical_bytes()
         .expect("harmful baseline must serialize");
@@ -194,9 +192,9 @@ fn main() {
     let harmful_transaction = harmful_engine
         .apply(&harmful_proposal, &harmful_ledger)
         .expect("harmful proposal must produce a rollback transaction");
-    let harmful_update_detected =
-        harmful_transaction.status == TransactionStatus::RolledBackHarmful
-            && harmful_transaction.safety.harmful;
+    let harmful_update_detected = harmful_transaction.status
+        == TransactionStatus::RolledBackHarmful
+        && harmful_transaction.safety.harmful;
     let harmful_update_restored_prestate = harmful_engine
         .state()
         .to_canonical_bytes()
@@ -255,7 +253,9 @@ fn main() {
         no_update_control_noop,
         duplicate_update_rejected,
         corrupted_transaction_rejected,
-        byte_identical_replay: benign_replay.to_canonical_bytes().expect("replay must serialize")
+        byte_identical_replay: benign_replay
+            .to_canonical_bytes()
+            .expect("replay must serialize")
             == benign_bytes,
         runtime_wiring: false,
         sqlite_persistence: false,
