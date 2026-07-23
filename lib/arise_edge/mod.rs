@@ -11,11 +11,11 @@ mod runtime_shadow;
 mod types;
 
 #[cfg(feature = "arise-typed-plan")]
-#[path = "../arise_typed_plan_shadow.rs"]
-pub mod arise_typed_plan_shadow;
-#[cfg(feature = "arise-typed-plan")]
 #[path = "../arise_response_shadow_ext.rs"]
 pub mod arise_response_shadow_ext;
+#[cfg(feature = "arise-typed-plan")]
+#[path = "../arise_typed_plan_shadow.rs"]
+pub mod arise_typed_plan_shadow;
 
 pub use engine::{
     AriseEngine, LexicalSpanRenderer, LexicalTransitionVerifier, SpanRenderer, TransitionInput,

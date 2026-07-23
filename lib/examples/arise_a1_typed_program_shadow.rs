@@ -163,20 +163,38 @@ fn main() -> Result<()> {
     let response = original_response.observe_semantic_shadow(&program, &lexical_table);
     let snapshot = live_typed_plan_snapshot();
 
-    ensure!(response.intent == intent_before, "A1 altered the response intent");
+    ensure!(
+        response.intent == intent_before,
+        "A1 altered the response intent"
+    );
     ensure!(
         response.style_hint == style_hint_before,
         "A1 altered the response style hint"
     );
-    ensure!(response.body == body_before, "A1 altered the returned response body");
-    ensure!(response.slots == slots_before, "A1 altered response metadata slots");
-    ensure!(response.body == original_body, "A1 altered verifier-ready text");
+    ensure!(
+        response.body == body_before,
+        "A1 altered the returned response body"
+    );
+    ensure!(
+        response.slots == slots_before,
+        "A1 altered response metadata slots"
+    );
+    ensure!(
+        response.body == original_body,
+        "A1 altered verifier-ready text"
+    );
     ensure!(
         snapshot.terminal_classification == TypedPlanTerminalClassification::Pass,
         "A1 did not reconstruct the authorized semantic program"
     );
-    ensure!(snapshot.initial_residual == 2, "unexpected initial residual");
-    ensure!(snapshot.final_residual == 0, "semantic residual was not discharged");
+    ensure!(
+        snapshot.initial_residual == 2,
+        "unexpected initial residual"
+    );
+    ensure!(
+        snapshot.final_residual == 0,
+        "semantic residual was not discharged"
+    );
     ensure!(
         !snapshot.authority.generated_text_influence
             && !snapshot.authority.persistence_authority
