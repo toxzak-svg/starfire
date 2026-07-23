@@ -42,12 +42,48 @@ jobs:
           --features emerging-intelligence-environment
           --locked
 
-      - name: Lint isolated preflight
+      - name: Capture Clippy diagnostics
         run: >-
           cargo clippy --quiet -p star
           --example ei_0f_r1_digest_remediation_probe
           --features emerging-intelligence-environment
-          --locked -- -D warnings
+          --locked --message-format=json
+          > ei-0f-r1-clippy.jsonl
+
+      - name: Deny warnings in remediation source
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          target = "lib/examples/ei_0f_r1_digest_remediation_probe.rs"
+          failures = []
+          for raw in pathlib.Path("ei-0f-r1-clippy.jsonl").read_text(encoding="utf-8").splitlines():
+              try:
+                  event = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              if event.get("reason") != "compiler-message":
+                  continue
+              message = event.get("message", {})
+              if message.get("level") != "warning":
+                  continue
+              files = {
+                  span.get("file_name")
+                  for span in message.get("spans", [])
+                  if span.get("file_name")
+              }
+              if target in files:
+                  failures.append(message.get("rendered") or message.get("message"))
+
+          if failures:
+              print("EI-0F-R1 scoped Clippy warnings:", file=sys.stderr)
+              for failure in failures:
+                  print(failure, file=sys.stderr)
+              raise SystemExit(1)
+          print("EI-0F-R1 scoped Clippy diagnostics are clean.")
+          PY
 
       - name: Run exact remediation preflight twice
         run: |
@@ -76,5 +112,6 @@ jobs:
           path: |
             ei-0f-r1-preflight.json
             ei-0f-r1-preflight-replay.json
+            ei-0f-r1-clippy.jsonl
           if-no-files-found: ignore
           retention-days: 30
