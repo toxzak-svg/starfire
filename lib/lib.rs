@@ -89,6 +89,14 @@ pub mod emerging_intelligence_environment;
 #[path = "emerging_intelligence/ledger.rs"]
 pub mod emerging_intelligence_ledger;
 
+// EI-0D: provenance-bound fixed-schema learning updates, independent held-out
+// safety evaluation, atomic apply, and byte-exact rollback. Offline-only with no
+// live persistence, runtime, response, routing, belief, ontology, tool, or
+// autonomous-action authority.
+#[cfg(feature = "emerging-intelligence-updates")]
+#[path = "emerging_intelligence/updates.rs"]
+pub mod emerging_intelligence_updates;
+
 // A0: bounded public-web acquisition contracts and executor. Disabled by
 // default. It does not execute downloads, render JavaScript, mutate memory,
 // enter Runtime::chat(), select tools, or grant autonomous action authority.
