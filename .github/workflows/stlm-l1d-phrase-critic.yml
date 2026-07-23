@@ -26,7 +26,10 @@ jobs:
         with:
           components: rustfmt,clippy
 
-      - name: Check formatting
+      - name: Format isolated sources
+        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml
+
+      - name: Verify formatting is stable
         run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
 
       - name: Run isolated contract tests
@@ -34,8 +37,11 @@ jobs:
 
       - name: Run metadata-only probe
         run: |
-          mkdir -p artifacts
+          mkdir -p artifacts/formatted
           cargo run --quiet --manifest-path tools/stlm_l1d/Cargo.toml | tee artifacts/stlm_l1d_probe.json
+          cp lib/phrase_critic.rs artifacts/formatted/phrase_critic.rs
+          cp lib/identity_genome.rs artifacts/formatted/identity_genome.rs
+          cp tools/stlm_l1d/src/main.rs artifacts/formatted/main.rs
           python - <<'PY'
           import json
           from pathlib import Path
@@ -89,9 +95,9 @@ jobs:
       - name: Run scoped Clippy
         run: cargo clippy --manifest-path tools/stlm_l1d/Cargo.toml --all-targets -- -D warnings
 
-      - name: Upload preflight report
+      - name: Upload preflight report and formatted sources
         uses: actions/upload-artifact@v4
         with:
           name: stlm-l1d-preflight-report
-          path: artifacts/stlm_l1d_probe.json
+          path: artifacts
           if-no-files-found: error
