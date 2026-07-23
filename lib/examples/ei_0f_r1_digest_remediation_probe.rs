@@ -39,7 +39,8 @@ mod enabled {
     }
 
     fn normalized_proposal_digest(update_id: &str) -> String {
-        format!("preregistered:{}", update_id.replace('_', "-"))
+        let normalized_update_id = update_id.replace('_', "-");
+        format!("preregistered:{normalized_update_id}")
     }
 
     fn evaluated_episode(
@@ -131,10 +132,8 @@ mod enabled {
     }
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        let original_random_update_digest = format!(
-            "preregistered:update-{}-101",
-            ControlArm::RandomUpdate.as_str()
-        );
+        let random_update_arm = ControlArm::RandomUpdate.as_str();
+        let original_random_update_digest = format!("preregistered:update-{random_update_arm}-101");
         let original_random_update_digest_rejected = matches!(
             evaluated_episode(ControlArm::RandomUpdate, original_random_update_digest),
             Err(EpisodeContractError::InvalidDigestText(
@@ -147,7 +146,8 @@ mod enabled {
         let mut exact_canonical_replay = true;
 
         for arm in ControlArm::ALL {
-            let update_id = format!("update-{}-101", arm.as_str());
+            let arm_name = arm.as_str();
+            let update_id = format!("update-{arm_name}-101");
             let sealed = match evaluated_episode(arm, normalized_proposal_digest(&update_id)) {
                 Ok(sealed) => sealed,
                 Err(_) => {
@@ -186,7 +186,8 @@ mod enabled {
             unrestricted_tool_authority: false,
         };
 
-        println!("{}", serde_json::to_string_pretty(&report)?);
+        let output = serde_json::to_string_pretty(&report)?;
+        println!("{output}");
         if !passed {
             return Err("EI-0F-R1 digest remediation preflight failed".into());
         }
