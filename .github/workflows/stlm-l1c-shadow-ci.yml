@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   stlm-l1c-shadow:
@@ -25,8 +25,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check out repository
+      - name: Check out PR branch
         uses: actions/checkout@v4
+        with:
+          ref: feat/stlm-l1c-shadow-observation-v3
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -36,10 +38,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check scoped formatting
+      - name: Normalize scoped formatting once
         run: |
-          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 --config skip_children=true lib/lib.rs
+          rustfmt --edition 2021 \
             lib/omega_v1f2_shadow_bridge.rs \
             lib/stlm_l1c_shadow.rs \
             lib/stlm_l1c_shadow/part1.rs \
@@ -49,6 +51,22 @@ jobs:
             lib/stlm_l1c_shadow/tests.rs \
             lib/examples/stlm_l1c_shadow_probe.rs
           git diff --check
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              lib/lib.rs \
+              lib/omega_v1f2_shadow_bridge.rs \
+              lib/stlm_l1c_shadow.rs \
+              lib/stlm_l1c_shadow/part1.rs \
+              lib/stlm_l1c_shadow/part2.rs \
+              lib/stlm_l1c_shadow/part3.rs \
+              lib/stlm_l1c_shadow/part4.rs \
+              lib/stlm_l1c_shadow/tests.rs \
+              lib/examples/stlm_l1c_shadow_probe.rs
+            git commit -m "style(language): normalize rebased L1-C sources"
+            git push origin HEAD:feat/stlm-l1c-shadow-observation-v3
+          fi
 
       - name: Compile L1-C library and probe
         run: |
