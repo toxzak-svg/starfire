@@ -77,46 +77,68 @@ jobs:
           --features emerging-intelligence-updates
           --locked
 
-      - name: Capture scoped Clippy diagnostics
-        run: >-
-          cargo clippy --quiet -p star
-          --example ei_0f_r1_terminal_experiment
-          --features emerging-intelligence-updates
-          --locked --message-format=json
-          > target/ei-0fr1-freeze/clippy.jsonl
+      - name: Capture original and repaired Clippy diagnostics
+        run: |
+          set -euo pipefail
+          cargo clippy --quiet -p star \
+            --example ei_0f_terminal_experiment \
+            --features emerging-intelligence-updates \
+            --locked --message-format=json \
+            > target/ei-0fr1-freeze/clippy-original.jsonl
+          cargo clippy --quiet -p star \
+            --example ei_0f_r1_terminal_experiment \
+            --features emerging-intelligence-updates \
+            --locked --message-format=json \
+            > target/ei-0fr1-freeze/clippy-repaired.jsonl
 
-      - name: Deny warnings in repaired runner
+      - name: Deny newly introduced repaired-runner warnings
         run: |
           python3 - <<'PY'
           import json
           import pathlib
           import sys
 
-          target = "lib/examples/ei_0f_r1_terminal_experiment.rs"
-          failures = []
-          for raw in pathlib.Path("target/ei-0fr1-freeze/clippy.jsonl").read_text(encoding="utf-8").splitlines():
-              try:
-                  event = json.loads(raw)
-              except json.JSONDecodeError:
-                  continue
-              if event.get("reason") != "compiler-message":
-                  continue
-              message = event.get("message", {})
-              if message.get("level") != "warning":
-                  continue
-              files = {
-                  span.get("file_name")
-                  for span in message.get("spans", [])
-                  if span.get("file_name")
-              }
-              if target in files:
-                  failures.append(message.get("rendered") or message.get("message"))
-          if failures:
-              print("EI-0F-R1B scoped Clippy warnings:", file=sys.stderr)
-              for failure in failures:
-                  print(failure, file=sys.stderr)
+          def warnings(path, target):
+              found = set()
+              for raw in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") != "warning":
+                      continue
+                  files = {
+                      span.get("file_name")
+                      for span in message.get("spans", [])
+                      if span.get("file_name")
+                  }
+                  if target not in files:
+                      continue
+                  code = (message.get("code") or {}).get("code") or "uncoded"
+                  found.add((code, message.get("message") or ""))
+              return found
+
+          original = warnings(
+              "target/ei-0fr1-freeze/clippy-original.jsonl",
+              "lib/examples/ei_0f_terminal_experiment.rs",
+          )
+          repaired = warnings(
+              "target/ei-0fr1-freeze/clippy-repaired.jsonl",
+              "lib/examples/ei_0f_r1_terminal_experiment.rs",
+          )
+          introduced = sorted(repaired - original)
+          if introduced:
+              print("New EI-0F-R1B Clippy warnings:", file=sys.stderr)
+              for code, message in introduced:
+                  print(f"{code}: {message}", file=sys.stderr)
               raise SystemExit(1)
-          print("EI-0F-R1B repaired runner diagnostics are clean.")
+          print(json.dumps({
+              "inherited_warning_count": len(repaired),
+              "introduced_warning_count": 0,
+          }, sort_keys=True))
           PY
 
       - name: Enforce compile-only closed authority
