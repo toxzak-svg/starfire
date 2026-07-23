@@ -269,15 +269,11 @@ impl InputNormalizer {
     /// and any tokens that couldn't be confidently decoded.
     pub fn normalize(&self, input: &str) -> NormalizedInput {
         let mut text = input.to_string();
-        let mut markers = PersonalityMarkers::default();
+        let mut markers = self.detect_markers(input);
         let mut uncertain_tokens = Vec::new();
 
-        // Step 1: Extract and replace emoji
+        // Step 1: Extract and replace emoji while preserving raw-input markers.
         text = self.replace_emoji(&text, &mut markers);
-
-        // Step 2: Detect personality markers BEFORE normalization
-        // (so we know what the raw input looked like)
-        markers = self.detect_markers(input);
 
         // Step 3: Replace leet speak
         text = self.decode_leet(&text);
@@ -404,7 +400,7 @@ impl InputNormalizer {
         }
 
         // Handle common leet multi-char patterns
-        let text_lower = result.to_lowercase();
+        let _text_lower = result.to_lowercase();
 
         // Common word-level leet patterns
         let word_leet = [
@@ -607,7 +603,7 @@ impl InputNormalizer {
         }
 
         // Check if it contains adjacent keyboard proximity errors
-        let qwerty_proximity = [
+        let _qwerty_proximity = [
             ("q", "wa"), ("w", "qe"), ("e", "wr"), ("r", "et"), ("t", "ry"),
             ("y", "tu"), ("u", "yi"), ("i", "uo"), ("o", "ip"), ("p", "o"),
             ("a", "qs"), ("s", "ad"), ("d", "sf"), ("f", "dg"), ("g", "fh"),
@@ -617,6 +613,10 @@ impl InputNormalizer {
         ];
 
         let lower = word.to_lowercase();
+        const KEYBOARD_RUNS: [&str; 6] = ["qwerty", "asdf", "zxcv", "poiuy", "lkjh", "mnbv"];
+        if KEYBOARD_RUNS.iter().any(|run| lower.contains(run)) {
+            return true;
+        }
 
         // If word is in a dictionary, it's probably not a typo
         // (simplified check — real implementation would use a proper dictionary)
@@ -862,7 +862,7 @@ mod tests {
     fn test_mixed_case() {
         let result = n("WhAt Is ThIs");
         // May or may not be flagged depending on threshold
-        let marked = result.markers.is_mixed_case;
+        let _marked = result.markers.is_mixed_case;
         // At minimum, the clean text should be readable
         assert!(!result.clean_text.is_empty());
     }
@@ -985,8 +985,7 @@ mod tests {
     #[test]
     fn test_only_emoji() {
         let result = n("❤️😂🤣");
-        // Should process without crashing - output may contain text or markers
-        assert!(result.uncertain_tokens.len() >= 0);
+        assert!(result.markers.has_emoji);
     }
 
     #[test]
@@ -1053,9 +1052,7 @@ mod tests {
     #[test]
     fn test_uncertain_tokens_tracked() {
         let result = n("xyzqwerty asdfghjkl");
-        // These aren't common typos so should be flagged as uncertain
-        // But the normalizer should NOT crash
-        assert!(result.uncertain_tokens.len() >= 0);
+        assert!(!result.uncertain_tokens.is_empty());
     }
 
     // === Emoji unicode edge cases ===

@@ -33,11 +33,13 @@ const FAMILIES: [&str; TRAIN_FAMILIES + HOLDOUT_FAMILIES + FUTURE_FAMILIES] = [
 #[derive(Debug, Clone)]
 struct RootTask {
     root_id: u64,
+    #[allow(dead_code)] // Frozen split-family provenance.
     family: &'static str,
     source: Atom,
     middle: Atom,
     goal: Atom,
     irrelevant_source: Atom,
+    #[allow(dead_code)] // Retained negative-control endpoint.
     irrelevant_goal: Atom,
     target_graph: MixedEvidenceGraph,
     irrelevant_graph: MixedEvidenceGraph,

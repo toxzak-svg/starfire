@@ -26,7 +26,7 @@ use crate::learning::LearningEngine;
 use crate::voice::{InternalState, VoiceEngine};
 use crate::quanot::{Quanot, QuanotResult};
 use crate::world_model::WorldModel;
-use crate::prediction::{PredictionCenter, ConversationContext};
+use crate::prediction::PredictionCenter;
 use crate::personality::PersonalityEmergence;
 use crate::user_model::UserCognitionModel;
 use crate::language_model::IntentReranker;
@@ -1538,7 +1538,7 @@ impl Runtime {
     /// "what do you know about X" / "what have you learned" — recall handler.
     /// Intent: `Recall`. If the input specifies a term, looks up Star's
     /// understanding; otherwise returns a learning summary.
-    fn handle_what_do_you_know_about(&self, input: &str, lower: &str) -> response_intent::Response {
+    fn handle_what_do_you_know_about(&self, _input: &str, lower: &str) -> response_intent::Response {
         // If asking about something specific
         if lower.starts_with("what do you know about") {
             let after = lower.strip_prefix("what do you know about").unwrap_or("").trim();

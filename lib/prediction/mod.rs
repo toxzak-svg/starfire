@@ -308,7 +308,7 @@ mod tests {
         );
         context.discussed_entities = vec!["AI".to_string(), "learning".to_string()];
         
-        let predictions = center.generate(&context);
+        let _predictions = center.generate(&context);
         
         // Should have generated some predictions (depends on context having entities)
         // Just verify it doesn't panic
@@ -334,7 +334,7 @@ mod tests {
             ..Default::default()
         };
         
-        let pending = center.query(filter);
+        let _pending = center.query(filter);
         // May be empty depending on implementation
     }
 

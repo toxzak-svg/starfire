@@ -386,7 +386,7 @@ mod tests {
             source: super::super::WorkingSource::Retrieved,
             confidence: Some(0.8),
         };
-        let items: Vec<&super::super::WorkingItem> = vec![&item1, &item2];
+        let _items: Vec<&super::super::WorkingItem> = vec![&item1, &item2];
 
         // Both items share "Fire" - engine should find structural mapping
         let analogy = engine.find_analogy_between(&[&item1, &item2]);

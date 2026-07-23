@@ -111,8 +111,6 @@ pub struct Critic {
 }
 
 struct CritiqueRecord {
-    concerns: Vec<Concern>,
-    answer: String,
     was_correct: bool,
 }
 
@@ -166,8 +164,6 @@ impl Critic {
 
         // Record for learning
         self.critique_history.push(CritiqueRecord {
-            concerns: concerns.clone(),
-            answer: result.answer.clone().unwrap_or_default(),
             was_correct: false, // Will be updated later
         });
 
@@ -194,7 +190,7 @@ impl Critic {
             (" nothing ", "universal claim"),
         ];
         
-        for (pattern, label) in &over_gen_patterns {
+        for (pattern, _label) in &over_gen_patterns {
             if answer.contains(pattern) && result.confidence != BeliefState::Knows {
                 concerns.push(Concern {
                     severity: 0.7,
@@ -239,7 +235,7 @@ impl Critic {
             ("correct", "correctness often depends on context"),
         ];
         
-        for (keyword, label) in &edge_case_queries {
+        for (keyword, _label) in &edge_case_queries {
             if query_lower.contains(keyword) && result.confidence == BeliefState::Thinks {
                 // Maybe add a caveat
                 concerns.push(Concern {
@@ -268,7 +264,7 @@ impl Critic {
     }
 
     /// Check for overstated confidence.
-    fn check_confidence(&self, query: &str, result: &ReasoningResult) -> Vec<Concern> {
+    fn check_confidence(&self, _query: &str, result: &ReasoningResult) -> Vec<Concern> {
         let mut concerns = Vec::new();
         let empty = String::new();
         let answer = result.answer.as_ref().unwrap_or(&empty);

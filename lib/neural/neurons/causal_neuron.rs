@@ -4,7 +4,7 @@
 //! performs causal inference over inputs.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::causal::{CausalEngine, CausalEdge, CausalEdgeId, CausalHypothesis};
+use crate::causal::{CausalEngine, CausalEdgeId};
 use std::collections::HashMap;
 
 const CAUSAL_INPUT_DIM: usize = 64;
@@ -45,13 +45,6 @@ impl CausalNeuron {
         vec
     }
 
-    fn decode_vector(&self, vec: &[f32]) -> String {
-        vec.iter()
-            .map(|&v| (v * 255.0) as u8 as char)
-            .collect::<String>()
-            .trim_matches('\0')
-            .to_string()
-    }
 
     pub fn add_causal_edge(&mut self, cause: &str, effect: &str, confidence: f64) -> CausalEdgeId {
         self.engine.add_edge(cause, effect, confidence, None)
@@ -90,7 +83,7 @@ impl Neuron for CausalNeuron {
         };
 
         let causes = self.get_causes(query);
-        let effects = self.get_effects(query);
+        let _effects = self.get_effects(query);
 
         let mut output_vec = vec![0.0; CAUSAL_OUTPUT_DIM];
         for (i, cause) in causes.iter().take(8).enumerate() {

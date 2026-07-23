@@ -2,7 +2,6 @@
 
 use crate::language_model::model::CharRNN;
 use crate::language_model::vocabulary::Vocabulary;
-use rand::Rng;
 use rand::RngCore;
 use rand::SeedableRng;
 use rand::rngs::StdRng;

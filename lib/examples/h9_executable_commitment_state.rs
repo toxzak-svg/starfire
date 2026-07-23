@@ -29,13 +29,16 @@ const FAMILY_NAMES: [&str; TRAIN_FAMILIES + HOLDOUT_FAMILIES + FUTURE_FAMILIES] 
 
 #[derive(Debug, Clone)]
 struct Task {
+    #[allow(dead_code)] // Frozen task provenance.
     id: u64,
     family_index: usize,
+    #[allow(dead_code)] // Frozen family label.
     family_name: &'static str,
     source: Atom,
     middle: Atom,
     goal: Atom,
     decoy_source: Atom,
+    #[allow(dead_code)] // Retained control-fixture endpoint.
     decoy_goal: Atom,
     target_witness_id: u64,
     decoy_witness_id: u64,
@@ -275,7 +278,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let future_scalar = path_from_report(&future_report, PathMode::ScalarOnly);
     let future_rewired = path_from_report(&future_report, PathMode::Rewired);
     let future_random = path_from_report(&future_report, PathMode::RandomValid);
-    let future_invalid = path_from_report(&future_report, PathMode::InvalidMatched);
+    let _future_invalid = path_from_report(&future_report, PathMode::InvalidMatched);
     let future_delayed = path_from_report(&future_report, PathMode::Delayed);
 
     let all_reports = [&training, &holdout_report, &future_report];

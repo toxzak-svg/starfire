@@ -52,7 +52,7 @@ impl PainCostModel {
             .map(|(_, m)| *m)
             .unwrap_or(1.0);
 
-        pattern_cost * source_mult * (1.0 + historical_pain)
+        pattern_cost * source_mult * (1.0 + historical_pain * self.decay_rate)
     }
 
     /// Get the pain-adjusted score for a strategy

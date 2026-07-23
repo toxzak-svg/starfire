@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn test_causal_engine_add_edge() {
         let mut engine = CausalEngine::new();
-        let id = engine.add_edge("fire", "heat", 0.8, Some(1));
+        let _id = engine.add_edge("fire", "heat", 0.8, Some(1));
 
         let edges = engine.get_effects_of("fire");
         assert_eq!(edges.len(), 1);

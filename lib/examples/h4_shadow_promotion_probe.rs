@@ -26,6 +26,7 @@ const MIN_TRANSFER_EFFICIENCY_RATIO: f64 = 1.35;
 const MIN_TRANSFER_WIN_FRACTION: f64 = 1.0;
 const MIN_WORST_WINDOW_RATIO: f64 = 1.20;
 const MIN_CONTROL_EFFICIENCY_RATIO: f64 = 1.25;
+#[allow(dead_code)] // Frozen resolver vocabulary.
 const RESOLVERS: [&str; 3] = ["memory", "reasoning", "causal"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]

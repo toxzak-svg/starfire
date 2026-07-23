@@ -11,7 +11,7 @@ use std::fmt;
 /// Attractor Basin Engine — constraint satisfaction as prediction
 pub struct BasinEngine {
     /// Constraint graph nodes
-    pub nodes: HashMap<NodeId, BasinNode>,
+    nodes: HashMap<NodeId, BasinNode>,
     /// Constraints between nodes
     constraints: Vec<Constraint>,
     /// Current basin assignments
@@ -39,7 +39,6 @@ impl fmt::Display for NodeId {
 /// A node in the constraint graph
 #[derive(Debug, Clone)]
 struct BasinNode {
-    pub id: NodeId,
     /// Current most-confident value
     pub value: PropertyValue,
     /// Confidence in current value
@@ -98,15 +97,12 @@ pub enum ConstraintType {
 struct BasinState {
     /// Current assignment of nodes to basins
     assignments: HashMap<NodeId, PropertyValue>,
-    /// Energy of the current state
-    energy: f64,
 }
 
 impl Default for BasinState {
     fn default() -> Self {
         BasinState {
             assignments: HashMap::new(),
-            energy: f64::INFINITY,
         }
     }
 }
@@ -124,12 +120,14 @@ impl BasinEngine {
     /// Add a node to the constraint graph
     pub fn add_node(&mut self, id: &str, value: PropertyValue, confidence: f64) {
         let node_id = NodeId::new(id);
-        
+        if self.nodes.len() >= self.max_nodes && !self.nodes.contains_key(&node_id) {
+            return;
+        }
+
         // Generate alternatives based on value type
         let alternatives = Self::generate_alternatives(&value);
         
-        self.nodes.insert(node_id.clone(), BasinNode {
-            id: node_id,
+        self.nodes.insert(node_id, BasinNode {
             value,
             confidence,
             alternatives,
@@ -224,19 +222,25 @@ impl BasinEngine {
 
     /// Count constraints on a node
     fn node_constraint_count(&self, node_id: &NodeId) -> usize {
-        self.constraints.iter()
-            .filter(|c| c.from == *node_id || c.to == *node_id)
+        self.constraints
+            .iter()
+            .filter(|constraint| {
+                constraint.satisfied
+                    && (constraint.from == *node_id || constraint.to == *node_id)
+            })
             .count()
     }
 
     /// Compute where a basin wants to move under constraint pressure
     fn compute_pressure(&self, node_id: &NodeId) -> Option<BasinPressure> {
-        let node = self.nodes.get(node_id)?;
+        let _node = self.nodes.get(node_id)?;
 
         // Sum constraint forces
         let mut force_direction: HashMap<String, f64> = HashMap::new();
-        let constraints_on: Vec<_> = self.constraints.iter()
-            .filter(|c| c.to == *node_id)
+        let constraints_on: Vec<_> = self
+            .constraints
+            .iter()
+            .filter(|constraint| constraint.satisfied && constraint.to == *node_id)
             .collect();
 
         for constraint in constraints_on {
@@ -261,7 +265,17 @@ impl BasinEngine {
     /// Convert basin pressure to a prediction
     fn basinto_prediction(&self, node_id: NodeId, pressure: &BasinPressure) -> Option<Prediction> {
         let node = self.nodes.get(&node_id)?;
-        
+        let active_constraint_ids = self
+            .constraints
+            .iter()
+            .filter(|constraint| {
+                constraint.satisfied
+                    && (constraint.from == node_id || constraint.to == node_id)
+            })
+            .map(|constraint| constraint.id.0.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
         Some(Prediction::new(
             PredictionEngine::Basin,
             PredictionKind::StateChange,
@@ -278,6 +292,9 @@ impl BasinEngine {
                 format!("Current value: {}", node.value),
                 format!("Pressure force: {:.3}", pressure.force),
                 format!("Constraint count: {}", self.node_constraint_count(&node_id)),
+                format!("Active constraints: {}", active_constraint_ids),
+                format!("Active constraints: {}", active_constraint_ids),
+                format!("Active constraints: {}", active_constraint_ids),
             ],
         ))
     }
@@ -341,7 +358,11 @@ impl BasinEngine {
         // Follow causal constraints
         for _ in 0..10 { // Max chain length
             let next = self.constraints.iter()
-                .filter(|c| c.constraint_type == ConstraintType::Causation && c.from == current)
+                .filter(|constraint| {
+                    constraint.satisfied
+                        && constraint.constraint_type == ConstraintType::Causation
+                        && constraint.from == current
+                })
                 .filter_map(|c| Some(c.to.clone()))
                 .find(|n| !visited.contains(n));
 
@@ -422,8 +443,10 @@ mod tests {
         
         let predictions = engine.predict_equilibrium();
         
-        // Should have at least one prediction (the necessary truth)
-        assert!(!predictions.is_empty() || predictions.len() >= 0);
+        assert!(
+            !predictions.is_empty(),
+            "a causal constraint should produce an equilibrium prediction"
+        );
     }
 
     #[test]

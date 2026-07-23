@@ -340,7 +340,6 @@ pub struct SequenceActivations {
     output_logits: Vec<f32>,
 
     // Layout metadata (constant for the lifetime of this SequenceActivations).
-    seq_len: usize,
     num_layers: usize,
     hidden_size: usize,
     vocab_size: usize,
@@ -379,7 +378,6 @@ impl SequenceActivations {
             c: vec![0.0; slots * hidden_size],
             h: vec![0.0; slots * hidden_size],
             output_logits: vec![0.0; seq_len * vocab_size],
-            seq_len,
             num_layers,
             hidden_size,
             vocab_size,
@@ -517,40 +515,6 @@ impl LayerGradients {
         &mut self.weights
     }
 
-    // Mutable slice accessors used by backward_sequence to write gradients
-    // in place without allocating per-tensor buffers.
-    fn i_weight_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.i_b_off - self.layout.i_w_off;
-        &mut self.weights[self.layout.i_w_off..self.layout.i_w_off + len]
-    }
-    fn i_bias_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.f_w_off - self.layout.i_b_off;
-        &mut self.weights[self.layout.i_b_off..self.layout.i_b_off + len]
-    }
-    fn f_weight_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.f_b_off - self.layout.f_w_off;
-        &mut self.weights[self.layout.f_w_off..self.layout.f_w_off + len]
-    }
-    fn f_bias_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.c_w_off - self.layout.f_b_off;
-        &mut self.weights[self.layout.f_b_off..self.layout.f_b_off + len]
-    }
-    fn c_weight_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.c_b_off - self.layout.c_w_off;
-        &mut self.weights[self.layout.c_w_off..self.layout.c_w_off + len]
-    }
-    fn c_bias_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.o_w_off - self.layout.c_b_off;
-        &mut self.weights[self.layout.c_b_off..self.layout.c_b_off + len]
-    }
-    fn o_weight_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.o_b_off - self.layout.o_w_off;
-        &mut self.weights[self.layout.o_w_off..self.layout.o_w_off + len]
-    }
-    fn o_bias_mut(&mut self) -> &mut [f32] {
-        let len = self.layout.total_len - self.layout.o_b_off;
-        &mut self.weights[self.layout.o_b_off..self.layout.o_b_off + len]
-    }
 }
 
 /// Full gradient set for the model
@@ -869,7 +833,7 @@ impl CharRNN {
         };
 
         // Persistent carry-over state for dh_next / dc_next across timesteps.
-        let mut dh_next = vec![vec![0.0f32; hidden_size]; num_layers];
+        let dh_next = vec![vec![0.0f32; hidden_size]; num_layers];
         let mut dc_next = vec![vec![0.0f32; hidden_size]; num_layers];
 
         // Per-call scratch — sized to the widest per-layer requirement
@@ -1127,7 +1091,7 @@ impl CharRNN {
 
     /// Load model from binary format
     pub fn load(path: &str) -> std::io::Result<Self> {
-        use std::io::{Read, BufRead};
+        use std::io::Read;
 
         let file = std::fs::File::open(path)?;
         let mut reader = std::io::BufReader::new(file);

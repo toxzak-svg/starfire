@@ -4,7 +4,7 @@
 //! a representation of entities and their causal relationships.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::world_model::{WorldModel, EntityId};
+use crate::world_model::WorldModel;
 use crate::quanot::QuanotResult;
 use std::collections::HashMap;
 

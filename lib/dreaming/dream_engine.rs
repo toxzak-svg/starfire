@@ -87,16 +87,9 @@ pub struct DreamEngine {
     episodes: VecDeque<DreamEpisode>,
     max_episodes: usize,
     current_theme: Option<DreamTheme>,
-    validation_history: Vec<ValidationRecord>,
+    validation_history: Vec<bool>,
 }
 
-#[derive(Debug, Clone)]
-struct ValidationRecord {
-    dream_id: DreamId,
-    hypothesis: String,
-    supported: bool,
-    at: i64,
-}
 
 impl DreamEngine {
     pub fn new() -> Self {
@@ -155,12 +148,7 @@ impl DreamEngine {
             episode.support_level = support_level;
             episode.validated_at = Some(crate::now_timestamp());
 
-            self.validation_history.push(ValidationRecord {
-                dream_id,
-                hypothesis: episode.hypothesis.clone(),
-                supported,
-                at: crate::now_timestamp(),
-            });
+            self.validation_history.push(supported);
         }
     }
 
@@ -172,7 +160,7 @@ impl DreamEngine {
         }
 
         let supported = self.validation_history.iter()
-            .filter(|v| v.supported)
+            .filter(|&&supported| supported)
             .count();
 
         supported as f64 / self.validation_history.len() as f64

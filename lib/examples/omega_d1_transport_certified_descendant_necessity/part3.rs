@@ -93,7 +93,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
     let mut stationary_ancestor_admitted = false;
     let mut descendant_proposal_succeeded = false;
     let mut descendant_validation_succeeded = false;
-    let mut descendant_admitted_during_window = false;
     let mut descendant_admitted_final = false;
     let mut no_ancestor_rejection = false;
     let mut descendant_validation_rejected = false;
@@ -142,7 +141,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
             budget.descendant_admission_slots =
                 budget.descendant_admission_slots.saturating_add(1);
             layered.admit_certificate(&certificate)?;
-            descendant_admitted_during_window = true;
             descendant_admitted_final = true;
         }
         PathKind::L0RawSearch => {
@@ -301,7 +299,6 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
             budget.descendant_admission_slots =
                 budget.descendant_admission_slots.saturating_add(1);
             layered.admit_certificate(&certificate)?;
-            descendant_admitted_during_window = true;
             descendant_admitted_final = true;
         }
         PathKind::DescendantPayloadOnly => {
@@ -397,7 +394,7 @@ fn execute_path(root: &RootTask, path: PathKind) -> Result<Execution, Box<dyn Er
         }
     }
 
-    descendant_admitted_during_window = layered.descendant_count() > 0;
+    let descendant_admitted_during_window = layered.descendant_count() > 0;
     let correct_predictions = predict_transfer(root, &layered, &mut budget)?;
 
     if let Some(certificate) = delayed_descendant_certificate {

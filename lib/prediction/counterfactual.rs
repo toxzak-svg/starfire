@@ -135,7 +135,7 @@ impl CounterfactualEngine {
     pub fn project_backward(
         &self,
         outcome: &str,
-        basin: &BasinEngine,
+        _basin: &BasinEngine,
     ) -> Vec<NecessaryPrecondition> {
         let mut preconditions = Vec::new();
         

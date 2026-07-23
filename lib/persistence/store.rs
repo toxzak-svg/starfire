@@ -946,12 +946,16 @@ fn row_to_reasoning_event(row: &rusqlite::Row) -> rusqlite::Result<ReasoningEven
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEST_STORE: AtomicU64 = AtomicU64::new(0);
 
     fn test_store() -> Store {
-        let dir = std::env::temp_dir().join("star_test_store");
-        let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join("test.db");
-        Store::open(&path).unwrap()
+        let unique = NEXT_TEST_STORE.fetch_add(1, Ordering::Relaxed);
+        let dir =
+            std::env::temp_dir().join(format!("star_test_store_{}_{}", std::process::id(), unique));
+        std::fs::create_dir_all(&dir).unwrap();
+        Store::open(&dir.join("test.db")).unwrap()
     }
 
     #[test]

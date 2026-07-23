@@ -1,6 +1,6 @@
 //! Training pipeline for character-level language model
 
-use crate::language_model::model::{CharRNN, ModelConfig};
+use crate::language_model::model::CharRNN;
 use crate::language_model::vocabulary::Vocabulary;
 use std::fs::File;
 use std::io::{BufRead, BufReader};

@@ -30,7 +30,9 @@ const FAMILIES: [&str; TRAIN_FAMILIES + HOLDOUT_FAMILIES + FUTURE_FAMILIES] = [
 
 #[derive(Debug, Clone)]
 struct RootTask {
+    #[allow(dead_code)] // Frozen root provenance.
     root_id: u64,
+    #[allow(dead_code)] // Frozen split-family provenance.
     family: &'static str,
     source: Atom,
     middle: Atom,

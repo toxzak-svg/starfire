@@ -32,6 +32,7 @@ struct H5BObservation {
     family: String,
 }
 
+#[allow(dead_code)]
 mod frozen_h4_fixture {
     include!("h4_real_cycle_shadow_probe.rs");
 

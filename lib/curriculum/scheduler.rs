@@ -1,6 +1,6 @@
 //! Curriculum Scheduler — Schedules learning sessions
 
-use super::{CurriculumEngine, GapId, GapType, KnowledgeGap, LearningTask};
+use super::{CurriculumEngine, GapId, LearningTask};
 
 /// Scheduling policy
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,6 +162,7 @@ impl CurriculumScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::curriculum::{GapType, KnowledgeGap};
 
     #[test]
     fn test_should_trigger_threshold() {

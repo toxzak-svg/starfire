@@ -631,7 +631,6 @@ fn validate_graph(graph: &StructuralGraph) -> Result<(), LatentRoleError> {
 }
 
 struct GraphIndex {
-    nodes: Vec<Atom>,
     outgoing: BTreeMap<Atom, Vec<Atom>>,
     incoming: BTreeMap<Atom, Vec<Atom>>,
 }
@@ -657,7 +656,6 @@ impl GraphIndex {
             neighbors.sort();
         }
         Self {
-            nodes,
             outgoing,
             incoming,
         }

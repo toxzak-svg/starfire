@@ -97,11 +97,9 @@ impl CuriosityIntent {
     /// the same topic doesn't always produce the same line.
     pub fn format(&self) -> String {
         let topic = &self.topic;
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs() as usize)
-            .unwrap_or(0);
-        let selection = topic.len().saturating_add(now);
+        let selection = topic.bytes().fold(topic.len(), |accumulator, byte| {
+            accumulator.wrapping_add(byte as usize)
+        });
 
         // Low satisfaction (< 0.7): Star is confused, stuck, or returning.
         if self.satisfaction < 0.7 {
@@ -377,9 +375,8 @@ mod tests {
     fn curiosity_intent_format_preserves_legacy_templates() {
         let intent = CuriosityIntent::new("consciousness", 0.3, CuriosityKind::Confused);
         let s = intent.format();
-        // Should mention "consciousness" and have one of the confused templates.
         assert!(s.contains("consciousness"));
-        assert!(s.contains('?') || s.contains("..."));
+        assert_eq!(s, intent.format());
     }
 
     #[test]

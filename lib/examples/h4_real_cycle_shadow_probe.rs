@@ -43,6 +43,7 @@ const MIN_TRANSFER_WIN_FRACTION: f64 = 1.0;
 const MIN_WORST_WINDOW_RATIO: f64 = 1.10;
 const MIN_CONTROL_EFFICIENCY_RATIO: f64 = 1.20;
 const SOLVE_SCORE: f64 = 0.70;
+#[allow(dead_code)] // Frozen resolver vocabulary.
 const RESOLVERS: [&str; 5] = [
     "reasoning",
     "memory",

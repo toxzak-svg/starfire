@@ -7,7 +7,7 @@ use crate::persistence::{Memory, MemoryDomain, Store, BeliefState};
 use crate::reasoning::ReasoningEngine;
 use crate::metacog::MetaCognition;
 use crate::research::ResearchWalkabout;
-use crate::runtime::tempo::{TempoEngine, Tempo, tempo_for_query};
+use crate::runtime::tempo::{TempoEngine, tempo_for_query};
 use crate::metacog::critic::Critic;
 use crate::variation::pick_unused_in_last_4;
 use std::sync::{Arc, Mutex};
@@ -490,7 +490,7 @@ impl Conversation {
         // Multi-tempo reasoning: select tempo based on query characteristics
         let tempo = tempo_for_query(&first_q);
         let tempo_result = self.tempo.reason_at(&first_q, tempo, &mut self.reasoning.lock().unwrap());
-        let tempo_tag = tempo_result.source.tag();
+        let _tempo_tag = tempo_result.source.tag();
 
         // Run through structural honesty critic
         let critique_result = self.critic.critique(&first_q, &result);

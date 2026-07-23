@@ -24,7 +24,6 @@ pub struct MetaPredictionEngine {
 
 #[derive(Debug, Clone)]
 struct EngineHistory {
-    pub engine: PredictionEngine,
     /// Cumulative accuracy
     pub accuracy: f64,
     /// Accuracy trend (improving or degrading?)
@@ -34,9 +33,8 @@ struct EngineHistory {
 }
 
 impl EngineHistory {
-    fn new(engine: PredictionEngine) -> Self {
+    fn new() -> Self {
         EngineHistory {
-            engine,
             accuracy: 0.5, // Start with moderate confidence
             trend: 0.0,
             recent_outcomes: Vec::new(),
@@ -44,7 +42,7 @@ impl EngineHistory {
     }
 
     fn update(&mut self, correct: bool) {
-        let n = self.recent_outcomes.len() as f64;
+        let _n = self.recent_outcomes.len() as f64;
         
         // Update accuracy with exponential moving average
         self.accuracy = self.accuracy * 0.9 + if correct { 0.1 } else { 0.0 };
@@ -78,15 +76,13 @@ impl EngineHistory {
 
 #[derive(Debug, Clone)]
 struct KindHistory {
-    pub kind: PredictionKind,
     pub accuracy: f64,
     pub sample_count: usize,
 }
 
 impl KindHistory {
-    fn new(kind: PredictionKind) -> Self {
+    fn new() -> Self {
         KindHistory {
-            kind,
             accuracy: 0.5,
             sample_count: 0,
         }
@@ -196,7 +192,7 @@ impl MetaPredictionEngine {
             PredictionEngine::Basin,
             PredictionEngine::Meta,
         ] {
-            engine_histories.insert(engine, EngineHistory::new(engine));
+            engine_histories.insert(engine, EngineHistory::new());
         }
 
         let mut kind_histories = HashMap::new();
@@ -207,7 +203,7 @@ impl MetaPredictionEngine {
             PredictionKind::BeliefChange,
             PredictionKind::StateChange,
         ] {
-            kind_histories.insert(kind, KindHistory::new(kind));
+            kind_histories.insert(kind, KindHistory::new());
         }
 
         MetaPredictionEngine {
@@ -286,7 +282,7 @@ impl MetaPredictionEngine {
     }
 
     /// Record the outcome of a prediction for future calibration
-    pub fn record_outcome(&mut self, prediction_id: PredictionId, outcome: PredictionOutcome) {
+    pub fn record_outcome(&mut self, _prediction_id: PredictionId, outcome: PredictionOutcome) {
         // Map outcome to correctness
         let correct = match outcome {
             PredictionOutcome::Confirmed => true,

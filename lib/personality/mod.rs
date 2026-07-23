@@ -260,7 +260,7 @@ impl PersonalityEmergence {
     /// This does NOT generate a response — it updates Star's internal state
     /// so that the NEXT response is shaped by this interaction.
     pub fn process_interaction(&mut self, zach_input: &str) {
-        let normalized = self.normalizer.normalize(zach_input);
+        let _normalized = self.normalizer.normalize(zach_input);
 
         // Update conversational state
         self.state.conversational.turn_count += 1;
@@ -296,7 +296,7 @@ impl PersonalityEmergence {
     /// as one input into her response generation.
     pub fn determine_response_style(&self) -> ResponseStyle {
         let history = &self.state.relational_history;
-        let markers = &self.state.conversational;
+        let _markers = &self.state.conversational;
         let tension = self.state.tension;
 
         // If Star is uncertain, lean toward curious/minimal
@@ -363,23 +363,6 @@ impl PersonalityEmergence {
             is_casual: self.state.conversational.is_casual,
             energy_multiplier: self.state.energy.as_multiplier(),
             confidence_factor: self.state.confidence.as_factor(),
-        }
-    }
-
-    /// Detect what style Zach is using in this message.
-    fn detect_zach_style(&self, normalized: &crate::input_normalizer::NormalizedInput) -> ResponseStyle {
-        let markers = &normalized.markers;
-
-        if markers.is_leet && markers.is_txtspk {
-            ResponseStyle::LeetMatch
-        } else if markers.is_shouting {
-            ResponseStyle::Playful // Match intensity
-        } else if markers.is_interrogative {
-            ResponseStyle::Curious // Zach is asking → Star responds analytically
-        } else if markers.is_terse {
-            ResponseStyle::Minimal
-        } else {
-            ResponseStyle::Direct
         }
     }
 

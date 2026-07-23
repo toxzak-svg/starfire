@@ -4,7 +4,7 @@
 //! learns patterns from few examples.
 
 use crate::neural::{Activation, Neuron, NeuronConfig, NeuronId, NeuralSignal, NeuronState};
-use crate::learning::{FewShotLearner, Example, Hypothesis};
+use crate::learning::{FewShotLearner, Example};
 use std::collections::HashMap;
 
 const FEWSHOT_INPUT_DIM: usize = 64;
@@ -35,13 +35,6 @@ impl FewShotNeuron {
         }
     }
 
-    fn encode_text(&self, text: &str) -> Vec<f32> {
-        let mut vec = vec![0.0; FEWSHOT_INPUT_DIM];
-        for (i, c) in text.bytes().enumerate().take(FEWSHOT_INPUT_DIM) {
-            vec[i] = (c as f32) / 255.0;
-        }
-        vec
-    }
 
     pub fn add_example(&mut self, input: &str, output: &str, domain: &str) {
         let example = Example::new(input, output, domain);

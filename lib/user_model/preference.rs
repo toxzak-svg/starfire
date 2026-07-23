@@ -1,6 +1,6 @@
 //! User preference tracking
 
-use super::types::{ArgumentStyle, ReasoningStance, UserCognitionModel};
+use super::types::ArgumentStyle;
 
 /// A learned preference about Zachary's cognition
 #[derive(Debug, Clone)]
