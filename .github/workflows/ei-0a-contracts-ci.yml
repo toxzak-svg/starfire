@@ -33,11 +33,15 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check EI-0A formatting
-        run: >-
-          rustfmt --edition 2021 --check
-          lib/emerging_intelligence/mod.rs
-          lib/examples/ei_0a_episode_contract_probe.rs
+      - name: Format disposable checkout and capture patch
+        run: |
+          rustfmt --edition 2021 \
+            lib/emerging_intelligence/mod.rs \
+            lib/examples/ei_0a_episode_contract_probe.rs
+          git diff -- \
+            lib/emerging_intelligence/mod.rs \
+            lib/examples/ei_0a_episode_contract_probe.rs \
+            > ei-0a-rustfmt.patch
 
       - name: Compile feature-gated contracts and probe
         run: |
@@ -79,5 +83,9 @@ jobs:
           path: |
             ei-0a-contract-report.json
             ei-0a-contract-report-replay.json
+            ei-0a-rustfmt.patch
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Require committed Rustfmt output
+        run: test ! -s ei-0a-rustfmt.patch
