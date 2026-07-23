@@ -37,7 +37,7 @@ jobs:
 
       - name: Compile isolated preflight
         run: >-
-          cargo check -p star
+          cargo check --quiet -p star
           --example ei_0f_r1_digest_remediation_probe
           --features emerging-intelligence-environment
           --locked
@@ -52,10 +52,10 @@ jobs:
       - name: Run exact remediation preflight twice
         run: |
           set -euo pipefail
-          cargo run -p star --example ei_0f_r1_digest_remediation_probe \
+          cargo run --quiet -p star --example ei_0f_r1_digest_remediation_probe \
             --features emerging-intelligence-environment --locked \
             > ei-0f-r1-preflight.json
-          cargo run -p star --example ei_0f_r1_digest_remediation_probe \
+          cargo run --quiet -p star --example ei_0f_r1_digest_remediation_probe \
             --features emerging-intelligence-environment --locked \
             > ei-0f-r1-preflight-replay.json
           cmp ei-0f-r1-preflight.json ei-0f-r1-preflight-replay.json
