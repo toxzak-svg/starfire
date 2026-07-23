@@ -164,6 +164,11 @@ name = "ei_0a_episode_contract_probe"
 path = "examples/ei_0a_episode_contract_probe.rs"
 required-features = ["emerging-intelligence-contracts"]
 
+[[example]]
+name = "ei_0b_deterministic_environment_probe"
+path = "examples/ei_0b_deterministic_environment_probe.rs"
+required-features = ["emerging-intelligence-environment"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
@@ -211,3 +216,4 @@ omega-v1-f2-shadow = ["omega-v1-http-canary", "omega-v1-learned-expression"]  # 
 developmental-evidence = []  # H-Infant-0 typed evidence boundary; no runtime wiring
 relational-evidence = []  # R1 IngExuity relational residual bridge; shadow-only
 emerging-intelligence-contracts = []  # EI-0A canonical episode records only; no runtime or learning authority
+emerging-intelligence-environment = ["emerging-intelligence-contracts"]  # EI-0B frozen tasks, matched controls, and independent scoring; offline-only
