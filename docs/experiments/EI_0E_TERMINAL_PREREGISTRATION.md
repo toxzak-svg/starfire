@@ -5,8 +5,8 @@
 > **Authority:** experiment specification only  
 > **Parent:** EI-0 tracker #149 and issue #195  
 > **Preregistration ID:** `ei-0e-terminal-v1`  
-> **Freeze base:** `24e7ce0328eed797a0661446aeb3c31d80a47814`  
-> **Canonical manifest SHA-256:** `60ae225213a34843ab0c56dc10bf398c08a8771130d07d861bd516265477a9b9`
+> **Freeze base:** `ad03f7d67016e32574f47ba836bc5d52ab42c77b`  
+> **Canonical manifest SHA-256:** `5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73`
 
 ## Purpose
 

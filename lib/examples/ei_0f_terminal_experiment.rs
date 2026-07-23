@@ -21,7 +21,7 @@ use std::error::Error;
 
 const PREREGISTRATION_ID: &str = "ei-0e-terminal-v1";
 const PREREGISTRATION_DIGEST: &str =
-    "60ae225213a34843ab0c56dc10bf398c08a8771130d07d861bd516265477a9b9";
+    "5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73";
 
 #[derive(Debug, Serialize)]
 struct ArmReport {
