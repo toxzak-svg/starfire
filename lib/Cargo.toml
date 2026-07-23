@@ -195,6 +195,21 @@ path = "examples/ei_0d_reversible_update_probe.rs"
 required-features = ["emerging-intelligence-updates"]
 
 [[example]]
+name = "ei_0f_terminal_experiment"
+path = "examples/ei_0f_terminal_experiment.rs"
+required-features = ["emerging-intelligence-updates"]
+
+[[example]]
+name = "ei_0f_r1_terminal_experiment"
+path = "examples/ei_0f_r1_terminal_experiment.rs"
+required-features = ["emerging-intelligence-updates"]
+
+[[example]]
+name = "ei_0f_r2_terminal_experiment"
+path = "examples/ei_0f_r2_terminal_experiment.rs"
+required-features = ["emerging-intelligence-updates"]
+
+[[example]]
 name = "ei_0g_shadow_preregistration_probe"
 path = "examples/ei_0g_shadow_preregistration_probe.rs"
 required-features = ["emerging-intelligence-shadow"]
