@@ -50,6 +50,10 @@ pub mod variation;
 pub mod charge;
 pub mod environment;
 pub mod cognitive_cycle;
+// EI-0A: canonical, shadow-only developmental episode contracts. This module
+// deliberately grants no Runtime::chat(), persistence, learning, tool, or
+// ontology authority.
+pub mod emerging_intelligence;
 pub mod autonomy;
 pub mod commitment_state;
 pub mod rule_induction;

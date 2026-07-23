@@ -1,6 +1,5 @@
 export const STORAGE_KEY = "starfire-console-v1";
 export const DEFAULT_SETTINGS = {
-  traceMode: "summary",
   stream: true,
   speed: "normal",
   persist: true,

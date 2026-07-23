@@ -52,18 +52,20 @@ The Docker builder runs asset checks and the frozen ΩV1 verification chain befo
 cargo build --release --locked \
   -p star_bin \
   --bin star \
-  --features starfire-live
+  --features starfire-observer
 ```
 
 The runtime container persists state under `/data`.
 
 ## Current response path
 
-The codebase presently contains two response-style layers.
+`Runtime::chat` is the sole production text authority. The `star` binary starts
+`star::api::start` directly; it does not start an HTTP wrapper or forward requests
+through a second server.
 
-### 1. Runtime-owned voice
+### Runtime-owned voice
 
-Merged into the actual `Runtime::chat` response path:
+The actual `Runtime::chat` response path includes:
 
 - typed `ResponseIntent`;
 - `RuntimeResponsePlan` snapshots;
@@ -74,25 +76,13 @@ Merged into the actual `Runtime::chat` response path:
 
 This is active by default outside tests.
 
-### 2. Live Integration 1 wrapper
+### Optional F2 observer
 
-The `starfire-live` executable feature still routes startup through `src/live_api.rs`.
-
-That wrapper:
-
-- runs the protected API on loopback;
-- processes successful `/chat` envelopes;
-- maintains a separate `VoiceState`;
-- adds a `live` metadata object;
-- writes `live_chat_trace.jsonl`;
-- exposes `/live/status`;
-- fails open to the protected response.
-
-### Known seam
-
-Comments added during the runtime-owned voice change describe the HTTP proxy as legacy and emphasize `Runtime::chat` as text authority. The actual feature wiring still starts the wrapper in the production image. Both layers therefore remain present.
-
-**Recommended cleanup:** split the F2 observer feature from the outer wrapper, decide which voice state is canonical, and collapse the response path to one clearly named authority boundary.
+The `starfire-observer` executable feature enables the library-owned
+`omega-v1-f2-shadow` observer. When both that feature and its runtime switch are
+enabled, it receives an F2 event only after finalized `/chat` response JSON has
+been produced. It is shadow-only: it has no HTTP server, no response transform,
+and no ability to alter returned bytes.
 
 ## ΩV1 cognitive-to-voice track
 
@@ -156,11 +146,10 @@ Starfire’s runtime is real, stateful, and inspectable, but its broad conversat
 
 The highest-leverage product work is not adding more named modules. It is:
 
-1. simplifying the live response path;
-2. improving fluent generation without discarding typed plans and verification;
-3. making state and trace inspection understandable in the UI;
-4. separating private single-user deployment from public demo deployment;
-5. running held-out behavioral evaluations that measure user-visible improvement.
+1. improving fluent generation without discarding typed plans and verification;
+2. making state and trace inspection understandable in the UI;
+3. separating private single-user deployment from public demo deployment;
+4. running held-out behavioral evaluations that measure user-visible improvement.
 
 ## Known documentation policy
 
@@ -175,17 +164,9 @@ Use the [documentation index](README.md) to distinguish living documents from ev
 
 ## Next engineering decisions
 
-The immediate architectural fork is:
-
-### Option A: runtime-owned response path
-
-Make `Runtime::chat` the sole text authority, expose its typed plan and voice snapshot directly through `lib/api.rs`, and retire the outer text-transforming proxy.
-
-### Option B: explicit response-boundary service
-
-Keep a separate response service, but rename it, remove duplicate voice state, and make the protected/runtime boundary intentional rather than inherited.
-
-Maintaining both indefinitely will make behavior harder to reason about and experiments harder to attribute.
+The direct response boundary is now established. The next architectural work is
+to improve fluent generation while preserving typed plans, deterministic rendering,
+and independent verification.
 
 ## Source links
 

@@ -59,17 +59,10 @@ pub const fn http_canary_authority_boundary() -> HttpCanaryAuthorityBoundary {
 
 /// Finalize only a completed successful HTTP `/chat` response. This helper
 /// receives no prompt, request body, runtime handle, memory, state, or route metadata.
+#[cfg(feature = "omega-v1-http-canary")]
 #[must_use]
 pub fn finalize_chat_response(response: String) -> String {
-    #[cfg(feature = "omega-v1-http-canary")]
-    {
-        return crate::omega_v1_live_bridge::render_or_neutral(&response);
-    }
-
-    #[cfg(not(feature = "omega-v1-http-canary"))]
-    {
-        response
-    }
+    crate::omega_v1_live_bridge::render_or_neutral(&response)
 }
 
 /// Start the Star HTTP API server.
@@ -304,15 +297,6 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
         Err(e) => return format!(r#"{{"error":"Invalid request: {}"}}"#, e),
     };
 
-    #[cfg(feature = "omega-v1-f2-shadow")]
-    let shadow_event = if crate::omega_v1f2_shadow::shadow_enabled() {
-        Some(crate::omega_v1f2_shadow::event_from_intent(
-            &crate::runtime::response_intent::classify(&req.message),
-        ))
-    } else {
-        None
-    };
-
     let mut rt_guard = match runtime.lock() {
         Ok(r) => r,
         Err(e) => return format!(r#"{{"error":"Lock poisoned: {}"}}"#, e),
@@ -323,10 +307,14 @@ fn handle_chat(runtime: &Arc<Mutex<Runtime>>, body: &str) -> String {
 
     match chat_result {
         Ok(response) => {
+            #[cfg(feature = "omega-v1-http-canary")]
             let response = finalize_chat_response(response);
             let response_json = serde_json::json!({ "response": response }).to_string();
             #[cfg(feature = "omega-v1-f2-shadow")]
-            if let Some(shadow_event) = shadow_event {
+            if crate::omega_v1f2_shadow::shadow_enabled() {
+                let shadow_event = crate::omega_v1f2_shadow::event_from_intent(
+                    &crate::runtime::response_intent::classify(&req.message),
+                );
                 let fingerprint = crate::omega_v1f2_shadow::ResponseFingerprint::frozen(
                     response_json.as_bytes(),
                 );

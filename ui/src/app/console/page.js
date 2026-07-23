@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
-  Eye,
-  EyeOff,
   Send,
   SlidersHorizontal,
   Square,
@@ -15,7 +13,6 @@ import {
 import { getHealth, sendMessage } from "@/lib/api";
 import { ConsoleControls, ConsoleMessage } from "./components";
 import {
-  compactLive,
   currentTime,
   DEFAULT_SETTINGS,
   restoreConsole,
@@ -59,7 +56,6 @@ export default function ConsolePage() {
           messages: messages.slice(-100).map((message) => ({
             ...message,
             animate: false,
-            live: compactLive(message.live),
           })),
           settings,
         }),
@@ -114,7 +110,6 @@ export default function ConsolePage() {
             role: "star",
             text: response.response || response.message || "I'm here.",
             time: currentTime(),
-            live: response.live || null,
             animate: settings.stream,
             prompt: clean,
           },
@@ -130,7 +125,6 @@ export default function ConsolePage() {
                 ? "Stopped locally. The server may still finish, but this browser discarded the result."
                 : "I couldn't reach myself just now. Is the server still awake?",
             time: currentTime(),
-            live: null,
             animate: false,
           },
         ]);
@@ -198,7 +192,7 @@ export default function ConsolePage() {
           <b>★</b>
           <span>
             <strong>Starfire Console</strong>
-            <small>inspectable live chat</small>
+            <small>local chat console</small>
           </span>
         </div>
         <div className="console-header-actions">
@@ -224,15 +218,7 @@ export default function ConsolePage() {
       )}
 
       <div className="console-toolbar">
-        <span>
-          {settings.traceMode === "off" ? (
-            <EyeOff size={12} />
-          ) : (
-            <Eye size={12} />
-          )}
-          trace {settings.traceMode} · stream{" "}
-          {settings.stream ? settings.speed : "off"}
-        </span>
+        <span>stream {settings.stream ? settings.speed : "off"}</span>
         <span>
           <button
             type="button"
@@ -258,8 +244,7 @@ export default function ConsolePage() {
           <div className="console-empty">
             <b>★</b>
             <p>
-              Star is awake. This console streams completed replies and exposes
-              a structured process summary from the live typed metadata.
+              Star is awake. This console can animate completed replies.
             </p>
           </div>
         )}

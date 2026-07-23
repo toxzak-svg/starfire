@@ -1,7 +1,7 @@
 # Starfire API Reference
 
 > **Base implementation:** `lib/api.rs`  
-> **Optional live boundary:** `src/live_api.rs`  
+> **Binary startup:** `star::api::start` directly from `src/main.rs`
 > **Last reviewed:** 2026-07-21
 
 Starfire exposes a small JSON-over-HTTP API for chat, direct reasoning, memory retrieval, identity, cognitive inspection, metacognition, and autonomous-thought probes.
@@ -24,11 +24,9 @@ The hosted endpoint is a research deployment. It does not currently provide buil
 - Unknown routes return `404` with `{ "error": "Not found" }`.
 - `OPTIONS` requests receive an empty `204` response.
 
-## Chat response variants
+## Chat response
 
-### Protected API
-
-The base API returns:
+`Runtime::chat` is the sole text producer for `POST /chat`. The API returns:
 
 ```json
 {
@@ -36,41 +34,9 @@ The base API returns:
 }
 ```
 
-### Production live envelope
-
-When the executable is built with `starfire-live`, successful chat responses may include a `live` object:
-
-```json
-{
-  "response": "Star's rendered response",
-  "live": {
-    "enabled": true,
-    "pipeline": "live-integration-1",
-    "trace_id": "live-...",
-    "turn": 14,
-    "intent": "Reflection",
-    "voice_before": {},
-    "voice_after": {},
-    "semantic_plan": {}
-  }
-}
-```
-
-If the live planning or persistence layer fails, the protected response is preserved and the envelope is labeled:
-
-```json
-{
-  "response": "Protected response",
-  "live": {
-    "enabled": false,
-    "pipeline": "live-integration-1",
-    "failed_open": true,
-    "error": "..."
-  }
-}
-```
-
-Clients must treat the `response` field as the stable contract and the `live` object as optional metadata.
+With the optional `starfire-observer` feature and enabled F2 runtime switch, the
+library dispatches a shadow event only after final response JSON is produced. The
+observer is not an HTTP surface and adds no response metadata.
 
 ## Endpoint summary
 
@@ -89,13 +55,12 @@ Clients must treat the `response` field as the stable contract and the `live` ob
 | `GET` | `/think` | Trigger one autonomous-thought cycle |
 | `GET` | `/thought` | Read the most recent autonomous thought |
 | `POST` | `/webhook/telegram` | Receive a Telegram update |
-| `GET` | `/live/status` | Inspect Live Integration 1 state; live wrapper only |
 
 ## Root
 
 ### `GET /`
 
-Returns service metadata and the protected API route list.
+Returns service metadata and the API route list.
 
 ```bash
 curl http://localhost:8080/
@@ -123,8 +88,6 @@ Representative response:
   ]
 }
 ```
-
-`/live/status` is implemented by the outer live server and is therefore not listed by the protected root response.
 
 ## Health
 
@@ -389,26 +352,6 @@ No pending thought:
 }
 ```
 
-## Live status
-
-### `GET /live/status`
-
-Available only when the outer `starfire-live` server is active.
-
-Representative response:
-
-```json
-{
-  "enabled": true,
-  "pipeline": "live-integration-1",
-  "turn": 14,
-  "voice_state": {},
-  "last_trace": {}
-}
-```
-
-The response may include the last raw and rendered response inside `last_trace`. Treat this endpoint and its backing trace file as potentially sensitive.
-
 ## Telegram webhook
 
 ### `POST /webhook/telegram`
@@ -433,11 +376,10 @@ The route does not currently implement Telegram signature verification or an ind
 A resilient client should:
 
 1. use the `response` field as the chat contract;
-2. treat `live` as optional;
-3. check for an `error` field even after HTTP 200;
-4. use timeouts and retry only transport failures;
-5. avoid exposing `/identity`, `/memory/*`, `/cognitive`, `/metacog`, or `/live/status` publicly without access control;
-6. not assume browser-provided history is consumed by the Rust handler.
+2. check for an `error` field even after HTTP 200;
+3. use timeouts and retry only transport failures;
+4. avoid exposing `/identity`, `/memory/*`, `/cognitive`, or `/metacog` publicly without access control;
+5. not assume browser-provided history is consumed by the Rust handler.
 
 ## Local server command
 

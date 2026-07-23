@@ -33,9 +33,8 @@ flowchart LR
         WM[World and causal models]
     end
 
-    subgraph Optional production layer
-        LIVE[Live Integration 1]
-        TRACE[(VoiceState and JSONL trace)]
+    subgraph Optional observer
+        F2[F2 post-response shadow observer]
     end
 
     subgraph Research
@@ -57,8 +56,7 @@ flowchart LR
     RT <--> WM
 
     RT --> RI --> RP --> RV --> HTTP
-    HTTP -. production feature .-> LIVE --> UI
-    LIVE <--> TRACE
+    HTTP -. starfire-observer only; final JSON .-> F2
 
     GATE --> EXP
     EXP -. explicit authority only .-> RT
@@ -70,7 +68,7 @@ flowchart LR
 Cargo.toml
 ├── src/                star_bin executable crate
 │   ├── main.rs         CLI, data-root resolution, API startup
-│   └── live_api.rs     optional external live HTTP wrapper
+│   └── bin/            ad hoc training, benchmark, and smoke binaries
 ├── lib/                star library crate
 │   ├── runtime/        orchestration, response intent, tempo, thought
 │   ├── persistence/    SQLite stores, identity, memory, sessions
@@ -122,12 +120,10 @@ Important runtime files include:
 | SQLite database files | Memories, beliefs, identity, and sessions |
 | `IDENTITY.md` | Bundled identity source |
 | `runtime_voice_profile.json` | Runtime-owned voice dimensions and revision metadata |
-| `live_voice_state.json` | VoiceState used by the optional live HTTP wrapper |
-| `live_chat_trace.jsonl` | Append-only live wrapper trace |
 | `models/ckpt_e28_b500.pt` | Native CharRNN reranker checkpoint under its historical filename |
 | `models/omega_v1f1r1_model.json` | Bounded learned selector artifact for ΩV1-F2 shadow work |
 
-The last three live/experiment files exist only when the corresponding path is active.
+The model artifacts exist only when their corresponding experiment paths are active.
 
 ### 4. Cognitive processing
 
@@ -172,30 +168,15 @@ This layer changes the surface form of runtime-produced responses. It is not mer
 
 ## HTTP surfaces
 
-### Protected API
+`src/main.rs` starts `star::api::start` directly. `lib/api.rs` calls the shared
+`Runtime`; successful chat returns a JSON object with a `response` string produced
+by `Runtime::chat`.
 
-`lib/api.rs` is the base API. It directly calls the shared `Runtime` and exposes the normal route set. Successful chat returns a JSON object with a `response` string.
-
-When the `omega-v1-f2-shadow` library feature is present and its runtime switch is enabled, the protected API may dispatch a post-response shadow event. The response bytes are frozen before the observer runs.
-
-### Live Integration 1
-
-`src/live_api.rs` is a separate HTTP boundary used when the executable is built with `starfire-live`.
-
-It:
-
-1. starts the protected API on a loopback port;
-2. forwards external requests to it;
-3. processes successful `/chat` envelopes through a typed semantic plan and `VoiceState`;
-4. returns the rendered response plus a `live` metadata object;
-5. exposes `GET /live/status`;
-6. appends an inspectable JSONL trace;
-7. fails open to the protected response when planning or persistence fails.
-
-The production Dockerfile currently builds `star_bin` with `--features starfire-live`, so this wrapper remains part of the deployed path on `main`.
-
-> [!NOTE]
-> Some comments introduced during the runtime-owned voice migration describe the older HTTP proxy as “legacy” and say `Runtime::chat` remains the text authority. The executable wiring still starts `src/live_api.rs` under `starfire-live`. The current code therefore contains both runtime-owned voice rendering and the live HTTP wrapper. This is an implementation seam to simplify, not something documentation should hide.
+When the binary is built with `starfire-observer`, the library receives the
+`omega-v1-f2-shadow` feature. If its runtime switch is also enabled, `lib/api.rs`
+dispatches an F2 shadow event after finalized chat-response JSON has been
+constructed. The observer has no HTTP listener, does not own voice state, and
+cannot transform or alter response bytes.
 
 ## Web UI
 
@@ -205,8 +186,7 @@ It currently provides:
 
 - chat input and response display;
 - API health and connection state;
-- live turn, intent, and trace labels when supplied by the server;
-- honest “legacy fallback” labeling when the live layer fails open;
+- API health and connection-state labels;
 - identity, cognition, metacognition, and memory drawers;
 - API URL normalization through `NEXT_PUBLIC_STAR_API`.
 
@@ -238,7 +218,7 @@ The builder:
 - reruns the F1R1 learned-expression gate;
 - exports and checks the bounded model artifact;
 - runs the F2 shadow implementation probe;
-- compiles the production binary with `starfire-live`.
+- compiles the production binary with `starfire-observer`.
 
 The runtime image contains only the executable, canonical assets, entrypoint, certificates, and health-check dependencies. Persistent state is mounted at `/data`.
 
@@ -264,12 +244,11 @@ These boundaries are encoded in feature dependencies, authority structs, tests, 
 
 ## Known architectural seams
 
-1. **Two voice paths exist.** Runtime-owned rendering and Live Integration 1 both remain in the production feature graph.
-2. **Historical filenames remain.** The native CharRNN checkpoint is stored under a `.pt` filename for compatibility, even though it is not the unrelated PyTorch ZIP previously persisted there.
-3. **Error status behavior is inconsistent.** Some application errors are returned as JSON with HTTP 200 by the protected API.
-4. **Browser history is not consumed by the Rust chat handler.** The UI sends it, but runtime state is authoritative.
-5. **Hosted access is not authenticated.** A public endpoint must not be treated as a secure personal-memory service.
-6. **Research terminology can overstate evidence.** Metric names such as consciousness, emergence, and creativity require careful interpretation.
+1. **Historical filenames remain.** The native CharRNN checkpoint is stored under a `.pt` filename for compatibility, even though it is not the unrelated PyTorch ZIP previously persisted there.
+2. **Error status behavior is inconsistent.** Some application errors are returned as JSON with HTTP 200 by the API.
+3. **Browser history is not consumed by the Rust chat handler.** The UI sends it, but runtime state is authoritative.
+4. **Hosted access is not authenticated.** A public endpoint must not be treated as a secure personal-memory service.
+5. **Research terminology can overstate evidence.** Metric names such as consciousness, emergence, and creativity require careful interpretation.
 
 ## Related documents
 

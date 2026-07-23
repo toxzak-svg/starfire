@@ -1389,11 +1389,11 @@ impl Runtime {
     }
 
     /// "can you look up X" / "can you read X" — capability description.
-    /// Intent: `Capability`. Body: hardcoded list of file/search commands.
+    /// Intent: `Capability`. Body: deterministically realized from a semantic plan.
     fn handle_capability_lookup(&self) -> response_intent::Response {
-        response_intent::Response::with_body(
+        response_intent::Response::from_semantic_plan(
             response_intent::ResponseIntent::Capability,
-            "Yes. I can /read files, /search the web, /find files, and /ls to list directories. I also have a self-model that tracks my own reasoning. What would you like me to look up?".to_string(),
+            response_intent::SemanticResponsePlan::capability_lookup_answer(),
         )
     }
 
@@ -1423,9 +1423,9 @@ impl Runtime {
     /// "tell you a story" — Zachary wants Star to hear a story.
     /// Intent: `StoryPrompt`. Body: brief acknowledgement.
     fn handle_tell_you_story(&self) -> response_intent::Response {
-        response_intent::Response::with_body(
+        response_intent::Response::from_semantic_plan(
             response_intent::ResponseIntent::StoryPrompt,
-            "Yes. I'm listening.".to_string(),
+            response_intent::SemanticResponsePlan::story_listening_acknowledgement(),
         )
     }
 
@@ -1489,9 +1489,9 @@ impl Runtime {
     /// "do you understand" / "do u understand" / "do you get it".
     /// Intent: `Consciousness`. Body: honest uncertainty disclosure.
     fn handle_do_you_understand(&self) -> response_intent::Response {
-        response_intent::Response::with_body(
+        response_intent::Response::from_semantic_plan(
             response_intent::ResponseIntent::Consciousness,
-            "I process what you say and try to reason about it. Sometimes I understand clearly, sometimes I have gaps. What specifically are you wondering about?".to_string(),
+            response_intent::SemanticResponsePlan::understanding_uncertainty_report(),
         )
     }
 
@@ -1605,7 +1605,7 @@ impl Runtime {
     /// formatted top curiosity topic or "nothing specific" fallback.
     fn handle_something_interesting_figured(&self) -> response_intent::Response {
         let curiosity_topics: Vec<&str> = self.metacog.curiosity_topics();
-        let body = if !curiosity_topics.is_empty() {
+        /* let body = if !curiosity_topics.is_empty() {
             let topic = curiosity_topics
                 .first()
                 .map(|s| s.to_string())
@@ -1613,8 +1613,13 @@ impl Runtime {
             format!("{} keeps coming up — I'm still figuring out what I think about it.", topic)
         } else {
             "Nothing specific to point to yet. I've been more in listening mode. What are you working on?".to_string()
-        };
-        response_intent::Response::with_body(response_intent::ResponseIntent::ResearchStatus, body)
+        }; */
+        response_intent::Response::from_semantic_plan(
+            response_intent::ResponseIntent::ResearchStatus,
+            response_intent::SemanticResponsePlan::research_status(
+                curiosity_topics.first().copied().unwrap_or("listening mode"),
+            ),
+        )
     }
 
     /// "what have you been thinking" / "what's on your mind" / "what's keeping

@@ -1,0 +1,14 @@
+[{"stream_name":"stderr","time":7.205146512,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":7.206099808,"data":"  File \"/kaggle/src/script.py\", line 88, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":7.206116558,"data":"    assert_vocabulary_contract()\n"}
+,{"stream_name":"stderr","time":7.206121858,"data":"  File \"/kaggle/src/script.py\", line 39, in assert_vocabulary_contract\n"}
+,{"stream_name":"stderr","time":7.206127254,"data":"    if actual != expected: raise AssertionError(f'Rust vocabulary mismatch for {char!r}: {actual} != {expected}')\n"}
+,{"stream_name":"stderr","time":7.206132025,"data":"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":7.206137888,"data":"AssertionError: Rust vocabulary mismatch for 'Ω': 177 != 2\n"}
+,{"stream_name":"stderr","time":11.625129818,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":11.625164907,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":11.940878907,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":11.940908001,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":12.658742778,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":14.093242637,"data":"[NbConvertApp] Writing 322420 bytes to __results__.html\n"}
+]

@@ -25,7 +25,6 @@ starfire/
 ├── Cargo.toml            # workspace: src + lib
 ├── src/                  # star_bin executable crate
 │   ├── main.rs           # CLI and API startup
-│   ├── live_api.rs       # optional live HTTP wrapper
 │   └── bin/              # ad hoc training, benchmark, and smoke binaries
 ├── lib/                  # star library crate
 │   ├── runtime/
@@ -87,7 +86,9 @@ cargo run --release -p star_bin --bin star -- \
 curl http://localhost:8080/health
 ```
 
-The default local build uses the protected API directly. The outer live wrapper is compiled only when `star_bin` is built with `starfire-live`.
+The binary starts `star::api::start` directly. `Runtime::chat` is the sole text
+producer; an optional F2 observer can run only after final response JSON has been
+produced and cannot alter it.
 
 ## Web UI
 
@@ -172,18 +173,13 @@ Build the executable with the same top-level feature as the Docker image:
 
 ```bash
 cargo run --release -p star_bin --bin star \
-  --features starfire-live -- \
+  --features starfire-observer -- \
   --data-dir ./data/live-dev \
   api --host 0.0.0.0 --port 8080
 ```
 
-This starts the outer live server and an internal protected API on the next port unless `STARFIRE_INTERNAL_PORT` is configured.
-
-Inspect:
-
-```bash
-curl http://localhost:8080/live/status
-```
+This still starts one API server. The feature only enables the library-owned F2
+observer, which remains inactive until its runtime switch is enabled.
 
 ## Runtime environment
 
@@ -193,7 +189,6 @@ curl http://localhost:8080/live/status
 | `STARFIRE_HOME` | Fallback runtime state root |
 | `STARFIRE_PORT` | Container API port |
 | `PORT` | Platform-supplied port fallback |
-| `STARFIRE_INTERNAL_PORT` | Protected loopback API port for `starfire-live` |
 | `STARFIRE_RUNTIME_VOICE` | Set `0` to disable runtime-owned voice modulation |
 | `STARFIRE_OMEGA_V1F2_SHADOW` | Set `1` only for the authorized F2 shadow collection path |
 | `OMEGA_V1F2_MODEL_PATH` | Override F2 bounded model artifact location |
@@ -220,8 +215,6 @@ Common files:
 <data-root>/
 ├── IDENTITY.md
 ├── runtime_voice_profile.json
-├── live_voice_state.json
-├── live_chat_trace.jsonl
 ├── models/
 └── *.db
 ```
@@ -260,9 +253,8 @@ For latent concepts, routing, tools, or persistent belief promotion, assume a ne
 2. Preserve CORS behavior or deliberately revise it.
 3. Return valid JSON on success and error.
 4. Update [`api.md`](api.md).
-5. Decide whether the outer live server should proxy, transform, or reject it.
-6. Add route and failure tests.
-7. Update UI code only after the base wire contract is stable.
+5. Add route and failure tests.
+6. Update UI code only after the wire contract is stable.
 
 The current API sometimes returns application errors with HTTP 200. New routes should prefer accurate status codes, but do not silently change existing clients without a migration.
 
@@ -349,9 +341,11 @@ curl -v http://localhost:8080/chat \
   -d '{"message":"hello"}'
 ```
 
-### Live-wrapper split
+### F2 observer
 
-When the outer server is healthy but chat fails, test the internal port separately. By default it is the external port plus one.
+The optional F2 observer dispatches only after final chat-response JSON has been
+produced. Debug the ordinary API at its configured host and port; there is no
+separate internal listener.
 
 ## Related documents
 

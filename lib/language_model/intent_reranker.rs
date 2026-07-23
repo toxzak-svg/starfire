@@ -1070,6 +1070,7 @@ mod tests {
             style_hint: None,
             body: body.to_string(),
             slots: Vec::new(),
+            semantic_plan: None,
         }
     }
 

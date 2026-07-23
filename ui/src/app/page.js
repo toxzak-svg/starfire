@@ -4,60 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Info, X, Sparkles, Brain, Database, Heart, ChevronRight } from "lucide-react";
 import { sendMessage, getHealth, getIdentity, getCognitive, getMetacog, getMemoryStats } from "@/lib/api";
 
-function humanizeIntent(intent) {
-  if (!intent) return "planned response";
-  return String(intent)
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function LiveSignature({ live }) {
-  if (!live) return null;
-
-  const enabled = live.enabled === true;
-  const label = enabled
-    ? `live · turn ${live.turn ?? "?"} · ${humanizeIntent(live.intent)}`
-    : "legacy fallback · live layer unavailable";
-
-  return (
-    <div
-      title={live.trace_id ? `Trace ${live.trace_id} · ${live.pipeline || "live-integration-1"}` : live.error || live.reason || ""}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.4rem",
-        marginTop: "0.35rem",
-        padding: "0 0.25rem",
-        color: enabled ? "var(--accent-dim)" : "#f59e0b",
-        fontSize: "0.65rem",
-        letterSpacing: "0.01em",
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          width: "5px",
-          height: "5px",
-          borderRadius: "50%",
-          background: enabled ? "var(--accent)" : "#f59e0b",
-          boxShadow: enabled ? "0 0 7px rgba(6, 182, 212, 0.65)" : "none",
-          flexShrink: 0,
-        }}
-      />
-      {label}
-    </div>
-  );
-}
-
-function Message({ role, text, time, live }) {
+function Message({ role, text, time }) {
   return (
     <div className={`message ${role}`}>
       <div className="avatar">{role === "star" ? "★" : "Z"}</div>
       <div className="bubble">{text}</div>
       <div className="meta">{role === "star" ? "Star" : "Zach"} · {time}</div>
-      {role === "star" && <LiveSignature live={live} />}
     </div>
   );
 }
@@ -259,7 +211,6 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null);
-  const [liveStatus, setLiveStatus] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [starData, setStarData] = useState({ identity: null, cognitive: null, metacog: null, memoryStats: null, loading: true });
   const messagesEndRef = useRef(null);
@@ -301,14 +252,11 @@ export default function ChatPage() {
       const history = messages.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
       history.push({ role: "user", content: text });
       const res = await sendMessage(text, history);
-      const live = res.live || null;
-      setLiveStatus(live);
       setConnected(true);
       const starMsg = {
         role: "star",
         text: res.response || res.message || "I'm here.",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        live,
       };
       setMessages(prev => [...prev, starMsg]);
     } catch {
@@ -331,11 +279,7 @@ export default function ChatPage() {
     ? "..."
     : connected === false
       ? "offline"
-      : liveStatus?.enabled
-        ? `live · turn ${liveStatus.turn ?? "?"}`
-        : liveStatus
-          ? "online · legacy"
-          : "online";
+      : "online";
 
   return (
     <div className="chat-container">
@@ -345,7 +289,7 @@ export default function ChatPage() {
           <h1>Star</h1>
         </div>
         <div className="header-right">
-          <div className="header-status" title={liveStatus?.trace_id ? `Latest trace ${liveStatus.trace_id}` : ""}>
+          <div className="header-status">
             <div className="dot" style={connected === false ? { background: "#ef4444", boxShadow: "none" } : {}} />
             {connectionLabel}
           </div>
@@ -359,10 +303,10 @@ export default function ChatPage() {
         {messages.length === 0 && (
           <div className="empty-state">
             <div className="empty-icon">★</div>
-            <p>Star is awake. Her live state will appear beneath the first response.</p>
+            <p>Star is awake. Say hello.</p>
           </div>
         )}
-        {messages.map((m, i) => <Message key={i} role={m.role} text={m.text} time={m.time} live={m.live} />)}
+        {messages.map((m, i) => <Message key={i} role={m.role} text={m.text} time={m.time} />)}
         {loading && <TypingIndicator />}
         <div ref={messagesEndRef} />
       </div>

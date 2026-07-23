@@ -830,12 +830,9 @@ dependencies = [
  "serde_json",
  "star",
  "thiserror 2.0.18",
- "tiny_http",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ureq",
- "urlencoding",
 ]
 
 [[package]]

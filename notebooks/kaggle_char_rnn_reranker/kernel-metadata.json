@@ -1,0 +1,15 @@
+{
+  "id": "zacharymaronek/starfire-personal-charrnn-reranker",
+  "title": "Starfire Personal Charrnn Reranker",
+  "code_file": "train_personal_reranker.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": ["zacharymaronek/starfire-personal-reranker-corpus"],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

@@ -1,17 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Activity,
   Check,
   Copy,
-  Eye,
   EyeOff,
   Gauge,
   RotateCcw,
   SlidersHorizontal,
 } from "lucide-react";
-import { humanize, processTraceSteps } from "./utils";
 
 const SPEEDS = { slow: 34, normal: 18, fast: 7 };
 
@@ -41,54 +38,6 @@ function Typewriter({ text, enabled, speed }) {
       {text.slice(0, visible)}
       {visible < text.length && <span className="console-caret">▍</span>}
     </>
-  );
-}
-
-function ProcessTrace({ live, mode, animate }) {
-  const steps = useMemo(() => processTraceSteps(live, mode), [live, mode]);
-  const [visible, setVisible] = useState(animate ? 0 : steps.length);
-
-  useEffect(() => {
-    if (!animate) {
-      setVisible(steps.length);
-      return undefined;
-    }
-
-    setVisible(0);
-    const timer = window.setInterval(() => {
-      setVisible((current) => {
-        const next = Math.min(steps.length, current + 1);
-        if (next >= steps.length) window.clearInterval(timer);
-        return next;
-      });
-    }, 250);
-    return () => window.clearInterval(timer);
-  }, [animate, steps]);
-
-  if (!steps.length) return null;
-  return (
-    <div className="console-trace">
-      <div
-        className="console-trace-head"
-        title="Structured metadata summaries, not hidden chain-of-thought."
-      >
-        <span>
-          <Activity size={12} /> process trace
-        </span>
-        <small>summary, not private chain-of-thought</small>
-      </div>
-      <div className="console-trace-list">
-        {steps.slice(0, visible).map((step, index) => (
-          <div className="console-trace-step" key={`${step.title}-${index}`}>
-            <b>{index + 1}</b>
-            <span>
-              <strong>{step.title}</strong>
-              <small>{step.detail}</small>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -135,21 +84,6 @@ export function ConsoleMessage({ message, settings, latest, onRegenerate }) {
           )}
         </span>
       </div>
-      {message.role === "star" && message.live && (
-        <div className={`console-live ${message.live.enabled ? "on" : "off"}`}>
-          <i />
-          {message.live.enabled
-            ? `live · turn ${message.live.turn ?? "?"} · ${humanize(message.live.intent, "planned response")}`
-            : "legacy fallback"}
-        </div>
-      )}
-      {message.role === "star" && settings.traceMode !== "off" && (
-        <ProcessTrace
-          live={message.live}
-          mode={settings.traceMode}
-          animate={settings.stream && message.animate}
-        />
-      )}
     </article>
   );
 }
@@ -158,23 +92,6 @@ export function ConsoleControls({ settings, onChange }) {
   const update = (patch) => onChange({ ...settings, ...patch });
   return (
     <section className="console-controls">
-      <div className="console-control-row">
-        <span>
-          <Eye size={13} /> Process trace
-        </span>
-        <div className="console-segments">
-          {["off", "summary", "detailed"].map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={settings.traceMode === value ? "active" : ""}
-              onClick={() => update({ traceMode: value })}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
-      </div>
       <div className="console-control-row">
         <span>
           {settings.stream ? <Gauge size={13} /> : <EyeOff size={13} />} Stream

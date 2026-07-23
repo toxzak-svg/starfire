@@ -1,4 +1,4 @@
-name: Live Integration 1 CI
+name: Observer Integration CI
 
 on:
   pull_request:
@@ -7,8 +7,11 @@ on:
     paths:
       - "Dockerfile"
       - "src/main.rs"
-      - "src/live_api.rs"
       - "src/Cargo.toml"
+      - "lib/api.rs"
+      - "lib/Cargo.toml"
+      - "lib/omega_v1f2_shadow.rs"
+      - "lib/examples/omega_v1f2_shadow_probe.rs"
       - ".github/workflows/live-integration-1-ci.yml"
   workflow_dispatch:
 
@@ -16,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  live-integration:
+  observer-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -36,10 +39,13 @@ jobs:
         run: cargo fmt --all
 
       - name: Compile production binary
-        run: cargo check -p star_bin --bin star --features starfire-live --locked
+        run: cargo check -p star_bin --bin star --features starfire-observer --locked
 
       - name: Lint production binary
-        run: cargo clippy -p star_bin --bin star --features starfire-live --locked -- -D warnings
+        run: cargo clippy -p star_bin --bin star --features starfire-observer --locked -- -D warnings
 
-      - name: Test live integration contracts
-        run: cargo test -p star_bin --bin star --features starfire-live --locked live_api::tests:: -- --test-threads=1
+      - name: Test F2 observer contracts
+        run: cargo test -p star --lib --features omega-v1-f2-shadow --locked omega_v1f2_shadow:: -- --test-threads=1
+
+      - name: Compile F2 isolation probe
+        run: cargo check -p star --example omega_v1f2_shadow_probe --features omega-v1-f2-shadow --locked

@@ -232,9 +232,8 @@ RUN cargo test -p star --lib --features omega-v1-f2-shadow --locked \
     && grep -F '"no_runtime_response_influence": true' /tmp/omega-v1f2-report.json \
     && grep -F '"gate_passed": true' /tmp/omega-v1f2-report.json
 
-# Build the production executable with an explicit live-integration opt-in.
-# The F2 shadow worker remains a dependency of starfire-live, not its synonym.
-RUN cargo build --release --locked -p star_bin --bin star --features starfire-live
+# Build the production executable with the optional library-owned F2 observer.
+RUN cargo build --release --locked -p star_bin --bin star --features starfire-observer
 
 FROM debian:bookworm-slim AS runtime
 
