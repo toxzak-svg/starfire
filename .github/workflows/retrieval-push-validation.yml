@@ -1,0 +1,130 @@
+name: Retrieval Push Validation
+
+on:
+  push:
+    branches:
+      - validation/web-retrieval-push-gate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  validate-retrieval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact retrieval tree
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        id: formatting
+        continue-on-error: true
+        run: |
+          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs > formatting.log 2>&1
+          rustfmt --edition 2021 --check \
+            lib/web_retrieval.rs \
+            lib/web_search_searxng.rs \
+            lib/web_content_extract.rs \
+            lib/web_research.rs >> formatting.log 2>&1
+
+      - name: Compile retrieval features
+        id: compile
+        continue-on-error: true
+        run: cargo check -p star --lib --features web-search-searxng --locked > compile.log 2>&1
+
+      - name: Lint retrieval features
+        id: clippy
+        continue-on-error: true
+        run: cargo clippy -p star --lib --features web-search-searxng --locked -- -D warnings > clippy.log 2>&1
+
+      - name: Test bounded retrieval contracts
+        id: retrieval
+        continue-on-error: true
+        run: cargo test -p star --lib --features web-search-searxng --locked web_retrieval:: -- --test-threads=1 > retrieval.log 2>&1
+
+      - name: Test SearXNG provider contracts
+        id: search
+        continue-on-error: true
+        run: cargo test -p star --lib --features web-search-searxng --locked web_search_searxng:: -- --test-threads=1 > search.log 2>&1
+
+      - name: Test extraction contracts
+        id: extraction
+        continue-on-error: true
+        run: cargo test -p star --lib --features web-search-searxng --locked web_content_extract:: -- --test-threads=1 > extraction.log 2>&1
+
+      - name: Test orchestration contracts
+        id: research
+        continue-on-error: true
+        run: cargo test -p star --lib --features web-search-searxng --locked web_research:: -- --test-threads=1 > research.log 2>&1
+
+      - name: Publish retrieval validation matrix
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORMAT_RESULT: ${{ steps.formatting.outcome }}
+          COMPILE_RESULT: ${{ steps.compile.outcome }}
+          CLIPPY_RESULT: ${{ steps.clippy.outcome }}
+          RETRIEVAL_RESULT: ${{ steps.retrieval.outcome }}
+          SEARCH_RESULT: ${{ steps.search.outcome }}
+          EXTRACTION_RESULT: ${{ steps.extraction.outcome }}
+          RESEARCH_RESULT: ${{ steps.research.outcome }}
+        run: |
+          failed=""
+          [ "$FORMAT_RESULT" = "success" ] || failed="$failed formatting"
+          [ "$COMPILE_RESULT" = "success" ] || failed="$failed compile"
+          [ "$CLIPPY_RESULT" = "success" ] || failed="$failed clippy"
+          [ "$RETRIEVAL_RESULT" = "success" ] || failed="$failed retrieval"
+          [ "$SEARCH_RESULT" = "success" ] || failed="$failed search"
+          [ "$EXTRACTION_RESULT" = "success" ] || failed="$failed extraction"
+          [ "$RESEARCH_RESULT" = "success" ] || failed="$failed research"
+
+          {
+            echo "## Final Web Retrieval validation"
+            echo
+            echo "Validated exact PR #144 source tree: \`3fad921fb77af8ab4b2fb5de9d64bba995ca6805\`"
+            echo
+            echo "- formatting: $FORMAT_RESULT"
+            echo "- compile: $COMPILE_RESULT"
+            echo "- clippy: $CLIPPY_RESULT"
+            echo "- retrieval tests: $RETRIEVAL_RESULT"
+            echo "- SearXNG tests: $SEARCH_RESULT"
+            echo "- extraction tests: $EXTRACTION_RESULT"
+            echo "- orchestration tests: $RESEARCH_RESULT"
+            if [ -n "$failed" ]; then
+              echo
+              echo "Failed stages:$failed"
+              echo '```text'
+              for stage in $failed; do
+                case "$stage" in
+                  formatting) log=formatting.log ;;
+                  compile) log=compile.log ;;
+                  clippy) log=clippy.log ;;
+                  retrieval) log=retrieval.log ;;
+                  search) log=search.log ;;
+                  extraction) log=extraction.log ;;
+                  research) log=research.log ;;
+                esac
+                echo "===== $stage ====="
+                tail -n 80 "$log" 2>/dev/null || true
+              done
+              echo '```'
+            else
+              echo
+              echo "All locked retrieval validation stages passed."
+            fi
+          } > diagnostic.md
+
+          jq -n --rawfile body diagnostic.md '{body:$body}' |
+            gh api --method POST "repos/${{ github.repository }}/issues/144/comments" --input -
+          [ -z "$failed" ]
