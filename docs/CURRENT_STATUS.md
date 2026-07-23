@@ -4,19 +4,25 @@
 > **Branch covered:** `main`  
 > **Purpose:** authoritative present-tense summary
 
-This document answers one question: **what is actually true of Starfire right now?**
+This page answers one question: **what is actually true of Starfire right now?**
 
-Plans describe intended work. Preregistrations describe frozen hypotheses. Result records describe specific runs. This page describes the current main-branch system without promoting draft work or rewriting historical evidence.
+Plans describe intended work. Preregistrations freeze hypotheses. Result records describe specific runs. This document describes the current main-branch system without promoting draft work or rewriting historical evidence.
 
 ## Executive summary
 
-Starfire is an active Rust research system with a functioning local runtime, persistent state, HTTP API, Next.js client, trained reranker, typed response machinery, and a substantial suite of bounded cognitive experiments.
+Starfire is an active Rust research system with a functioning local runtime, persistent state, HTTP API, Next.js client, native reranker, typed response machinery, bounded retrieval infrastructure, and a substantial suite of cognitive experiments.
 
 It can chat, remember, expose cognitive state, run explicit reasoning and thought endpoints, and alter parts of its response style through a persistent runtime voice profile. It is deployed as a Docker service on Render and connected to a web interface.
 
 It is not currently AGI, an established emerging intelligence, a frontier-quality language model, an unrestricted autonomous agent, or validated evidence of consciousness.
 
-The first Emerging Intelligence implementation stage, EI-0A, is now present on `main` as feature-gated, authority-closed contract machinery. It records and validates developmental episodes but does not learn from them, persist them, or influence live behavior.
+The Emerging Intelligence critical path now contains three merged, default-off infrastructure stages:
+
+- **EI-0A:** canonical developmental episode contracts;
+- **EI-0B:** deterministic developmental environments and matched controls;
+- **EI-0C:** append-only episode ledger and exact fresh-state replay.
+
+None of these stages proves that Starfire improves from experience. EI-0D, the reversible learning-update lattice, is the first stage allowed to apply a bounded update, and only inside isolated offline experiment state.
 
 ## Active research direction: Emerging Intelligence
 
@@ -24,13 +30,19 @@ PR [#148](https://github.com/toxzak-svg/starfire/pull/148) merged the active [Em
 
 The program defines emerging intelligence narrowly: accumulated experience must cause measurable improvement in future behavior, that improvement must transfer beyond exact development episodes, and the causal contribution of learned state must survive matched controls.
 
-PR [#155](https://github.com/toxzak-svg/starfire/pull/155) merged **EI-0A: Canonical episode contracts**. The default-off `emerging-intelligence-contracts` feature now provides versioned cognitive-episode records, deterministic serialization, domain-separated checksums, exact replay, timeline and reference validation, closed authority snapshots, fail-closed fixtures, focused tests, and a deterministic executable probe.
+### Merged critical-path stages
 
-EI-0A is infrastructure, not evidence that Starfire improves from experience. It has no `Runtime::chat()`, persistence, learning-update application, tool, routing, ontology, response-generation, or autonomous-action authority.
+| Stage | Main-branch implementation | What it establishes | What it does not establish |
+|---|---|---|---|
+| EI-0A | PR [#155](https://github.com/toxzak-svg/starfire/pull/155), `3fd8ec8` | Versioned cognitive episodes, deterministic sealing, provenance, validation, and exact replay | Persistence, learning, or live influence |
+| EI-0B | PR [#176](https://github.com/toxzak-svg/starfire/pull/176), `087ca263` | Frozen task partitions, five matched isolated arms, independent evaluation, budgets, corruption checks, and deterministic reports | Cumulative improvement or transfer learning |
+| EI-0C | PR [#187](https://github.com/toxzak-svg/starfire/pull/187), `979f4798` | Append-only canonical episode history, digest chaining, corruption rejection, and byte-exact fresh-state reconstruction | Live persistence or learning-update authority |
 
-The immediate implementation target is now **EI-0B: deterministic developmental environment and matched controls**, tracked in [issue #156](https://github.com/toxzak-svg/starfire/issues/156). The complete critical path and pre-pivot work disposition remain tracked in [issue #149](https://github.com/toxzak-svg/starfire/issues/149).
+EI-0C's final gate passed pinned formatting, full feature and probe compilation, scoped Clippy, eleven focused adversarial tests, and two byte-identical probe executions. The bounded probe's deterministic ledger root was `d1ae74313bb2e50b16a0c8a01c8e4568`.
 
-During EI-0, progress is measured by acquired and independently evaluated capability rather than subsystem count. Existing modules may contribute only when they improve a frozen EI metric under the required controls.
+The immediate implementation target is now **EI-0D: reversible learning-update lattice and transactional rollback**, tracked in [issue #192](https://github.com/toxzak-svg/starfire/issues/192). The full critical path remains tracked in [issue #149](https://github.com/toxzak-svg/starfire/issues/149).
+
+During EI-0, progress is measured by independently evaluated acquired capability, not by subsystem count. Existing modules count toward the critical path only if they improve a frozen EI metric under matched controls.
 
 ## Main-branch runtime
 
@@ -46,45 +58,37 @@ During EI-0, progress is measured by acquired and independently evaluated capabi
 | Native CharRNN reranker | **Bundled** | Asset-gated during Docker build |
 | Runtime response plans | **Active for migrated handlers** | `RuntimeResponsePlan` inside the response path |
 | Persistent runtime voice | **Active by default** | Disable with `STARFIRE_RUNTIME_VOICE=0` |
-| Verifier-backed improvisation | **Merged, offline-only** | Bounded candidate search with independent verification; no live response authority |
+| Verifier-backed improvisation | **Merged, offline-only** | Bounded candidate search with independent verification; no live text authority |
+| Bounded web retrieval | **Merged, feature-gated** | Local-first URL retrieval, SearXNG adapter, and deterministic extraction; no autonomous or live-chat authority |
 | Next.js web chat | **Active** | Shows memory/cognition drawers and live labels |
 | Telegram webhook | **Implemented** | Requires bot token; lacks independent webhook authentication |
 | Built-in authentication | **Absent** | Hosted API is a research surface, not a private multitenant service |
-| Canonical EI episode contract | **Implemented, feature-gated** | EI-0A merged in #155; deterministic sealing and replay; no runtime wiring |
-| Deterministic EI environment | **Planned** | EI-0B is tracked in #156 |
+| EI-0A episode contracts | **Implemented, feature-gated** | Canonical sealing and replay; no runtime wiring |
+| EI-0B deterministic environment | **Implemented, feature-gated** | Frozen tasks and matched controls; offline-only |
+| EI-0C append-only ledger | **Implemented, feature-gated** | Canonical history and fresh-state replay; not live SQLite |
+| EI-0D reversible updates | **Planned** | Tracked in #192; isolated offline state only |
 | Live EI learning authority | **Absent** | Explicitly prohibited before offline evidence and separate promotion |
 | Unrestricted tools/actions | **Not authorized** | No general live autonomy boundary |
-| Automatic ontology promotion | **Not authorized** | Remains gated pending stronger controls and transfer evidence |
-| Default-feature Rust build hygiene | **Warning-free at verified cleanup** | PR #145 removed the warning inventory and repaired exposed defects |
+| Automatic ontology promotion | **Not authorized** | Remains prohibited during EI-0 |
+| Repository-wide Clippy baseline | **Legacy debt tracked** | Rust 1.96+ exposes 86 existing findings outside EI-0B/C; tracked in #183 |
 
 ## Production deployment
 
-The backend is defined by `render.yaml` and built from `Dockerfile`.
-
-Current hosted API:
+The backend is defined by `render.yaml` and built from `Dockerfile`. The current documented hosted API is:
 
 ```text
 https://starfire-cuee.onrender.com
 ```
 
-The Docker builder runs asset checks and the frozen ΩV1 verification chain before compiling:
-
-```bash
-cargo build --release --locked \
-  -p star_bin \
-  --bin star \
-  --features starfire-live
-```
-
 The runtime container persists state under `/data`.
 
-The hosted surface currently lacks built-in authentication, tenant isolation, production rate limits, and an independently authenticated Telegram webhook. Security and deployment isolation are prerequisites before shared or public live EI evaluation.
+The hosted surface currently lacks built-in authentication, tenant isolation, production rate limits, and an independently authenticated Telegram webhook. Security and deployment isolation remain prerequisites before shared or public live EI evaluation.
 
 ## Current response path
 
-The codebase presently contains two response-style layers.
+The codebase still contains two response-style layers.
 
-### 1. Runtime-owned voice
+### Runtime-owned voice
 
 Merged into the actual `Runtime::chat` response path:
 
@@ -95,31 +99,13 @@ Merged into the actual `Runtime::chat` response path:
 - profile file `runtime_voice_profile.json`;
 - kill switch `STARFIRE_RUNTIME_VOICE=0`.
 
-This is active by default outside tests.
+### Legacy live wrapper seam
 
-### 2. Live Integration 1 wrapper
+The production feature wiring still contains the outer live API layer and F2 observer lineage. Draft PR #153 attempted to collapse this boundary while carrying unrelated changes and was closed as superseded.
 
-The `starfire-live` executable feature still routes startup through `src/live_api.rs`.
+The remaining response-authority cleanup should be rebuilt narrowly on current `main`: one canonical text authority, one voice state, and an observer that cannot silently become another renderer. This cleanup improves attribution but does not itself count as an intelligence gain.
 
-That wrapper:
-
-- runs the protected API on loopback;
-- processes successful `/chat` envelopes;
-- maintains a separate `VoiceState`;
-- adds a `live` metadata object;
-- writes `live_chat_trace.jsonl`;
-- exposes `/live/status`;
-- fails open to the protected response.
-
-### Known seam
-
-Comments added during the runtime-owned voice change describe the HTTP proxy as legacy and emphasize `Runtime::chat` as text authority. The actual feature wiring still starts the wrapper in the production image. Both layers therefore remain present.
-
-**Recommended cleanup:** split the F2 observer feature from the outer wrapper, decide which voice state is canonical, and collapse the response path to one clearly named authority boundary.
-
-This cleanup supports EI attribution but does not itself count as an intelligence gain. Draft PR #153 attempted this cleanup while also carrying unrelated EI, reranker, model, UI, and deployment changes. EI-0A was extracted and completed separately in #155. Any remaining response-authority work should be rebuilt narrowly from current `main`.
-
-## ΩV1 cognitive-to-voice track
+## Language and voice research
 
 | Stage | Recorded state | Runtime meaning |
 |---|---|---|
@@ -130,9 +116,10 @@ This cleanup supports EI attribution but does not itself count as an intelligenc
 | ΩV1-D1 | Narrow HTTP canary passed externally | Bounded response influence |
 | ΩV1-E / STLM L1 | Independent verifier passed externally | Builder/offline verifier |
 | ΩV1-F1 | Original learned selector run **failed** | Failure preserved |
-| ΩV1-F1R1 | Bounded remediation passed externally | Offline learned selector evidence |
-| ΩV1-F2 | Implemented as post-response shadow | Compiled into production, switch defaults off |
-| STLM L1-A | Verifier-backed improvisation merged | Offline wording search only; no live authority |
+| ΩV1-F1R1 | Bounded remediation passed externally | Offline selector evidence |
+| ΩV1-F2 | Implemented as post-response shadow | Switch defaults off |
+| STLM L1-A | Verifier-backed improvisation merged | Offline wording search only |
+| STLM L1-C | Current shadow implementation remains under review | No live response authority |
 
 The F2 runtime switch is:
 
@@ -140,102 +127,70 @@ The F2 runtime switch is:
 STARFIRE_OMEGA_V1F2_SHADOW=0
 ```
 
-Changing it to `1` begins the code path but does not retroactively classify the collection experiment as PASS.
+Improved wording is not evidence of increased intelligence unless it improves a frozen task metric without semantic drift.
 
-## Companion and relational work
+## Companion, relational, and developmental work
 
-The library contains the S3-S6 companion experiment ladder and the R1 relational residual bridge. These features provide observation, prediction, policy proposal, independent outcomes, evaluation, bounded canary, and relational-transfer machinery under stage-specific constraints.
+The library contains the S3-S6 companion experiment ladder, R1 relational residual bridge, H-series developmental diagnostics, H13C structural-role transfer stress, ΩG1 bounded grammar extension, ΩG2 recursive grammar composition, ΩG3 multistep abstraction reuse, ΩG4 intervention-guided abstraction selection, and related bounded research artifacts.
 
-They should not be described as a finished emotional companion product. Most of this surface remains experiment, shadow, or evidence infrastructure.
+These modules have differing evidence quality and authority boundaries. Their presence does not mean the named capability generalizes beyond its tested task or participates in ordinary chat. Under EI-0, they receive critical-path credit only when a frozen EI evaluation identifies a causal improvement over matched controls.
 
-## H, ΩG, and developmental work
+## Open and superseded research branches
 
-Main includes executable probes and modules for:
+Pre-pivot pull requests do not automatically belong to the EI critical path.
 
-- H-series developmental and residual diagnostics;
-- H13C structural-role transfer stress;
-- R1 relational residual work;
-- ΩG1 bounded grammar extension;
-- ΩG2 recursive grammar composition;
-- ΩG3 multistep abstraction reuse;
-- ΩG4 intervention-guided abstraction selection;
-- endogenous state-space and bounded autonomous-kernel research.
-
-These are research artifacts. Their presence does not mean they are wired into ordinary chat or that their named capability has generalized beyond the tested task. Under the EI program, they count toward the critical path only if a frozen EI evaluation shows that they improve later behavior over matched controls.
-
-## Work not on main
-
-Several open pull requests predate the EI pivot. They are not automatically part of the EI critical path and must preserve their original evidence boundaries.
-
-| Pull request | Current classification under EI-0 |
+| Pull request | Current classification |
 |---|---|
-| [#144](https://github.com/toxzak-svg/starfire/pull/144) bounded retrieval stack | Compatible while feature-gated and non-authoritative; live or shared use requires security prerequisites |
-| [#128](https://github.com/toxzak-svg/starfire/pull/128) ARISE-A0 | Independent bounded research; not an EI capability without frozen metric advantage |
-| [#139](https://github.com/toxzak-svg/starfire/pull/139) ARISE-A1 | Stacked draft research; no new runtime authority during EI-0 without an explicit gate |
-| [#153](https://github.com/toxzak-svg/starfire/pull/153) mixed response-authority branch | Non-mergeable as written; rebuild remaining cleanup narrowly from current `main` |
-| [#98](https://github.com/toxzak-svg/starfire/pull/98) ΩG2-S0 observer | Optional diagnostic research; no EI credit without causal behavioral evidence |
-| [#73](https://github.com/toxzak-svg/starfire/pull/73) S6-D canary | Separate companion gate; must not bypass EI security or evidence controls |
+| [#128](https://github.com/toxzak-svg/starfire/pull/128) ARISE-A0 | Independent bounded research; no EI credit without frozen metric advantage |
+| [#139](https://github.com/toxzak-svg/starfire/pull/139) ARISE-A1 | Stacked research; no new runtime authority during EI-0 |
+| [#98](https://github.com/toxzak-svg/starfire/pull/98) ΩG2-S0 observer | Optional diagnostic work; no EI credit without causal behavioral evidence |
+| [#73](https://github.com/toxzak-svg/starfire/pull/73) S6-D canary | Separate companion gate; must not bypass security or EI controls |
+| [#179](https://github.com/toxzak-svg/starfire/pull/179) STLM L1-C shadow | Language shadow research; not on the EI capability critical path |
 
-PR #145 warning cleanup and PR #155 EI-0A are merged. The authoritative disposition is maintained in [EI-0 tracker #149](https://github.com/toxzak-svg/starfire/issues/149). Old experimental records must not be rewritten merely to fit the new program.
+The original retrieval branch #144 and mixed response-authority branch #153 are superseded and must not be merged as historical bundles. The current retrieval implementation is already on `main` through PR #172.
 
 ## Current user-facing quality
 
-Starfire’s runtime is real, stateful, and inspectable, but its broad conversational fluency remains substantially below frontier hosted LLMs. Its strongest distinction is the explicit architecture and evidence discipline around memory, state, response authority, and experimental promotion.
+Starfire's runtime is real, stateful, and inspectable, but its broad conversational fluency remains substantially below frontier hosted LLMs. Its strongest distinction is the explicit architecture and evidence discipline around memory, state, response authority, and experimental promotion.
 
-Verifier-backed improvisation now provides an offline mechanism for bounded wording variation without semantic drift. It does not yet alter ordinary chat, and improved phrasing must not be counted as an intelligence gain.
+Verifier-backed improvisation provides a bounded offline mechanism for wording variation without semantic drift. It does not yet make ordinary chat broadly human-fluent, and style gains must not be counted as intelligence gains.
 
-The highest-leverage work is now:
+## Highest-leverage work
 
-1. implementing EI-0B deterministic developmental environments, frozen partitions, independent evaluation, and matched controls;
-2. securing and isolating HTTP, Telegram, file, command, and user-state boundaries;
-3. simplifying the live response path so behavioral attribution is possible;
-4. preparing EI-0C append-only replayable episode storage without granting learning authority;
-5. improving fluent realization under typed verification without counting style gains as intelligence gains;
-6. turning the experimental record into a compact, navigable scorecard.
+1. implement EI-0D's bounded reversible update lattice and harmful-update rollback;
+2. secure and isolate HTTP, Telegram, file, command, and user-state boundaries;
+3. simplify the live response path so behavioral attribution is possible;
+4. freeze EI-0E hypotheses, fixtures, seeds, budgets, thresholds, controls, and source hashes before the terminal experiment;
+5. eliminate repository-wide Rust 1.96+ Clippy debt under issue #183 without mixing maintenance into EI evidence;
+6. continue fluent realization work only under typed verification and separate metrics.
 
-## Known documentation policy
+## Immediate engineering decision
 
-During this refresh:
+Implement **EI-0D** as a default-off offline module containing:
 
-- living docs were rewritten to match current code and the merged EI program;
-- stale Railway instructions were removed from authoritative guides;
-- historical preregistrations and result records were preserved;
-- old files may still contain now-outdated language when that language is part of the historical record.
+- a fixed, typed update lattice for EI-0B task state;
+- expected pre-state and post-state digests;
+- independent admissibility evaluation;
+- atomic apply and exact rollback;
+- duplicate, stale, cross-namespace, malformed, and over-budget rejection;
+- deliberately harmful but structurally valid update fixtures;
+- regression and transfer checks that force rollback when damage exceeds the frozen bound;
+- deterministic transaction records and an exact-replay probe.
 
-Use the [documentation index](README.md) to distinguish living documents from evidence records.
-
-## Next engineering decisions
-
-### Immediate critical-path decision
-
-Implement **EI-0B** as a small, feature-gated code slice containing a deterministic task environment, frozen development and transfer partitions, independent evaluator contracts, matched control arms, bounded budgets, source digests, exact replay tests, and one deterministic probe.
-
-EI-0B must not alter `Runtime::chat()`, persist episodes, apply learning updates, modify tools or ontology, or claim EI-0 PASS. The stage is tracked in [issue #156](https://github.com/toxzak-svg/starfire/issues/156).
-
-### Supporting response-architecture decision
-
-The response path still requires one canonical text authority:
-
-#### Option A: runtime-owned response path
-
-Make `Runtime::chat` the sole text authority, expose its typed plan and voice snapshot directly through `lib/api.rs`, and retire the outer text-transforming proxy.
-
-#### Option B: explicit response-boundary service
-
-Keep a separate response service, but rename it, remove duplicate voice state, and make the protected/runtime boundary intentional rather than inherited.
-
-Maintaining both indefinitely will make behavior harder to reason about and EI experiments harder to attribute.
+EI-0D must not write to live SQLite, alter `Runtime::chat()`, promote ontology, grant tools or autonomy, or claim EI-0 PASS.
 
 ## Tracking sources
 
 - [EI-0 master tracker](https://github.com/toxzak-svg/starfire/issues/149)
-- [EI-0B implementation issue](https://github.com/toxzak-svg/starfire/issues/156)
+- [EI-0D implementation issue](https://github.com/toxzak-svg/starfire/issues/192)
 - [EI-0A contract record](experiments/EI_0A_EPISODE_CONTRACTS.md)
+- [EI-0B environment record](experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md)
+- [EI-0C ledger record](experiments/EI_0C_APPEND_ONLY_LEDGER.md)
 - [Emerging Intelligence pivot](../plans/EMERGING_INTELLIGENCE_PIVOT.md)
+- [Documentation index](README.md)
 - [Project README](../README.md)
 - [Specification](../SPEC.md)
 - [Architecture](architecture.md)
 - [API reference](api.md)
 - [Deployment](deployment.md)
 - [Experiment index](experiments/README.md)
-- [Plan index](../plans/README.md)
