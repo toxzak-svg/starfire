@@ -73,10 +73,8 @@ jobs:
 
       - name: Check Rust parity probe formatting
         run: |
-          cargo fmt \
-            --manifest-path tools/stlm_l1d/Cargo.toml \
-            --bin verify_fast_ablation_parity -- \
-            --check
+          rustfmt --edition 2021 --check \
+            tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs
 
       - name: Run fast factorial evaluation
         id: evaluation
