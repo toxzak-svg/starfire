@@ -1,0 +1,62 @@
+name: EI-0F-R2 Terminal Execution Once
+
+on:
+  push:
+    branches:
+      - experiment/ei-0fr2-terminal-execution
+    paths:
+      - .ei0fr2-execute-once
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ei-0fr2-terminal-execution-once
+  cancel-in-progress: false
+
+jobs:
+  execute-once:
+    if: >-
+      github.event.head_commit.message == 'ci(ei): trigger single EI-0F-R2 execution' &&
+      github.ref_name == 'experiment/ei-0fr2-terminal-execution'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/ei-0fr2-terminal-execution
+          fetch-depth: 0
+          show-progress: false
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+
+      - name: Verify frozen package and execute once
+        env:
+          STARFIRE_EI0FR2_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          STARFIRE_EI0FR2_WORKFLOW_ATTEMPT: ${{ github.run_attempt }}
+          STARFIRE_EI0FR2_RUNNER_OS: ${{ runner.os }}
+          STARFIRE_EI0FR2_RUNNER_ARCH: ${{ runner.arch }}
+          STARFIRE_EI0FR2_RUNNER_NAME: ${{ runner.name }}
+        run: python3 scripts/ei0fr2_execute_once.py
+
+      - name: Remove one-shot machinery and commit immutable result
+        run: |
+          set -euo pipefail
+          rm -f \
+            .ei0fr2-execute-once \
+            .github/workflows/ei-0fr2-terminal-execution-once.yml \
+            scripts/ei0fr2_execute_once.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "experiment(ei): preserve single EI-0F-R2 terminal result"
+          git push origin HEAD:experiment/ei-0fr2-terminal-execution
+
+      - name: Preserve raw execution artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0fr2-terminal-execution-evidence
+          path: target/ei-0fr2-execution
+          if-no-files-found: warn
+          retention-days: 90
