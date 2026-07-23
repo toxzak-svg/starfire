@@ -9,7 +9,7 @@
   "expected_evaluation": {
     "bias_only_accuracy_bps": 5000,
     "conversational_context_accuracy_bps": 5556,
-    "deterministic_report_sha256": "5ca986a9a3ede720143a337c0a0c4df766636c31e7e48d6dc170b0d9e4838f2d",
+    "deterministic_report_sha256": "b273da2d5c0f83f1b37290e66b448cd36d705e6542c66c294e8490e0d62de659",
     "full_identity_context_accuracy_bps": 5278,
     "recurrent_memory_accuracy_bps": 5556,
     "reversed_label_control_accuracy_bps": 5278,
@@ -32,18 +32,23 @@
   "issue": 236,
   "models": {
     "full": {
-      "path": "tools/stlm_l1d/fixtures/fast_ablation_full_model.json",
-      "sha256": "5d891ff817a024cfafbf0b8864d59615a87d861e28c7603deb0630afc97156e9"
+      "encoded_path": "tools/stlm_l1d/fixtures/fast_ablation_full_model.q16.json.gz.b64",
+      "encoded_sha256": "2fcad615124c7d1e443c2727ca65f9289aa266fc56f5a6c84469438571b7940c",
+      "materialized_filename": "fast_ablation_full_model.json",
+      "sha256": "53afcfc83a4a0afcc2c0c1d04bde4ada0d2e202d60d72abbf8049831f6b10771"
     },
     "reversed_label_control": {
-      "path": "tools/stlm_l1d/fixtures/fast_ablation_reversed_control.json",
-      "sha256": "0aebca91ebb92399117f31a0c48908ced69cefdc23534ebe6349a5605dc2443f"
+      "encoded_path": "tools/stlm_l1d/fixtures/fast_ablation_reversed_control.q16.json.gz.b64",
+      "encoded_sha256": "c8946549311562d0935730a0f22a1a076e0993e212570cd328637eedb9dc6266",
+      "materialized_filename": "fast_ablation_reversed_control.json",
+      "sha256": "7155f228700df8fd73c4b9974fd6dae8bba6e1e7b8732efee5da085cf83e4d6e"
     }
   },
   "schema_version": 1,
   "status": "frozen_evaluation_fixture",
   "training": {
     "epochs": 40,
+    "fixture_quantization": "symmetric_i16_per_tensor",
     "framework_observed": "PyTorch 2.10.0+cpu",
     "hidden_size": 12,
     "learning_rate": 0.01,
