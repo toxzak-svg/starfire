@@ -67,6 +67,14 @@ all 36 expected selections, repeats every selection, and inserts three
 deliberately invalid high-rule-score candidates into every trial. All invalid
 semantic, slot-loss and identity-conflict candidates must remain rejected.
 
+## Fixture reproducibility
+
+The two trained fixtures are stored as compact gzip/base64 q16 tensors. CI
+verifies the encoded digests, expands every tensor deterministically into the
+normal `PhraseCriticModel` JSON schema, and verifies the materialized model
+digests before either Python or Rust sees them. Quantization is transport
+packaging for this frozen evaluation, not a new runtime model format.
+
 ## Frozen first observation
 
 The first frozen run used 16 bootstrap training pairs, a 12-unit tanh RNN,
@@ -86,18 +94,29 @@ interval around the recurrence gain crosses zero, the reversed-label control
 matches full-model aggregate accuracy, and identity context harmed one
 continuity decision. Those are useful findings, not failures of the harness.
 
-The deterministic result digest is:
+The deterministic result digest for the materialized q16 fixtures is:
 
 ```text
-5ca986a9a3ede720143a337c0a0c4df766636c31e7e48d6dc170b0d9e4838f2d
+b273da2d5c0f83f1b37290e66b448cd36d705e6542c66c294e8490e0d62de659
 ```
 
 ## Run locally
 
+Materialize the frozen checkpoints:
+
+```bash
+mkdir -p artifacts/models
+python tools/stlm_l1d/materialize_fast_ablation_models.py \
+  --manifest tools/stlm_l1d/fixtures/fast_ablation_manifest.json \
+  --output-dir artifacts/models
+```
+
+Run the factorial evaluation:
+
 ```bash
 python tools/stlm_l1d/run_fast_ablation.py \
-  --model tools/stlm_l1d/fixtures/fast_ablation_full_model.json \
-  --control-model tools/stlm_l1d/fixtures/fast_ablation_reversed_control.json \
+  --model artifacts/models/fast_ablation_full_model.json \
+  --control-model artifacts/models/fast_ablation_reversed_control.json \
   --train tools/stlm_l1d/data/bootstrap_pairs.jsonl \
   --heldout tools/stlm_l1d/data/heldout_pairs.jsonl \
   --output-json artifacts/stlm_l1d1_report.json \
@@ -112,7 +131,7 @@ Rust selection and hard-gate parity:
 cargo run --quiet \
   --manifest-path tools/stlm_l1d/Cargo.toml \
   --bin verify_fast_ablation_parity -- \
-  tools/stlm_l1d/fixtures/fast_ablation_full_model.json \
+  artifacts/models/fast_ablation_full_model.json \
   tools/stlm_l1d/data/heldout_pairs.jsonl
 ```
 
