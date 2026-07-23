@@ -1,9 +1,13 @@
 name: EI-0F-R1 Runner Patch
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/ei-0fr1-proposal-digest-preregistration
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
     paths:
       - .github/workflows/ei-0fr1-patch-runner.yml
 
@@ -12,6 +16,9 @@ permissions:
 
 jobs:
   patch:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feat/ei-0fr1-proposal-digest-preregistration'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
