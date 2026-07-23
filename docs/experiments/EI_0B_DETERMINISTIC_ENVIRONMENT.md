@@ -4,6 +4,7 @@
 > **Status:** implementation contract  
 > **Authority:** offline experiment infrastructure only  
 > **Parent:** issue #156 and EI tracker #149  
+> **Implementation:** PR #166  
 > **Verification gate:** `.github/workflows/ei-0b-environment-ci.yml`
 
 ## Purpose
