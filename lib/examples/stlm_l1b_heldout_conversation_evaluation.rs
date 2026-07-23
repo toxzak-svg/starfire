@@ -7,16 +7,15 @@ use star::language_realization::{
 use star::semantic_response::{
     AbstentionReason, AcknowledgmentLevel, AuthorizedClaim, ClaimId, ClaimPolarity,
     CognitiveStateVersion, ComputeBudget, DetailLevel, DialogueMode, DiscourseOperation,
-    DiscourseOperationKind, EpistemicConstraint, EpistemicStatus, MissingVariableId,
-    ObservationId, OperationId, OutputBudget, PredictionId, ProhibitedClaim,
-    ResponseProgramId, SemanticResponseIntent, SemanticResponseProgram,
-    SemanticResponseProgramPayload, SemanticValidationContext, SensitivityLevel,
-    SensitivityPolicy, StyleEnvelope, SubjectScope, VocabularyLevel,
+    DiscourseOperationKind, EpistemicConstraint, EpistemicStatus, MissingVariableId, ObservationId,
+    OperationId, OutputBudget, PredictionId, ProhibitedClaim, ResponseProgramId,
+    SemanticResponseIntent, SemanticResponseProgram, SemanticResponseProgramPayload,
+    SemanticValidationContext, SensitivityLevel, SensitivityPolicy, StyleEnvelope, SubjectScope,
+    VocabularyLevel,
 };
 use star::verified_improvisation::{
-    authority_boundary, ConversationalMicrostate, ImprovisationDisposition,
-    ImprovisationRequest, ImprovisationalVerifier, RecentLanguageTrace,
-    VerifiedImprovisationSelector,
+    authority_boundary, ConversationalMicrostate, ImprovisationDisposition, ImprovisationRequest,
+    ImprovisationalVerifier, RecentLanguageTrace, VerifiedImprovisationSelector,
 };
 use std::collections::BTreeSet;
 
@@ -136,7 +135,10 @@ fn main() -> Result<()> {
         .iter()
         .filter(|report| report.microstate_changed_surface)
         .count() as u64;
-    let fallback_count = reports.iter().map(|report| report.fallback_count).sum::<u64>();
+    let fallback_count = reports
+        .iter()
+        .map(|report| report.fallback_count)
+        .sum::<u64>();
     let legacy_lead_hits = reports
         .iter()
         .map(|report| report.legacy_lead_hits)
@@ -296,27 +298,18 @@ fn evaluate_scenario(
     let baseline = selector.select(&program, &lexical_table, &baseline_request)?;
     let mut trace = RecentLanguageTrace::default();
     trace.record_text(&baseline.payload.text)?;
-    let trace_request = ImprovisationRequest::new(
-        control_seed,
-        ConversationalMicrostate::default(),
-        trace,
-    )?;
+    let trace_request =
+        ImprovisationRequest::new(control_seed, ConversationalMicrostate::default(), trace)?;
     let trace_treatment = selector.select(&program, &lexical_table, &trace_request)?;
     let trace_changed_opening =
         baseline.payload.opening_fingerprint != trace_treatment.payload.opening_fingerprint;
 
     let direct = ConversationalMicrostate::new(9_000, 2_000, 7_000, 8_500, 1_000, 6_500)?;
     let warm = ConversationalMicrostate::new(5_500, 9_000, 5_500, 4_500, 4_500, 6_500)?;
-    let direct_request = ImprovisationRequest::new(
-        seed_base + 177,
-        direct,
-        RecentLanguageTrace::default(),
-    )?;
-    let warm_request = ImprovisationRequest::new(
-        seed_base + 177,
-        warm,
-        RecentLanguageTrace::default(),
-    )?;
+    let direct_request =
+        ImprovisationRequest::new(seed_base + 177, direct, RecentLanguageTrace::default())?;
+    let warm_request =
+        ImprovisationRequest::new(seed_base + 177, warm, RecentLanguageTrace::default())?;
     let direct_selection = selector.select(&program, &lexical_table, &direct_request)?;
     let warm_selection = selector.select(&program, &lexical_table, &warm_request)?;
     let microstate_changed_surface = direct_selection.payload.text != warm_selection.payload.text;
