@@ -1,8 +1,7 @@
 use star::emerging_intelligence::EvaluationPartition;
 use star::emerging_intelligence_environment::{
-    generate_frozen_fixture, ActionTrace, ControlArm, EnvironmentReport,
-    FrozenEnvironmentManifest, IndependentEvaluator, MatchedTrialSet, RecordedAction,
-    SealedEnvironmentReport,
+    generate_frozen_fixture, ActionTrace, ControlArm, EnvironmentReport, FrozenEnvironmentManifest,
+    IndependentEvaluator, MatchedTrialSet, RecordedAction, SealedEnvironmentReport,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,8 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let development =
-        generate_frozen_fixture(&manifest, EvaluationPartition::Development, 101)?;
+    let development = generate_frozen_fixture(&manifest, EvaluationPartition::Development, 101)?;
     let renamed = generate_frozen_fixture(
         &manifest,
         EvaluationPartition::RenamedVocabularyTransfer,
@@ -42,16 +40,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let structural =
         generate_frozen_fixture(&manifest, EvaluationPartition::StructuralTransfer, 401)?;
 
-    let renamed_relation_preserved = development.fixture.relation_fingerprint
-        == renamed.fixture.relation_fingerprint;
-    let renamed_structure_preserved = development.fixture.structure_fingerprint
-        == renamed.fixture.structure_fingerprint;
-    let renamed_surface_changed = development.fixture.surface_fingerprint
-        != renamed.fixture.surface_fingerprint;
-    let structural_relation_preserved = development.fixture.relation_fingerprint
-        == structural.fixture.relation_fingerprint;
-    let structural_composition_changed = development.fixture.structure_fingerprint
-        != structural.fixture.structure_fingerprint;
+    let renamed_relation_preserved =
+        development.fixture.relation_fingerprint == renamed.fixture.relation_fingerprint;
+    let renamed_structure_preserved =
+        development.fixture.structure_fingerprint == renamed.fixture.structure_fingerprint;
+    let renamed_surface_changed =
+        development.fixture.surface_fingerprint != renamed.fixture.surface_fingerprint;
+    let structural_relation_preserved =
+        development.fixture.relation_fingerprint == structural.fixture.relation_fingerprint;
+    let structural_composition_changed =
+        development.fixture.structure_fingerprint != structural.fixture.structure_fingerprint;
 
     let evaluation_count = evaluations.len();
     let sealed = EnvironmentReport::new(&manifest, evaluations)?.seal()?;

@@ -2,12 +2,7 @@ use super::*;
 use std::collections::BTreeSet;
 
 fn fixture(partition: EvaluationPartition, seed: u64) -> SealedTaskFixture {
-    generate_frozen_fixture(
-        &FrozenEnvironmentManifest::ei_0b_default(),
-        partition,
-        seed,
-    )
-    .unwrap()
+    generate_frozen_fixture(&FrozenEnvironmentManifest::ei_0b_default(), partition, seed).unwrap()
 }
 
 fn optimal_trace(fixture: &SealedTaskFixture, arm: ControlArm) -> ActionTrace {
@@ -64,7 +59,10 @@ fn changed_seed_changes_fixture_under_fixed_budgets() {
     let second = fixture(EvaluationPartition::Development, 102);
     assert_ne!(first.digest, second.digest);
     assert_eq!(first.fixture.action_budget, second.fixture.action_budget);
-    assert_eq!(first.fixture.evidence_budget, second.fixture.evidence_budget);
+    assert_eq!(
+        first.fixture.evidence_budget,
+        second.fixture.evidence_budget
+    );
     assert!(first.fixture.authority.is_closed());
     assert!(second.fixture.authority.is_closed());
 }

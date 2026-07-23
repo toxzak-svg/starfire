@@ -17,16 +17,12 @@ pub fn generate_frozen_fixture(
     };
     let mut rng = DeterministicRng::new(base_seed ^ 0x6e62_9a71_c4d3_8f05);
     let mut task = match family {
-        TaskFamily::RouteChoice => TaskPayload::RouteChoice(generate_route_task(
-            partition,
-            base_seed,
-            &mut rng,
-        )),
-        TaskFamily::AttributeRule => TaskPayload::AttributeRule(generate_rule_task(
-            partition,
-            base_seed,
-            &mut rng,
-        )),
+        TaskFamily::RouteChoice => {
+            TaskPayload::RouteChoice(generate_route_task(partition, base_seed, &mut rng))
+        }
+        TaskFamily::AttributeRule => {
+            TaskPayload::AttributeRule(generate_rule_task(partition, base_seed, &mut rng))
+        }
     };
     apply_partition_surface(partition, &mut task, base_seed)?;
     let evidence_cues = generate_evidence_cues(partition, &task)?;
@@ -226,12 +222,7 @@ fn generate_evidence_cues(
     Ok(cues)
 }
 
-fn token(
-    partition: EvaluationPartition,
-    kind: &str,
-    base_seed: u64,
-    index: u64,
-) -> String {
+fn token(partition: EvaluationPartition, kind: &str, base_seed: u64, index: u64) -> String {
     let vocabulary = if partition == EvaluationPartition::RenamedVocabularyTransfer {
         "renamed"
     } else {

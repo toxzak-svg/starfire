@@ -101,9 +101,7 @@ impl FrozenEnvironmentManifest {
                 return Err(EnvironmentError::IncompletePartitionManifest);
             }
             if entry.seeds.windows(2).any(|pair| pair[0] >= pair[1]) {
-                return Err(EnvironmentError::NonCanonicalCollection(
-                    "partition seeds",
-                ));
+                return Err(EnvironmentError::NonCanonicalCollection("partition seeds"));
             }
             for seed in &entry.seeds {
                 if !all_seeds.insert(*seed) {

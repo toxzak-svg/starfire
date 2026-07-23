@@ -94,9 +94,9 @@ impl TaskPayload {
                     .candidates
                     .iter()
                     .filter(|candidate| {
-                        task.required_attributes.iter().all(|required| {
-                            candidate.attributes.binary_search(required).is_ok()
-                        })
+                        task.required_attributes
+                            .iter()
+                            .all(|required| candidate.attributes.binary_search(required).is_ok())
                     })
                     .collect();
                 if matching.len() != 1 {
@@ -137,7 +137,11 @@ impl TaskPayload {
     fn relation_fingerprint(&self) -> Result<String, EnvironmentError> {
         let normalized = match self {
             Self::RouteChoice(task) => {
-                let mut costs: Vec<u16> = task.options.iter().map(|option| option.total_cost).collect();
+                let mut costs: Vec<u16> = task
+                    .options
+                    .iter()
+                    .map(|option| option.total_cost)
+                    .collect();
                 costs.sort_unstable();
                 serde_json::json!({"family": "route_choice", "ordered_costs": costs})
             }
@@ -183,9 +187,10 @@ impl TaskPayload {
                     .iter()
                     .find(|candidate| candidate.action == action)
                     .ok_or_else(|| EnvironmentError::IllegalAction(action.into()))?;
-                let matches = task.required_attributes.iter().all(|required| {
-                    candidate.attributes.binary_search(required).is_ok()
-                });
+                let matches = task
+                    .required_attributes
+                    .iter()
+                    .all(|required| candidate.attributes.binary_search(required).is_ok());
                 Ok((matches, if matches { MAX_BASIS_POINTS } else { 0 }))
             }
         }
@@ -225,11 +230,7 @@ impl TaskFixture {
         if self.task.family() != self.family {
             return Err(EnvironmentError::InvalidTask("family mismatch"));
         }
-        validate_sorted_unique_by(
-            &self.evidence_cues,
-            |cue| cue.cue.as_str(),
-            "evidence cues",
-        )?;
+        validate_sorted_unique_by(&self.evidence_cues, |cue| cue.cue.as_str(), "evidence cues")?;
         for cue in &self.evidence_cues {
             validate_text(&cue.cue)?;
             validate_basis_points(cue.reliability_bps, "cue reliability")?;
@@ -305,9 +306,7 @@ impl SealedTaskFixture {
         }
         self.fixture.validate()?;
         validate_digest(&self.digest)?;
-        let expected = EnvironmentDigest(checksum128(
-            &self.fixture.canonical_payload_bytes()?,
-        ));
+        let expected = EnvironmentDigest(checksum128(&self.fixture.canonical_payload_bytes()?));
         if expected != self.digest {
             return Err(EnvironmentError::DigestMismatch);
         }
@@ -339,7 +338,11 @@ fn validate_route_task(task: &RouteTask) -> Result<(), EnvironmentError> {
     if task.start == task.goal || task.options.len() < 2 {
         return Err(EnvironmentError::InvalidTask("route shape"));
     }
-    validate_sorted_unique_by(&task.options, |option| option.action.as_str(), "route options")?;
+    validate_sorted_unique_by(
+        &task.options,
+        |option| option.action.as_str(),
+        "route options",
+    )?;
     let mut costs = BTreeSet::new();
     for option in &task.options {
         validate_text(&option.action)?;
@@ -365,7 +368,11 @@ fn validate_attribute_rule_task(task: &AttributeRuleTask) -> Result<(), Environm
     if task.required_attributes.len() != 2 || task.examples.len() < 3 || task.candidates.len() < 3 {
         return Err(EnvironmentError::InvalidTask("attribute rule shape"));
     }
-    validate_sorted_unique_by(&task.examples, |example| example.object.as_str(), "rule examples")?;
+    validate_sorted_unique_by(
+        &task.examples,
+        |example| example.object.as_str(),
+        "rule examples",
+    )?;
     validate_sorted_unique_by(
         &task.candidates,
         |candidate| candidate.action.as_str(),
@@ -375,11 +382,14 @@ fn validate_attribute_rule_task(task: &AttributeRuleTask) -> Result<(), Environm
     for example in &task.examples {
         validate_text(&example.object)?;
         validate_sorted_unique_strings(&example.attributes, "example attributes")?;
-        let actual = task.required_attributes.iter().all(|required| {
-            example.attributes.binary_search(required).is_ok()
-        });
+        let actual = task
+            .required_attributes
+            .iter()
+            .all(|required| example.attributes.binary_search(required).is_ok());
         if actual != example.matches {
-            return Err(EnvironmentError::InvalidTask("incorrect rule example label"));
+            return Err(EnvironmentError::InvalidTask(
+                "incorrect rule example label",
+            ));
         }
     }
     for candidate in &task.candidates {
@@ -401,9 +411,9 @@ fn task_payload_optimal_count(task: &AttributeRuleTask) -> Result<(), Environmen
         .candidates
         .iter()
         .filter(|candidate| {
-            task.required_attributes.iter().all(|required| {
-                candidate.attributes.binary_search(required).is_ok()
-            })
+            task.required_attributes
+                .iter()
+                .all(|required| candidate.attributes.binary_search(required).is_ok())
         })
         .count();
     if count != 1 {

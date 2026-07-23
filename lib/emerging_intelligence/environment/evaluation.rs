@@ -75,11 +75,7 @@ impl MatchedTrialSet {
             .map(|arm| TrialArmSpec {
                 arm,
                 fixture_digest: fixture.digest.clone(),
-                state_namespace: format!(
-                    "ei-0b:{}:{}",
-                    fixture.fixture.fixture_id,
-                    arm.as_str()
-                ),
+                state_namespace: format!("ei-0b:{}:{}", fixture.fixture.fixture_id, arm.as_str()),
                 state_policy: match arm {
                     ControlArm::Learning => ArmStatePolicy::ProposedLearningState,
                     ControlArm::NoUpdate => ArmStatePolicy::FreshNoUpdate,
@@ -360,9 +356,7 @@ impl SealedEnvironmentReport {
         }
         self.report.validate()?;
         validate_digest(&self.digest)?;
-        let expected = EnvironmentDigest(checksum128(
-            &self.report.canonical_payload_bytes()?,
-        ));
+        let expected = EnvironmentDigest(checksum128(&self.report.canonical_payload_bytes()?));
         if self.digest != expected {
             return Err(EnvironmentError::DigestMismatch);
         }
