@@ -1,0 +1,158 @@
+{
+  "preregistration_id": "ei-0g-shadow-attachment-freeze-v1",
+  "schema_version": 1,
+  "parent_preregistration_id": "ei-0g-shadow-prereg-v1",
+  "parent_merge": "803c2ddbc1bd8029a2d7308ec973fa3a0a0ed848",
+  "collection_enabled": false,
+  "qualifying_samples_collected": 0,
+  "live_runtime_attachment_authorized": false,
+  "security_prerequisite_satisfied": false,
+  "production_library_exported": false,
+  "attachment": {
+    "source_path": "lib/api.rs",
+    "source_blob": "665594e589a783f989a044a6cdf54f2f65a818b7",
+    "function": "handle_chat",
+    "anchor": "success:after-response-json-and-existing-shadow-dispatch-before-return",
+    "response_finalized": true,
+    "runtime_lock_released": true,
+    "existing_shadow_dispatch_completed": true,
+    "response_mutation_possible": false,
+    "network_send_started": false,
+    "one_way_copy_only": true
+  },
+  "deployment": {
+    "target_runtime_commit": "803c2ddbc1bd8029a2d7308ec973fa3a0a0ed848",
+    "api_blob": "665594e589a783f989a044a6cdf54f2f65a818b7",
+    "dockerfile_blob": "21b04c1b03fc0c8e1e045597255901a7ac705725",
+    "lockfile_blob": "031183ea5049f92380c4c39780848b83ebf957b6",
+    "render_blueprint_blob": "082e7cb4aa7ec26263dd1ddfcfff8422913477c7",
+    "actual_container_digest": null,
+    "actual_container_digest_required_before_execution": true
+  },
+  "privacy": {
+    "consent_mode": "explicit_operator_opt_in",
+    "consent_required": true,
+    "allowed_traffic": [
+      "successful_chat"
+    ],
+    "public_collection_allowed": false,
+    "operator_only_design": true,
+    "maximum_raw_request_bytes_before_redaction": 32768,
+    "retained_raw_fields": [],
+    "excluded_classes": [
+      "errors",
+      "telegram",
+      "reason",
+      "remember",
+      "identity",
+      "memory",
+      "cognition",
+      "metacognition",
+      "thought",
+      "credentials-or-secrets",
+      "suspected-minor-data",
+      "health-or-crisis-content",
+      "legal-or-financial-sensitive-content"
+    ]
+  },
+  "sampling": {
+    "collection_enabled": false,
+    "configured_rate_bps": 100,
+    "active_rate_bps": 0,
+    "qualifying_sample_cap": 100,
+    "active_sample_cap": 0,
+    "qualifying_samples_collected": 0,
+    "assignment_seed_hex": "4549304753320001",
+    "partition_seed_hex": "4549304753320002",
+    "arms": [
+      "no_observer",
+      "inert_observer",
+      "ei_observer"
+    ],
+    "arms_per_sample": 3,
+    "identical_authorized_input": true,
+    "identical_budgets": true
+  },
+  "budgets": {
+    "max_authorized_input_bytes": 1024,
+    "max_records_per_request": 1,
+    "max_added_latency_micros": 10000,
+    "max_cpu_micros": 5000,
+    "max_ephemeral_memory_bytes": 1048576
+  },
+  "thresholds": {
+    "max_response_byte_divergence": 0,
+    "max_route_divergence": 0,
+    "max_tool_divergence": 0,
+    "max_action_divergence": 0,
+    "max_persistence_divergence": 0,
+    "max_missing_records": 0,
+    "max_corrupt_records": 0,
+    "max_cross_user_leakage_events": 0,
+    "max_replay_mismatches": 0,
+    "max_calibration_error_bps": 2500,
+    "min_observer_advantage_bps": 250
+  },
+  "evidence_sink": {
+    "mode": "disabled_encrypted_append_only",
+    "write_enabled": false,
+    "append_only_required": true,
+    "encryption_required": true,
+    "operator_only_access": true,
+    "raw_content_allowed": false,
+    "retention_days": 7,
+    "deletion_receipt_required": true,
+    "implementation_bound": false
+  },
+  "kill_switch": {
+    "environment_key": "STARFIRE_EI0G_SHADOW_ENABLED",
+    "default_enabled": false,
+    "current_enabled": false,
+    "sampling_check_precedes_redaction": true,
+    "sampling_check_precedes_adapter": true,
+    "implemented_in_runtime": false
+  },
+  "removal": {
+    "disable_sampling": true,
+    "detach_observer": true,
+    "delete_ephemeral_namespaces": true,
+    "close_evidence_sink": true,
+    "delete_retained_evidence": true,
+    "emit_deletion_receipt": true,
+    "verify_live_state_untouched": true
+  },
+  "execution_authorization_requires": [
+    "new_execution_identifier",
+    "collection_enabled",
+    "security_prerequisite_satisfied_for_scope",
+    "actual_container_digest_bound",
+    "explicit_execution_issue",
+    "explicit_operator_consent",
+    "bound_evidence_sink_implementation"
+  ],
+  "authority": {
+    "runtime_wiring": false,
+    "live_learning": false,
+    "response": false,
+    "persistence": false,
+    "routing": false,
+    "belief": false,
+    "ontology": false,
+    "tool": false,
+    "network": false,
+    "action": false
+  },
+  "target_runtime_blobs": {
+    "Cargo.lock": "031183ea5049f92380c4c39780848b83ebf957b6",
+    "Dockerfile": "21b04c1b03fc0c8e1e045597255901a7ac705725",
+    "lib/api.rs": "665594e589a783f989a044a6cdf54f2f65a818b7",
+    "render.yaml": "082e7cb4aa7ec26263dd1ddfcfff8422913477c7"
+  },
+  "freeze_git_blob_ids": {
+    ".github/workflows/ei-0g-s2-attachment-freeze.yml": "c017fb3de6c47dd14d097835c303f25c84069ce1",
+    "docs/experiments/EI_0G_S2_ATTACHMENT_FREEZE.md": "4baa3b894f1373ea49fb5cb595b02b335491995e",
+    "lib/Cargo.toml": "d1b8d1dff60a9c9f4b54c78c18b8f23c6180a347",
+    "lib/emerging_intelligence/shadow_attachment.rs": "8d6303a63801c56b5285cb7b5fca6c802eaea128",
+    "lib/examples/ei_0g_s2_attachment_freeze_probe.rs": "4cb5511f68e5b83b7d5ee040a59d6d4db98f19ab"
+  }
+}
