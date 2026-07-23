@@ -1,9 +1,9 @@
 use star::emerging_intelligence::{
     ActionId, AuthoritySnapshot, BoundedAction, CognitiveEpisode, EpisodeEvaluation, EpisodeId,
-    EpisodePhase, EpisodeProvenance, EvaluationId, EvaluationPartition, EvidenceId,
-    EvidenceRecord, EvidenceRef, Intention, LearningUpdate, LearningUpdateId, Observation,
-    ObservationId, Outcome, OutcomeId, Prediction, PredictionAssessment, PredictionId,
-    SealedCognitiveEpisode, StrategyId, StrategySelection, EI_0A_SCHEMA_VERSION,
+    EpisodePhase, EpisodeProvenance, EvaluationId, EvaluationPartition, EvidenceId, EvidenceRecord,
+    EvidenceRef, Intention, LearningUpdate, LearningUpdateId, Observation, ObservationId, Outcome,
+    OutcomeId, Prediction, PredictionAssessment, PredictionId, SealedCognitiveEpisode, StrategyId,
+    StrategySelection, EI_0A_SCHEMA_VERSION,
 };
 
 fn evidence_id(value: &str) -> EvidenceId {

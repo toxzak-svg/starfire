@@ -16,9 +16,7 @@ const DIGEST_HEX_LEN: usize = 32;
 
 macro_rules! string_id {
     ($name:ident) => {
-        #[derive(
-            Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-        )]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         #[serde(transparent)]
         pub struct $name(String);
 
@@ -730,10 +728,7 @@ fn validate_sorted_unique_by<T, F>(
 where
     F: for<'a> Fn(&'a T) -> &'a str,
 {
-    if values
-        .windows(2)
-        .any(|pair| key(&pair[0]) >= key(&pair[1]))
-    {
+    if values.windows(2).any(|pair| key(&pair[0]) >= key(&pair[1])) {
         return Err(EpisodeContractError::NonCanonicalCollection(field));
     }
     Ok(())
@@ -744,7 +739,9 @@ fn validate_canonical_strings(
     field: &'static str,
 ) -> Result<(), EpisodeContractError> {
     if values.is_empty()
-        || values.iter().any(|value| validate_identifier(value).is_err())
+        || values
+            .iter()
+            .any(|value| validate_identifier(value).is_err())
         || values
             .windows(2)
             .any(|pair| pair[0].as_str() >= pair[1].as_str())
@@ -766,26 +763,17 @@ fn validate_identifier(value: &str) -> Result<(), EpisodeContractError> {
     Ok(())
 }
 
-fn validate_basis_points(
-    value: u16,
-    field: &'static str,
-) -> Result<(), EpisodeContractError> {
+fn validate_basis_points(value: u16, field: &'static str) -> Result<(), EpisodeContractError> {
     if value > MAX_BASIS_POINTS {
         return Err(EpisodeContractError::BasisPointsOutOfRange(field));
     }
     Ok(())
 }
 
-fn validate_digest_text(
-    value: &str,
-    field: &'static str,
-) -> Result<(), EpisodeContractError> {
+fn validate_digest_text(value: &str, field: &'static str) -> Result<(), EpisodeContractError> {
     if value.len() < 8
         || !value.bytes().all(|byte| {
-            byte.is_ascii_lowercase()
-                || byte.is_ascii_digit()
-                || byte == b':'
-                || byte == b'-'
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b':' || byte == b'-'
         })
     {
         return Err(EpisodeContractError::InvalidDigestText(field));
@@ -986,10 +974,8 @@ mod tests {
     #[test]
     fn duplicate_identifier_across_record_types_fails_closed() {
         let mut episode = evaluated_episode();
-        episode.action.as_mut().unwrap().action_id =
-            ActionId::new("prediction-001").unwrap();
-        episode.outcome.as_mut().unwrap().action_id =
-            ActionId::new("prediction-001").unwrap();
+        episode.action.as_mut().unwrap().action_id = ActionId::new("prediction-001").unwrap();
+        episode.outcome.as_mut().unwrap().action_id = ActionId::new("prediction-001").unwrap();
         assert_eq!(
             episode.validate(),
             Err(EpisodeContractError::DuplicateIdentifier(
