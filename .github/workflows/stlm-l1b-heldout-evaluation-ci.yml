@@ -43,8 +43,10 @@ jobs:
 
       - name: Lint held-out evaluator
         run: |
+          set -o pipefail
           cargo clippy -p star --example stlm_l1b_heldout_conversation_evaluation \
-            --features verified-improvisation --locked -- -D warnings
+            --features verified-improvisation --locked --message-format=short -- -D warnings \
+            2>&1 | tee stlm-l1b-clippy.log
 
       - name: Run frozen held-out evaluation
         run: |
@@ -63,11 +65,13 @@ jobs:
           grep -F '"no_runtime_influence": true' stlm-l1b-heldout-report.json
           grep -F '"gate_passed": true' stlm-l1b-heldout-report.json
 
-      - name: Preserve held-out report
+      - name: Preserve held-out diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: stlm-l1b-heldout-evaluation
-          path: stlm-l1b-heldout-report.json
+          path: |
+            stlm-l1b-clippy.log
+            stlm-l1b-heldout-report.json
           if-no-files-found: ignore
           retention-days: 30
