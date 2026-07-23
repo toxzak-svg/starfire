@@ -1,0 +1,146 @@
+name: EI-0F-R1B Terminal Freeze CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md"
+      - "docs/experiments/EI_0F_R1_FREEZE_LOCK.json"
+      - "lib/examples/ei_0f_r1_terminal_experiment.rs"
+      - "scripts/ei0fr1_preregistration.py"
+      - ".github/workflows/ei-0fr1-terminal-freeze-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md"
+      - "docs/experiments/EI_0F_R1_FREEZE_LOCK.json"
+      - "lib/examples/ei_0f_r1_terminal_experiment.rs"
+      - "scripts/ei0fr1_preregistration.py"
+      - ".github/workflows/ei-0fr1-terminal-freeze-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ei-0fr1-terminal-freeze-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify canonical package twice
+        run: |
+          set -euo pipefail
+          mkdir -p target/ei-0fr1-freeze
+          python3 scripts/ei0fr1_preregistration.py verify > target/ei-0fr1-freeze/verify-a.json
+          python3 scripts/ei0fr1_preregistration.py verify > target/ei-0fr1-freeze/verify-b.json
+          cmp target/ei-0fr1-freeze/verify-a.json target/ei-0fr1-freeze/verify-b.json
+
+      - name: Verify unchanged classifier semantics twice
+        run: |
+          set -euo pipefail
+          python3 scripts/ei0fr1_preregistration.py self-test > target/ei-0fr1-freeze/classifier-a.json
+          python3 scripts/ei0fr1_preregistration.py self-test > target/ei-0fr1-freeze/classifier-b.json
+          cmp target/ei-0fr1-freeze/classifier-a.json target/ei-0fr1-freeze/classifier-b.json
+
+      - name: Re-run five-arm digest preflight twice
+        run: |
+          set -euo pipefail
+          cargo run --quiet -p star --example ei_0f_r1_digest_remediation_probe \
+            --features emerging-intelligence-environment --locked \
+            > target/ei-0fr1-freeze/preflight-a.json
+          cargo run --quiet -p star --example ei_0f_r1_digest_remediation_probe \
+            --features emerging-intelligence-environment --locked \
+            > target/ei-0fr1-freeze/preflight-b.json
+          cmp target/ei-0fr1-freeze/preflight-a.json target/ei-0fr1-freeze/preflight-b.json
+          grep -q '"classification": "PASS"' target/ei-0fr1-freeze/preflight-a.json
+
+      - name: Check repaired runner formatting
+        run: rustfmt --edition 2021 --check lib/examples/ei_0f_r1_terminal_experiment.rs
+
+      - name: Compile repaired runner without executing it
+        run: >-
+          cargo check --quiet -p star
+          --example ei_0f_r1_terminal_experiment
+          --features emerging-intelligence-updates
+          --locked
+
+      - name: Capture scoped Clippy diagnostics
+        run: >-
+          cargo clippy --quiet -p star
+          --example ei_0f_r1_terminal_experiment
+          --features emerging-intelligence-updates
+          --locked --message-format=json
+          > target/ei-0fr1-freeze/clippy.jsonl
+
+      - name: Deny warnings in repaired runner
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          target = "lib/examples/ei_0f_r1_terminal_experiment.rs"
+          failures = []
+          for raw in pathlib.Path("target/ei-0fr1-freeze/clippy.jsonl").read_text(encoding="utf-8").splitlines():
+              try:
+                  event = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              if event.get("reason") != "compiler-message":
+                  continue
+              message = event.get("message", {})
+              if message.get("level") != "warning":
+                  continue
+              files = {
+                  span.get("file_name")
+                  for span in message.get("spans", [])
+                  if span.get("file_name")
+              }
+              if target in files:
+                  failures.append(message.get("rendered") or message.get("message"))
+          if failures:
+              print("EI-0F-R1B scoped Clippy warnings:", file=sys.stderr)
+              for failure in failures:
+                  print(failure, file=sys.stderr)
+              raise SystemExit(1)
+          print("EI-0F-R1B repaired runner diagnostics are clean.")
+          PY
+
+      - name: Enforce compile-only closed authority
+        run: |
+          set -euo pipefail
+          runner=lib/examples/ei_0f_r1_terminal_experiment.rs
+          for token in 'Runtime::chat' rusqlite reqwest 'std::net' 'tokio::net' Telegram ontology tool_selection; do
+            if grep -Fq "$token" "$runner"; then
+              echo "forbidden authority token: $token" >&2
+              exit 1
+            fi
+          done
+          terminal_command='cargo run -p star --example '
+          terminal_command+='ei_0f_r1_terminal_experiment'
+          if grep -Fq "$terminal_command" .github/workflows/ei-0fr1-terminal-freeze-ci.yml; then
+            echo 'freeze gate must not execute the repaired terminal experiment' >&2
+            exit 1
+          fi
+
+      - name: Preserve freeze evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0fr1-terminal-freeze-evidence
+          path: target/ei-0fr1-freeze
+          if-no-files-found: warn
+          retention-days: 30
