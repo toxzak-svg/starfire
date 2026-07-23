@@ -68,6 +68,13 @@ pub mod representation_transport_orbit;
 pub use representation_transport_orbit as representation_transport;
 pub mod representation_transport_descendants;
 
+// EI-0A: canonical developmental episode records, validation, deterministic
+// serialization, and sealed replay. Disabled by default and data-only: no
+// Runtime::chat(), persistence, response, routing, tool, ontology, learning-
+// update application, or autonomous-action authority.
+#[cfg(feature = "emerging-intelligence-contracts")]
+pub mod emerging_intelligence;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
