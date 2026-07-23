@@ -1,0 +1,431 @@
+name: EI-0F-R1B Package Materializer
+
+on:
+  push:
+    branches:
+      - feat/ei-0fr1b-terminal-freeze
+    paths:
+      - .ei0fr1b-materialize
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ei-0fr1b-package-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0fr1b-terminal-freeze
+          fetch-depth: 0
+          show-progress: false
+
+      - name: Materialize exact repaired package
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import copy
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          preregistration_id = 'ei-0f-remediation-v1'
+          freeze_base = 'b9b5f70d7da98088d2546c0ac5a730c9854326ab'
+          parent_result_commit = '2e74746eeb524a50d41749d964e59838b7fbd919'
+          preflight_merge_commit = 'b9b5f70d7da98088d2546c0ac5a730c9854326ab'
+          preflight_artifact = 'sha256:680509ea0932e3545fa307506ae1cd694e37cd429eb38d0058b681601f060a16'
+
+          original_manifest_path = root / 'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json'
+          manifest_path = root / 'docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json'
+          markdown_path = root / 'docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md'
+          lock_path = root / 'docs/experiments/EI_0F_R1_FREEZE_LOCK.json'
+          original_runner_path = root / 'lib/examples/ei_0f_terminal_experiment.rs'
+          runner_path = root / 'lib/examples/ei_0f_r1_terminal_experiment.rs'
+          verifier_path = root / 'scripts/ei0fr1_preregistration.py'
+          workflow_path = root / '.github/workflows/ei-0fr1-terminal-freeze-ci.yml'
+
+          def canonical(value):
+              return (json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+
+          def sha256(data):
+              return hashlib.sha256(data).hexdigest()
+
+          def blob_sha(data):
+              header = f'blob {len(data)}\0'.encode('ascii')
+              return hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+
+          original_manifest_bytes = original_manifest_path.read_bytes()
+          original_manifest = json.loads(original_manifest_bytes)
+          if canonical(original_manifest) != original_manifest_bytes:
+              raise SystemExit('original EI-0E manifest is not canonical')
+          original_manifest_digest = sha256(original_manifest_bytes)
+          if original_manifest_digest != '5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73':
+              raise SystemExit('original EI-0E manifest digest changed')
+
+          manifest = copy.deepcopy(original_manifest)
+          manifest['preregistration_id'] = preregistration_id
+          manifest['stage'] = 'EI-0F-R1B'
+          manifest['status'] = 'frozen_specification_no_results'
+          manifest['freeze_base_commit'] = freeze_base
+          manifest['claim'] = 'ei-0f-r1-frozen-terminal-remediation-only'
+          manifest['implementation_ids']['package_verifier'] = 'ei-0fr1-package-verifier-v1'
+          manifest['parent_result'] = {
+              'classification': 'FAIL',
+              'commit': parent_result_commit,
+              'preregistration_id': 'ei-0e-terminal-v1',
+              'preserved_unchanged': True,
+          }
+          manifest['remediation'] = {
+              'preflight_artifact_digest': preflight_artifact,
+              'preflight_merge_commit': preflight_merge_commit,
+              'sole_change': 'episode_proposal_digest_underscore_to_hyphen',
+              'update_identifiers_changed': False,
+              'validator_changed': False,
+          }
+          manifest['terminal'] = {
+              'classifier_command': 'python3 scripts/ei0fr1_preregistration.py classify docs/experiments/EI_0F_R1_TERMINAL_REPORT.json',
+              'compile_command': 'cargo check -p star --example ei_0f_r1_terminal_experiment --features emerging-intelligence-updates --locked',
+              'freeze_lock': 'docs/experiments/EI_0F_R1_FREEZE_LOCK.json',
+              'preregistration_manifest': 'docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json',
+              'report_schema': 'docs/experiments/EI_0F_TERMINAL_REPORT.schema.json',
+              'run_command': 'cargo run -p star --example ei_0f_r1_terminal_experiment --features emerging-intelligence-updates --locked --quiet',
+              'runner_source': 'lib/examples/ei_0f_r1_terminal_experiment.rs',
+          }
+          manifest_bytes = canonical(manifest)
+          manifest_path.write_bytes(manifest_bytes)
+          manifest_digest = sha256(manifest_bytes)
+
+          original_runner = original_runner_path.read_text(encoding='utf-8')
+          old_id = 'const PREREGISTRATION_ID: &str = "ei-0e-terminal-v1";'
+          new_id = f'const PREREGISTRATION_ID: &str = "{preregistration_id}";'
+          if original_runner.count(old_id) != 1:
+              raise SystemExit('original runner preregistration ID binding changed')
+          runner = original_runner.replace(old_id, new_id, 1)
+          if runner.count(original_manifest_digest) != 1:
+              raise SystemExit('original runner manifest digest binding changed')
+          runner = runner.replace(original_manifest_digest, manifest_digest, 1)
+          old_proposal = '            proposal_digest: format!("preregistered:{update_id}"),'
+          new_proposal = '            proposal_digest: format!("preregistered:{}", update_id.replace(\'_\', "-")),'
+          if runner.count(old_proposal) != 1:
+              raise SystemExit('original runner proposal construction changed')
+          runner = runner.replace(old_proposal, new_proposal, 1)
+          runner_path.write_text(runner, encoding='utf-8')
+
+          verifier = f'''#!/usr/bin/env python3
+          """EI-0F-R1B package verifier and unchanged terminal classifier wrapper."""
+
+          from __future__ import annotations
+
+          import argparse
+          import hashlib
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          from typing import Any
+
+          import ei0e_preregistration as base
+
+          ROOT = Path(__file__).resolve().parents[1]
+          MANIFEST_PATH = ROOT / "docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json"
+          LOCK_PATH = ROOT / "docs/experiments/EI_0F_R1_FREEZE_LOCK.json"
+          ORIGINAL_MANIFEST_PATH = ROOT / "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+          ORIGINAL_RUNNER_PATH = ROOT / "lib/examples/ei_0f_terminal_experiment.rs"
+          REPAIRED_RUNNER_PATH = ROOT / "lib/examples/ei_0f_r1_terminal_experiment.rs"
+          PREREGISTRATION_ID = "{preregistration_id}"
+          FREEZE_BASE = "{freeze_base}"
+          ORIGINAL_MANIFEST_SHA256 = "{original_manifest_digest}"
+          PACKAGE_VERIFIER_ID = "ei-0fr1-package-verifier-v1"
+
+          SCIENTIFIC_KEYS = [
+              "aggregation",
+              "arms",
+              "authority",
+              "budgets",
+              "failure_rules",
+              "hypotheses",
+              "initial_policy",
+              "partitions",
+              "schema_versions",
+              "task_families",
+              "thresholds",
+              "update_lattice",
+          ]
+
+          class VerificationError(RuntimeError):
+              pass
+
+          def require(condition: bool, message: str) -> None:
+              if not condition:
+                  raise VerificationError(message)
+
+          def canonical_bytes(value: Any) -> bytes:
+              return base.canonical_bytes(value)
+
+          def load_json(path: Path) -> Any:
+              return base.load_json(path)
+
+          def git_blob_sha1(data: bytes) -> str:
+              return base.git_blob_sha1(data)
+
+          def verify_canonical(path: Path) -> Any:
+              raw = path.read_bytes()
+              value = load_json(path)
+              require(raw == canonical_bytes(value), f"noncanonical JSON: {{path}}")
+              return value
+
+          def expected_runner(manifest_digest: str) -> bytes:
+              text = ORIGINAL_RUNNER_PATH.read_text(encoding="utf-8")
+              old_id = 'const PREREGISTRATION_ID: &str = "ei-0e-terminal-v1";'
+              new_id = f'const PREREGISTRATION_ID: &str = "{{PREREGISTRATION_ID}}";'
+              require(text.count(old_id) == 1, "original runner ID binding changed")
+              text = text.replace(old_id, new_id, 1)
+              require(text.count(ORIGINAL_MANIFEST_SHA256) == 1, "original runner digest binding changed")
+              text = text.replace(ORIGINAL_MANIFEST_SHA256, manifest_digest, 1)
+              old = '            proposal_digest: format!("preregistered:{{update_id}}"),'
+              new = '            proposal_digest: format!("preregistered:{{}}", update_id.replace(\'_\', "-")),'
+              require(text.count(old) == 1, "original runner proposal construction changed")
+              return text.replace(old, new, 1).encode("utf-8")
+
+          def verify_repository() -> dict[str, Any]:
+              original = verify_canonical(ORIGINAL_MANIFEST_PATH)
+              require(hashlib.sha256(canonical_bytes(original)).hexdigest() == ORIGINAL_MANIFEST_SHA256, "original manifest changed")
+              manifest = verify_canonical(MANIFEST_PATH)
+              manifest_digest = hashlib.sha256(canonical_bytes(manifest)).hexdigest()
+
+              require(manifest.get("schema_version") == 1, "unsupported manifest schema")
+              require(manifest.get("preregistration_id") == PREREGISTRATION_ID, "wrong remediation ID")
+              require(manifest.get("stage") == "EI-0F-R1B", "wrong remediation stage")
+              require(manifest.get("status") == "frozen_specification_no_results", "package is not frozen")
+              require(manifest.get("freeze_base_commit") == FREEZE_BASE, "freeze base changed")
+              require(manifest.get("claim") == "ei-0f-r1-frozen-terminal-remediation-only", "claim boundary changed")
+              require(manifest.get("source_files") == original.get("source_files"), "EI source file set or hashes changed")
+              for key in SCIENTIFIC_KEYS:
+                  require(manifest.get(key) == original.get(key), f"scientific field changed: {{key}}")
+              for key, value in original.get("implementation_ids", {{}}).items():
+                  require(manifest.get("implementation_ids", {{}}).get(key) == value, f"implementation ID changed: {{key}}")
+              require(manifest.get("implementation_ids", {{}}).get("package_verifier") == PACKAGE_VERIFIER_ID, "package verifier ID changed")
+              require(manifest.get("parent_result", {{}}).get("classification") == "FAIL", "parent FAIL not preserved")
+              require(manifest.get("parent_result", {{}}).get("preserved_unchanged") is True, "parent result not preserved")
+              remediation = manifest.get("remediation", {{}})
+              require(remediation.get("sole_change") == "episode_proposal_digest_underscore_to_hyphen", "remediation scope changed")
+              require(remediation.get("validator_changed") is False, "validator change forbidden")
+              require(remediation.get("update_identifiers_changed") is False, "update identifier change forbidden")
+
+              for entry in manifest.get("source_files", []):
+                  path = ROOT / entry["path"]
+                  require(path.is_file(), f"source file missing: {{entry['path']}}")
+                  require(git_blob_sha1(path.read_bytes()) == entry.get("git_blob_sha1"), f"source blob mismatch: {{entry['path']}}")
+
+              expected = expected_runner(manifest_digest)
+              actual = REPAIRED_RUNNER_PATH.read_bytes()
+              require(actual == expected, "repaired runner differs beyond the frozen substitutions")
+              require(ORIGINAL_RUNNER_PATH.read_bytes() != actual, "repaired runner did not change")
+
+              lock = verify_canonical(LOCK_PATH)
+              require(lock.get("schema_version") == 1, "unsupported lock schema")
+              require(lock.get("preregistration_id") == PREREGISTRATION_ID, "wrong lock ID")
+              require(lock.get("manifest_sha256") == manifest_digest, "lock does not bind manifest")
+              require(lock.get("original_runner_git_blob_sha1") == git_blob_sha1(ORIGINAL_RUNNER_PATH.read_bytes()), "original runner binding changed")
+              require(lock.get("repaired_runner_git_blob_sha1") == git_blob_sha1(actual), "repaired runner binding changed")
+              files = lock.get("files")
+              require(isinstance(files, list) and files, "empty lock file set")
+              paths = [entry.get("path") for entry in files]
+              require(paths == sorted(paths), "lock paths are not sorted")
+              require(len(paths) == len(set(paths)), "duplicate lock paths")
+              require("docs/experiments/EI_0F_R1_FREEZE_LOCK.json" not in paths, "lock cannot bind itself")
+              for entry in files:
+                  path = ROOT / entry["path"]
+                  require(path.is_file(), f"locked file missing: {{entry['path']}}")
+                  require(git_blob_sha1(path.read_bytes()) == entry.get("git_blob_sha1"), f"locked file mismatch: {{entry['path']}}")
+
+              try:
+                  subprocess.run(
+                      ["git", "merge-base", "--is-ancestor", FREEZE_BASE, "HEAD"],
+                      cwd=ROOT,
+                      check=True,
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.PIPE,
+                      text=True,
+                  )
+              except (OSError, subprocess.CalledProcessError) as exc:
+                  raise VerificationError("freeze base is not an ancestor of HEAD") from exc
+
+              return {{
+                  "classifier_id": base.CLASSIFIER_ID,
+                  "freeze_base_commit": FREEZE_BASE,
+                  "locked_files": len(files),
+                  "manifest_sha256": manifest_digest,
+                  "package_verifier_id": PACKAGE_VERIFIER_ID,
+                  "preregistration_id": PREREGISTRATION_ID,
+                  "runner_git_blob_sha1": git_blob_sha1(actual),
+                  "verified": True,
+              }}
+
+          def self_test() -> dict[str, Any]:
+              manifest = verify_canonical(MANIFEST_PATH)
+              result = base.self_test(manifest)
+              require(result.get("self_test") == "pass", "base classifier self-test failed")
+              report = base.synthetic_pass_report(manifest)
+              classified = base.classify(report, manifest)
+              require(classified.get("classification") == "PASS", "remediation PASS vector failed")
+              return {{
+                  "classifier_id": base.CLASSIFIER_ID,
+                  "preregistration_id": PREREGISTRATION_ID,
+                  "self_test": "pass",
+                  "vectors": result.get("vectors"),
+              }}
+
+          def classify_report(path: Path) -> tuple[dict[str, Any], int]:
+              manifest = verify_canonical(MANIFEST_PATH)
+              report = load_json(path)
+              result = base.classify(report, manifest)
+              return result, 0 if result.get("classification") == "PASS" else 1
+
+          def main() -> int:
+              parser = argparse.ArgumentParser()
+              parser.add_argument("command", choices=["verify", "self-test", "classify"])
+              parser.add_argument("report", nargs="?")
+              args = parser.parse_args()
+              try:
+                  if args.command == "verify":
+                      result = verify_repository()
+                      status = 0
+                  elif args.command == "self-test":
+                      result = self_test()
+                      status = 0
+                  else:
+                      require(bool(args.report), "classify requires a report path")
+                      result, status = classify_report(ROOT / args.report)
+                  sys.stdout.buffer.write(canonical_bytes(result))
+                  return status
+              except (OSError, KeyError, TypeError, VerificationError, base.VerificationError) as exc:
+                  result = {{
+                      "classification": "FAIL",
+                      "error": str(exc),
+                      "package_verifier_id": PACKAGE_VERIFIER_ID,
+                      "preregistration_id": PREREGISTRATION_ID,
+                  }}
+                  sys.stdout.buffer.write(canonical_bytes(result))
+                  return 1
+
+          if __name__ == "__main__":
+              raise SystemExit(main())
+          '''
+          verifier = '\n'.join(line[10:] if line.startswith('          ') else line for line in verifier.splitlines()) + '\n'
+          verifier_path.write_text(verifier, encoding='utf-8')
+
+          markdown = f'''# EI-0F-R1B Frozen Terminal Remediation
+
+          > **Status:** frozen specification, no terminal result executed  
+          > **Preregistration ID:** `{preregistration_id}`  
+          > **Freeze base:** `{freeze_base}`  
+          > **Canonical manifest SHA-256:** `{manifest_digest}`  
+          > **Parent EI-0F result:** immutable `FAIL` at `{parent_result_commit}`
+
+          ## Purpose
+
+          This package freezes one separately identified terminal remediation after the original EI-0F runner failed closed before arm evaluation. It does not revise or erase the original result.
+
+          ## Sole semantic change
+
+          The episode-level proposal-digest reference converts underscores in the existing update identifier to hyphens. Update identifiers, arm names, validators, tasks, partitions, seeds, budgets, evaluators, thresholds, classifier semantics, report fields, safety requirements, and authority remain unchanged.
+
+          ## Evidence chain
+
+          - original EI-0F result commit: `{parent_result_commit}`;
+          - remediation preflight merge: `{preflight_merge_commit}`;
+          - remediation preflight artifact: `{preflight_artifact}`;
+          - original preregistration manifest: `{original_manifest_digest}`;
+          - repaired runner Git blob: `{blob_sha(runner_path.read_bytes())}`.
+
+          ## Frozen execution
+
+          The later execution must use the exact command recorded in the machine-readable manifest and execute once. The existing EI-0E classifier logic is reused without threshold changes through `scripts/ei0fr1_preregistration.py`.
+
+          ## Authority boundary
+
+          This stage is compile-only. It adds no runtime wiring, SQLite persistence, response or routing authority, ontology promotion, tools, autonomous action, or live learning. EI-0G remains unauthorized.
+          '''
+          markdown = '\n'.join(line[10:] if line.startswith('          ') else line for line in markdown.splitlines()) + '\n'
+          markdown_path.write_text(markdown, encoding='utf-8')
+
+          lock_paths = [
+              '.github/workflows/ei-0fr1-terminal-freeze-ci.yml',
+              'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json',
+              'docs/experiments/EI_0F_R1_DIGEST_REMEDIATION_PREREGISTRATION.md',
+              'docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json',
+              'docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md',
+              'docs/experiments/EI_0F_TERMINAL_CLASSIFICATION.json',
+              'docs/experiments/EI_0F_TERMINAL_EVIDENCE.json',
+              'docs/experiments/EI_0F_TERMINAL_EXECUTION_FAILURE.log',
+              'docs/experiments/EI_0F_TERMINAL_REPORT.json',
+              'docs/experiments/EI_0F_TERMINAL_REPORT.schema.json',
+              'lib/examples/ei_0f_r1_digest_remediation_probe.rs',
+              'lib/examples/ei_0f_r1_terminal_experiment.rs',
+              'lib/examples/ei_0f_terminal_experiment.rs',
+              'scripts/ei0e_preregistration.py',
+              'scripts/ei0fr1_preregistration.py',
+          ]
+          for value in lock_paths:
+              if not (root / value).is_file():
+                  raise SystemExit(f'locked input missing: {value}')
+          lock = {
+              'files': [
+                  {'git_blob_sha1': blob_sha((root / value).read_bytes()), 'path': value}
+                  for value in sorted(lock_paths)
+              ],
+              'freeze_base_commit': freeze_base,
+              'manifest_sha256': manifest_digest,
+              'original_runner_git_blob_sha1': blob_sha(original_runner_path.read_bytes()),
+              'parent_result_commit': parent_result_commit,
+              'preflight_artifact_digest': preflight_artifact,
+              'preflight_merge_commit': preflight_merge_commit,
+              'preregistration_id': preregistration_id,
+              'repaired_runner_git_blob_sha1': blob_sha(runner_path.read_bytes()),
+              'schema_version': 1,
+          }
+          lock_path.write_bytes(canonical(lock))
+
+          print(json.dumps({
+              'locked_files': len(lock_paths),
+              'manifest_sha256': manifest_digest,
+              'preregistration_id': preregistration_id,
+              'repaired_runner_git_blob_sha1': blob_sha(runner_path.read_bytes()),
+          }, sort_keys=True))
+          PY
+
+      - name: Verify materialized paths
+        run: |
+          set -euo pipefail
+          expected='docs/experiments/EI_0F_R1_FREEZE_LOCK.json
+docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json
+docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md
+lib/examples/ei_0f_r1_terminal_experiment.rs
+scripts/ei0fr1_preregistration.py'
+          actual="$(git status --short --untracked-files=all | awk '$1 == "??" {print $2}' | grep -v '^.ei0fr1b-materialize$' | sort)"
+          test "$actual" = "$expected"
+
+      - name: Remove materializer and commit package
+        run: |
+          set -euo pipefail
+          rm -f .ei0fr1b-materialize .github/workflows/ei-0fr1b-materializer.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            .ei0fr1b-materialize \
+            .github/workflows/ei-0fr1b-materializer.yml \
+            docs/experiments/EI_0F_R1_FREEZE_LOCK.json \
+            docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.json \
+            docs/experiments/EI_0F_R1_TERMINAL_PREREGISTRATION.md \
+            lib/examples/ei_0f_r1_terminal_experiment.rs \
+            scripts/ei0fr1_preregistration.py
+          git commit -m "experiment(ei): materialize frozen EI-0F-R1B package"
+          git push origin HEAD:feat/ei-0fr1b-terminal-freeze
