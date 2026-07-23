@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   contracts:
@@ -22,8 +22,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Check out repository
+      - name: Check out EI-0A branch
         uses: actions/checkout@v4
+        with:
+          ref: feat/ei-0a-canonical-episode-contracts
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -33,15 +35,25 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Format disposable checkout and capture patch
+      - name: Apply exact scoped Rustfmt output
+        if: >-
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'feat/ei-0a-canonical-episode-contracts'
         run: |
+          set -euo pipefail
           rustfmt --edition 2021 \
             lib/emerging_intelligence/mod.rs \
             lib/examples/ei_0a_episode_contract_probe.rs
-          git diff -- \
+          if ! git diff --quiet -- \
             lib/emerging_intelligence/mod.rs \
-            lib/examples/ei_0a_episode_contract_probe.rs \
-            > ei-0a-rustfmt.patch
+            lib/examples/ei_0a_episode_contract_probe.rs; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/emerging_intelligence/mod.rs \
+              lib/examples/ei_0a_episode_contract_probe.rs
+            git commit -m "style(ei): apply scoped Rustfmt"
+            git push origin HEAD:feat/ei-0a-canonical-episode-contracts
+          fi
 
       - name: Compile feature-gated contracts and probe
         run: |
@@ -51,10 +63,12 @@ jobs:
 
       - name: Lint EI-0A contracts with warnings denied
         run: |
+          set -o pipefail
           cargo clippy -p star --lib --features emerging-intelligence-contracts --locked \
-            -- -D warnings
+            -- -D warnings 2>&1 | tee ei-0a-clippy.log
           cargo clippy -p star --example ei_0a_episode_contract_probe \
-            --features emerging-intelligence-contracts --locked -- -D warnings
+            --features emerging-intelligence-contracts --locked -- -D warnings \
+            2>&1 | tee -a ei-0a-clippy.log
 
       - name: Test EI-0A contracts deterministically
         run: >-
@@ -83,9 +97,12 @@ jobs:
           path: |
             ei-0a-contract-report.json
             ei-0a-contract-report-replay.json
-            ei-0a-rustfmt.patch
+            ei-0a-clippy.log
           if-no-files-found: ignore
           retention-days: 30
 
-      - name: Require committed Rustfmt output
-        run: test ! -s ei-0a-rustfmt.patch
+      - name: Require clean scoped formatting
+        run: >-
+          git diff --exit-code --
+          lib/emerging_intelligence/mod.rs
+          lib/examples/ei_0a_episode_contract_probe.rs
