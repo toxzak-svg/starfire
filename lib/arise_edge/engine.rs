@@ -41,12 +41,7 @@ impl SpanRenderer for LexicalSpanRenderer {
             if !rendered.is_empty() {
                 rendered.push_str(". ");
             }
-            rendered.push_str(
-                obligation
-                    .witness
-                    .trim()
-                    .trim_end_matches(['.', '!', '?']),
-            );
+            rendered.push_str(obligation.witness.trim().trim_end_matches(['.', '!', '?']));
         }
         if !rendered.is_empty() {
             rendered.push('.');
