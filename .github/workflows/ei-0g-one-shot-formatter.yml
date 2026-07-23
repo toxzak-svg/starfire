@@ -1,0 +1,69 @@
+name: EI-0G One-Shot Formatter
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/shadow.rs"
+      - "lib/examples/ei_0g_shadow_preregistration_probe.rs"
+      - "docs/experiments/ei_0g_shadow_preregistration.json"
+      - ".github/workflows/ei-0g-one-shot-formatter.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.pull_request.head.ref == 'experiment/ei-0g-shadow-preregistration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out EI-0G branch
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/ei-0g-shadow-preregistration
+
+      - name: Install Rust formatter
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Apply exact scoped Rustfmt and refresh blob identities
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2021 \
+            lib/emerging_intelligence/shadow.rs \
+            lib/examples/ei_0g_shadow_preregistration_probe.rs
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          manifest_path = Path("docs/experiments/ei_0g_shadow_preregistration.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          for path in [
+              "lib/emerging_intelligence/shadow.rs",
+              "lib/examples/ei_0g_shadow_preregistration_probe.rs",
+          ]:
+              manifest["git_blob_ids"][path] = subprocess.check_output(
+                  ["git", "hash-object", path], text=True
+              ).strip()
+          manifest_path.write_text(
+              json.dumps(manifest, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          if git diff --quiet; then
+            echo "EI-0G sources already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/emerging_intelligence/shadow.rs \
+            lib/examples/ei_0g_shadow_preregistration_probe.rs \
+            docs/experiments/ei_0g_shadow_preregistration.json
+          git commit -m "style(ei): apply exact EI-0G Rustfmt"
+          git push origin HEAD:experiment/ei-0g-shadow-preregistration
