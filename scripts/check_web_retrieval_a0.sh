@@ -1,6 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
+# Mirrors the permanent Web Retrieval CI gate for local and alternate runners.
+# Keep this command path deterministic and network-independent beyond Cargo fetches.
 FEATURES="web-search-searxng"
 
 rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
