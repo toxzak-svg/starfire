@@ -6,6 +6,7 @@
 > **Parent:** issue #156 and EI tracker #149  
 > **Implementation:** PR #176  
 > **Verification baseline:** current `main` merged before the terminal gate  
+> **Gate mode:** permanent read-only verification  
 > **Verification gate:** `.github/workflows/ei-0b-environment-ci.yml`
 
 ## Purpose
