@@ -39,7 +39,7 @@ jobs:
 
       - name: Check scoped formatting
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/arise_edge/mod.rs \
             lib/arise_edge/types.rs \
             lib/arise_edge/engine.rs \
@@ -48,6 +48,20 @@ jobs:
             lib/arise_response_shadow_ext.rs \
             lib/examples/arise_a0_edge_bridge.rs \
             lib/examples/arise_a1_typed_program_shadow.rs
+          git diff -- \
+            lib/arise_edge/mod.rs \
+            lib/arise_edge/types.rs \
+            lib/arise_edge/engine.rs \
+            lib/arise_edge/runtime_shadow.rs \
+            lib/arise_typed_plan_shadow.rs \
+            lib/arise_response_shadow_ext.rs \
+            lib/examples/arise_a0_edge_bridge.rs \
+            lib/examples/arise_a1_typed_program_shadow.rs \
+            > arise-a1-rustfmt.patch
+          if test -s arise-a1-rustfmt.patch; then
+            cat arise-a1-rustfmt.patch
+            exit 1
+          fi
 
       - name: Confirm default build remains unchanged
         run: cargo check -p star --lib --locked
@@ -114,5 +128,6 @@ jobs:
             arise-a1-report.json
             arise-a1-replay.json
             arise-a1-clippy.log
+            arise-a1-rustfmt.patch
           if-no-files-found: ignore
           retention-days: 30
