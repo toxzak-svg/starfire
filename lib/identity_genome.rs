@@ -60,7 +60,10 @@ impl IdentityClaim {
             || self.evidence_refs.len() > MAX_IDENTITY_EVIDENCE_REFS
             || self.contradiction_refs.len() > MAX_IDENTITY_CONTRADICTION_REFS
             || self.tags.iter().any(|tag| tag.trim().is_empty())
-            || self.evidence_refs.iter().any(|reference| reference.trim().is_empty())
+            || self
+                .evidence_refs
+                .iter()
+                .any(|reference| reference.trim().is_empty())
             || self
                 .contradiction_refs
                 .iter()
@@ -79,12 +82,10 @@ impl IdentityClaim {
                     return Err(IdentityGenomeError::InvalidInvariant(self.id.clone()));
                 }
             }
-            IdentityClaimType::SelfHypothesis => {
-                if self.confidence_bps >= 9_000 {
-                    return Err(IdentityGenomeError::OverstatedSelfHypothesis(
-                        self.id.clone(),
-                    ));
-                }
+            IdentityClaimType::SelfHypothesis if self.confidence_bps >= 9_000 => {
+                return Err(IdentityGenomeError::OverstatedSelfHypothesis(
+                    self.id.clone(),
+                ));
             }
             _ => {}
         }
@@ -441,7 +442,9 @@ mod tests {
         let second = genome.retrieve_slice(&query).unwrap();
         assert_eq!(first, second);
         assert_eq!(first.claim_ids.len(), 2);
-        assert!(!first.claim_ids.contains(&"relationship-history".to_string()));
+        assert!(!first
+            .claim_ids
+            .contains(&"relationship-history".to_string()));
     }
 
     #[test]
@@ -455,9 +458,7 @@ mod tests {
         );
         assert_eq!(
             hypothesis.verify_integrity().unwrap_err(),
-            IdentityGenomeError::OverstatedSelfHypothesis(
-                "hypothesis-conscious".to_string()
-            )
+            IdentityGenomeError::OverstatedSelfHypothesis("hypothesis-conscious".to_string())
         );
     }
 
