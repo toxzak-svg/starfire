@@ -12,6 +12,15 @@ on:
       - "lib/Cargo.toml"
       - "docs/experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md"
       - ".github/workflows/ei-0b-environment-ci.yml"
+  push:
+    branches:
+      - feat/ei-0b-deterministic-environment
+    paths:
+      - "lib/emerging_intelligence/environment/**"
+      - "lib/examples/ei_0b_deterministic_environment_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md"
   workflow_dispatch:
 
 permissions:
@@ -38,8 +47,9 @@ jobs:
 
       - name: Apply exact scoped Rustfmt output
         if: >-
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          github.event.pull_request.head.ref == 'feat/ei-0b-deterministic-environment'
+          github.ref == 'refs/heads/feat/ei-0b-deterministic-environment' ||
+          (github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.head.ref == 'feat/ei-0b-deterministic-environment')
         run: |
           set -euo pipefail
           rustfmt --edition 2021 \
