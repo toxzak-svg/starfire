@@ -4,6 +4,7 @@
 > **Status:** implementation contract  
 > **Authority:** offline ledger infrastructure only  
 > **Parent:** issue #185 and EI tracker #149  
+> **Implementation:** PR #187  
 > **Feature:** `emerging-intelligence-ledger`
 
 ## Purpose
