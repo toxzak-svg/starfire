@@ -1,0 +1,87 @@
+name: Live Production Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/live-production-check"
+      - ".github/workflows/live-production-verification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Verify Render backend health
+        run: |
+          set -euo pipefail
+          backend="https://starfire-cuee.onrender.com"
+          for attempt in $(seq 1 24); do
+            if curl --fail --silent --show-error --max-time 25 \
+              "$backend/health" -o render-health.json; then
+              break
+            fi
+            if [ "$attempt" -eq 24 ]; then
+              echo "Render health endpoint did not become ready" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          test -s render-health.json
+          python3 -m json.tool render-health.json > /dev/null
+
+      - name: Verify Render identity endpoint
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 \
+            https://starfire-cuee.onrender.com/identity \
+            -o render-identity.json
+          test -s render-identity.json
+          python3 -m json.tool render-identity.json > /dev/null
+
+      - name: Verify Cloudflare Pages frontend
+        run: |
+          set -euo pipefail
+          frontend="https://starfire.pages.dev"
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --location --max-time 25 \
+              "$frontend/" -o cloudflare-index.html; then
+              break
+            fi
+            if [ "$attempt" -eq 18 ]; then
+              echo "Cloudflare Pages frontend did not become ready" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          test -s cloudflare-index.html
+          grep -qi '<html' cloudflare-index.html
+
+      - name: Publish verification summary
+        run: |
+          {
+            echo "## Live production verification"
+            echo
+            echo "- Render health: reachable and valid JSON"
+            echo "- Render identity: reachable and valid JSON"
+            echo "- Cloudflare Pages: reachable and returned HTML"
+            echo "- EI live learning: not enabled by this check"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve endpoint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-production-verification
+          path: |
+            render-health.json
+            render-identity.json
+            cloudflare-index.html
+          if-no-files-found: ignore
+          retention-days: 7
