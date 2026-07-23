@@ -83,7 +83,7 @@ def verify_manifest(manifest: dict[str, Any]) -> str:
     )
     require(
         manifest.get("freeze_base_commit")
-        == "b03dd8a87bc32474e8dc397e40edebc7c0c9d548",
+        == "24e7ce0328eed797a0661446aeb3c31d80a47814",
         "unexpected freeze base commit",
     )
     require(
