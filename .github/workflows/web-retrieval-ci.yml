@@ -1,3 +1,4 @@
+# Isolated final retrieval validation trigger. Do not merge.
 name: Web Retrieval CI
 
 on:
