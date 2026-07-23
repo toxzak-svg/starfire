@@ -5,6 +5,19 @@ import runpy
 import traceback
 
 ROOT = pathlib.Path.cwd()
+TARGETS = [
+    "lib/api.rs",
+    "lib/lib.rs",
+    "lib/Cargo.toml",
+    "lib/stlm_l1c_shadow.rs",
+    "lib/examples/stlm_l1c_shadow_probe.rs",
+    "src/Cargo.toml",
+    "Dockerfile",
+    "entrypoint.sh",
+    "docs/experiments/STLM_L1C_SHADOW_OBSERVATION_PREREGISTRATION.md",
+    "docs/experiments/STLM_L1C_SHADOW_OBSERVATION_STATUS.md",
+    ".github/workflows/stlm-l1c-shadow-ci.yml",
+]
 
 
 def write_diagnostic(error: BaseException) -> None:
@@ -28,6 +41,13 @@ try:
     runpy.run_path("scripts/apply_stlm_l1c_payload.py", run_name="__main__")
 except BaseException as error:
     write_diagnostic(error)
+
+# Normalize only line-end whitespace in files touched by the bounded authoring pass.
+for name in TARGETS:
+    path = ROOT / name
+    if path.is_file():
+        lines = path.read_text().splitlines()
+        path.write_text("\n".join(line.rstrip() for line in lines) + "\n")
 
 # The temporary authoring run only materializes bytes. Permanent CI performs the
 # real rustfmt, compile, lint, contract, and container gates after scaffolding is removed.
