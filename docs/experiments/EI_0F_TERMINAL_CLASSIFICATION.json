@@ -1,0 +1,31 @@
+{
+  "classification": "FAIL",
+  "classifier_id": "ei-0e-terminal-classifier-v1",
+  "failures": [
+    "arm_budget_mismatch",
+    "causal_chain_count",
+    "crash",
+    "evaluator_not_independent",
+    "fixed_policy_evaluation_count",
+    "harmful_challenge_count",
+    "harmful_detection",
+    "harmful_exact_rollback",
+    "incomplete_run",
+    "learning_evaluation_count",
+    "learning_update_count",
+    "memory_disabled_evaluation_count",
+    "missing_evaluations",
+    "no_update_evaluation_count",
+    "primary_advantage_vs_fixed_policy",
+    "primary_advantage_vs_memory_disabled",
+    "primary_advantage_vs_no_update",
+    "primary_advantage_vs_random_update",
+    "random_update_evaluation_count",
+    "renamed_transfer_vs_fixed_policy",
+    "renamed_transfer_vs_memory_disabled",
+    "renamed_transfer_vs_no_update",
+    "renamed_transfer_vs_random_update"
+  ],
+  "preregistration_id": "ei-0e-terminal-v1",
+  "schema_version": 1
+}
