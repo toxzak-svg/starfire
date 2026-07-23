@@ -48,6 +48,15 @@ jobs:
             lib/arise_response_shadow_ext.rs \
             lib/examples/arise_a0_edge_bridge.rs \
             lib/examples/arise_a1_typed_program_shadow.rs
+          tar -czf arise-a1-formatted-sources.tar.gz \
+            lib/arise_edge/mod.rs \
+            lib/arise_edge/types.rs \
+            lib/arise_edge/engine.rs \
+            lib/arise_edge/runtime_shadow.rs \
+            lib/arise_typed_plan_shadow.rs \
+            lib/arise_response_shadow_ext.rs \
+            lib/examples/arise_a0_edge_bridge.rs \
+            lib/examples/arise_a1_typed_program_shadow.rs
           git diff -- \
             lib/arise_edge/mod.rs \
             lib/arise_edge/types.rs \
@@ -129,5 +138,6 @@ jobs:
             arise-a1-replay.json
             arise-a1-clippy.log
             arise-a1-rustfmt.patch
+            arise-a1-formatted-sources.tar.gz
           if-no-files-found: ignore
           retention-days: 30
