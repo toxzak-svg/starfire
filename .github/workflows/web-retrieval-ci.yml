@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - validation/web-retrieval-final-base
     paths:
       - "lib/web_retrieval.rs"
       - "lib/web_search_searxng.rs"
