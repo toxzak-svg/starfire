@@ -10,6 +10,13 @@ mod engine;
 mod runtime_shadow;
 mod types;
 
+#[cfg(feature = "arise-typed-plan")]
+#[path = "../arise_typed_plan_shadow.rs"]
+pub mod arise_typed_plan_shadow;
+#[cfg(feature = "arise-typed-plan")]
+#[path = "../arise_response_shadow_ext.rs"]
+pub mod arise_response_shadow_ext;
+
 pub use engine::{
     AriseEngine, LexicalSpanRenderer, LexicalTransitionVerifier, SpanRenderer, TransitionInput,
     TransitionVerifier,
@@ -20,4 +27,12 @@ pub use types::{
     AriseExecutionTrace, AriseRequest, AriseRuntimeSnapshot, AriseTerminalClassification,
     ObligationId, PlannedSpan, RejectedSpan, ReversePlan, SemanticObligation,
     TransitionVerification, VerificationReason,
+};
+
+#[cfg(feature = "arise-typed-plan")]
+pub use arise_response_shadow_ext::ResponseSemanticShadowExt;
+#[cfg(feature = "arise-typed-plan")]
+pub use arise_typed_plan_shadow::{
+    live_typed_plan_snapshot, observe_semantic_program, AriseTypedPlanSnapshot,
+    TypedPlanAuthorityBoundary, TypedPlanRejectionReason, TypedPlanTerminalClassification,
 };
