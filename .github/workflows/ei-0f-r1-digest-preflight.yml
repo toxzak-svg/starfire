@@ -44,7 +44,7 @@ jobs:
 
       - name: Lint isolated preflight
         run: >-
-          cargo clippy -p star
+          cargo clippy --quiet -p star
           --example ei_0f_r1_digest_remediation_probe
           --features emerging-intelligence-environment
           --locked -- -D warnings
