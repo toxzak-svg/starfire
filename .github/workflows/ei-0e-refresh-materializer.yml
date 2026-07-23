@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: feat/ei-0e-terminal-preregistration
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Refresh exact source identities
         run: |
@@ -36,31 +36,37 @@ jobs:
           import shutil
           from pathlib import Path
 
-          payload_dir = Path('tools/ei0e-refresh')
-          pieces = sorted(payload_dir.glob('r-*'))
-          if not pieces:
-              raise SystemExit('missing EI-0E refresh fragments')
-          payload_text = ''.join(
-              piece.read_text(encoding='utf-8').strip() for piece in pieces
-          )
-          payload = json.loads(payload_text)
-          if payload.get('schema_version') != 1:
-              raise SystemExit('unsupported EI-0E refresh schema')
-          expected = {
-              'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json',
-              'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md',
-              'scripts/ei0e_preregistration.py',
-              'lib/examples/ei_0f_terminal_experiment.rs',
-          }
-          files = payload.get('files', {})
-          if set(files) != expected:
-              raise SystemExit(f'unexpected refresh targets: {sorted(files)}')
-          for path, encoded in files.items():
-              compact = ''.join(encoded.split())
-              compact += '=' * (-len(compact) % 4)
-              target = Path(path)
-              target.write_bytes(gzip.decompress(base64.b64decode(compact)))
-          shutil.rmtree(payload_dir)
+          try:
+              payload_dir = Path('tools/ei0e-refresh')
+              pieces = sorted(payload_dir.glob('r-*'))
+              print('refresh fragments:', ','.join(piece.name for piece in pieces))
+              if not pieces:
+                  raise ValueError('missing EI-0E refresh fragments')
+              payload_text = ''.join(
+                  piece.read_text(encoding='utf-8').strip() for piece in pieces
+              )
+              print('joined payload characters:', len(payload_text))
+              payload = json.loads(payload_text)
+              if payload.get('schema_version') != 1:
+                  raise ValueError('unsupported EI-0E refresh schema')
+              expected = {
+                  'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json',
+                  'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.md',
+                  'scripts/ei0e_preregistration.py',
+                  'lib/examples/ei_0f_terminal_experiment.rs',
+              }
+              files = payload.get('files', {})
+              if set(files) != expected:
+                  raise ValueError(f'unexpected refresh targets: {sorted(files)}')
+              for path, encoded in files.items():
+                  compact = ''.join(encoded.split())
+                  compact += '=' * (-len(compact) % 4)
+                  print('decoding:', path, 'base64_chars:', len(compact))
+                  target = Path(path)
+                  target.write_bytes(gzip.decompress(base64.b64decode(compact)))
+              shutil.rmtree(payload_dir)
+          except Exception as exc:
+              raise SystemExit(f'{type(exc).__name__}: {exc}') from exc
           PY
 
       - name: Verify exact refresh scope
