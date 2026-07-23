@@ -1,0 +1,218 @@
+name: EI-0F-R2 Terminal Result Replay CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0F_R2_RESULT_2026-07-23.md"
+      - "docs/experiments/EI_0F_R2_TERMINAL_CLASSIFICATION.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_ENVIRONMENT.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_EVIDENCE.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_INVOCATION.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_REPORT.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_STDERR.log"
+      - "docs/experiments/EI_0F_R2_TERMINAL_STDOUT.raw"
+      - ".github/workflows/ei-0fr2-terminal-result-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/experiments/EI_0F_R2_RESULT_2026-07-23.md"
+      - "docs/experiments/EI_0F_R2_TERMINAL_CLASSIFICATION.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_ENVIRONMENT.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_EVIDENCE.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_INVOCATION.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_REPORT.json"
+      - "docs/experiments/EI_0F_R2_TERMINAL_STDERR.log"
+      - "docs/experiments/EI_0F_R2_TERMINAL_STDOUT.raw"
+      - ".github/workflows/ei-0fr2-terminal-result-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ei-0fr2-terminal-result-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen package without execution
+        run: python3 scripts/ei0fr2_preregistration.py verify
+
+      - name: Replay schema validation and classifier
+        run: |
+          set -euo pipefail
+          mkdir -p target/ei-0fr2-result
+          python3 scripts/ei0fr2_preregistration.py classify \
+            docs/experiments/EI_0F_R2_TERMINAL_REPORT.json \
+            > target/ei-0fr2-result/classification-replay.json
+          cmp \
+            docs/experiments/EI_0F_R2_TERMINAL_CLASSIFICATION.json \
+            target/ei-0fr2-result/classification-replay.json
+
+      - name: Verify immutable result bytes and digests
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          docs = root / 'docs/experiments'
+          report_path = docs / 'EI_0F_R2_TERMINAL_REPORT.json'
+          classification_path = docs / 'EI_0F_R2_TERMINAL_CLASSIFICATION.json'
+          environment_path = docs / 'EI_0F_R2_TERMINAL_ENVIRONMENT.json'
+          evidence_path = docs / 'EI_0F_R2_TERMINAL_EVIDENCE.json'
+          invocation_path = docs / 'EI_0F_R2_TERMINAL_INVOCATION.json'
+          stdout_path = docs / 'EI_0F_R2_TERMINAL_STDOUT.raw'
+          stderr_path = docs / 'EI_0F_R2_TERMINAL_STDERR.log'
+          manifest_path = docs / 'EI_0F_R2_TERMINAL_PREREGISTRATION.json'
+          lock_path = docs / 'EI_0F_R2_FREEZE_LOCK.json'
+          schema_path = docs / 'EI_0F_R2_TERMINAL_REPORT.schema.json'
+          runner_path = root / 'lib/examples/ei_0f_r2_terminal_experiment.rs'
+
+          def canonical(value):
+              return (json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+
+          def load_canonical(path):
+              raw = path.read_bytes()
+              value = json.loads(raw)
+              if raw != canonical(value):
+                  raise SystemExit(f'noncanonical JSON: {path}')
+              return value
+
+          def sha256(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def sha256_bytes(data):
+              return hashlib.sha256(data).hexdigest()
+
+          def blob_sha1(path):
+              data = path.read_bytes()
+              header = f'blob {len(data)}\0'.encode('ascii')
+              return hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+
+          report = load_canonical(report_path)
+          classification = load_canonical(classification_path)
+          environment = load_canonical(environment_path)
+          evidence = load_canonical(evidence_path)
+          invocation = load_canonical(invocation_path)
+
+          if json.loads(stdout_path.read_bytes()) != report:
+              raise SystemExit('raw stdout and canonical report differ')
+          if classification != {
+              'classification': 'PASS',
+              'classifier_id': 'ei-0e-terminal-classifier-v1',
+              'failures': [],
+              'preregistration_id': 'ei-0f-remediation-v2',
+              'schema_version': 1,
+          }:
+              raise SystemExit('classification record changed')
+          if invocation.get('invocation_count') != 1:
+              raise SystemExit('terminal invocation count is not one')
+          if invocation.get('second_execution_performed') is not False:
+              raise SystemExit('second execution was recorded')
+          if invocation.get('execution_commit') != '133b82ba6d4fe14e5a5965e45cf2658845d533f1':
+              raise SystemExit('execution commit changed')
+          if invocation.get('workflow_run_id') != '30036385291':
+              raise SystemExit('workflow run identity changed')
+          if evidence.get('classification') != 'PASS':
+              raise SystemExit('evidence classification changed')
+          if evidence.get('execution_invocation_count') != 1:
+              raise SystemExit('evidence invocation count changed')
+          if evidence.get('second_execution_performed') is not False:
+              raise SystemExit('evidence records a second execution')
+          if evidence.get('runner_exit_code') != 0 or evidence.get('classifier_exit_code') != 0:
+              raise SystemExit('successful exit status changed')
+          if evidence.get('source_match') is not True or evidence.get('authority_closed') is not True:
+              raise SystemExit('source or authority boundary changed')
+          if evidence.get('timed_out') is not False:
+              raise SystemExit('timeout state changed')
+
+          expected = {
+              'classification_sha256': sha256(classification_path),
+              'environment_sha256': sha256(environment_path),
+              'freeze_lock_sha256': sha256(lock_path),
+              'manifest_sha256': sha256(manifest_path),
+              'raw_stderr_sha256': sha256(stderr_path),
+              'raw_stdout_sha256': sha256(stdout_path),
+              'report_sha256': sha256(report_path),
+              'runner_git_blob_sha1': blob_sha1(runner_path),
+              'schema_git_blob_sha1': blob_sha1(schema_path),
+              'schema_sha256': sha256(schema_path),
+          }
+          for key, value in expected.items():
+              if evidence.get(key) != value:
+                  raise SystemExit(f'evidence digest mismatch: {key}')
+
+          if environment.get('execution_commit') != invocation.get('execution_commit'):
+              raise SystemExit('environment execution commit mismatch')
+          if environment.get('workflow_run_id') != invocation.get('workflow_run_id'):
+              raise SystemExit('environment workflow run mismatch')
+          if environment.get('manifest_sha256') != evidence.get('manifest_sha256'):
+              raise SystemExit('environment manifest mismatch')
+          if environment.get('runner_source_git_blob_sha1') != evidence.get('runner_git_blob_sha1'):
+              raise SystemExit('environment runner mismatch')
+          if environment.get('schema_git_blob_sha1') != evidence.get('schema_git_blob_sha1'):
+              raise SystemExit('environment schema mismatch')
+
+          if report.get('complete') is not True or report.get('crashed') is not False:
+              raise SystemExit('terminal completion state changed')
+          if report.get('timed_out') is not False:
+              raise SystemExit('terminal timeout state changed')
+          if report.get('source_match') is not True or report.get('authority_closed') is not True:
+              raise SystemExit('terminal boundary changed')
+          if report.get('replay_mismatches') != 0:
+              raise SystemExit('replay mismatch appeared')
+          if report.get('missing_evaluations') != 0:
+              raise SystemExit('missing evaluation appeared')
+          if report.get('invalid_or_corrupt_records') != 0:
+              raise SystemExit('invalid or corrupt record appeared')
+          if len(report.get('arms', [])) != 5:
+              raise SystemExit('arm count changed')
+          if len(report.get('causal_chains', [])) < 1:
+              raise SystemExit('causal chain disappeared')
+          challenge = report.get('harmful_challenge', {})
+          if challenge.get('detected_count') != 1 or challenge.get('exact_rollback_count') != 1:
+              raise SystemExit('harmful-update rollback evidence changed')
+          if challenge.get('pre_state_bytes_sha256') != challenge.get('final_state_bytes_sha256'):
+              raise SystemExit('harmful-update byte restoration changed')
+
+          if stderr_path.read_bytes() != b'':
+              raise SystemExit('terminal stderr is no longer empty')
+
+          print(json.dumps({
+              'classification': 'PASS',
+              'invocation_count': 1,
+              'report_sha256': evidence['report_sha256'],
+              'second_execution_performed': False,
+              'verified': True,
+          }, sort_keys=True))
+          PY
+
+      - name: Enforce read-only no-execution boundary
+        run: |
+          set -euo pipefail
+          forbidden='cargo run -p star --example '
+          forbidden+='ei_0f_r2_terminal_experiment'
+          if grep -Fq "$forbidden" .github/workflows/ei-0fr2-terminal-result-ci.yml; then
+            echo 'result replay gate must not execute the terminal runner' >&2
+            exit 1
+          fi
+
+      - name: Preserve replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0fr2-terminal-result-replay
+          path: target/ei-0fr2-result
+          if-no-files-found: warn
+          retention-days: 90
