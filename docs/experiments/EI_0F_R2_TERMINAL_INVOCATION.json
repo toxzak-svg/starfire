@@ -1,0 +1,1 @@
+{"execution_commit":"133b82ba6d4fe14e5a5965e45cf2658845d533f1","invocation_count":1,"preregistration_id":"ei-0f-remediation-v2","second_execution_performed":false,"terminal_command":"EI0F_SOURCE_VERIFIED=1 cargo run -p star --example ei_0f_r2_terminal_experiment --features emerging-intelligence-updates --locked --quiet","workflow_run_id":"30036385291"}

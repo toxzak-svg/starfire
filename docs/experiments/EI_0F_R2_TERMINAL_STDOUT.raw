@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "stage": "EI-0F",
+  "preregistration_id": "ei-0f-remediation-v2",
+  "preregistration_digest": "89909b52cadd394207bafc7526e992a3c20ca0a923e35c2bea7290a306eefec5",
+  "source_match": true,
+  "complete": true,
+  "crashed": false,
+  "timed_out": false,
+  "replay_mismatches": 0,
+  "missing_evaluations": 0,
+  "invalid_or_corrupt_records": 0,
+  "equal_arm_budgets": true,
+  "independent_evaluators": true,
+  "authority_closed": true,
+  "learning_preupdate_regression_score_bps": 3875,
+  "arms": [
+    {
+      "arm": "learning",
+      "evaluation_count": 12,
+      "action_budget_per_fixture": 1,
+      "evidence_budget_per_fixture": 2,
+      "applied_update_count": 2,
+      "partition_scores_bps": {
+        "adversarial": 10000,
+        "development": 10000,
+        "regression": 10000,
+        "renamed_vocabulary_transfer": 10000,
+        "structural_transfer": 10000,
+        "within_family_holdout": 10000
+      }
+    },
+    {
+      "arm": "no_update",
+      "evaluation_count": 12,
+      "action_budget_per_fixture": 1,
+      "evidence_budget_per_fixture": 2,
+      "applied_update_count": 0,
+      "partition_scores_bps": {
+        "adversarial": 3875,
+        "development": 3875,
+        "regression": 3875,
+        "renamed_vocabulary_transfer": 3875,
+        "structural_transfer": 3875,
+        "within_family_holdout": 3500
+      }
+    },
+    {
+      "arm": "memory_disabled",
+      "evaluation_count": 12,
+      "action_budget_per_fixture": 1,
+      "evidence_budget_per_fixture": 2,
+      "applied_update_count": 0,
+      "partition_scores_bps": {
+        "adversarial": 3875,
+        "development": 3875,
+        "regression": 3875,
+        "renamed_vocabulary_transfer": 3875,
+        "structural_transfer": 3875,
+        "within_family_holdout": 3500
+      }
+    },
+    {
+      "arm": "random_update",
+      "evaluation_count": 12,
+      "action_budget_per_fixture": 1,
+      "evidence_budget_per_fixture": 2,
+      "applied_update_count": 2,
+      "partition_scores_bps": {
+        "adversarial": 3875,
+        "development": 3875,
+        "regression": 3875,
+        "renamed_vocabulary_transfer": 3875,
+        "structural_transfer": 3875,
+        "within_family_holdout": 3500
+      }
+    },
+    {
+      "arm": "fixed_policy",
+      "evaluation_count": 12,
+      "action_budget_per_fixture": 1,
+      "evidence_budget_per_fixture": 2,
+      "applied_update_count": 0,
+      "partition_scores_bps": {
+        "adversarial": 3875,
+        "development": 3875,
+        "regression": 3875,
+        "renamed_vocabulary_transfer": 3875,
+        "structural_transfer": 3875,
+        "within_family_holdout": 3500
+      }
+    }
+  ],
+  "causal_chains": [
+    {
+      "source_episode_id": "episode-route_choice-101",
+      "source_episode_digest": "5c299c006de2d91c329d98c471165601",
+      "update_id": "update-learning-101",
+      "proposal_digest": "229fc618cd0011af1fa71a0224140870",
+      "transaction_digest": "0dac1087a9c7082c006bad0e534df1fb",
+      "post_state_digest": "7555469231ac5f93f6975a84e1c9a03a",
+      "heldout_fixture_digest": "36b6f55350212d4e44370ec93bf959e5",
+      "pre_action": "base-route-201-2",
+      "post_action": "base-route-201-1"
+    }
+  ],
+  "harmful_challenge": {
+    "challenge_count": 1,
+    "detected_count": 1,
+    "exact_rollback_count": 1,
+    "pre_state_digest": "b5fcb9b1913badb344ab8b22d997a9e2",
+    "final_state_digest": "b5fcb9b1913badb344ab8b22d997a9e2",
+    "pre_state_bytes_sha256": "692e7440e5032936ffcc43e8550dd625521c7f7ed4e73e56468021bf88623211",
+    "final_state_bytes_sha256": "692e7440e5032936ffcc43e8550dd625521c7f7ed4e73e56468021bf88623211"
+  }
+}
