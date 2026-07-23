@@ -7,13 +7,20 @@ on:
     paths:
       - "lib/examples/ei_0f_r1_digest_remediation_probe.rs"
       - ".github/workflows/ei-0f-r1-one-shot-formatter.yml"
+  push:
+    branches:
+      - experiment/ei-0f-r1-digest-remediation
+    paths:
+      - "docs/experiments/EI_0F_R1_DIGEST_REMEDIATION_PREREGISTRATION.md"
 
 permissions:
   contents: write
 
 jobs:
   format:
-    if: github.event.pull_request.head.ref == 'experiment/ei-0f-r1-digest-remediation'
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.ref == 'experiment/ei-0f-r1-digest-remediation'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
