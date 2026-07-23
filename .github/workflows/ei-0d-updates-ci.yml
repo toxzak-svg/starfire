@@ -1,0 +1,185 @@
+name: EI-0D Reversible Updates CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/updates.rs"
+      - "lib/examples/ei_0d_reversible_update_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0D_REVERSIBLE_UPDATES.md"
+      - ".github/workflows/ei-0d-updates-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reversible-updates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Materialize and check scoped Rustfmt
+        id: rustfmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2021 \
+            lib/lib.rs \
+            lib/emerging_intelligence/updates.rs \
+            lib/examples/ei_0d_reversible_update_probe.rs
+          if git diff --quiet -- \
+            lib/lib.rs \
+            lib/emerging_intelligence/updates.rs \
+            lib/examples/ei_0d_reversible_update_probe.rs; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            mkdir -p ei-0d-rustfmt-output/emerging_intelligence ei-0d-rustfmt-output/examples
+            cp lib/lib.rs ei-0d-rustfmt-output/lib.rs
+            cp lib/emerging_intelligence/updates.rs \
+              ei-0d-rustfmt-output/emerging_intelligence/updates.rs
+            cp lib/examples/ei_0d_reversible_update_probe.rs \
+              ei-0d-rustfmt-output/examples/ei_0d_reversible_update_probe.rs
+          fi
+
+      - name: Preserve exact Rustfmt output
+        if: steps.rustfmt.outputs.drift == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0d-rustfmt-output
+          path: ei-0d-rustfmt-output
+          retention-days: 1
+
+      - name: Fail on Rustfmt drift
+        if: steps.rustfmt.outputs.drift == 'true'
+        run: |
+          echo "EI-0D Rust files differ from pinned Rustfmt output." >&2
+          exit 1
+
+      - name: Compile feature-gated update kernel and probe
+        run: |
+          cargo check -p star --lib --features emerging-intelligence-updates --locked
+          cargo check -p star --example ei_0d_reversible_update_probe \
+            --features emerging-intelligence-updates --locked
+
+      - name: Lint EI-0D changed surfaces
+        run: |
+          set -euo pipefail
+          cargo clippy -p star --lib --features emerging-intelligence-updates --locked \
+            --message-format=json > ei-0d-clippy-lib.json
+          cargo clippy -p star --example ei_0d_reversible_update_probe \
+            --features emerging-intelligence-updates --locked \
+            --message-format=json > ei-0d-clippy-example.json
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          logs = [
+              pathlib.Path("ei-0d-clippy-lib.json"),
+              pathlib.Path("ei-0d-clippy-example.json"),
+          ]
+
+          def is_scoped(filename: str) -> bool:
+              normalized = filename.replace("\\", "/").lstrip("./")
+              return (
+                  normalized == "lib.rs"
+                  or normalized.endswith("/lib.rs")
+                  or normalized == "examples/ei_0d_reversible_update_probe.rs"
+                  or normalized.endswith("/examples/ei_0d_reversible_update_probe.rs")
+                  or normalized == "emerging_intelligence/updates.rs"
+                  or normalized.endswith("/emerging_intelligence/updates.rs")
+              )
+
+          findings = []
+          seen = set()
+          for log in logs:
+              for raw in log.read_text(encoding="utf-8").splitlines():
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") != "warning":
+                      continue
+                  primary = [
+                      span for span in message.get("spans", [])
+                      if span.get("is_primary") and is_scoped(span.get("file_name", ""))
+                  ]
+                  if not primary:
+                      continue
+                  rendered = message.get("rendered") or message.get("message", "Clippy warning")
+                  if rendered not in seen:
+                      seen.add(rendered)
+                      findings.append(rendered.rstrip())
+
+          report = pathlib.Path("ei-0d-clippy-scoped.txt")
+          if findings:
+              report.write_text("\n\n".join(findings) + "\n", encoding="utf-8")
+              print(report.read_text(encoding="utf-8"), file=sys.stderr)
+              raise SystemExit(f"{len(findings)} Clippy warning(s) found in EI-0D surfaces")
+
+          report.write_text("EI-0D changed surfaces contain no Clippy warnings.\n", encoding="utf-8")
+          print(report.read_text(encoding="utf-8"), end="")
+          PY
+
+      - name: Test reversible update contracts
+        run: >-
+          cargo test -p star --lib --features emerging-intelligence-updates --locked
+          emerging_intelligence_updates:: -- --test-threads=1
+
+      - name: Run deterministic EI-0D probe twice
+        run: |
+          set -euo pipefail
+          cargo run -p star --example ei_0d_reversible_update_probe \
+            --features emerging-intelligence-updates --locked \
+            > ei-0d-update-report.json
+          cargo run -p star --example ei_0d_reversible_update_probe \
+            --features emerging-intelligence-updates --locked \
+            > ei-0d-update-report-replay.json
+          cmp ei-0d-update-report.json ei-0d-update-report-replay.json
+          grep -q '"classification": "pass"' ei-0d-update-report.json
+          grep -q '"claim": "ei-0d-reversible-update-infrastructure-only"' ei-0d-update-report.json
+          grep -q '"benign_update_applied": true' ei-0d-update-report.json
+          grep -q '"exact_explicit_rollback": true' ei-0d-update-report.json
+          grep -q '"harmful_update_detected": true' ei-0d-update-report.json
+          grep -q '"harmful_update_restored_prestate": true' ei-0d-update-report.json
+          grep -q '"no_update_control_noop": true' ei-0d-update-report.json
+          grep -q '"duplicate_update_rejected": true' ei-0d-update-report.json
+          grep -q '"corrupted_transaction_rejected": true' ei-0d-update-report.json
+          grep -q '"byte_identical_replay": true' ei-0d-update-report.json
+          grep -q '"runtime_wiring": false' ei-0d-update-report.json
+          grep -q '"sqlite_persistence": false' ei-0d-update-report.json
+          grep -q '"ontology_promotion": false' ei-0d-update-report.json
+          grep -q '"unrestricted_tools": false' ei-0d-update-report.json
+          grep -q '"autonomous_action": false' ei-0d-update-report.json
+          grep -q '"authority_closed": true' ei-0d-update-report.json
+
+      - name: Preserve deterministic EI-0D evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0d-update-report
+          path: |
+            ei-0d-update-report.json
+            ei-0d-update-report-replay.json
+            ei-0d-clippy-scoped.txt
+          if-no-files-found: ignore
+          retention-days: 30
