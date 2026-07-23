@@ -1,5 +1,6 @@
 name: STLM L1-C Authoring
 
+# Temporary branch-only materialization workflow. Removed before review.
 on:
   push:
     branches:
