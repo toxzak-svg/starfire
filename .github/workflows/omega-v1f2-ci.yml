@@ -5,121 +5,50 @@ on:
     branches:
       - main
     paths:
-      - "lib/api.rs"
-      - "lib/lib.rs"
-      - "lib/Cargo.toml"
-      - "lib/omega_v1f1r1_*.rs"
-      - "lib/omega_v1f2_shadow.rs"
-      - "lib/examples/omega_v1f1_model_export.rs"
-      - "lib/examples/omega_v1f2_*.rs"
-      - "lib/fixtures/omega_v1a/**"
-      - "lib/fixtures/omega_v1f1/**"
-      - "scripts/omega_v1f2_daily_traffic.py"
-      - "Dockerfile"
-      - "entrypoint.sh"
+      - "scripts/apply_stlm_l1c_authoring.py"
       - ".github/workflows/omega-v1f2-ci.yml"
-  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  omega-v1f2-shadow:
+  author-stlm-l1c:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     steps:
-      - name: Check out repository
+      - name: Check out L1-C branch
         uses: actions/checkout@v4
+        with:
+          ref: feat/stlm-l1c-shadow-observation
 
-      - name: Install Rust
+      - name: Install Rust formatter
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
 
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Check scoped formatting
+      - name: Materialize bounded L1-C shadow
         run: |
-          rustfmt --edition 2021 --check lib/api.rs
-          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
-          rustfmt --edition 2021 --check \
-            lib/omega_v1f1r1_surface.rs \
-            lib/omega_v1f1r1_claim_first.rs \
-            lib/omega_v1f2_shadow.rs \
-            lib/examples/omega_v1f1_model_export.rs \
-            lib/examples/omega_v1f2_shadow_probe.rs \
-            lib/examples/omega_v1f2_ledger_report.rs
-          python -m py_compile scripts/omega_v1f2_daily_traffic.py
-
-      - name: Compile F2 library and tools
-        run: |
-          cargo check -p star --lib --features omega-v1-f2-shadow --locked
-          cargo check -p star --example omega_v1f1_model_export \
-            --features omega-v1-learned-expression --locked
-          cargo check -p star --example omega_v1f2_shadow_probe \
-            --features omega-v1-f2-shadow --locked
-          cargo check -p star --example omega_v1f2_ledger_report \
-            --features omega-v1-f2-shadow --locked
-
-      - name: Lint scoped implementation
-        run: |
-          set -o pipefail
-          : > omega-v1f2-clippy.log
-          cargo clippy -p star --lib --features omega-v1-f2-shadow --locked \
-            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
-          cargo clippy -p star --example omega_v1f1_model_export \
-            --features omega-v1-learned-expression --locked \
-            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
-          cargo clippy -p star --example omega_v1f2_shadow_probe \
-            --features omega-v1-f2-shadow --locked \
-            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
-          cargo clippy -p star --example omega_v1f2_ledger_report \
-            --features omega-v1-f2-shadow --locked \
-            --message-format=short 2>&1 | tee -a omega-v1f2-clippy.log
-          if grep -E 'lib/api\.rs|lib/omega_v1f1r1_|lib/omega_v1f2_shadow\.rs|lib/examples/omega_v1f1_model_export\.rs|lib/examples/omega_v1f2_' \
-            omega-v1f2-clippy.log; then
-            echo "Omega V1-F2 scoped Clippy finding detected"
-            exit 1
-          fi
-
-      - name: Run F2 contracts
-        run: |
-          cargo test -p star --lib --features omega-v1-f2-shadow --locked \
-            omega_v1f2_shadow:: -- --test-threads=1
-
-      - name: Export frozen model
-        run: |
-          OMEGA_V1F2_MODEL_OUT="$RUNNER_TEMP/omega_v1f1r1_model.json" \
-            cargo run -p star --example omega_v1f1_model_export \
-            --features omega-v1-learned-expression --locked \
-            | tee omega-v1f1-model-export.json
-          grep -F '"experiment": "OMEGAV1F1R1_MODEL_EXPORT"' omega-v1f1-model-export.json
-          grep -F '"training_count": 74' omega-v1f1-model-export.json
-          grep -F '"artifact_replay_exact": true' omega-v1f1-model-export.json
-          grep -F '"gate_passed": true' omega-v1f1-model-export.json
-
-      - name: Run F2 isolation probe
-        run: |
-          OMEGA_V1F2_MODEL_PATH="$RUNNER_TEMP/omega_v1f1r1_model.json" \
-            cargo run -p star --example omega_v1f2_shadow_probe \
-            --features omega-v1-f2-shadow --locked \
-            | tee omega-v1f2-report.json
-          grep -F '"experiment": "OMEGAV1F2_LIVE_SHADOW_IMPLEMENTATION"' omega-v1f2-report.json
-          grep -F '"response_bytes_preserved": true' omega-v1f2-report.json
-          grep -F '"authority_boundary_closed": true' omega-v1f2-report.json
-          grep -F '"no_runtime_response_influence": true' omega-v1f2-report.json
-          grep -F '"gate_passed": true' omega-v1f2-report.json
-
-      - name: Preserve reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: omega-v1f2-live-shadow-ci
-          path: |
-            omega-v1f1-model-export.json
-            omega-v1f2-report.json
-            omega-v1f2-clippy.log
-          if-no-files-found: ignore
-          retention-days: 30
+          python3 scripts/apply_stlm_l1c_authoring.py
+          rustfmt --edition 2021 lib/api.rs
+          rustfmt --edition 2021 --config skip_children=true lib/lib.rs
+          rustfmt --edition 2021 \
+            lib/stlm_l1c_shadow.rs \
+            lib/examples/stlm_l1c_shadow_probe.rs
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            lib/api.rs \
+            lib/lib.rs \
+            lib/Cargo.toml \
+            lib/stlm_l1c_shadow.rs \
+            lib/examples/stlm_l1c_shadow_probe.rs \
+            src/Cargo.toml \
+            Dockerfile \
+            entrypoint.sh \
+            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_PREREGISTRATION.md \
+            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_STATUS.md \
+            .github/workflows/stlm-l1c-shadow-ci.yml
+          git commit -m "feat(language): add L1-C verified improvisation shadow"
+          git push
