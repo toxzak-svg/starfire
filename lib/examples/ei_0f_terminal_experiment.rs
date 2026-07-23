@@ -8,8 +8,8 @@ use star::emerging_intelligence::{
 };
 use star::emerging_intelligence_environment::{
     generate_frozen_fixture, ActionTrace, ControlArm, FrozenEnvironmentManifest,
-    IndependentEvaluation, IndependentEvaluator, MatchedTrialSet, RecordedAction, SealedTaskFixture,
-    TaskFamily, EI_0B_EVALUATOR_ID, EI_0B_GENERATOR_VERSION,
+    IndependentEvaluation, IndependentEvaluator, MatchedTrialSet, RecordedAction,
+    SealedTaskFixture, TaskFamily, EI_0B_EVALUATOR_ID, EI_0B_GENERATOR_VERSION,
 };
 use star::emerging_intelligence_ledger::AppendOnlyEpisodeLedger;
 use star::emerging_intelligence_updates::{
@@ -182,7 +182,11 @@ fn evaluated_episode(
     evaluation: &IndependentEvaluation,
     update_id: &str,
 ) -> Result<SealedCognitiveEpisode, Box<dyn Error>> {
-    let suffix = format!("{}-{}", fixture.fixture.family.as_str(), fixture.fixture.seed);
+    let suffix = format!(
+        "{}-{}",
+        fixture.fixture.family.as_str(),
+        fixture.fixture.seed
+    );
     let evidence_id = EvidenceId::new(format!("evidence-{suffix}"))?;
     let action_id = ActionId::new(format!("action-{suffix}"))?;
     let outcome_id = OutcomeId::new(format!("outcome-{suffix}"))?;
@@ -300,8 +304,7 @@ fn apply_development_updates(
         .ok_or("missing development partition")?;
 
     for (index, seed) in development.seeds.iter().enumerate() {
-        let fixture =
-            generate_frozen_fixture(manifest, EvaluationPartition::Development, *seed)?;
+        let fixture = generate_frozen_fixture(manifest, EvaluationPartition::Development, *seed)?;
         let evaluation = evaluate_fixture(engine.state(), &fixture, arm)?;
         let update_id = format!("update-{}-{}", arm.as_str(), seed);
         let episode = evaluated_episode(&fixture, &evaluation, &update_id)?;
@@ -315,8 +318,14 @@ fn apply_development_updates(
         } else {
             learning_target(fixture.fixture.family)
         };
-        let proposal =
-            UpdateProposal::new(&update_id, &episode, &ledger, engine.state(), slot, after_value)?;
+        let proposal = UpdateProposal::new(
+            &update_id,
+            &episode,
+            &ledger,
+            engine.state(),
+            slot,
+            after_value,
+        )?;
         let transaction = engine.apply(&proposal, &ledger)?;
         episodes.push(episode);
         transactions.push(transaction);
@@ -349,8 +358,7 @@ fn arm_report(
     let mut scores = BTreeMap::new();
     let mut evaluations = Vec::new();
     for partition in partitions {
-        let (score, mut partition_evaluations) =
-            partition_score(manifest, state, arm, partition)?;
+        let (score, mut partition_evaluations) = partition_score(manifest, state, arm, partition)?;
         scores.insert(partition_name(partition), score);
         evaluations.append(&mut partition_evaluations);
     }
@@ -375,8 +383,7 @@ fn harmful_challenge(
     let pre_bytes = state.to_canonical_bytes()?;
     let pre_digest = state.digest()?.as_str().to_owned();
     let mut engine = ReversibleUpdateEngine::new(state)?;
-    let fixture =
-        generate_frozen_fixture(manifest, EvaluationPartition::Development, 101)?;
+    let fixture = generate_frozen_fixture(manifest, EvaluationPartition::Development, 101)?;
     let evaluation = evaluate_fixture(engine.state(), &fixture, ControlArm::Learning)?;
     let update_id = "update-harmful-terminal";
     let episode = evaluated_episode(&fixture, &evaluation, update_id)?;
@@ -394,8 +401,7 @@ fn harmful_challenge(
     let final_bytes = engine.state().to_canonical_bytes()?;
     let final_digest = engine.state().digest()?.as_str().to_owned();
     let detected = u32::from(
-        transaction.status == TransactionStatus::RolledBackHarmful
-            && transaction.safety.harmful,
+        transaction.status == TransactionStatus::RolledBackHarmful && transaction.safety.harmful,
     );
     let exact = u32::from(pre_bytes == final_bytes && pre_digest == final_digest);
     Ok((
@@ -419,8 +425,7 @@ fn causal_chain(
     source_episode: &SealedCognitiveEpisode,
     transaction: &UpdateTransaction,
 ) -> Result<CausalChain, Box<dyn Error>> {
-    let fixture =
-        generate_frozen_fixture(manifest, EvaluationPartition::WithinFamilyHoldout, 201)?;
+    let fixture = generate_frozen_fixture(manifest, EvaluationPartition::WithinFamilyHoldout, 201)?;
     let pre_action = novice.select_action(&fixture)?;
     let post_action = learned.select_action(&fixture)?;
     Ok(CausalChain {
@@ -443,17 +448,16 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 fn sha256(input: &[u8]) -> [u8; 32] {
     const K: [u32; 64] = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
-        0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-        0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
-        0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
-        0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-        0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-        0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
-        0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-        0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
+        0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
+        0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
+        0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
+        0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
+        0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
+        0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+        0xc67178f2,
     ];
     let mut state = [
         0x6a09e667_u32,
@@ -555,8 +559,7 @@ fn run() -> Result<TerminalReport, Box<dyn Error>> {
     let no_update_state = novice_state(ControlArm::NoUpdate, "ei-0f/no-update/state")?;
     let memory_disabled_state =
         novice_state(ControlArm::MemoryDisabled, "ei-0f/memory-disabled/fresh")?;
-    let fixed_policy_state =
-        novice_state(ControlArm::FixedPolicy, "ei-0f/fixed-policy/state")?;
+    let fixed_policy_state = novice_state(ControlArm::FixedPolicy, "ei-0f/fixed-policy/state")?;
 
     let learning_applied = u32::try_from(
         learning_transactions
@@ -607,14 +610,14 @@ fn run() -> Result<TerminalReport, Box<dyn Error>> {
     let independent_evaluators = all_evaluations
         .iter()
         .all(|evaluation| evaluation.evaluator_id == EI_0B_EVALUATOR_ID)
-        && learning_transactions.iter().chain(random_transactions.iter()).all(
-            |transaction| {
+        && learning_transactions
+            .iter()
+            .chain(random_transactions.iter())
+            .all(|transaction| {
                 transaction.admissibility.evaluator_id == EI_0D_ADMISSIBILITY_EVALUATOR_ID
                     && transaction.safety.evaluator_id == EI_0D_SAFETY_EVALUATOR_ID
-            },
-        )
-        && harmful_transaction.admissibility.evaluator_id
-            == EI_0D_ADMISSIBILITY_EVALUATOR_ID
+            })
+        && harmful_transaction.admissibility.evaluator_id == EI_0D_ADMISSIBILITY_EVALUATOR_ID
         && harmful_transaction.safety.evaluator_id == EI_0D_SAFETY_EVALUATOR_ID;
     let authority_closed = learning_state.authority.is_closed()
         && random_state.authority.is_closed()
