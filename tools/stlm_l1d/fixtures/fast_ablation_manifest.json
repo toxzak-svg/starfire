@@ -1,0 +1,63 @@
+{
+  "authority": {
+    "automatic_promotion": false,
+    "evaluation_only": true,
+    "hard_gate_override": false,
+    "http_response_influence": false,
+    "runtime_chat_influence": false
+  },
+  "expected_evaluation": {
+    "bias_only_accuracy_bps": 5000,
+    "conversational_context_accuracy_bps": 5556,
+    "deterministic_report_sha256": "b273da2d5c0f83f1b37290e66b448cd36d705e6542c66c294e8490e0d62de659",
+    "full_identity_context_accuracy_bps": 5278,
+    "recurrent_memory_accuracy_bps": 5556,
+    "reversed_label_control_accuracy_bps": 5278,
+    "token_embeddings_accuracy_bps": 5000
+  },
+  "experiment": "STLM_L1D1_FAST_FACTORIAL_ABLATION",
+  "heldout": {
+    "categories": [
+      "technical",
+      "emotional",
+      "uncertainty",
+      "continuity",
+      "disagreement",
+      "adversarial"
+    ],
+    "examples": 36,
+    "file_sha256": "05febfe870799c2aeb874933af1e1ac560969f8babe8b21d36b36376fdd4ab48",
+    "path": "tools/stlm_l1d/data/heldout_pairs.jsonl"
+  },
+  "issue": 236,
+  "models": {
+    "full": {
+      "encoded_path": "tools/stlm_l1d/fixtures/fast_ablation_full_model.q16.json.gz.b64",
+      "encoded_sha256": "2fcad615124c7d1e443c2727ca65f9289aa266fc56f5a6c84469438571b7940c",
+      "materialized_filename": "fast_ablation_full_model.json",
+      "sha256": "53afcfc83a4a0afcc2c0c1d04bde4ada0d2e202d60d72abbf8049831f6b10771"
+    },
+    "reversed_label_control": {
+      "encoded_path": "tools/stlm_l1d/fixtures/fast_ablation_reversed_control.q16.json.gz.b64",
+      "encoded_sha256": "c8946549311562d0935730a0f22a1a076e0993e212570cd328637eedb9dc6266",
+      "materialized_filename": "fast_ablation_reversed_control.json",
+      "sha256": "7155f228700df8fd73c4b9974fd6dae8bba6e1e7b8732efee5da085cf83e4d6e"
+    }
+  },
+  "schema_version": 1,
+  "status": "frozen_evaluation_fixture",
+  "training": {
+    "epochs": 40,
+    "fixture_quantization": "symmetric_i16_per_tensor",
+    "framework_observed": "PyTorch 2.10.0+cpu",
+    "hidden_size": 12,
+    "learning_rate": 0.01,
+    "loss": "pairwise softplus",
+    "normal_label_model_training_accuracy_bps": 10000,
+    "optimizer": "Adam",
+    "reversed_label_model_training_accuracy_bps": 10000,
+    "seed": 1729,
+    "source": "tools/stlm_l1d/data/bootstrap_pairs.jsonl",
+    "source_file_sha256": "10899006d9c9a33cdc80fb3689694e86ceb986ab9e1697e9dda36b405d29b171"
+  }
+}
