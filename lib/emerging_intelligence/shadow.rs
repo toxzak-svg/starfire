@@ -190,7 +190,9 @@ impl ShadowPrivacyRedactor {
                 maximum: 32 * 1024,
             });
         }
-        if ingress.sample_id.is_empty() || ingress.user_id.is_empty() || ingress.session_id.is_empty()
+        if ingress.sample_id.is_empty()
+            || ingress.user_id.is_empty()
+            || ingress.session_id.is_empty()
         {
             return Err(ShadowContractError::EmptyIngressIdentity);
         }
@@ -213,10 +215,7 @@ impl ShadowPrivacyRedactor {
             request_class,
             request_bytes: u32::try_from(ingress.request_text.len())
                 .map_err(|_| ShadowContractError::IntegerOverflow)?,
-            baseline_response_digest: domain_digest(
-                "response",
-                ingress.baseline_response_bytes,
-            ),
+            baseline_response_digest: domain_digest("response", ingress.baseline_response_bytes),
             baseline_route_digest: domain_digest("route", ingress.baseline_route.as_bytes()),
             baseline_tool_digest: domain_digest("tool", ingress.baseline_tool.as_bytes()),
             baseline_action_digest: domain_digest("action", ingress.baseline_action.as_bytes()),
@@ -263,8 +262,7 @@ pub struct SealedShadowObservation {
 impl SealedShadowObservation {
     pub fn from_observation(observation: ShadowObservation) -> Result<Self, ShadowContractError> {
         validate_observation(&observation)?;
-        let bytes =
-            serde_json::to_vec(&observation).map_err(ShadowContractError::Serialization)?;
+        let bytes = serde_json::to_vec(&observation).map_err(ShadowContractError::Serialization)?;
         Ok(Self {
             observation,
             checksum: domain_digest("shadow-record", &bytes),
@@ -288,8 +286,8 @@ impl SealedShadowObservation {
 
     pub fn validate(&self) -> Result<(), ShadowContractError> {
         validate_observation(&self.observation)?;
-        let bytes = serde_json::to_vec(&self.observation)
-            .map_err(ShadowContractError::Serialization)?;
+        let bytes =
+            serde_json::to_vec(&self.observation).map_err(ShadowContractError::Serialization)?;
         let expected = domain_digest("shadow-record", &bytes);
         if self.checksum != expected {
             return Err(ShadowContractError::TamperedObservation);
@@ -439,8 +437,8 @@ impl ShadowRemovalReceipt {
     }
 }
 
-pub fn run_synthetic_preregistration_probe(
-) -> Result<ShadowVerificationReport, ShadowContractError> {
+pub fn run_synthetic_preregistration_probe() -> Result<ShadowVerificationReport, ShadowContractError>
+{
     let redactor = ShadowPrivacyRedactor;
     let adapter = ReadOnlyShadowAdapter;
     let fixtures = [
@@ -487,8 +485,7 @@ pub fn run_synthetic_preregistration_probe(
             && !serialized.contains(fixture.session_id)
             && !serialized.contains(fixture.request_text);
 
-        let expected_input_digest =
-            domain_digest("authorized-input", &input.to_canonical_bytes()?);
+        let expected_input_digest = domain_digest("authorized-input", &input.to_canonical_bytes()?);
         for arm in ShadowArm::ALL {
             let first = adapter.observe(arm, &input)?;
             let second = adapter.observe(arm, &input)?;
@@ -502,8 +499,8 @@ pub fn run_synthetic_preregistration_probe(
                 && first.observation.cpu_micros <= FROZEN_SHADOW_BUDGET.max_cpu_micros
                 && first.observation.ephemeral_memory_bytes
                     <= FROZEN_SHADOW_BUDGET.max_ephemeral_memory_bytes;
-            zero_response_divergence &= first.observation.response_digest_after
-                == input.baseline_response_digest;
+            zero_response_divergence &=
+                first.observation.response_digest_after == input.baseline_response_digest;
             zero_route_divergence &=
                 first.observation.route_digest_after == input.baseline_route_digest;
             zero_tool_divergence &=
@@ -693,8 +690,10 @@ mod tests {
     fn all_arms_receive_identical_authorized_input() {
         let input = ShadowPrivacyRedactor.redact(&fixture()).expect("redact");
         let adapter = ReadOnlyShadowAdapter;
-        let expected =
-            domain_digest("authorized-input", &input.to_canonical_bytes().expect("bytes"));
+        let expected = domain_digest(
+            "authorized-input",
+            &input.to_canonical_bytes().expect("bytes"),
+        );
         for arm in ShadowArm::ALL {
             let record = adapter.observe(arm, &input).expect("observe");
             assert_eq!(record.observation.input_digest, expected);
@@ -738,8 +737,7 @@ mod tests {
             .observe(ShadowArm::EiObserver, &input)
             .expect("observe")
             .observation;
-        observation.added_latency_micros =
-            FROZEN_SHADOW_BUDGET.max_added_latency_micros + 1;
+        observation.added_latency_micros = FROZEN_SHADOW_BUDGET.max_added_latency_micros + 1;
         assert!(matches!(
             SealedShadowObservation::from_observation(observation),
             Err(ShadowContractError::LatencyBudgetExceeded)

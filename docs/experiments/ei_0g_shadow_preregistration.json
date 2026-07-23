@@ -133,7 +133,7 @@
     ".github/workflows/ei-0g-shadow-preregistration.yml": "b2f467ce687705fcf3958182e207b0a7f5547f68",
     "docs/experiments/EI_0G_SHADOW_PREREGISTRATION.md": "44ce958095b33872aae9afc20aa4899320489904",
     "lib/Cargo.toml": "8b5de0e716a9099417df81c1be7a7e3ed02c377e",
-    "lib/emerging_intelligence/shadow.rs": "a41f5b946649943dce5bb9e557514b6b83984cd5",
+    "lib/emerging_intelligence/shadow.rs": "e433cfaea57d0072ab3c899a65b5acc1193129e1",
     "lib/examples/ei_0g_shadow_preregistration_probe.rs": "c707089bd16269a185cf0c9a63ec8aa7a663255e"
   }
 }
