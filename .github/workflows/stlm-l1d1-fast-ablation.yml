@@ -4,10 +4,10 @@ on:
   pull_request:
     paths:
       - "tools/stlm_l1d/run_fast_ablation.py"
+      - "tools/stlm_l1d/materialize_fast_ablation_models.py"
       - "tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs"
       - "tools/stlm_l1d/data/heldout_pairs.jsonl"
-      - "tools/stlm_l1d/fixtures/fast_ablation_*.json"
-      - "tools/stlm_l1d/fixtures/fast_ablation_manifest.json"
+      - "tools/stlm_l1d/fixtures/fast_ablation_*"
       - "docs/experiments/STLM_L1D1_FAST_ABLATION.md"
       - ".github/workflows/stlm-l1d1-fast-ablation.yml"
   workflow_dispatch:
@@ -28,10 +28,12 @@ jobs:
         with:
           components: rustfmt,clippy
 
-      - name: Validate Python evaluator
-        run: python -m py_compile tools/stlm_l1d/run_fast_ablation.py
+      - name: Validate Python tools
+        run: |
+          python -m py_compile tools/stlm_l1d/run_fast_ablation.py
+          python -m py_compile tools/stlm_l1d/materialize_fast_ablation_models.py
 
-      - name: Verify frozen fixture digests
+      - name: Verify frozen corpus digests and authority
         run: |
           python - <<'PY'
           import hashlib
@@ -40,31 +42,37 @@ jobs:
 
           manifest_path = Path("tools/stlm_l1d/fixtures/fast_ablation_manifest.json")
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-
           expected = {
-              Path(manifest["models"]["full"]["path"]): manifest["models"]["full"]["sha256"],
-              Path(manifest["models"]["reversed_label_control"]["path"]):
-                  manifest["models"]["reversed_label_control"]["sha256"],
               Path(manifest["heldout"]["path"]): manifest["heldout"]["file_sha256"],
               Path(manifest["training"]["source"]): manifest["training"]["source_file_sha256"],
           }
           for path, digest in expected.items():
               observed = hashlib.sha256(path.read_bytes()).hexdigest()
               assert observed == digest, f"{path}: {observed} != {digest}"
+          assert manifest["heldout"]["examples"] == 36
           assert manifest["authority"]["evaluation_only"] is True
           assert manifest["authority"]["runtime_chat_influence"] is False
+          assert manifest["authority"]["http_response_influence"] is False
           assert manifest["authority"]["hard_gate_override"] is False
+          assert manifest["authority"]["automatic_promotion"] is False
           PY
+
+      - name: Materialize digest-bound q16 fixtures
+        run: |
+          mkdir -p artifacts/models
+          python tools/stlm_l1d/materialize_fast_ablation_models.py \
+            --manifest tools/stlm_l1d/fixtures/fast_ablation_manifest.json \
+            --output-dir artifacts/models \
+            | tee artifacts/stlm_l1d1_materialization.json
 
       - name: Check Rust parity probe formatting
         run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
 
       - name: Run fast factorial evaluation
         run: |
-          mkdir -p artifacts
           python tools/stlm_l1d/run_fast_ablation.py \
-            --model tools/stlm_l1d/fixtures/fast_ablation_full_model.json \
-            --control-model tools/stlm_l1d/fixtures/fast_ablation_reversed_control.json \
+            --model artifacts/models/fast_ablation_full_model.json \
+            --control-model artifacts/models/fast_ablation_reversed_control.json \
             --train tools/stlm_l1d/data/bootstrap_pairs.jsonl \
             --heldout tools/stlm_l1d/data/heldout_pairs.jsonl \
             --output-json artifacts/stlm_l1d1_report.json \
@@ -83,12 +91,13 @@ jobs:
               Path("tools/stlm_l1d/fixtures/fast_ablation_manifest.json").read_text()
           )
           report = json.loads(Path("artifacts/stlm_l1d1_report.json").read_text())
-
           expected = manifest["expected_evaluation"]
+
           assert report["structural_gate_passed"] is True
           assert report["deterministic_full_report_replay"] is True
           assert report["leakage"]["passed"] is True
           assert report["hard_gate_probe"]["passed"] is True
+          assert report["within_runtime_budget"] is True
           assert report["quality_can_enable_live_authority"] is False
           assert report["deterministic_report_sha256"] == expected["deterministic_report_sha256"]
 
@@ -96,18 +105,9 @@ jobs:
           assert observed["bias_only"] == expected["bias_only_accuracy_bps"]
           assert observed["token_embeddings"] == expected["token_embeddings_accuracy_bps"]
           assert observed["recurrent_memory"] == expected["recurrent_memory_accuracy_bps"]
-          assert (
-              observed["conversational_context"]
-              == expected["conversational_context_accuracy_bps"]
-          )
-          assert (
-              observed["full_identity_context"]
-              == expected["full_identity_context_accuracy_bps"]
-          )
-          assert (
-              observed["reversed_label_control"]
-              == expected["reversed_label_control_accuracy_bps"]
-          )
+          assert observed["conversational_context"] == expected["conversational_context_accuracy_bps"]
+          assert observed["full_identity_context"] == expected["full_identity_context_accuracy_bps"]
+          assert observed["reversed_label_control"] == expected["reversed_label_control_accuracy_bps"]
           PY
 
       - name: Run Rust selection and hard-gate parity
@@ -115,7 +115,7 @@ jobs:
           cargo run --quiet \
             --manifest-path tools/stlm_l1d/Cargo.toml \
             --bin verify_fast_ablation_parity -- \
-            tools/stlm_l1d/fixtures/fast_ablation_full_model.json \
+            artifacts/models/fast_ablation_full_model.json \
             tools/stlm_l1d/data/heldout_pairs.jsonl \
             | tee artifacts/stlm_l1d1_rust_parity.json
           python - <<'PY'
