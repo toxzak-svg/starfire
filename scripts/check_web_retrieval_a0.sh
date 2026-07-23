@@ -3,6 +3,7 @@ set -eu
 
 # Mirrors the permanent Web Retrieval CI gate for local and alternate runners.
 # Keep this command path deterministic and network-independent beyond Cargo fetches.
+# Synchronization marker for the final exact-tree PR validation.
 FEATURES="web-search-searxng"
 
 rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
