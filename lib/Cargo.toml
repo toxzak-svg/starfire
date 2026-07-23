@@ -70,6 +70,11 @@ path = "examples/stlm_l1_independent_language_verifier_probe.rs"
 required-features = ["independent-language-verifier"]
 
 [[example]]
+name = "stlm_l1b_heldout_conversation_evaluation"
+path = "examples/stlm_l1b_heldout_conversation_evaluation.rs"
+required-features = ["verified-improvisation"]
+
+[[example]]
 name = "omega_v1a_voice_baseline"
 path = "examples/omega_v1a_voice_baseline.rs"
 required-features = ["omega-v1-baseline"]
