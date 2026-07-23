@@ -75,6 +75,24 @@ pub mod representation_transport_descendants;
 #[cfg(feature = "emerging-intelligence-contracts")]
 pub mod emerging_intelligence;
 
+// A0: bounded public-web acquisition contracts and executor. Disabled by
+// default. It does not execute downloads, render JavaScript, mutate memory,
+// enter Runtime::chat(), select tools, or grant autonomous action authority.
+#[cfg(feature = "web-retrieval-a0")]
+pub mod web_retrieval;
+
+// A0 extraction and orchestration: deterministic HTML/JSON/text evidence plus
+// a bounded provider-neutral search-to-fetch loop. Neither is wired into chat.
+#[cfg(feature = "web-retrieval-a0")]
+pub mod web_content_extract;
+#[cfg(feature = "web-retrieval-a0")]
+pub mod web_research;
+
+// A1: SearXNG-compatible JSON search provider built on A0 retrieval. Disabled
+// by default and not wired into chat, persistence, credentials, or autonomy.
+#[cfg(feature = "web-search-searxng")]
+pub mod web_search_searxng;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
