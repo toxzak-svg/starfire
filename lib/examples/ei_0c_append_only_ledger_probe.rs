@@ -1,9 +1,9 @@
 use serde::Serialize;
-use star::emerging_intelligence::ledger::{AppendOnlyEpisodeLedger, EI_0C_CLAIM};
 use star::emerging_intelligence::{
     AuthoritySnapshot, CognitiveEpisode, EpisodeId, EpisodePhase, EpisodeProvenance,
     EvaluationPartition, Observation, ObservationId, SealedCognitiveEpisode,
 };
+use star::emerging_intelligence_ledger::{AppendOnlyEpisodeLedger, EI_0C_CLAIM};
 
 #[derive(Serialize)]
 struct ProbeReport {
