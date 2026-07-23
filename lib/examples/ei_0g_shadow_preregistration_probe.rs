@@ -4,8 +4,12 @@ fn main() {
 }
 
 #[cfg(feature = "emerging-intelligence-shadow")]
+#[path = "../emerging_intelligence/shadow.rs"]
+mod shadow;
+
+#[cfg(feature = "emerging-intelligence-shadow")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let report = star::emerging_intelligence_shadow::run_synthetic_preregistration_probe()?;
+    let report = shadow::run_synthetic_preregistration_probe()?;
     println!("{}", serde_json::to_string_pretty(&report)?);
     if report.classification != "PREREGISTRATION_PASS" {
         return Err("EI-0G shadow preregistration probe failed".into());
