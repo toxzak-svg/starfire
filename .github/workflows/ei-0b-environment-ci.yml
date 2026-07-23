@@ -1,0 +1,93 @@
+name: EI-0B Deterministic Environment CI
+
+# Dedicated read-only gate for the EI-0B offline environment boundary.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/environment/**"
+      - "lib/examples/ei_0b_deterministic_environment_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0B_DETERMINISTIC_ENVIRONMENT.md"
+      - ".github/workflows/ei-0b-environment-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped Rustfmt
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/emerging_intelligence/environment/mod.rs \
+            lib/emerging_intelligence/environment/manifest.rs \
+            lib/emerging_intelligence/environment/evaluation.rs \
+            lib/emerging_intelligence/environment/fixture/mod.rs \
+            lib/emerging_intelligence/environment/fixture/generator.rs \
+            lib/emerging_intelligence/environment/tests.rs \
+            lib/examples/ei_0b_deterministic_environment_probe.rs
+
+      - name: Compile feature-gated environment and probe
+        run: |
+          cargo check -p star --lib --features emerging-intelligence-environment --locked
+          cargo check -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked
+
+      - name: Lint EI-0B with warnings denied
+        run: |
+          cargo clippy -p star --lib --features emerging-intelligence-environment --locked \
+            -- -D warnings
+          cargo clippy -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked -- -D warnings
+
+      - name: Test deterministic environment contracts
+        run: >-
+          cargo test -p star --lib --features emerging-intelligence-environment --locked
+          emerging_intelligence_environment:: -- --test-threads=1
+
+      - name: Run exact-replay probe twice
+        run: |
+          set -euo pipefail
+          cargo run -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked \
+            > ei-0b-environment-report.json
+          cargo run -p star --example ei_0b_deterministic_environment_probe \
+            --features emerging-intelligence-environment --locked \
+            > ei-0b-environment-report-replay.json
+          cmp ei-0b-environment-report.json ei-0b-environment-report-replay.json
+          grep -q '"classification": "pass"' ei-0b-environment-report.json
+          grep -q '"claim": "ei-0b-experiment-infrastructure-only"' ei-0b-environment-report.json
+          grep -q '"exact_replay": true' ei-0b-environment-report.json
+          grep -q '"renamed_surface_changed": true' ei-0b-environment-report.json
+          grep -q '"structural_composition_changed": true' ei-0b-environment-report.json
+          grep -q '"runtime_wiring": false' ei-0b-environment-report.json
+          grep -q '"learning_application_authority": false' ei-0b-environment-report.json
+
+      - name: Preserve deterministic environment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0b-environment-report
+          path: |
+            ei-0b-environment-report.json
+            ei-0b-environment-report-replay.json
+          if-no-files-found: ignore
+          retention-days: 30
