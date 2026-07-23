@@ -1,0 +1,129 @@
+name: EI-0A Canonical Episode Contracts CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/**"
+      - "lib/examples/ei_0a_episode_contract_probe.rs"
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0A_EPISODE_CONTRACTS.md"
+      - ".github/workflows/ei-0a-contracts-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped Rustfmt
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/emerging_intelligence/mod.rs
+          lib/examples/ei_0a_episode_contract_probe.rs
+
+      - name: Compile feature-gated contracts and probe
+        run: |
+          cargo check -p star --lib --features emerging-intelligence-contracts --locked
+          cargo check -p star --example ei_0a_episode_contract_probe \
+            --features emerging-intelligence-contracts --locked
+
+      - name: Capture Clippy diagnostics
+        run: |
+          set -euo pipefail
+          cargo clippy -p star --lib --features emerging-intelligence-contracts --locked \
+            --message-format=json > ei-0a-clippy-lib.jsonl
+          cargo clippy -p star --example ei_0a_episode_contract_probe \
+            --features emerging-intelligence-contracts --locked \
+            --message-format=json > ei-0a-clippy-probe.jsonl
+
+      - name: Deny warnings in EI-0A sources
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          targets = {
+              "lib/emerging_intelligence/mod.rs",
+              "lib/examples/ei_0a_episode_contract_probe.rs",
+          }
+          failures = []
+          for path in (
+              pathlib.Path("ei-0a-clippy-lib.jsonl"),
+              pathlib.Path("ei-0a-clippy-probe.jsonl"),
+          ):
+              for raw in path.read_text(encoding="utf-8").splitlines():
+                  try:
+                      event = json.loads(raw)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("reason") != "compiler-message":
+                      continue
+                  message = event.get("message", {})
+                  if message.get("level") != "warning":
+                      continue
+                  files = {
+                      span.get("file_name")
+                      for span in message.get("spans", [])
+                      if span.get("file_name")
+                  }
+                  if files & targets:
+                      failures.append(message.get("rendered") or message.get("message"))
+
+          if failures:
+              print("EI-0A scoped Clippy warnings:", file=sys.stderr)
+              for failure in failures:
+                  print(failure, file=sys.stderr)
+              raise SystemExit(1)
+          print("EI-0A scoped Clippy diagnostics are clean.")
+          PY
+
+      - name: Test EI-0A contracts deterministically
+        run: >-
+          cargo test -p star --lib --features emerging-intelligence-contracts --locked
+          emerging_intelligence:: -- --test-threads=1
+
+      - name: Run exact-replay probe twice
+        run: |
+          set -euo pipefail
+          cargo run -p star --example ei_0a_episode_contract_probe \
+            --features emerging-intelligence-contracts --locked \
+            > ei-0a-contract-report.json
+          cargo run -p star --example ei_0a_episode_contract_probe \
+            --features emerging-intelligence-contracts --locked \
+            > ei-0a-contract-report-replay.json
+          cmp ei-0a-contract-report.json ei-0a-contract-report-replay.json
+          grep -q '"classification": "pass"' ei-0a-contract-report.json
+          grep -q '"authority_closed": true' ei-0a-contract-report.json
+          grep -q '"runtime_wiring": false' ei-0a-contract-report.json
+
+      - name: Preserve deterministic contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0a-contract-report
+          path: |
+            ei-0a-contract-report.json
+            ei-0a-contract-report-replay.json
+            ei-0a-clippy-lib.jsonl
+            ei-0a-clippy-probe.jsonl
+          if-no-files-found: ignore
+          retention-days: 30
