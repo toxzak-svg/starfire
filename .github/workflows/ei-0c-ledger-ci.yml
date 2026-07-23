@@ -33,12 +33,36 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check scoped Rustfmt
+      - name: Materialize and check scoped Rustfmt
+        id: rustfmt
+        continue-on-error: true
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/lib.rs \
             lib/emerging_intelligence/ledger.rs \
             lib/examples/ei_0c_append_only_ledger_probe.rs
+          git diff --exit-code -- \
+            lib/lib.rs \
+            lib/emerging_intelligence/ledger.rs \
+            lib/examples/ei_0c_append_only_ledger_probe.rs
+
+      - name: Preserve exact Rustfmt output
+        if: steps.rustfmt.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0c-rustfmt-output
+          path: |
+            lib/lib.rs
+            lib/emerging_intelligence/ledger.rs
+            lib/examples/ei_0c_append_only_ledger_probe.rs
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Fail on Rustfmt drift
+        if: steps.rustfmt.outcome == 'failure'
+        run: |
+          echo "EI-0C source differs from pinned Rust 1.96.0 formatting." >&2
+          exit 1
 
       - name: Compile feature-gated ledger and probe
         run: |
