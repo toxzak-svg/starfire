@@ -28,8 +28,12 @@ EI-0A canonical episodes
   → EI-0C append-only history and fresh-state replay
   → EI-0D reversible fixed-schema updates and rollback
   → EI-0E frozen terminal preregistration
-  → EI-0F exact-source terminal execution: FAIL
-  → separately preregistered remediation required
+  → EI-0F original exact-source execution: FAIL, preserved
+  → EI-0F digest remediation preflight
+  → EI-0F R1B freeze: invalid schema binding, unexecuted
+  → EI-0F R2 schema-bound freeze
+  → EI-0F R2 exact single execution: PASS
+  → EI-0G read-only shadow preregistration
 ```
 
 | Stage | Record | Current interpretation |
@@ -38,21 +42,39 @@ EI-0A canonical episodes
 | EI-0B | [`EI_0B_DETERMINISTIC_ENVIRONMENT.md`](EI_0B_DETERMINISTIC_ENVIRONMENT.md) | Frozen tasks, partitions, evaluators and matched arms |
 | EI-0C | [`EI_0C_APPEND_ONLY_LEDGER.md`](EI_0C_APPEND_ONLY_LEDGER.md) | Append-only canonical history and exact fresh-state replay |
 | EI-0D implementation | [`EI_0D_REVERSIBLE_UPDATES.md`](EI_0D_REVERSIBLE_UPDATES.md) | Offline provenance-bound updates and exact rollback |
-| EI-0D result | [`EI_0D_RESULT.md`](EI_0D_RESULT.md) | **PASS for bounded infrastructure only**; not cumulative improvement |
-| EI-0E preregistration | [`EI_0E_TERMINAL_PREREGISTRATION.md`](EI_0E_TERMINAL_PREREGISTRATION.md) | **Frozen and merged** under `ei-0e-terminal-v1` |
-| EI-0E manifest | [`EI_0E_TERMINAL_PREREGISTRATION.json`](EI_0E_TERMINAL_PREREGISTRATION.json) | Canonical source, seeds, arms, budgets, thresholds and classifier |
-| EI-0E freeze lock | [`EI_0E_FREEZE_LOCK.json`](EI_0E_FREEZE_LOCK.json) | Exact Git-blob binding for the frozen package |
-| EI-0F result | [`EI_0F_TERMINAL_RESULT.md`](EI_0F_TERMINAL_RESULT.md) | **FAIL**; runner crashed before arm evaluation |
-| EI-0F crash report | [`EI_0F_TERMINAL_REPORT.json`](EI_0F_TERMINAL_REPORT.json) | Schema-valid fail-closed record with `crashed=true` |
-| EI-0F classifier output | [`EI_0F_TERMINAL_CLASSIFICATION.json`](EI_0F_TERMINAL_CLASSIFICATION.json) | Frozen classifier returned `FAIL` |
-| EI-0F evidence | [`EI_0F_TERMINAL_EVIDENCE.json`](EI_0F_TERMINAL_EVIDENCE.json) | Source identity, digests, failed run identity and no-rerun proof |
-| EI-0F failure log | [`EI_0F_TERMINAL_EXECUTION_FAILURE.log`](EI_0F_TERMINAL_EXECUTION_FAILURE.log) | Preserved panic and process exit evidence |
+| EI-0D result | [`EI_0D_RESULT.md`](EI_0D_RESULT.md) | **PASS for bounded infrastructure only** |
+| EI-0E preregistration | [`EI_0E_TERMINAL_PREREGISTRATION.md`](EI_0E_TERMINAL_PREREGISTRATION.md) | Frozen original terminal experiment under `ei-0e-terminal-v1` |
+| EI-0E manifest | [`EI_0E_TERMINAL_PREREGISTRATION.json`](EI_0E_TERMINAL_PREREGISTRATION.json) | Original source, seeds, arms, budgets, thresholds and classifier |
+| EI-0E freeze lock | [`EI_0E_FREEZE_LOCK.json`](EI_0E_FREEZE_LOCK.json) | Exact Git-blob binding for the original package |
+| EI-0F original result | [`EI_0F_TERMINAL_RESULT.md`](EI_0F_TERMINAL_RESULT.md) | **FAIL**, preserved; rejected proposal digest before arm evaluation |
+| EI-0F original report | [`EI_0F_TERMINAL_REPORT.json`](EI_0F_TERMINAL_REPORT.json) | Schema-valid fail-closed crash record |
+| EI-0F original classification | [`EI_0F_TERMINAL_CLASSIFICATION.json`](EI_0F_TERMINAL_CLASSIFICATION.json) | Frozen classifier returned `FAIL` |
+| EI-0F digest remediation | [`EI_0F_R1_DIGEST_REMEDIATION_PREREGISTRATION.md`](EI_0F_R1_DIGEST_REMEDIATION_PREREGISTRATION.md) | Five-arm canonical digest preflight |
+| EI-0F R1B manifest | [`EI_0F_R1_TERMINAL_PREREGISTRATION.json`](EI_0F_R1_TERMINAL_PREREGISTRATION.json) | Preserved invalid and unexecuted because its reused report schema named the original ID |
+| EI-0F R2 manifest | [`EI_0F_R2_TERMINAL_PREREGISTRATION.json`](EI_0F_R2_TERMINAL_PREREGISTRATION.json) | Authoritative schema-bound remediation under `ei-0f-remediation-v2` |
+| EI-0F R2 schema | [`EI_0F_R2_TERMINAL_REPORT.schema.json`](EI_0F_R2_TERMINAL_REPORT.schema.json) | V2 report schema with exact matching preregistration identity |
+| EI-0F R2 result | [`EI_0F_R2_RESULT_2026-07-23.md`](EI_0F_R2_RESULT_2026-07-23.md) | **PASS for the frozen bounded EI-0 claim** |
+| EI-0F R2 report | [`EI_0F_R2_TERMINAL_REPORT.json`](EI_0F_R2_TERMINAL_REPORT.json) | Five complete matched arms, transfer, causal chain and rollback evidence |
+| EI-0F R2 classification | [`EI_0F_R2_TERMINAL_CLASSIFICATION.json`](EI_0F_R2_TERMINAL_CLASSIFICATION.json) | Frozen classifier returned `PASS` with no failed conditions |
+| EI-0F R2 evidence | [`EI_0F_R2_TERMINAL_EVIDENCE.json`](EI_0F_R2_TERMINAL_EVIDENCE.json) | Single-run identity, raw and canonical digests, no-rerun proof |
 
-EI-0E merged in PR [#196](https://github.com/toxzak-svg/starfire/pull/196) at `2da7eeed`. Its manifest SHA-256 is `5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73`.
+### Authoritative PASS identity
 
-EI-0F was executed once at commit `5c4fded7eda16cbf3a6673880557c2242e430c14`. Frozen source verification passed, then the runner panicked with `InvalidDigestText("learning proposal digest")` and exit code `101`. No second qualifying execution was performed. EI-0G is not authorized.
+- preregistration ID: `ei-0f-remediation-v2`;
+- freeze merge: `16ca9717ee4514ccc4bc25e92a95c95be38824a7`;
+- manifest SHA-256: `89909b52cadd394207bafc7526e992a3c20ca0a923e35c2bea7290a306eefec5`;
+- execution commit: `133b82ba6d4fe14e5a5965e45cf2658845d533f1`;
+- workflow run: `30036385291`;
+- result merge: `13c1852724a16a9d22177b8858d35760d2432214`;
+- execution count: one;
+- second execution: false;
+- classification: `PASS`.
 
-Authoritative tracking: [EI-0 master issue #149](https://github.com/toxzak-svg/starfire/issues/149), [EI-0F issue #200](https://github.com/toxzak-svg/starfire/issues/200), and [result PR #201](https://github.com/toxzak-svg/starfire/pull/201).
+The learning arm scored 10,000 basis points on all six partitions. Every matched control scored 3,500 on within-family holdout and 3,875 on the remaining partitions. The run preserved two accepted learning updates, one complete causal chain, one detected harmful challenge with exact rollback, zero replay mismatches, zero missing evaluations, zero invalid records, equal budgets, source match, closed authority, and empty stderr.
+
+This PASS supports the bounded experimental claim only. It does not establish AGI, consciousness, general open-ended self-improvement, safe production learning, or permission for live influence.
+
+Authoritative tracking: [EI-0 master issue #149](https://github.com/toxzak-svg/starfire/issues/149), [R2 execution issue #220](https://github.com/toxzak-svg/starfire/issues/220), [PASS PR #221](https://github.com/toxzak-svg/starfire/pull/221), and [EI-0G preregistration issue #222](https://github.com/toxzak-svg/starfire/issues/222).
 
 ## ΩV1 cognitive-to-voice and STLM
 
@@ -82,7 +104,7 @@ ARISE-A0 and ARISE-A1 are merged, default-off, shadow-bounded research. They pro
 - A0 merge: `24e7ce03`
 - A1 merge: `ad03f7d6`
 
-ARISE remains independent research during EI-0. It receives no EI critical-path credit unless a frozen experiment attributes a causal held-out advantage to it.
+ARISE remains independent research. It receives no EI critical-path credit unless a frozen experiment attributes a causal held-out advantage to it.
 
 ## Companion interaction ladder
 
@@ -124,7 +146,7 @@ Executable grammar and abstraction probes include ΩG1 through ΩG4. Their names
 | `BLOCKED` | A prerequisite prevents execution |
 | `NO VERDICT` | Infrastructure failed before the evaluator produced a result unless the preregistration classifies that failure as FAIL |
 
-For EI-0F, the frozen classifier permits only `PASS` or `FAIL`. Crashes, source mismatch, corruption, missing data, nondeterminism, budget mismatch, or threshold ambiguity are FAIL conditions.
+For EI-0 terminal experiments, crashes, source mismatch, corruption, missing data, nondeterminism, budget mismatch, or threshold ambiguity are literal FAIL conditions.
 
 ## Evidence preservation policy
 
