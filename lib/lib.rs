@@ -202,11 +202,20 @@ pub mod omega_v1f1r1_claim_first;
 #[cfg(feature = "verified-improvisation")]
 pub mod verified_improvisation;
 
-// ΩV1-F2: post-response learned-expression shadow observation. The live HTTP
-// response is frozen first; only typed intent-derived semantics, sealed VoiceState
-// projection data, bounded fingerprints, and metadata enter the isolated worker.
+// ΩV1-F2 remains the sealed post-response event source. The public facade keeps
+// its existing API while optionally fanning the same typed event and frozen
+// response fingerprint into STLM L1-C. Neither observer receives response text.
 #[cfg(feature = "omega-v1-f2-shadow")]
+#[path = "omega_v1f2_shadow.rs"]
+pub(crate) mod omega_v1f2_shadow_inner;
+#[cfg(feature = "omega-v1-f2-shadow")]
+#[path = "omega_v1f2_shadow_bridge.rs"]
 pub mod omega_v1f2_shadow;
+
+// STLM L1-C: verifier-backed improvisation shadow observation. The observer
+// records bounded metadata only and cannot return or persist candidate text.
+#[cfg(feature = "stlm-l1c-shadow")]
+pub mod stlm_l1c_shadow;
 
 // ΩV1-A: frozen current-voice corpus, metrics, and preregistration gate.
 // Disabled by default and evaluation-only. It cannot influence Runtime::chat(),

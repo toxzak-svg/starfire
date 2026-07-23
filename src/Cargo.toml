@@ -51,9 +51,10 @@ default = []
 omega-v1-http-canary = ["star/omega-v1-http-canary"]
 # Retained for explicit legacy proxy testing only.
 omega-v1-f2-shadow = ["star/omega-v1-f2-shadow"]
-# Production enables the library's F2 observer but intentionally does not enable
-# the binary crate's legacy HTTP proxy cfg. Runtime::chat remains the text authority.
-starfire-live = ["star/omega-v1-f2-shadow"]
+# Production compiles the sealed F2 facade and metadata-only L1-C observer but
+# intentionally does not enable the binary crate's legacy HTTP proxy cfg.
+# Runtime::chat remains the sole text authority.
+starfire-live = ["star/stlm-l1c-shadow"]
 
 [dependencies]
 star = { path = "../lib" }
