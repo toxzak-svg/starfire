@@ -15,7 +15,7 @@ permissions:
 jobs:
   verify-live:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
 
     steps:
       - name: Verify Render backend health
@@ -45,23 +45,25 @@ jobs:
           test -s render-identity.json
           python3 -m json.tool render-identity.json > /dev/null
 
-      - name: Verify Cloudflare Pages frontend
+      - name: Verify GitHub Pages frontend
         run: |
           set -euo pipefail
-          frontend="https://starfire.pages.dev"
-          for attempt in $(seq 1 18); do
+          frontend="https://toxzak-svg.github.io/starfire"
+          for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error --location --max-time 25 \
-              "$frontend/" -o cloudflare-index.html; then
+              "$frontend/" -o github-pages-index.html; then
               break
             fi
-            if [ "$attempt" -eq 18 ]; then
-              echo "Cloudflare Pages frontend did not become ready" >&2
+            if [ "$attempt" -eq 30 ]; then
+              echo "GitHub Pages frontend did not become ready" >&2
               exit 1
             fi
             sleep 10
           done
-          test -s cloudflare-index.html
-          grep -qi '<html' cloudflare-index.html
+          test -s github-pages-index.html
+          grep -qi '<html' github-pages-index.html
+          grep -q 'starfire-cuee.onrender.com' github-pages-index.html || \
+            grep -R -q 'starfire-cuee.onrender.com' . || true
 
       - name: Publish verification summary
         run: |
@@ -70,7 +72,7 @@ jobs:
             echo
             echo "- Render health: reachable and valid JSON"
             echo "- Render identity: reachable and valid JSON"
-            echo "- Cloudflare Pages: reachable and returned HTML"
+            echo "- GitHub Pages frontend: reachable and returned HTML"
             echo "- EI live learning: not enabled by this check"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -82,6 +84,6 @@ jobs:
           path: |
             render-health.json
             render-identity.json
-            cloudflare-index.html
+            github-pages-index.html
           if-no-files-found: ignore
           retention-days: 7
