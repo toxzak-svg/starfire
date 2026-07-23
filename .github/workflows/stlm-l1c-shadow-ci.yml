@@ -1,0 +1,110 @@
+name: STLM L1-C Shadow Observation CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/lib.rs"
+      - "lib/Cargo.toml"
+      - "lib/omega_v1f2_shadow_bridge.rs"
+      - "lib/stlm_l1c_shadow.rs"
+      - "lib/stlm_l1c_shadow/**"
+      - "lib/examples/stlm_l1c_shadow_probe.rs"
+      - "src/Cargo.toml"
+      - "docs/experiments/STLM_L1C_SHADOW_OBSERVATION_*.md"
+      - ".github/workflows/stlm-l1c-shadow-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stlm-l1c-shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
+          rustfmt --edition 2021 --check \
+            lib/omega_v1f2_shadow_bridge.rs \
+            lib/stlm_l1c_shadow.rs \
+            lib/stlm_l1c_shadow/part1.rs \
+            lib/stlm_l1c_shadow/part2.rs \
+            lib/stlm_l1c_shadow/part3.rs \
+            lib/stlm_l1c_shadow/part4.rs \
+            lib/stlm_l1c_shadow/tests.rs \
+            lib/examples/stlm_l1c_shadow_probe.rs
+          git diff --check
+
+      - name: Compile L1-C library and probe
+        run: |
+          cargo check -p star --lib --features stlm-l1c-shadow --locked
+          cargo check -p star --example stlm_l1c_shadow_probe \
+            --features stlm-l1c-shadow --locked
+          cargo check -p star_bin --bin star --features starfire-live --locked
+
+      - name: Lint scoped implementation
+        run: |
+          set -o pipefail
+          : > stlm-l1c-clippy.log
+          cargo clippy -p star --lib --features stlm-l1c-shadow --locked \
+            --message-format=short 2>&1 | tee -a stlm-l1c-clippy.log
+          cargo clippy -p star --example stlm_l1c_shadow_probe \
+            --features stlm-l1c-shadow --locked \
+            --message-format=short 2>&1 | tee -a stlm-l1c-clippy.log
+          cargo clippy -p star_bin --bin star --features starfire-live --locked \
+            --message-format=short 2>&1 | tee -a stlm-l1c-clippy.log
+          if grep -E 'lib/omega_v1f2_shadow_bridge\.rs|lib/stlm_l1c_shadow|lib/examples/stlm_l1c_shadow_probe\.rs' \
+            stlm-l1c-clippy.log; then
+            echo "STLM L1-C scoped Clippy finding detected"
+            exit 1
+          fi
+
+      - name: Run L1-C contracts
+        run: |
+          cargo test -p star --lib --features stlm-l1c-shadow --locked \
+            stlm_l1c_shadow:: -- --test-threads=1
+
+      - name: Run frozen L1-C probe
+        run: |
+          set -o pipefail
+          cargo run -p star --example stlm_l1c_shadow_probe \
+            --features stlm-l1c-shadow --locked \
+            | tee stlm-l1c-shadow-report.json
+          grep -F '"experiment": "STLM_L1C_VERIFIED_IMPROVISATION_SHADOW"' stlm-l1c-shadow-report.json
+          grep -F '"eligible_observation_created": true' stlm-l1c-shadow-report.json
+          grep -F '"independent_candidate_verified": true' stlm-l1c-shadow-report.json
+          grep -F '"exact_replay": true' stlm-l1c-shadow-report.json
+          grep -F '"neutral_control_diverged": true' stlm-l1c-shadow-report.json
+          grep -F '"recent_language_changed_selection": true' stlm-l1c-shadow-report.json
+          grep -F '"response_bytes_preserved": true' stlm-l1c-shadow-report.json
+          grep -F '"candidate_text_absent_from_ledger": true' stlm-l1c-shadow-report.json
+          grep -F '"ineligible_event_isolated": true' stlm-l1c-shadow-report.json
+          grep -F '"authority_boundary_closed": true' stlm-l1c-shadow-report.json
+          grep -F '"no_runtime_response_influence": true' stlm-l1c-shadow-report.json
+          grep -F '"gate_passed": true' stlm-l1c-shadow-report.json
+
+      - name: Preserve L1-C evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l1c-shadow-observation
+          path: |
+            stlm-l1c-shadow-report.json
+            stlm-l1c-clippy.log
+          if-no-files-found: ignore
+          retention-days: 30
