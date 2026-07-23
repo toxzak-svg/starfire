@@ -31,6 +31,13 @@ jobs:
         run: |
           set -o pipefail
           {
+            python3 - <<'PY'
+            from pathlib import Path
+            path = Path("scripts/apply_stlm_l1c_authoring.py")
+            text = path.read_text()
+            path.write_text(text.replace("'\\''", "\\'"))
+            PY
+            python3 -m py_compile scripts/apply_stlm_l1c_authoring.py
             python3 scripts/apply_stlm_l1c_authoring.py
             rustfmt --edition 2021 lib/api.rs
             rustfmt --edition 2021 --config skip_children=true lib/lib.rs
