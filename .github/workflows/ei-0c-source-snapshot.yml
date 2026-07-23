@@ -22,11 +22,11 @@ jobs:
           tar \
             --exclude=.git \
             --exclude=target \
-            -czf ei-0c-source-snapshot.tar.gz .
+            -czf "$RUNNER_TEMP/ei-0c-source-snapshot.tar.gz" .
 
       - name: Preserve exact source tree
         uses: actions/upload-artifact@v4
         with:
           name: ei-0c-source-snapshot
-          path: ei-0c-source-snapshot.tar.gz
+          path: ${{ runner.temp }}/ei-0c-source-snapshot.tar.gz
           retention-days: 1
