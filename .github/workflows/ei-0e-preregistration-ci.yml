@@ -46,16 +46,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p target/ei-0e-evidence
-          python3 scripts/ei0e_preregistration.py verify | tee target/ei-0e-evidence/verify-a.json
-          python3 scripts/ei0e_preregistration.py verify | tee target/ei-0e-evidence/verify-b.json
-          cmp target/ei-0e-evidence/verify-a.json target/ei-0e-evidence/verify-b.json
+          python3 scripts/ei0e_preregistration.py verify 2>&1 | tee target/ei-0e-evidence/verify-a.log
+          python3 scripts/ei0e_preregistration.py verify 2>&1 | tee target/ei-0e-evidence/verify-b.log
+          cmp target/ei-0e-evidence/verify-a.log target/ei-0e-evidence/verify-b.log
 
       - name: Verify deterministic classifier vectors twice
         run: |
           set -euo pipefail
-          python3 scripts/ei0e_preregistration.py self-test | tee target/ei-0e-evidence/classifier-a.json
-          python3 scripts/ei0e_preregistration.py self-test | tee target/ei-0e-evidence/classifier-b.json
-          cmp target/ei-0e-evidence/classifier-a.json target/ei-0e-evidence/classifier-b.json
+          python3 scripts/ei0e_preregistration.py self-test 2>&1 | tee target/ei-0e-evidence/classifier-a.log
+          python3 scripts/ei0e_preregistration.py self-test 2>&1 | tee target/ei-0e-evidence/classifier-b.log
+          cmp target/ei-0e-evidence/classifier-a.log target/ei-0e-evidence/classifier-b.log
 
       - name: Validate canonical JSON and report schema
         run: |
