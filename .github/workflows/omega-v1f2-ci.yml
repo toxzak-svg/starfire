@@ -29,26 +29,38 @@ jobs:
 
       - name: Materialize bounded L1-C shadow
         run: |
-          python3 scripts/apply_stlm_l1c_authoring.py
-          rustfmt --edition 2021 lib/api.rs
-          rustfmt --edition 2021 --config skip_children=true lib/lib.rs
-          rustfmt --edition 2021 \
-            lib/stlm_l1c_shadow.rs \
-            lib/examples/stlm_l1c_shadow_probe.rs
-          git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            lib/api.rs \
-            lib/lib.rs \
-            lib/Cargo.toml \
-            lib/stlm_l1c_shadow.rs \
-            lib/examples/stlm_l1c_shadow_probe.rs \
-            src/Cargo.toml \
-            Dockerfile \
-            entrypoint.sh \
-            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_PREREGISTRATION.md \
-            docs/experiments/STLM_L1C_SHADOW_OBSERVATION_STATUS.md \
-            .github/workflows/stlm-l1c-shadow-ci.yml
-          git commit -m "feat(language): add L1-C verified improvisation shadow"
-          git push
+          set -o pipefail
+          {
+            python3 scripts/apply_stlm_l1c_authoring.py
+            rustfmt --edition 2021 lib/api.rs
+            rustfmt --edition 2021 --config skip_children=true lib/lib.rs
+            rustfmt --edition 2021 \
+              lib/stlm_l1c_shadow.rs \
+              lib/examples/stlm_l1c_shadow_probe.rs
+            git diff --check
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              lib/api.rs \
+              lib/lib.rs \
+              lib/Cargo.toml \
+              lib/stlm_l1c_shadow.rs \
+              lib/examples/stlm_l1c_shadow_probe.rs \
+              src/Cargo.toml \
+              Dockerfile \
+              entrypoint.sh \
+              docs/experiments/STLM_L1C_SHADOW_OBSERVATION_PREREGISTRATION.md \
+              docs/experiments/STLM_L1C_SHADOW_OBSERVATION_STATUS.md \
+              .github/workflows/stlm-l1c-shadow-ci.yml
+            git commit -m "feat(language): add L1-C verified improvisation shadow"
+            git push
+          } 2>&1 | tee stlm-l1c-authoring.log
+
+      - name: Preserve authoring diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l1c-authoring-diagnostic
+          path: stlm-l1c-authoring.log
+          if-no-files-found: ignore
+          retention-days: 7
