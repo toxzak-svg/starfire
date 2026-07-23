@@ -72,7 +72,11 @@ jobs:
             | sort | tee artifacts/after_materialization.txt
 
       - name: Check Rust parity probe formatting
-        run: cargo fmt --manifest-path tools/stlm_l1d/Cargo.toml -- --check
+        run: |
+          cargo fmt \
+            --manifest-path tools/stlm_l1d/Cargo.toml \
+            --bin verify_fast_ablation_parity -- \
+            --check
 
       - name: Run fast factorial evaluation
         id: evaluation
