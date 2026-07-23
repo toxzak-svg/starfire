@@ -1,0 +1,80 @@
+name: EI-0F-R1 Digest Remediation Preflight
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/examples/ei_0f_r1_digest_remediation_probe.rs"
+      - "docs/experiments/EI_0F_R1_DIGEST_REMEDIATION_PREREGISTRATION.md"
+      - ".github/workflows/ei-0f-r1-digest-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/examples/ei_0f_r1_digest_remediation_probe.rs
+
+      - name: Compile isolated preflight
+        run: >-
+          cargo check -p star
+          --example ei_0f_r1_digest_remediation_probe
+          --features emerging-intelligence-environment
+          --locked
+
+      - name: Lint isolated preflight
+        run: >-
+          cargo clippy -p star
+          --example ei_0f_r1_digest_remediation_probe
+          --features emerging-intelligence-environment
+          --locked -- -D warnings
+
+      - name: Run exact remediation preflight twice
+        run: |
+          set -euo pipefail
+          cargo run -p star --example ei_0f_r1_digest_remediation_probe \
+            --features emerging-intelligence-environment --locked \
+            > ei-0f-r1-preflight.json
+          cargo run -p star --example ei_0f_r1_digest_remediation_probe \
+            --features emerging-intelligence-environment --locked \
+            > ei-0f-r1-preflight-replay.json
+          cmp ei-0f-r1-preflight.json ei-0f-r1-preflight-replay.json
+          grep -q '"classification": "PASS"' ei-0f-r1-preflight.json
+          grep -q '"original_random_update_digest_rejected": true' ei-0f-r1-preflight.json
+          grep -q '"normalized_arm_count": 5' ei-0f-r1-preflight.json
+          grep -q '"all_normalized_episodes_sealed": true' ei-0f-r1-preflight.json
+          grep -q '"exact_canonical_replay": true' ei-0f-r1-preflight.json
+          grep -q '"original_ei_0f_modified": false' ei-0f-r1-preflight.json
+          grep -q '"runtime_wiring": false' ei-0f-r1-preflight.json
+          grep -q '"live_learning_authority": false' ei-0f-r1-preflight.json
+
+      - name: Preserve remediation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0f-r1-digest-preflight
+          path: |
+            ei-0f-r1-preflight.json
+            ei-0f-r1-preflight-replay.json
+          if-no-files-found: ignore
+          retention-days: 30
