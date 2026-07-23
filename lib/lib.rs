@@ -75,6 +75,13 @@ pub mod representation_transport_descendants;
 #[cfg(feature = "emerging-intelligence-contracts")]
 pub mod emerging_intelligence;
 
+// EI-0B: frozen developmental fixtures, matched controls, independent scoring,
+// and deterministic reports. Offline-only with no persistence, runtime, learning,
+// response, routing, tool, ontology, or autonomous-action authority.
+#[cfg(feature = "emerging-intelligence-environment")]
+#[path = "emerging_intelligence/environment/mod.rs"]
+pub mod emerging_intelligence_environment;
+
 // S3: explicit-statement companion observation. Disabled by default and
 // intentionally proposal-only: no state mutation, persistence, Runtime::chat()
 // wiring, response routing, belief promotion, or action authority.
