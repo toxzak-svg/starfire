@@ -1,0 +1,234 @@
+name: EI-0G Shadow Preregistration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/shadow.rs"
+      - "lib/examples/ei_0g_shadow_preregistration_probe.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0G_SHADOW_PREREGISTRATION.md"
+      - "docs/experiments/ei_0g_shadow_preregistration.json"
+      - ".github/workflows/ei-0g-shadow-preregistration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preregistration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Enforce changed-file boundary
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/main...HEAD > ei-0g-changed-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+
+          allowed = {
+              "lib/emerging_intelligence/shadow.rs",
+              "lib/examples/ei_0g_shadow_preregistration_probe.rs",
+              "lib/Cargo.toml",
+              "docs/experiments/EI_0G_SHADOW_PREREGISTRATION.md",
+              "docs/experiments/ei_0g_shadow_preregistration.json",
+          }
+          changed = {
+              line.strip()
+              for line in Path("ei-0g-changed-files.txt").read_text().splitlines()
+              if line.strip()
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(f"EI-0G touched prohibited paths: {unexpected}")
+          PY
+
+      - name: Verify machine preregistration and exact blobs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          manifest_path = Path("docs/experiments/ei_0g_shadow_preregistration.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert manifest["preregistration_id"] == "ei-0g-shadow-prereg-v1"
+          assert manifest["schema_version"] == 1
+          assert manifest["qualifying_shadow_samples_collected"] is False
+          assert manifest["live_runtime_attachment_authorized"] is False
+          assert manifest["arms"] == ["no_observer", "inert_observer", "ei_observer"]
+          assert manifest["thresholds"]["max_response_byte_divergence"] == 0
+          assert manifest["thresholds"]["max_route_divergence"] == 0
+          assert manifest["thresholds"]["max_tool_divergence"] == 0
+          assert manifest["thresholds"]["max_action_divergence"] == 0
+          assert manifest["thresholds"]["max_persistence_divergence"] == 0
+          assert manifest["thresholds"]["max_cross_user_leakage_events"] == 0
+          assert manifest["thresholds"]["max_replay_mismatches"] == 0
+          assert manifest["budgets"]["max_authorized_input_bytes"] == 1024
+          assert manifest["budgets"]["max_records_per_request"] == 1
+          assert manifest["budgets"]["max_added_latency_micros"] == 10000
+          assert manifest["budgets"]["max_cpu_micros"] == 5000
+          assert manifest["budgets"]["max_ephemeral_memory_bytes"] == 1048576
+
+          for path, expected in manifest["git_blob_ids"].items():
+              actual = subprocess.check_output(
+                  ["git", "hash-object", path], text=True
+              ).strip()
+              if actual != expected:
+                  raise SystemExit(
+                      f"blob mismatch for {path}: expected {expected}, got {actual}"
+                  )
+          PY
+
+      - name: Enforce static no-authority boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          paths = [
+              Path("lib/emerging_intelligence/shadow.rs"),
+              Path("lib/examples/ei_0g_shadow_preregistration_probe.rs"),
+          ]
+          forbidden = [
+              "crate::runtime",
+              "crate::persistence",
+              "crate::Memory",
+              "crate::Store",
+              "Runtime::chat",
+              "rusqlite::",
+              "tiny_http::",
+              "std::net::",
+              "ureq::",
+              "reqwest::",
+          ]
+          for path in paths:
+              source = path.read_text(encoding="utf-8")
+              code = "\n".join(
+                  line for line in source.splitlines()
+                  if not line.lstrip().startswith("//")
+              )
+              hits = [token for token in forbidden if token in code]
+              if hits:
+                  raise SystemExit(f"forbidden authority in {path}: {hits}")
+          PY
+
+      - name: Check scoped formatting
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/emerging_intelligence/shadow.rs
+          lib/examples/ei_0g_shadow_preregistration_probe.rs
+
+      - name: Compile isolated shadow probe
+        run: >-
+          cargo check --quiet -p star
+          --example ei_0g_shadow_preregistration_probe
+          --features emerging-intelligence-shadow
+          --locked
+
+      - name: Run isolated module tests
+        run: >-
+          cargo test --quiet -p star
+          --example ei_0g_shadow_preregistration_probe
+          --features emerging-intelligence-shadow
+          --locked
+
+      - name: Capture scoped Clippy diagnostics
+        run: >-
+          cargo clippy --quiet -p star
+          --example ei_0g_shadow_preregistration_probe
+          --features emerging-intelligence-shadow
+          --locked --message-format=json
+          > ei-0g-clippy.jsonl
+
+      - name: Deny warnings in EI-0G source
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          targets = {
+              "lib/emerging_intelligence/shadow.rs",
+              "lib/examples/ei_0g_shadow_preregistration_probe.rs",
+          }
+          failures = []
+          for raw in Path("ei-0g-clippy.jsonl").read_text(encoding="utf-8").splitlines():
+              try:
+                  event = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              if event.get("reason") != "compiler-message":
+                  continue
+              message = event.get("message", {})
+              if message.get("level") != "warning":
+                  continue
+              files = {
+                  span.get("file_name")
+                  for span in message.get("spans", [])
+                  if span.get("file_name")
+              }
+              if files & targets:
+                  failures.append(message.get("rendered") or message.get("message"))
+          if failures:
+              raise SystemExit("\n".join(failures))
+          PY
+
+      - name: Run deterministic synthetic probe twice
+        run: |
+          set -euo pipefail
+          cargo run --quiet -p star --example ei_0g_shadow_preregistration_probe \
+            --features emerging-intelligence-shadow --locked \
+            > ei-0g-shadow-preregistration.json
+          cargo run --quiet -p star --example ei_0g_shadow_preregistration_probe \
+            --features emerging-intelligence-shadow --locked \
+            > ei-0g-shadow-preregistration-replay.json
+          cmp ei-0g-shadow-preregistration.json ei-0g-shadow-preregistration-replay.json
+          grep -q '"classification": "PREREGISTRATION_PASS"' ei-0g-shadow-preregistration.json
+          grep -q '"synthetic_samples": 2' ei-0g-shadow-preregistration.json
+          grep -q '"arms_per_sample": 3' ei-0g-shadow-preregistration.json
+          grep -q '"deterministic_replay": true' ei-0g-shadow-preregistration.json
+          grep -q '"privacy_redaction_passed": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_response_divergence": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_route_divergence": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_tool_divergence": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_action_divergence": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_persistence_divergence": true' ei-0g-shadow-preregistration.json
+          grep -q '"zero_cross_user_leakage": true' ei-0g-shadow-preregistration.json
+          grep -q '"qualifying_shadow_samples_collected": false' ei-0g-shadow-preregistration.json
+          grep -q '"runtime_wiring": false' ei-0g-shadow-preregistration.json
+          grep -q '"live_learning_authority": false' ei-0g-shadow-preregistration.json
+          grep -q '"response_authority": false' ei-0g-shadow-preregistration.json
+          grep -q '"persistence_authority": false' ei-0g-shadow-preregistration.json
+          grep -q '"routing_authority": false' ei-0g-shadow-preregistration.json
+          grep -q '"tool_authority": false' ei-0g-shadow-preregistration.json
+          grep -q '"action_authority": false' ei-0g-shadow-preregistration.json
+
+      - name: Preserve preregistration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0g-shadow-preregistration
+          path: |
+            ei-0g-shadow-preregistration.json
+            ei-0g-shadow-preregistration-replay.json
+            ei-0g-clippy.jsonl
+            ei-0g-changed-files.txt
+            docs/experiments/ei_0g_shadow_preregistration.json
+          if-no-files-found: ignore
+          retention-days: 30
