@@ -1,0 +1,263 @@
+name: EI-0G-S2 Attachment Freeze
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/emerging_intelligence/shadow_attachment.rs"
+      - "lib/examples/ei_0g_s2_attachment_freeze_probe.rs"
+      - "lib/Cargo.toml"
+      - "docs/experiments/EI_0G_S2_ATTACHMENT_FREEZE.md"
+      - "docs/experiments/ei_0g_s2_attachment_freeze.json"
+      - ".github/workflows/ei-0g-s2-attachment-freeze.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Enforce changed-file boundary
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/main...HEAD > ei-0g-s2-changed-files.txt
+          python3 - <<'PY'
+          from pathlib import Path
+
+          allowed = {
+              "lib/emerging_intelligence/shadow_attachment.rs",
+              "lib/examples/ei_0g_s2_attachment_freeze_probe.rs",
+              "lib/Cargo.toml",
+              "docs/experiments/EI_0G_S2_ATTACHMENT_FREEZE.md",
+              "docs/experiments/ei_0g_s2_attachment_freeze.json",
+          }
+          changed = {
+              line.strip()
+              for line in Path("ei-0g-s2-changed-files.txt").read_text().splitlines()
+              if line.strip()
+          }
+          unexpected = sorted(changed - allowed)
+          if unexpected:
+              raise SystemExit(f"EI-0G-S2 touched prohibited paths: {unexpected}")
+          PY
+
+      - name: Verify machine freeze and exact identities
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          path = Path("docs/experiments/ei_0g_s2_attachment_freeze.json")
+          freeze = json.loads(path.read_text(encoding="utf-8"))
+          assert freeze["preregistration_id"] == "ei-0g-shadow-attachment-freeze-v1"
+          assert freeze["schema_version"] == 1
+          assert freeze["collection_enabled"] is False
+          assert freeze["qualifying_samples_collected"] == 0
+          assert freeze["live_runtime_attachment_authorized"] is False
+          assert freeze["security_prerequisite_satisfied"] is False
+          assert freeze["deployment"]["actual_container_digest"] is None
+          assert freeze["sampling"]["configured_rate_bps"] == 100
+          assert freeze["sampling"]["qualifying_sample_cap"] == 100
+          assert freeze["sampling"]["active_rate_bps"] == 0
+          assert freeze["sampling"]["active_sample_cap"] == 0
+          assert freeze["sampling"]["arms_per_sample"] == 3
+          assert freeze["attachment"]["response_finalized"] is True
+          assert freeze["attachment"]["runtime_lock_released"] is True
+          assert freeze["attachment"]["response_mutation_possible"] is False
+          assert freeze["attachment"]["network_send_started"] is False
+          assert freeze["thresholds"]["max_response_byte_divergence"] == 0
+          assert freeze["thresholds"]["max_route_divergence"] == 0
+          assert freeze["thresholds"]["max_tool_divergence"] == 0
+          assert freeze["thresholds"]["max_action_divergence"] == 0
+          assert freeze["thresholds"]["max_persistence_divergence"] == 0
+          assert freeze["authority"] == {
+              "runtime_wiring": False,
+              "live_learning": False,
+              "response": False,
+              "persistence": False,
+              "routing": False,
+              "belief": False,
+              "ontology": False,
+              "tool": False,
+              "network": False,
+              "action": False,
+          }
+
+          for source_path, expected in freeze["target_runtime_blobs"].items():
+              actual = subprocess.check_output(
+                  ["git", "hash-object", source_path], text=True
+              ).strip()
+              if actual != expected:
+                  raise SystemExit(
+                      f"target runtime blob mismatch for {source_path}: "
+                      f"expected {expected}, got {actual}"
+                  )
+
+          for source_path, expected in freeze["freeze_git_blob_ids"].items():
+              actual = subprocess.check_output(
+                  ["git", "hash-object", source_path], text=True
+              ).strip()
+              if actual != expected:
+                  raise SystemExit(
+                      f"freeze blob mismatch for {source_path}: "
+                      f"expected {expected}, got {actual}"
+                  )
+          PY
+
+      - name: Enforce static no-authority boundary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path("lib/emerging_intelligence/shadow_attachment.rs"),
+              Path("lib/examples/ei_0g_s2_attachment_freeze_probe.rs"),
+          ]
+          forbidden = [
+              "crate::runtime",
+              "crate::persistence",
+              "crate::Memory",
+              "crate::Store",
+              "Runtime::chat",
+              "rusqlite::",
+              "tiny_http::",
+              "std::net::",
+              "ureq::",
+              "reqwest::",
+              "tokio::spawn",
+              "std::fs::write",
+              "OpenOptions",
+          ]
+          for path in targets:
+              source = path.read_text(encoding="utf-8")
+              code = "\n".join(
+                  line for line in source.splitlines()
+                  if not line.lstrip().startswith("//")
+              )
+              hits = [token for token in forbidden if token in code]
+              if hits:
+                  raise SystemExit(f"forbidden authority in {path}: {hits}")
+          PY
+
+      - name: Check scoped formatting
+        run: >-
+          rustfmt --edition 2021 --check
+          lib/emerging_intelligence/shadow_attachment.rs
+          lib/examples/ei_0g_s2_attachment_freeze_probe.rs
+
+      - name: Compile isolated attachment freeze probe
+        run: >-
+          cargo check --quiet -p star
+          --example ei_0g_s2_attachment_freeze_probe
+          --features emerging-intelligence-shadow-attachment
+          --locked
+
+      - name: Run isolated freeze tests
+        run: >-
+          cargo test --quiet -p star
+          --example ei_0g_s2_attachment_freeze_probe
+          --features emerging-intelligence-shadow-attachment
+          --locked
+
+      - name: Capture scoped Clippy diagnostics
+        run: >-
+          cargo clippy --quiet -p star
+          --example ei_0g_s2_attachment_freeze_probe
+          --features emerging-intelligence-shadow-attachment
+          --locked --message-format=json
+          > ei-0g-s2-clippy.jsonl
+
+      - name: Deny warnings in EI-0G-S2 source
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          targets = {
+              "lib/emerging_intelligence/shadow_attachment.rs",
+              "lib/examples/ei_0g_s2_attachment_freeze_probe.rs",
+          }
+          failures = []
+          for raw in Path("ei-0g-s2-clippy.jsonl").read_text(encoding="utf-8").splitlines():
+              try:
+                  event = json.loads(raw)
+              except json.JSONDecodeError:
+                  continue
+              if event.get("reason") != "compiler-message":
+                  continue
+              message = event.get("message", {})
+              if message.get("level") != "warning":
+                  continue
+              files = {
+                  span.get("file_name")
+                  for span in message.get("spans", [])
+                  if span.get("file_name")
+              }
+              if files & targets:
+                  failures.append(message.get("rendered") or message.get("message"))
+          if failures:
+              raise SystemExit("\n".join(failures))
+          PY
+
+      - name: Run deterministic freeze probe twice
+        run: |
+          set -euo pipefail
+          cargo run --quiet -p star --example ei_0g_s2_attachment_freeze_probe \
+            --features emerging-intelligence-shadow-attachment --locked \
+            > ei-0g-s2-attachment-freeze-report.json
+          cargo run --quiet -p star --example ei_0g_s2_attachment_freeze_probe \
+            --features emerging-intelligence-shadow-attachment --locked \
+            > ei-0g-s2-attachment-freeze-replay.json
+          cmp ei-0g-s2-attachment-freeze-report.json ei-0g-s2-attachment-freeze-replay.json
+          grep -q '"classification": "FREEZE_PASS"' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"collection_enabled": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"qualifying_samples_collected": 0' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"security_prerequisite_satisfied": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"actual_container_digest_bound": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"attachment_one_way": true' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"privacy_policy_complete": true' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"matched_controls_frozen": true' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"evidence_sink_write_enabled": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"kill_switch_precedes_adapter": true' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"complete_removal_verified": true' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"runtime_wiring": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"response_authority": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"persistence_authority": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"routing_authority": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"tool_authority": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"network_authority": false' ei-0g-s2-attachment-freeze-report.json
+          grep -q '"action_authority": false' ei-0g-s2-attachment-freeze-report.json
+
+      - name: Preserve freeze evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ei-0g-s2-attachment-freeze
+          path: |
+            ei-0g-s2-attachment-freeze-report.json
+            ei-0g-s2-attachment-freeze-replay.json
+            ei-0g-s2-clippy.jsonl
+            ei-0g-s2-changed-files.txt
+            docs/experiments/ei_0g_s2_attachment_freeze.json
+          if-no-files-found: ignore
+          retention-days: 30
