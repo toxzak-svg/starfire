@@ -1,0 +1,184 @@
+name: EI-0F Frozen Failure Replay CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - "docs/experiments/EI_0F_TERMINAL_*"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
+      - "scripts/ei0e_preregistration.py"
+      - ".github/workflows/ei-0f-terminal-execution.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/experiments/EI_0F_TERMINAL_*"
+      - "docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json"
+      - "docs/experiments/EI_0E_FREEZE_LOCK.json"
+      - "scripts/ei0e_preregistration.py"
+      - ".github/workflows/ei-0f-terminal-execution.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-frozen-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify frozen EI-0E source and package identities
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path('.')
+          manifest_path = root / 'docs/experiments/EI_0E_TERMINAL_PREREGISTRATION.json'
+          lock_path = root / 'docs/experiments/EI_0E_FREEZE_LOCK.json'
+          evidence = json.loads(
+              (root / 'docs/experiments/EI_0F_TERMINAL_EVIDENCE.json').read_text()
+          )
+          manifest_bytes = manifest_path.read_bytes()
+          lock_bytes = lock_path.read_bytes()
+          manifest = json.loads(manifest_bytes)
+          lock = json.loads(lock_bytes)
+
+          def sha256(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def blob_sha1(data: bytes) -> str:
+              header = f'blob {len(data)}\0'.encode('ascii')
+              return hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+
+          manifest_digest = sha256(manifest_bytes)
+          lock_digest = sha256(lock_bytes)
+          if manifest_digest != evidence.get('manifest_sha256'):
+              raise SystemExit('manifest SHA-256 changed')
+          if lock_digest != evidence.get('freeze_lock_sha256'):
+              raise SystemExit('freeze-lock SHA-256 changed')
+          if lock.get('manifest_sha256') != manifest_digest:
+              raise SystemExit('freeze lock does not bind the manifest')
+          if manifest.get('preregistration_id') != 'ei-0e-terminal-v1':
+              raise SystemExit('preregistration ID changed')
+          if lock.get('preregistration_id') != manifest.get('preregistration_id'):
+              raise SystemExit('freeze-lock preregistration ID mismatch')
+
+          freeze = manifest.get('freeze_base_commit')
+          if freeze != 'ad03f7d67016e32574f47ba836bc5d52ab42c77b':
+              raise SystemExit('frozen source commit changed')
+          if lock.get('source_rebind_commit') != freeze:
+              raise SystemExit('freeze lock source commit mismatch')
+
+          subprocess.run(
+              ['git', 'cat-file', '-e', f'{freeze}^{{commit}}'],
+              check=True,
+          )
+          for entry in manifest.get('source_files', []):
+              data = subprocess.check_output(
+                  ['git', 'show', f"{freeze}:{entry['path']}"]
+              )
+              actual = blob_sha1(data)
+              if actual != entry.get('git_blob_sha1'):
+                  raise SystemExit(
+                      f"frozen source blob mismatch: {entry['path']}"
+                  )
+
+          for entry in lock.get('files', []):
+              path = root / entry['path']
+              if not path.is_file():
+                  raise SystemExit(f"locked package file missing: {entry['path']}")
+              actual = blob_sha1(path.read_bytes())
+              if actual != entry.get('git_blob_sha1'):
+                  raise SystemExit(
+                      f"locked package blob mismatch: {entry['path']}"
+                  )
+
+          print(json.dumps({
+              'freeze_base_commit': freeze,
+              'manifest_sha256': manifest_digest,
+              'freeze_lock_sha256': lock_digest,
+              'source_files_verified': len(manifest.get('source_files', [])),
+              'package_files_verified': len(lock.get('files', [])),
+          }, sort_keys=True))
+          PY
+
+      - name: Replay frozen FAIL classifier
+        run: |
+          set +e
+          python3 scripts/ei0e_preregistration.py classify \
+            docs/experiments/EI_0F_TERMINAL_REPORT.json \
+            > /tmp/ei-0f-classification.json
+          status=$?
+          set -e
+          test "$status" -eq 1
+          cmp /tmp/ei-0f-classification.json \
+            docs/experiments/EI_0F_TERMINAL_CLASSIFICATION.json
+
+      - name: Verify sealed evidence digests and boundaries
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('.')
+          report_path = root / 'docs/experiments/EI_0F_TERMINAL_REPORT.json'
+          classification_path = root / 'docs/experiments/EI_0F_TERMINAL_CLASSIFICATION.json'
+          log_path = root / 'docs/experiments/EI_0F_TERMINAL_EXECUTION_FAILURE.log'
+          evidence = json.loads(
+              (root / 'docs/experiments/EI_0F_TERMINAL_EVIDENCE.json').read_text()
+          )
+          report = json.loads(report_path.read_text())
+          classification = json.loads(classification_path.read_text())
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          expected = {
+              'report_sha256': digest(report_path),
+              'classification_sha256': digest(classification_path),
+              'failure_log_sha256': digest(log_path),
+          }
+          for key, value in expected.items():
+              if evidence.get(key) != value:
+                  raise SystemExit(f'{key} mismatch')
+          if classification.get('classification') != 'FAIL':
+              raise SystemExit('classification is not FAIL')
+          if report.get('crashed') is not True or report.get('complete') is not False:
+              raise SystemExit('report is not the frozen crash result')
+          if report.get('source_match') is not True:
+              raise SystemExit('source verification was not preserved')
+          if report.get('authority_closed') is not True:
+              raise SystemExit('authority boundary opened')
+          if evidence.get('second_execution_performed') is not False:
+              raise SystemExit('a second qualifying execution was recorded')
+          if evidence.get('execution_commit') != '5c4fded7eda16cbf3a6673880557c2242e430c14':
+              raise SystemExit('execution commit changed')
+          log = log_path.read_text(errors='replace')
+          if 'InvalidDigestText("learning proposal digest")' not in log:
+              raise SystemExit('preserved failure reason missing')
+          if 'exit code 101' not in log:
+              raise SystemExit('preserved process exit missing')
+          PY
+
+      - name: Enforce no-rerun workflow boundary
+        run: |
+          forbidden='cargo run -p star --example '
+          forbidden+='ei_0f_terminal_experiment'
+          if grep -Fq "$forbidden" .github/workflows/ei-0f-terminal-execution.yml; then
+            echo 'read-only result gate must not execute EI-0F' >&2
+            exit 1
+          fi

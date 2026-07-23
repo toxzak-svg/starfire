@@ -1,0 +1,260 @@
+2026-07-23T17:06:21.6301611Z Updating files:  89% (576/647)
+2026-07-23T17:06:21.6306648Z Updating files:  90% (583/647)
+2026-07-23T17:06:21.6311550Z Updating files:  91% (589/647)
+2026-07-23T17:06:21.6315552Z Updating files:  92% (596/647)
+2026-07-23T17:06:21.6320884Z Updating files:  93% (602/647)
+2026-07-23T17:06:21.6324977Z Updating files:  94% (609/647)
+2026-07-23T17:06:21.6344250Z Updating files:  95% (615/647)
+2026-07-23T17:06:21.6345164Z Updating files:  96% (622/647)
+2026-07-23T17:06:21.6345945Z Updating files:  97% (628/647)
+2026-07-23T17:06:21.6349227Z Updating files:  98% (635/647)
+2026-07-23T17:06:21.6355043Z Updating files:  99% (641/647)
+2026-07-23T17:06:21.6355495Z Updating files: 100% (647/647)
+2026-07-23T17:06:21.6355912Z Updating files: 100% (647/647), done.
+2026-07-23T17:06:21.6379078Z Switched to a new branch 'experiment/ei-0f-terminal-execution'
+2026-07-23T17:06:21.6383031Z branch 'experiment/ei-0f-terminal-execution' set up to track 'origin/experiment/ei-0f-terminal-execution'.
+2026-07-23T17:06:21.6447771Z ##[endgroup]
+2026-07-23T17:06:21.6509840Z [command]/usr/bin/git log -1 --format=%H
+2026-07-23T17:06:21.6543903Z 5c4fded7eda16cbf3a6673880557c2242e430c14
+2026-07-23T17:06:21.6768350Z ##[group]Run if test -f docs/experiments/EI_0F_TERMINAL_REPORT.json; then
+2026-07-23T17:06:21.6768936Z [36;1mif test -f docs/experiments/EI_0F_TERMINAL_REPORT.json; then[0m
+2026-07-23T17:06:21.6769373Z [36;1m  echo 'execute=false' >> "$GITHUB_OUTPUT"[0m
+2026-07-23T17:06:21.6769810Z [36;1m  echo 'EI-0F result already sealed; refusing a second qualifying execution.'[0m
+2026-07-23T17:06:21.6770415Z [36;1melse[0m
+2026-07-23T17:06:21.6770659Z [36;1m  echo 'execute=true' >> "$GITHUB_OUTPUT"[0m
+2026-07-23T17:06:21.6770945Z [36;1mfi[0m
+2026-07-23T17:06:21.6860087Z shell: /usr/bin/bash -e {0}
+2026-07-23T17:06:21.6860367Z ##[endgroup]
+2026-07-23T17:06:21.7166252Z ##[group]Run dtolnay/rust-toolchain@1.96.0
+2026-07-23T17:06:21.7166554Z with:
+2026-07-23T17:06:21.7166752Z ##[endgroup]
+2026-07-23T17:06:21.7257170Z ##[start-action display=Run : parse toolchain version;id=__dtolnay_rust-toolchain.parse]
+2026-07-23T17:06:21.7292082Z ##[group]Run : parse toolchain version
+2026-07-23T17:06:21.7292424Z [36;1m: parse toolchain version[0m
+2026-07-23T17:06:21.7292708Z [36;1mif [[ -z $toolchain ]]; then[0m
+2026-07-23T17:06:21.7293452Z [36;1m  # GitHub does not enforce `required: true` inputs itself. https://github.com/actions/runner/issues/1070[0m
+2026-07-23T17:06:21.7294027Z [36;1m  echo "'toolchain' is a required input" >&2[0m
+2026-07-23T17:06:21.7294332Z [36;1m  exit 1[0m
+2026-07-23T17:06:21.7294689Z [36;1melif [[ $toolchain =~ ^stable' '[0-9]+' '(year|month|week|day)s?' 'ago$ ]]; then[0m
+2026-07-23T17:06:21.7295104Z [36;1m  if [[ Linux == macOS ]]; then[0m
+2026-07-23T17:06:21.7295675Z [36;1m    echo "toolchain=1.$((($(date -v-$(sed 's/stable \([0-9]*\) \(.\).*/\1\2/' <<< $toolchain) +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7296189Z [36;1m  else[0m
+2026-07-23T17:06:21.7296587Z [36;1m    echo "toolchain=1.$((($(date --date "${toolchain#stable }" +%s)/60/60/24-16569)/7/6))" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7297030Z [36;1m  fi[0m
+2026-07-23T17:06:21.7297343Z [36;1melif [[ $toolchain =~ ^stable' 'minus' '[0-9]+' 'releases?$ ]]; then[0m
+2026-07-23T17:06:21.7297873Z [36;1m  echo "toolchain=1.$((($(date +%s)/60/60/24-16569)/7/6-${toolchain//[^0-9]/}))" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7298322Z [36;1melif [[ $toolchain =~ ^1\.[0-9]+$ ]]; then[0m
+2026-07-23T17:06:21.7298834Z [36;1m  echo "toolchain=1.$((i=${toolchain#1.}, c=($(date +%s)/60/60/24-16569)/7/6, i+9*i*(10*i<=c)+90*i*(100*i<=c)))" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7299322Z [36;1melse[0m
+2026-07-23T17:06:21.7299572Z [36;1m  echo "toolchain=$toolchain" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7299874Z [36;1mfi[0m
+2026-07-23T17:06:21.7365217Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:21.7365566Z env:
+2026-07-23T17:06:21.7365772Z   toolchain: 1.96.0
+2026-07-23T17:06:21.7365988Z ##[endgroup]
+2026-07-23T17:06:21.7465636Z ##[end-action id=__dtolnay_rust-toolchain.parse;outcome=success;conclusion=success;duration_ms=20]
+2026-07-23T17:06:21.7477815Z ##[start-action display=Run : construct rustup command line;id=__dtolnay_rust-toolchain.flags]
+2026-07-23T17:06:21.7502933Z ##[group]Run : construct rustup command line
+2026-07-23T17:06:21.7503560Z [36;1m: construct rustup command line[0m
+2026-07-23T17:06:21.7504077Z [36;1mecho "targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7504724Z [36;1mecho "components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7505205Z [36;1mecho "downgrade=" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:21.7570342Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:21.7570695Z env:
+2026-07-23T17:06:21.7570891Z   targets: 
+2026-07-23T17:06:21.7571091Z   components: 
+2026-07-23T17:06:21.7571295Z ##[endgroup]
+2026-07-23T17:06:21.7674177Z ##[end-action id=__dtolnay_rust-toolchain.flags;outcome=success;conclusion=success;duration_ms=19]
+2026-07-23T17:06:21.7677737Z ##[start-action display=Run : set $CARGO_HOME;id=__dtolnay_rust-toolchain.__run]
+2026-07-23T17:06:21.7701995Z ##[group]Run : set $CARGO_HOME
+2026-07-23T17:06:21.7702270Z [36;1m: set $CARGO_HOME[0m
+2026-07-23T17:06:21.7702599Z [36;1mecho CARGO_HOME=${CARGO_HOME:-"$HOME/.cargo"} >> $GITHUB_ENV[0m
+2026-07-23T17:06:21.7767031Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:21.7767382Z ##[endgroup]
+2026-07-23T17:06:21.7862017Z ##[end-action id=__dtolnay_rust-toolchain.__run;outcome=success;conclusion=success;duration_ms=18]
+2026-07-23T17:06:21.7864632Z ##[start-action display=Run : install rustup if needed;id=__dtolnay_rust-toolchain.__run_2]
+2026-07-23T17:06:21.7916503Z ##[group]Run : install rustup if needed
+2026-07-23T17:06:21.7916859Z [36;1m: install rustup if needed[0m
+2026-07-23T17:06:21.7917166Z [36;1mif ! command -v rustup &>/dev/null; then[0m
+2026-07-23T17:06:21.7917936Z [36;1m  curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused --location --silent --show-error --fail https://sh.rustup.rs | sh -s -- --default-toolchain none -y[0m
+2026-07-23T17:06:21.7918641Z [36;1m  echo "$CARGO_HOME/bin" >> $GITHUB_PATH[0m
+2026-07-23T17:06:21.7918925Z [36;1mfi[0m
+2026-07-23T17:06:21.7982118Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:21.7982455Z env:
+2026-07-23T17:06:21.7982666Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:21.7982918Z ##[endgroup]
+2026-07-23T17:06:21.8073943Z ##[end-action id=__dtolnay_rust-toolchain.__run_2;outcome=success;conclusion=success;duration_ms=20]
+2026-07-23T17:06:21.8078010Z ##[start-action display=Run : install rustup if needed on windows;id=__dtolnay_rust-toolchain.__run_3]
+2026-07-23T17:06:21.8083559Z ##[end-action id=__dtolnay_rust-toolchain.__run_3;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-07-23T17:06:21.8086872Z ##[start-action display=rustup toolchain install 1.96.0;id=__dtolnay_rust-toolchain.__run_4]
+2026-07-23T17:06:21.8111278Z ##[group]Run rustup toolchain install 1.96.0 --profile minimal --no-self-update
+2026-07-23T17:06:21.8111833Z [36;1mrustup toolchain install 1.96.0 --profile minimal --no-self-update[0m
+2026-07-23T17:06:21.8175970Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:21.8176313Z env:
+2026-07-23T17:06:21.8176526Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:21.8176797Z   RUSTUP_PERMIT_COPY_RENAME: 1
+2026-07-23T17:06:21.8177036Z ##[endgroup]
+2026-07-23T17:06:21.8552862Z info: syncing channel updates for 1.96.0-x86_64-unknown-linux-gnu
+2026-07-23T17:06:22.1064744Z info: latest update on 2026-05-28 for version 1.96.0 (ac68faa20 2026-05-25)
+2026-07-23T17:06:22.1074994Z info: downloading 3 components
+2026-07-23T17:06:30.3065240Z 
+2026-07-23T17:06:30.3139660Z   1.96.0-x86_64-unknown-linux-gnu installed - rustc 1.96.0 (ac68faa20 2026-05-25)
+2026-07-23T17:06:30.3140168Z 
+2026-07-23T17:06:30.3205127Z ##[end-action id=__dtolnay_rust-toolchain.__run_4;outcome=success;conclusion=success;duration_ms=8511]
+2026-07-23T17:06:30.3211113Z ##[start-action display=Run rustup default 1.96.0;id=__dtolnay_rust-toolchain.__run_5]
+2026-07-23T17:06:30.3230855Z ##[group]Run rustup default 1.96.0
+2026-07-23T17:06:30.3231172Z [36;1mrustup default 1.96.0[0m
+2026-07-23T17:06:30.3293574Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.3293919Z env:
+2026-07-23T17:06:30.3294134Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.3294393Z ##[endgroup]
+2026-07-23T17:06:30.3430141Z info: using existing install for 1.96.0-x86_64-unknown-linux-gnu
+2026-07-23T17:06:30.3435772Z info: default toolchain set to 1.96.0-x86_64-unknown-linux-gnu
+2026-07-23T17:06:30.3436038Z 
+2026-07-23T17:06:30.3509073Z   1.96.0-x86_64-unknown-linux-gnu unchanged - rustc 1.96.0 (ac68faa20 2026-05-25)
+2026-07-23T17:06:30.3509446Z 
+2026-07-23T17:06:30.3526199Z ##[end-action id=__dtolnay_rust-toolchain.__run_5;outcome=success;conclusion=success;duration_ms=31]
+2026-07-23T17:06:30.3530537Z ##[start-action display=Run : create cachekey;id=__dtolnay_rust-toolchain.rustc-version]
+2026-07-23T17:06:30.3548884Z ##[group]Run : create cachekey
+2026-07-23T17:06:30.3549170Z [36;1m: create cachekey[0m
+2026-07-23T17:06:30.3549667Z [36;1mDATE=$(rustc +1.96.0 --version --verbose | sed -ne 's/^commit-date: \(20[0-9][0-9]\)-\([01][0-9]\)-\([0-3][0-9]\)$/\1\2\3/p')[0m
+2026-07-23T17:06:30.3550289Z [36;1mHASH=$(rustc +1.96.0 --version --verbose | sed -ne 's/^commit-hash: //p')[0m
+2026-07-23T17:06:30.3550965Z [36;1mecho "cachekey=$(echo $DATE$HASH | head -c12)" >> $GITHUB_OUTPUT[0m
+2026-07-23T17:06:30.3610199Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.3610549Z env:
+2026-07-23T17:06:30.3610968Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.3611233Z ##[endgroup]
+2026-07-23T17:06:30.3983804Z ##[end-action id=__dtolnay_rust-toolchain.rustc-version;outcome=success;conclusion=success;duration_ms=45]
+2026-07-23T17:06:30.3986575Z ##[start-action display=Run : disable incremental compilation;id=__dtolnay_rust-toolchain.__run_6]
+2026-07-23T17:06:30.4005353Z ##[group]Run : disable incremental compilation
+2026-07-23T17:06:30.4005702Z [36;1m: disable incremental compilation[0m
+2026-07-23T17:06:30.4006028Z [36;1mif [ -z "${CARGO_INCREMENTAL+set}" ]; then[0m
+2026-07-23T17:06:30.4006360Z [36;1m  echo CARGO_INCREMENTAL=0 >> $GITHUB_ENV[0m
+2026-07-23T17:06:30.4006649Z [36;1mfi[0m
+2026-07-23T17:06:30.4069136Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.4069503Z env:
+2026-07-23T17:06:30.4069719Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.4069984Z ##[endgroup]
+2026-07-23T17:06:30.4155060Z ##[end-action id=__dtolnay_rust-toolchain.__run_6;outcome=success;conclusion=success;duration_ms=16]
+2026-07-23T17:06:30.4157278Z ##[start-action display=Run : enable colors in Cargo output;id=__dtolnay_rust-toolchain.__run_7]
+2026-07-23T17:06:30.4174046Z ##[group]Run : enable colors in Cargo output
+2026-07-23T17:06:30.4174372Z [36;1m: enable colors in Cargo output[0m
+2026-07-23T17:06:30.4174695Z [36;1mif [ -z "${CARGO_TERM_COLOR+set}" ]; then[0m
+2026-07-23T17:06:30.4175039Z [36;1m  echo CARGO_TERM_COLOR=always >> $GITHUB_ENV[0m
+2026-07-23T17:06:30.4175334Z [36;1mfi[0m
+2026-07-23T17:06:30.4235222Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.4235758Z env:
+2026-07-23T17:06:30.4236077Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.4236476Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.4236808Z ##[endgroup]
+2026-07-23T17:06:30.4326548Z ##[end-action id=__dtolnay_rust-toolchain.__run_7;outcome=success;conclusion=success;duration_ms=16]
+2026-07-23T17:06:30.4330911Z ##[start-action display=Run : enable Cargo sparse registry;id=__dtolnay_rust-toolchain.__run_8]
+2026-07-23T17:06:30.4348894Z ##[group]Run : enable Cargo sparse registry
+2026-07-23T17:06:30.4349237Z [36;1m: enable Cargo sparse registry[0m
+2026-07-23T17:06:30.4349607Z [36;1m# implemented in 1.66, stabilized in 1.68, made default in 1.70[0m
+2026-07-23T17:06:30.4350325Z [36;1mif [ -z "${CARGO_REGISTRIES_CRATES_IO_PROTOCOL+set}" -o -f "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol ]; then[0m
+2026-07-23T17:06:30.4351051Z [36;1m  if rustc +1.96.0 --version --verbose | grep -q '^release: 1\.6[89]\.'; then[0m
+2026-07-23T17:06:30.4351624Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-07-23T17:06:30.4352156Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse >> $GITHUB_ENV[0m
+2026-07-23T17:06:30.4352655Z [36;1m  elif rustc +1.96.0 --version --verbose | grep -q '^release: 1\.6[67]\.'; then[0m
+2026-07-23T17:06:30.4353207Z [36;1m    touch "/home/runner/work/_temp"/.implicit_cargo_registries_crates_io_protocol || true[0m
+2026-07-23T17:06:30.4354006Z [36;1m    echo CARGO_REGISTRIES_CRATES_IO_PROTOCOL=git >> $GITHUB_ENV[0m
+2026-07-23T17:06:30.4354357Z [36;1m  fi[0m
+2026-07-23T17:06:30.4354562Z [36;1mfi[0m
+2026-07-23T17:06:30.4411205Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.4411559Z env:
+2026-07-23T17:06:30.4411771Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.4412031Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.4412261Z   CARGO_TERM_COLOR: always
+2026-07-23T17:06:30.4412487Z ##[endgroup]
+2026-07-23T17:06:30.4768972Z ##[end-action id=__dtolnay_rust-toolchain.__run_8;outcome=success;conclusion=success;duration_ms=43]
+2026-07-23T17:06:30.4773669Z ##[start-action display=Run : work around spurious network errors in curl 8.0;id=__dtolnay_rust-toolchain.__run_9]
+2026-07-23T17:06:30.4792316Z ##[group]Run : work around spurious network errors in curl 8.0
+2026-07-23T17:06:30.4792754Z [36;1m: work around spurious network errors in curl 8.0[0m
+2026-07-23T17:06:30.4793683Z [36;1m# https://rust-lang.zulipchat.com/#narrow/stream/246057-t-cargo/topic/timeout.20investigation[0m
+2026-07-23T17:06:30.4794296Z [36;1mif rustc +1.96.0 --version --verbose | grep -q '^release: 1\.7[01]\.'; then[0m
+2026-07-23T17:06:30.4794743Z [36;1m  echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV[0m
+2026-07-23T17:06:30.4795057Z [36;1mfi[0m
+2026-07-23T17:06:30.4857113Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.4857454Z env:
+2026-07-23T17:06:30.4857663Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.4857922Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.4858149Z   CARGO_TERM_COLOR: always
+2026-07-23T17:06:30.4858377Z ##[endgroup]
+2026-07-23T17:06:30.5072744Z ##[end-action id=__dtolnay_rust-toolchain.__run_9;outcome=success;conclusion=success;duration_ms=29]
+2026-07-23T17:06:30.5076781Z ##[start-action display=Run rustc +1.96.0 --version --verbose;id=__dtolnay_rust-toolchain.__run_10]
+2026-07-23T17:06:30.5096887Z ##[group]Run rustc +1.96.0 --version --verbose
+2026-07-23T17:06:30.5097353Z [36;1mrustc +1.96.0 --version --verbose[0m
+2026-07-23T17:06:30.5221510Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-23T17:06:30.5221859Z env:
+2026-07-23T17:06:30.5222065Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.5222320Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.5222530Z   CARGO_TERM_COLOR: always
+2026-07-23T17:06:30.5222750Z ##[endgroup]
+2026-07-23T17:06:30.5422442Z rustc 1.96.0 (ac68faa20 2026-05-25)
+2026-07-23T17:06:30.5422912Z binary: rustc
+2026-07-23T17:06:30.5423474Z commit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96
+2026-07-23T17:06:30.5423827Z commit-date: 2026-05-25
+2026-07-23T17:06:30.5424068Z host: x86_64-unknown-linux-gnu
+2026-07-23T17:06:30.5424308Z release: 1.96.0
+2026-07-23T17:06:30.5424530Z LLVM version: 22.1.2
+2026-07-23T17:06:30.5439314Z ##[end-action id=__dtolnay_rust-toolchain.__run_10;outcome=success;conclusion=success;duration_ms=36]
+2026-07-23T17:06:30.5499971Z ##[group]Run set -euo pipefail
+2026-07-23T17:06:30.5500284Z [36;1mset -euo pipefail[0m
+2026-07-23T17:06:30.5500556Z [36;1mmkdir -p target/ei-0f-evidence[0m
+2026-07-23T17:06:30.5500899Z [36;1mpython3 scripts/ei0e_preregistration.py verify \[0m
+2026-07-23T17:06:30.5501325Z [36;1m  > target/ei-0f-evidence/preregistration-verification.json[0m
+2026-07-23T17:06:30.5501750Z [36;1mpython3 scripts/ei0e_preregistration.py self-test \[0m
+2026-07-23T17:06:30.5502131Z [36;1m  > target/ei-0f-evidence/classifier-self-test.json[0m
+2026-07-23T17:06:30.5561591Z shell: /usr/bin/bash -e {0}
+2026-07-23T17:06:30.5561841Z env:
+2026-07-23T17:06:30.5562055Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.5562320Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.5562551Z   CARGO_TERM_COLOR: always
+2026-07-23T17:06:30.5562790Z ##[endgroup]
+2026-07-23T17:06:30.6703474Z ##[group]Run set -euo pipefail
+2026-07-23T17:06:30.6703804Z [36;1mset -euo pipefail[0m
+2026-07-23T17:06:30.6704068Z [36;1mexport EI0F_SOURCE_VERIFIED=1[0m
+2026-07-23T17:06:30.6705123Z [36;1mcargo run -p star --example ei_0f_terminal_experiment --features emerging-intelligence-updates --locked --quiet \[0m
+2026-07-23T17:06:30.6705717Z [36;1m  > docs/experiments/EI_0F_TERMINAL_REPORT.json[0m
+2026-07-23T17:06:30.6706038Z [36;1mpython3 - <<'PY'[0m
+2026-07-23T17:06:30.6706276Z [36;1mimport json[0m
+2026-07-23T17:06:30.6706507Z [36;1mfrom pathlib import Path[0m
+2026-07-23T17:06:30.6706757Z [36;1m[0m
+2026-07-23T17:06:30.6707036Z [36;1mpath = Path('docs/experiments/EI_0F_TERMINAL_REPORT.json')[0m
+2026-07-23T17:06:30.6707467Z [36;1mreport = json.loads(path.read_text(encoding='utf-8'))[0m
+2026-07-23T17:06:30.6707831Z [36;1mif report.get('stage') != 'EI-0F':[0m
+2026-07-23T17:06:30.6708210Z [36;1m    raise SystemExit('terminal runner emitted the wrong stage')[0m
+2026-07-23T17:06:30.6708890Z [36;1mif report.get('preregistration_id') != 'ei-0e-terminal-v1':[0m
+2026-07-23T17:06:30.6709377Z [36;1m    raise SystemExit('terminal runner emitted the wrong preregistration ID')[0m
+2026-07-23T17:06:30.6709827Z [36;1mif report.get('source_match') is not True:[0m
+2026-07-23T17:06:30.6710255Z [36;1m    raise SystemExit('terminal runner did not seal source verification')[0m
+2026-07-23T17:06:30.6710638Z [36;1mPY[0m
+2026-07-23T17:06:30.6772768Z shell: /usr/bin/bash -e {0}
+2026-07-23T17:06:30.6773027Z env:
+2026-07-23T17:06:30.6773403Z   CARGO_HOME: /home/runner/.cargo
+2026-07-23T17:06:30.6773672Z   CARGO_INCREMENTAL: 0
+2026-07-23T17:06:30.6773904Z   CARGO_TERM_COLOR: always
+2026-07-23T17:06:30.6774139Z ##[endgroup]
+2026-07-23T17:07:13.1515734Z 
+2026-07-23T17:07:13.1516657Z thread 'main' (2356) panicked at lib/examples/ei_0f_terminal_experiment.rs:660:24:
+2026-07-23T17:07:13.1517521Z EI-0F terminal experiment must emit a complete report or fail: InvalidDigestText("learning proposal digest")
+2026-07-23T17:07:13.1518158Z note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+2026-07-23T17:07:13.1536956Z ##[error]Process completed with exit code 101.
+2026-07-23T17:07:13.1681185Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-23T17:07:13.1682677Z Post job cleanup.
+2026-07-23T17:07:13.2550298Z [command]/usr/bin/git version
+2026-07-23T17:07:13.2629648Z git version 2.54.0
+2026-07-23T17:07:13.2670162Z Temporarily overriding HOME='/home/runner/work/_temp/c818b6ef-8c29-4664-ba61-e04abd95685f' before making global git config changes
+2026-07-23T17:07:13.2671357Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-23T17:07:13.2676618Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/starfire/starfire
+2026-07-23T17:07:13.2716865Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-23T17:07:13.2752524Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-23T17:07:13.3015087Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-23T17:07:13.3042106Z http.https://github.com/.extraheader
+2026-07-23T17:07:13.3055741Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-23T17:07:13.3092758Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-23T17:07:13.3368756Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-23T17:07:13.3411757Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-23T17:07:13.3836043Z Cleaning up orphan processes
+2026-07-23T17:07:13.4094342Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

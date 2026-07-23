@@ -2,7 +2,7 @@
 
 > **Index snapshot:** 2026-07-23
 
-This directory contains preregistrations, implementation records, result templates, external result records, blockers, and bounded design notes. It is an evidence archive, not a flat list of shipped features.
+This directory contains preregistrations, implementation records, result records, external evaluations, blockers, and bounded design notes. It is an evidence archive, not a flat list of shipped features.
 
 ## How to read an experiment
 
@@ -10,7 +10,7 @@ Before citing a result, identify:
 
 1. the exact experiment identifier;
 2. the frozen hypothesis and thresholds;
-3. whether execution actually reached the evaluator;
+3. whether execution reached the evaluator;
 4. the result classification;
 5. the authority boundary;
 6. the promotion rule;
@@ -20,7 +20,7 @@ A merged implementation is not automatically a scientific PASS. A green workflow
 
 ## Emerging Intelligence critical path
 
-The active program asks whether independently scored prior experience causes held-out improvement beyond matched controls and survives transfer.
+The program asks whether independently scored prior experience causes held-out improvement beyond matched controls and survives transfer.
 
 ```text
 EI-0A canonical episodes
@@ -28,7 +28,8 @@ EI-0A canonical episodes
   → EI-0C append-only history and fresh-state replay
   → EI-0D reversible fixed-schema updates and rollback
   → EI-0E frozen terminal preregistration
-  → EI-0F exact-source terminal experiment
+  → EI-0F exact-source terminal execution: FAIL
+  → separately preregistered remediation required
 ```
 
 | Stage | Record | Current interpretation |
@@ -37,15 +38,21 @@ EI-0A canonical episodes
 | EI-0B | [`EI_0B_DETERMINISTIC_ENVIRONMENT.md`](EI_0B_DETERMINISTIC_ENVIRONMENT.md) | Frozen tasks, partitions, evaluators and matched arms |
 | EI-0C | [`EI_0C_APPEND_ONLY_LEDGER.md`](EI_0C_APPEND_ONLY_LEDGER.md) | Append-only canonical history and exact fresh-state replay |
 | EI-0D implementation | [`EI_0D_REVERSIBLE_UPDATES.md`](EI_0D_REVERSIBLE_UPDATES.md) | Offline provenance-bound updates and exact rollback |
-| EI-0D result | [`EI_0D_RESULT.md`](EI_0D_RESULT.md) | **PASS for bounded infrastructure only**; not evidence of cumulative improvement |
-| EI-0E preregistration | [`EI_0E_TERMINAL_PREREGISTRATION.md`](EI_0E_TERMINAL_PREREGISTRATION.md) | **Frozen and merged** under `ei-0e-terminal-v1`; no terminal result yet |
-| EI-0E manifest | [`EI_0E_TERMINAL_PREREGISTRATION.json`](EI_0E_TERMINAL_PREREGISTRATION.json) | Canonical hypotheses, source, seeds, arms, budgets, thresholds and classifier rules |
-| EI-0E freeze lock | [`EI_0E_FREEZE_LOCK.json`](EI_0E_FREEZE_LOCK.json) | Exact Git-blob binding for the frozen preregistration package |
-| EI-0F report schema | [`EI_0F_TERMINAL_REPORT.schema.json`](EI_0F_TERMINAL_REPORT.schema.json) | Canonical result format for the unexecuted terminal experiment |
+| EI-0D result | [`EI_0D_RESULT.md`](EI_0D_RESULT.md) | **PASS for bounded infrastructure only**; not cumulative improvement |
+| EI-0E preregistration | [`EI_0E_TERMINAL_PREREGISTRATION.md`](EI_0E_TERMINAL_PREREGISTRATION.md) | **Frozen and merged** under `ei-0e-terminal-v1` |
+| EI-0E manifest | [`EI_0E_TERMINAL_PREREGISTRATION.json`](EI_0E_TERMINAL_PREREGISTRATION.json) | Canonical source, seeds, arms, budgets, thresholds and classifier |
+| EI-0E freeze lock | [`EI_0E_FREEZE_LOCK.json`](EI_0E_FREEZE_LOCK.json) | Exact Git-blob binding for the frozen package |
+| EI-0F result | [`EI_0F_TERMINAL_RESULT.md`](EI_0F_TERMINAL_RESULT.md) | **FAIL**; runner crashed before arm evaluation |
+| EI-0F crash report | [`EI_0F_TERMINAL_REPORT.json`](EI_0F_TERMINAL_REPORT.json) | Schema-valid fail-closed record with `crashed=true` |
+| EI-0F classifier output | [`EI_0F_TERMINAL_CLASSIFICATION.json`](EI_0F_TERMINAL_CLASSIFICATION.json) | Frozen classifier returned `FAIL` |
+| EI-0F evidence | [`EI_0F_TERMINAL_EVIDENCE.json`](EI_0F_TERMINAL_EVIDENCE.json) | Source identity, digests, failed run identity and no-rerun proof |
+| EI-0F failure log | [`EI_0F_TERMINAL_EXECUTION_FAILURE.log`](EI_0F_TERMINAL_EXECUTION_FAILURE.log) | Preserved panic and process exit evidence |
 
-EI-0E merged in PR [#196](https://github.com/toxzak-svg/starfire/pull/196) at `2da7eeed`. Its manifest SHA-256 is `5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73`. The next stage is exact-source execution under [issue #200](https://github.com/toxzak-svg/starfire/issues/200).
+EI-0E merged in PR [#196](https://github.com/toxzak-svg/starfire/pull/196) at `2da7eeed`. Its manifest SHA-256 is `5b83b27e5c218b6af2c53409d60fa6bf285adcde7ccb05b42505a5d0da290d73`.
 
-Authoritative tracking: [EI-0 master issue #149](https://github.com/toxzak-svg/starfire/issues/149).
+EI-0F was executed once at commit `5c4fded7eda16cbf3a6673880557c2242e430c14`. Frozen source verification passed, then the runner panicked with `InvalidDigestText("learning proposal digest")` and exit code `101`. No second qualifying execution was performed. EI-0G is not authorized.
+
+Authoritative tracking: [EI-0 master issue #149](https://github.com/toxzak-svg/starfire/issues/149), [EI-0F issue #200](https://github.com/toxzak-svg/starfire/issues/200), and [result PR #201](https://github.com/toxzak-svg/starfire/pull/201).
 
 ## ΩV1 cognitive-to-voice and STLM
 
@@ -63,14 +70,7 @@ The ΩV1/STLM work separates semantic authorization, deterministic realization, 
 | ΩV1-F0 | [`OMEGAV1F0_LEARNED_EXPRESSION_RENDERER_PREREGISTRATION.md`](OMEGAV1F0_LEARNED_EXPRESSION_RENDERER_PREREGISTRATION.md) | Learned selector preregistration |
 | ΩV1-F1 | [`OMEGAV1F1_EXTERNAL_FAIL_2026-07-20.md`](OMEGAV1F1_EXTERNAL_FAIL_2026-07-20.md) | **FAIL**, preserved |
 | ΩV1-F1R1 | [`OMEGAV1F1R1_EXTERNAL_PASS_2026-07-20.md`](OMEGAV1F1R1_EXTERNAL_PASS_2026-07-20.md) | Separate bounded remediation PASS |
-| ΩV1-F2 | [`OMEGAV1F2_IMPLEMENTATION_STATUS.md`](OMEGAV1F2_IMPLEMENTATION_STATUS.md) | Post-response shadow boundary; not final collection evidence |
-
-STLM records:
-
-- [`STLM_L0_SEMANTIC_PROGRAM.md`](STLM_L0_SEMANTIC_PROGRAM.md)
-- [`STLM_L1_INDEPENDENT_LANGUAGE_VERIFIER.md`](STLM_L1_INDEPENDENT_LANGUAGE_VERIFIER.md)
-- [`../architecture/STATE_TRANSITION_LANGUAGE_MODEL.md`](../architecture/STATE_TRANSITION_LANGUAGE_MODEL.md)
-- [`../../plans/STATE_TRANSITION_LANGUAGE_MODEL_PROGRAM.md`](../../plans/STATE_TRANSITION_LANGUAGE_MODEL_PROGRAM.md)
+| ΩV1-F2 | [`OMEGAV1F2_IMPLEMENTATION_STATUS.md`](OMEGAV1F2_IMPLEMENTATION_STATUS.md) | Post-response shadow boundary; not final evidence |
 
 Language fluency or style improvement is not an intelligence gain unless it improves a frozen task metric without semantic drift.
 
@@ -82,7 +82,7 @@ ARISE-A0 and ARISE-A1 are merged, default-off, shadow-bounded research. They pro
 - A0 merge: `24e7ce03`
 - A1 merge: `ad03f7d6`
 
-ARISE remains independent research during EI-0. It receives no EI critical-path credit unless the frozen terminal experiment attributes a causal held-out advantage to it.
+ARISE remains independent research during EI-0. It receives no EI critical-path credit unless a frozen experiment attributes a causal held-out advantage to it.
 
 ## Companion interaction ladder
 
@@ -122,9 +122,9 @@ Executable grammar and abstraction probes include ΩG1 through ΩG4. Their names
 | `FAIL` | At least one frozen required gate failed |
 | `COLLECTING` | Implementation is active but the frozen sample is incomplete |
 | `BLOCKED` | A prerequisite prevents execution |
-| `NO VERDICT` | Infrastructure failed before the evaluator produced a result |
+| `NO VERDICT` | Infrastructure failed before the evaluator produced a result unless the preregistration classifies that failure as FAIL |
 
-For EI-0F, the frozen classifier permits only `PASS` or `FAIL`. Crashes, source mismatch, corruption, missing data, nondeterminism, budget mismatch, or threshold ambiguity are FAIL conditions rather than an discretionary inconclusive category.
+For EI-0F, the frozen classifier permits only `PASS` or `FAIL`. Crashes, source mismatch, corruption, missing data, nondeterminism, budget mismatch, or threshold ambiguity are FAIL conditions.
 
 ## Evidence preservation policy
 
@@ -133,7 +133,7 @@ For EI-0F, the frozen classifier permits only `PASS` or `FAIL`. Crashes, source 
 3. Never describe a shadow stage as live influence.
 4. Never describe a live-text canary as action authority.
 5. Preserve exact source and environment identity where available.
-6. Record infrastructure failures separately from scientific failures unless a preregistration explicitly classifies them as FAIL.
+6. Record infrastructure failures separately unless a preregistration explicitly classifies them as FAIL.
 7. Keep interpretation narrower than the experiment name when necessary.
 8. Separate authority, capability, and evidence claims.
 
