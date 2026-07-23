@@ -38,7 +38,7 @@ jobs:
 
       - name: Apply exact scoped formatting
         run: |
-          rustfmt --edition 2021 \
+          rustfmt --edition 2021 --config skip_children=true \
             lib/lib.rs \
             lib/emerging_intelligence/updates.rs \
             lib/examples/ei_0d_reversible_update_probe.rs
