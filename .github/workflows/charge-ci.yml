@@ -199,3 +199,46 @@ jobs:
             a1-bounded-autonomous-kernel-report.json
           if-no-files-found: ignore
           retention-days: 7
+
+  web-retrieval-diagnostic:
+    name: web-retrieval-diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check scoped formatting
+        run: |
+          rustfmt --edition 2021 --config skip_children=true --check lib/lib.rs
+          rustfmt --edition 2021 --check \
+            lib/web_retrieval.rs \
+            lib/web_search_searxng.rs \
+            lib/web_content_extract.rs \
+            lib/web_research.rs
+
+      - name: Compile retrieval features
+        run: cargo check -p star --lib --features web-search-searxng --locked
+
+      - name: Lint retrieval features
+        run: cargo clippy -p star --lib --features web-search-searxng --locked -- -D warnings
+
+      - name: Test bounded retrieval contracts
+        run: cargo test -p star --lib --features web-search-searxng --locked web_retrieval:: -- --test-threads=1
+
+      - name: Test SearXNG provider contracts
+        run: cargo test -p star --lib --features web-search-searxng --locked web_search_searxng:: -- --test-threads=1
+
+      - name: Test extraction contracts
+        run: cargo test -p star --lib --features web-search-searxng --locked web_content_extract:: -- --test-threads=1
+
+      - name: Test orchestration contracts
+        run: cargo test -p star --lib --features web-search-searxng --locked web_research:: -- --test-threads=1
