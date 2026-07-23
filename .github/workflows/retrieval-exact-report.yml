@@ -1,6 +1,18 @@
 name: Retrieval Exact Report
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/web_retrieval.rs"
+      - "lib/web_search_searxng.rs"
+      - "lib/web_content_extract.rs"
+      - "lib/web_research.rs"
+      - "lib/Cargo.toml"
+      - "lib/lib.rs"
+      - "scripts/check_web_retrieval_a0.sh"
+      - ".github/workflows/retrieval-exact-report.yml"
   push:
     branches:
       - validation/web-retrieval-exact-final
