@@ -214,6 +214,11 @@ name = "ei_0g_shadow_preregistration_probe"
 path = "examples/ei_0g_shadow_preregistration_probe.rs"
 required-features = ["emerging-intelligence-shadow"]
 
+[[example]]
+name = "ei_0g_s2_attachment_freeze_probe"
+path = "examples/ei_0g_s2_attachment_freeze_probe.rs"
+required-features = ["emerging-intelligence-shadow-attachment"]
+
 [dependencies]
 rusqlite.workspace = true
 serde.workspace = true
@@ -268,5 +273,6 @@ emerging-intelligence-environment = ["emerging-intelligence-contracts"]  # EI-0B
 emerging-intelligence-ledger = ["emerging-intelligence-contracts"]  # EI-0C append-only canonical episode ledger and fresh-state replay; offline-only
 emerging-intelligence-updates = ["emerging-intelligence-environment", "emerging-intelligence-ledger"]  # EI-0D fixed-schema reversible updates and rollback; offline-only
 emerging-intelligence-shadow = ["emerging-intelligence-updates"]  # EI-0G read-only preregistration contracts and synthetic controls; no live wiring
+emerging-intelligence-shadow-attachment = ["emerging-intelligence-shadow"]  # EI-0G-S2 compile-only attachment freeze; collection disabled and unexported
 web-retrieval-a0 = []  # bounded URL fetch/download contracts; no Runtime::chat() or autonomous-action wiring
 web-search-searxng = ["web-retrieval-a0"]  # provider adapter over bounded retrieval; no live chat wiring
