@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   arise-a1-typed-program-shadow:
@@ -26,8 +26,10 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Check out repository
+      - name: Check out repository branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -37,7 +39,7 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Check scoped formatting
+      - name: Apply scoped formatting
         run: |
           rustfmt --edition 2021 \
             lib/arise_edge/mod.rs \
@@ -48,7 +50,7 @@ jobs:
             lib/arise_response_shadow_ext.rs \
             lib/examples/arise_a0_edge_bridge.rs \
             lib/examples/arise_a1_typed_program_shadow.rs
-          tar -czf arise-a1-formatted-sources.tar.gz \
+          if ! git diff --quiet -- \
             lib/arise_edge/mod.rs \
             lib/arise_edge/types.rs \
             lib/arise_edge/engine.rs \
@@ -56,20 +58,20 @@ jobs:
             lib/arise_typed_plan_shadow.rs \
             lib/arise_response_shadow_ext.rs \
             lib/examples/arise_a0_edge_bridge.rs \
-            lib/examples/arise_a1_typed_program_shadow.rs
-          git diff -- \
-            lib/arise_edge/mod.rs \
-            lib/arise_edge/types.rs \
-            lib/arise_edge/engine.rs \
-            lib/arise_edge/runtime_shadow.rs \
-            lib/arise_typed_plan_shadow.rs \
-            lib/arise_response_shadow_ext.rs \
-            lib/examples/arise_a0_edge_bridge.rs \
-            lib/examples/arise_a1_typed_program_shadow.rs \
-            > arise-a1-rustfmt.patch
-          if test -s arise-a1-rustfmt.patch; then
-            cat arise-a1-rustfmt.patch
-            exit 1
+            lib/examples/arise_a1_typed_program_shadow.rs; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add \
+              lib/arise_edge/mod.rs \
+              lib/arise_edge/types.rs \
+              lib/arise_edge/engine.rs \
+              lib/arise_edge/runtime_shadow.rs \
+              lib/arise_typed_plan_shadow.rs \
+              lib/arise_response_shadow_ext.rs \
+              lib/examples/arise_a0_edge_bridge.rs \
+              lib/examples/arise_a1_typed_program_shadow.rs
+            git commit -m "style(arise): apply scoped rustfmt"
+            git push origin HEAD:${GITHUB_HEAD_REF}
           fi
 
       - name: Confirm default build remains unchanged
@@ -137,7 +139,5 @@ jobs:
             arise-a1-report.json
             arise-a1-replay.json
             arise-a1-clippy.log
-            arise-a1-rustfmt.patch
-            arise-a1-formatted-sources.tar.gz
           if-no-files-found: ignore
           retention-days: 30
