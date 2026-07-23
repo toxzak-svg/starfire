@@ -26,6 +26,7 @@ jobs:
         with:
           ref: feat/ei-0e-terminal-preregistration
           fetch-depth: 1
+          show-progress: false
 
       - name: Refresh exact source identities
         run: |
