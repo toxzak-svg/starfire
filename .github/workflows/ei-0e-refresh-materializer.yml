@@ -40,7 +40,10 @@ jobs:
           pieces = sorted(payload_dir.glob('r-*'))
           if not pieces:
               raise SystemExit('missing EI-0E refresh fragments')
-          payload = json.loads(''.join(piece.read_text(encoding='utf-8') for piece in pieces))
+          payload_text = ''.join(
+              piece.read_text(encoding='utf-8').strip() for piece in pieces
+          )
+          payload = json.loads(payload_text)
           if payload.get('schema_version') != 1:
               raise SystemExit('unsupported EI-0E refresh schema')
           expected = {
