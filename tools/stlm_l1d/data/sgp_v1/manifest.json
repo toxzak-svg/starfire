@@ -1,0 +1,195 @@
+{
+  "authority_boundary": {
+    "identity_rewrite_authority": false,
+    "ranking_only": true,
+    "semantic_authority": false,
+    "slot_authority": false,
+    "tool_or_action_authority": false
+  },
+  "dataset_name": "starfire-sgp-mirrored-valid-surface-pairs",
+  "files": {
+    "cnn_phrase_ranker/dev.jsonl": {
+      "bytes": 844924,
+      "sha256": "66bca482438d56031fe54a3e80322638fa28579c534403e685eecebfdd6a29d5"
+    },
+    "cnn_phrase_ranker/full.jsonl": {
+      "bytes": 8452336,
+      "sha256": "fc1139c096f051e12c268d85f4737b875ab4e4285812a9104fcd351e803c28e0"
+    },
+    "cnn_phrase_ranker/gold.jsonl": {
+      "bytes": 2816768,
+      "sha256": "4a12812242331db5432bf36f1044e1a84085265d01ffdc0db85aeeb96ef3eb4e"
+    },
+    "cnn_phrase_ranker/platinum.jsonl": {
+      "bytes": 2818092,
+      "sha256": "384d393fbaae1fff5b348a21f59cbd2009cd596b7329d5f0545cf367a44ac882"
+    },
+    "cnn_phrase_ranker/silver.jsonl": {
+      "bytes": 2817476,
+      "sha256": "d7b73a0659a798f424872225fdfb6d2b2c6b8c7c687ea10832b28cfecd023b80"
+    },
+    "cnn_phrase_ranker/test.jsonl": {
+      "bytes": 847930,
+      "sha256": "ae5e129508f053264e7f877d6ebc6ef211a4ba14aeadfceeb3483594d80d271b"
+    },
+    "cnn_phrase_ranker/train.jsonl": {
+      "bytes": 6759482,
+      "sha256": "b05976895b22fa97aef5ab3e2ca68c759be108bdcba58676eca61cf2477eb001"
+    },
+    "cnn_phrase_ranker/train_gold.jsonl": {
+      "bytes": 2252606,
+      "sha256": "2006aab3608ef01f482e623ed8b2dbaa445a8aee613be42731b6bd70d85cedbe"
+    },
+    "cnn_phrase_ranker/train_platinum.jsonl": {
+      "bytes": 2253634,
+      "sha256": "9fba5e19bc2fcf09fabc2e6fd81979dd206dbeb0a7d4e978fe35cba1fcc6c2c0"
+    },
+    "cnn_phrase_ranker/train_silver.jsonl": {
+      "bytes": 2253242,
+      "sha256": "0c2c719f9929b0a2040377cd3f3c61e559c98bbcb4f30b0e2d27fbe19e3fcbe1"
+    },
+    "evaluation/hard_gate_adversary.jsonl": {
+      "bytes": 163518,
+      "sha256": "922e589e17ddaef363030efc05c73cf9c10f91889dcbbaeee1d2fd101bfb266c"
+    },
+    "rnn_phrase_ranker/dev.jsonl": {
+      "bytes": 932690,
+      "sha256": "830d096144011b1135c85186c2bfb9f6e21ea78224d9ddb0e7a9de1804571b38"
+    },
+    "rnn_phrase_ranker/full.jsonl": {
+      "bytes": 9318520,
+      "sha256": "77592a69620bdb34f48d9bfd03c3269568b73b9c33fa87e54d068c775d5bdb10"
+    },
+    "rnn_phrase_ranker/gold.jsonl": {
+      "bytes": 3105760,
+      "sha256": "8e07083e50ed925ae0e473732ff201e27593c2db984e490a57889de2b683972d"
+    },
+    "rnn_phrase_ranker/platinum.jsonl": {
+      "bytes": 3106572,
+      "sha256": "d815e24f60fea9baeb9f0ed5f56b954342a380c619ceb42be495fc0850c1327d"
+    },
+    "rnn_phrase_ranker/silver.jsonl": {
+      "bytes": 3106188,
+      "sha256": "e98620f40abcd1a1567193735e574cc7113699165b9c750324b4f1892c049849"
+    },
+    "rnn_phrase_ranker/test.jsonl": {
+      "bytes": 935296,
+      "sha256": "4a2f16dfd3dfb04d176f401cf4c816522d2f8d747c16528fd8883995dacf4f13"
+    },
+    "rnn_phrase_ranker/train.jsonl": {
+      "bytes": 7450534,
+      "sha256": "0576a8c3730ca2470c5e3c2759f8abd0d72dab67ce666bc3a0c6f33b415fbb25"
+    },
+    "rnn_phrase_ranker/train_gold.jsonl": {
+      "bytes": 2483154,
+      "sha256": "4250b87c1f5b0d714306fbd6f9deebbeb34ae9db086ecf244867239f6419bb24"
+    },
+    "rnn_phrase_ranker/train_platinum.jsonl": {
+      "bytes": 2483846,
+      "sha256": "a0d74f64b9a18c8a3c3b6596ce49432bdf7b1bdc42e29dca528748b38f840ea5"
+    },
+    "rnn_phrase_ranker/train_silver.jsonl": {
+      "bytes": 2483534,
+      "sha256": "b061291238dcd956a9af3e6213fa839db932f4645cafc89fa8a3acf608ab38aa"
+    },
+    "starfire_cnn_silver_gold_platinum.jsonl": {
+      "bytes": 8452336,
+      "sha256": "fc1139c096f051e12c268d85f4737b875ab4e4285812a9104fcd351e803c28e0"
+    },
+    "starfire_rnn_silver_gold_platinum.jsonl": {
+      "bytes": 9318520,
+      "sha256": "77592a69620bdb34f48d9bfd03c3269568b73b9c33fa87e54d068c775d5bdb10"
+    }
+  },
+  "human_review_status": "requires_blinded_human_adjudication",
+  "report": {
+    "cnn": {
+      "axis_counts": {
+        "colon_compaction": 300,
+        "comma_cadence": 300,
+        "contraction_register": 300,
+        "explicit_labels": 300,
+        "imagery_density": 300,
+        "noun_repetition": 300,
+        "opener_length": 300,
+        "parenthetical_caveat": 300,
+        "semicolon_rhythm": 300,
+        "terminology": 300,
+        "voice": 300,
+        "warmth_marker": 300
+      },
+      "mirror_groups": 1800,
+      "preferred_candidate_counts": {
+        "A": 1800,
+        "B": 1800
+      },
+      "records": 3600,
+      "split_counts": {
+        "dev": 360,
+        "test": 360,
+        "train": 2880
+      },
+      "text_bytes_per_pair": {
+        "max": 654,
+        "mean": 343.87,
+        "median": 331.0,
+        "min": 194
+      },
+      "tier_counts": {
+        "gold": 1200,
+        "platinum": 1200,
+        "silver": 1200
+      }
+    },
+    "design": {
+      "both_candidates_valid_in_training": true,
+      "evaluation_adversary_excluded_from_training": true,
+      "mirrored_context_preference_flips": true,
+      "same_claim_slots_facts_authorization": true,
+      "source_group_split_isolation": true
+    },
+    "hard_gate_adversary_records": 240,
+    "rnn": {
+      "axis_counts": {
+        "cadence_shape": 300,
+        "closure_position": 300,
+        "disagreement_sequence": 300,
+        "energy_curve": 300,
+        "evidence_emphasis": 300,
+        "explanation_depth": 300,
+        "identity_explicitness": 300,
+        "metaphor_position": 300,
+        "result_order": 300,
+        "transition_density": 300,
+        "uncertainty_placement": 300,
+        "warmth_placement": 300
+      },
+      "mirror_groups": 1800,
+      "preferred_candidate_counts": {
+        "A": 1800,
+        "B": 1800
+      },
+      "records": 3600,
+      "split_counts": {
+        "dev": 360,
+        "test": 360,
+        "train": 2880
+      },
+      "text_bytes_per_pair": {
+        "max": 768,
+        "mean": 445.55,
+        "median": 430.0,
+        "min": 276
+      },
+      "tier_counts": {
+        "gold": 1200,
+        "platinum": 1200,
+        "silver": 1200
+      }
+    },
+    "seed": 826071924,
+    "version": "9.0.0"
+  },
+  "seed": 826071924,
+  "version": "9.0.0"
+}

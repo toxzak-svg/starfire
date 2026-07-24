@@ -1,0 +1,78 @@
+{
+  "report": {
+    "cnn": {
+      "axes": {
+        "colon_compaction": 300,
+        "comma_cadence": 300,
+        "contraction_register": 300,
+        "explicit_labels": 300,
+        "imagery_density": 300,
+        "noun_repetition": 300,
+        "opener_length": 300,
+        "parenthetical_caveat": 300,
+        "semicolon_rhythm": 300,
+        "terminology": 300,
+        "voice": 300,
+        "warmth_marker": 300
+      },
+      "max_candidate_bytes": 355,
+      "mean_candidate_bytes": 171.94,
+      "mirror_groups": 1800,
+      "rows": 3600,
+      "splits": {
+        "dev": 360,
+        "test": 360,
+        "train": 2880
+      },
+      "tiers": {
+        "gold": 1200,
+        "platinum": 1200,
+        "silver": 1200
+      }
+    },
+    "hard_gate_adversary": {
+      "defects": {
+        "authority_expansion": 30,
+        "evidence_rewrite": 30,
+        "identity_conflict": 30,
+        "memory_overclaim": 30,
+        "missing_slot": 30,
+        "semantic_drift": 30,
+        "source_dependence": 30,
+        "wrong_confidence": 30
+      },
+      "rows": 240
+    },
+    "rnn": {
+      "axes": {
+        "cadence_shape": 300,
+        "closure_position": 300,
+        "disagreement_sequence": 300,
+        "energy_curve": 300,
+        "evidence_emphasis": 300,
+        "explanation_depth": 300,
+        "identity_explicitness": 300,
+        "metaphor_position": 300,
+        "result_order": 300,
+        "transition_density": 300,
+        "uncertainty_placement": 300,
+        "warmth_placement": 300
+      },
+      "max_candidate_bytes": 384,
+      "mean_candidate_bytes": 222.78,
+      "mirror_groups": 1800,
+      "rows": 3600,
+      "splits": {
+        "dev": 360,
+        "test": 360,
+        "train": 2880
+      },
+      "tiers": {
+        "gold": 1200,
+        "platinum": 1200,
+        "silver": 1200
+      }
+    }
+  },
+  "status": "PASS"
+}

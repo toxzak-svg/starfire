@@ -1,0 +1,4 @@
+{"control": "reversed_labels.jsonl", "rows": 2880, "path": "/home/runner/work/starfire/starfire/tools/stlm_l1d/data/sgp_v1/controls/rnn/reversed_labels.jsonl"}
+{"control": "random_labels.jsonl", "rows": 2880, "path": "/home/runner/work/starfire/starfire/tools/stlm_l1d/data/sgp_v1/controls/rnn/random_labels.jsonl"}
+{"control": "context_zeroed.jsonl", "rows": 2880, "path": "/home/runner/work/starfire/starfire/tools/stlm_l1d/data/sgp_v1/controls/rnn/context_zeroed.jsonl"}
+{"control": "identity_relevance_zeroed.jsonl", "rows": 2880, "path": "/home/runner/work/starfire/starfire/tools/stlm_l1d/data/sgp_v1/controls/rnn/identity_relevance_zeroed.jsonl"}

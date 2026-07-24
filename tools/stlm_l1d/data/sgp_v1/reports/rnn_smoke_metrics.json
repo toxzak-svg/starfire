@@ -1,0 +1,45 @@
+{
+  "dev": {
+    "accuracy": 0.5,
+    "breakdown": {
+      "axis:result_order": 0.5,
+      "axis:uncertainty_placement": 0.5,
+      "axis:warmth_placement": 0.5,
+      "tier:gold": 0.5,
+      "tier:platinum": 0.5,
+      "tier:silver": 0.5
+    },
+    "mean_margin": 2.2354070097208023e-06,
+    "n": 64
+  },
+  "history": [
+    {
+      "accuracy": 0.5,
+      "breakdown": {
+        "axis:result_order": 0.5,
+        "axis:uncertainty_placement": 0.5,
+        "axis:warmth_placement": 0.5,
+        "tier:gold": 0.5,
+        "tier:platinum": 0.5,
+        "tier:silver": 0.5
+      },
+      "epoch": 1,
+      "mean_margin": 2.2354070097208023e-06,
+      "n": 64,
+      "train_loss": 0.6966018825769424
+    }
+  ],
+  "test": {
+    "accuracy": 0.5,
+    "breakdown": {
+      "axis:result_order": 0.5,
+      "axis:uncertainty_placement": 0.5,
+      "axis:warmth_placement": 0.5,
+      "tier:gold": 0.5,
+      "tier:platinum": 0.5,
+      "tier:silver": 0.5
+    },
+    "mean_margin": 7.594935595989227e-06,
+    "n": 64
+  }
+}
