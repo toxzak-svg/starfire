@@ -132,7 +132,9 @@ impl PhraseCriticModel {
             .output_weights
             .iter()
             .zip(hidden.iter())
-            .fold(self.output_bias, |sum, (weight, value)| sum + weight * value);
+            .fold(self.output_bias, |sum, (weight, value)| {
+                sum + weight * value
+            });
         if !logit.is_finite() {
             return Err(PhraseCriticError::NonFiniteInference);
         }
@@ -411,7 +413,10 @@ mod tests {
     #[test]
     fn exact_replay_is_identical() {
         let critic = PhraseCritic::new(toy_model()).unwrap();
-        let candidates = vec![candidate(1, "That follows.", 20), candidate(2, "That follows!", 10)];
+        let candidates = vec![
+            candidate(1, "That follows.", 20),
+            candidate(2, "That follows!", 10),
+        ];
         let first = critic
             .select(&PhraseCriticContext::default(), &candidates)
             .unwrap();
