@@ -1,0 +1,59 @@
+{
+  "experiment": "STLM_L1D2_VALID_SURFACE_BENCHMARK_AND_CRITIC_V2_PREFLIGHT",
+  "schema_version": 2,
+  "surface_corpus": {
+    "path": "tools/stlm_l1d/data/valid_surface_tournaments.jsonl",
+    "file_sha256": "30e12242e33f70c38abec5a069d6ed856170f7bbdcc896ca396e56139b591b6c",
+    "tournaments": 36,
+    "candidates": 172,
+    "groups": 36,
+    "categories": 6,
+    "minimum_candidates": 4,
+    "maximum_candidates": 8
+  },
+  "semantic_invalid_corpus": {
+    "path": "tools/stlm_l1d/data/semantic_invalid_candidates.jsonl",
+    "file_sha256": "419b20e48f1b6e02621639850c667ef1b2d2b5ef5807a7cbbe49a2bd91803912",
+    "probes": 12,
+    "invalid_candidates": 36,
+    "quality_metric_influence": false
+  },
+  "evaluation": {
+    "seeds": [1729, 2718, 3141, 5772, 8119],
+    "grouped_split": {
+      "train_tournaments": 18,
+      "dev_tournaments": 6,
+      "test_tournaments": 12,
+      "group_overlap_allowed": false
+    },
+    "required_controls": [
+      "shuffled_context",
+      "shuffled_label",
+      "punctuation_normalized",
+      "whitespace_normalized",
+      "unicode_normalized",
+      "length_only",
+      "length_matched_subset"
+    ],
+    "required_rankers": [
+      "deterministic_rule",
+      "pooled_embeddings",
+      "recurrent_critic",
+      "bounded_residual",
+      "hashed_ngram",
+      "length_only"
+    ]
+  },
+  "critic_v2": {
+    "learned_primary_rank": false,
+    "learned_residual_limit_bps": 250,
+    "maximum_pairwise_learned_swing_bps": 500,
+    "hard_gate_override": false
+  },
+  "authority": {
+    "evaluation_only": true,
+    "runtime_chat_influence": false,
+    "http_response_influence": false,
+    "automatic_promotion": false
+  }
+}
