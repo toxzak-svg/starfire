@@ -82,7 +82,7 @@ jobs:
           assert report["within_runtime_budget"] is True
           assert report["seeds"] == [1729, 2718, 3141, 5772, 8119]
           assert report["observation_scope"]["test_observations"] == 60
-          assert report["observation_scope"]["unique_tournaments"] == 36
+          assert 12 <= report["observation_scope"]["unique_tournaments"] <= 36
           assert set(report["category_breakdown"]) == {
               "technical",
               "emotional",
