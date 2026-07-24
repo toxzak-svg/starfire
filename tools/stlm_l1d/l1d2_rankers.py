@@ -182,7 +182,11 @@ def shuffled_labels(
     for tournament in tournaments:
         candidates = list(tournament.candidates)
         rng = random.Random(seed ^ stable_hash(tournament.tournament_id, 2**31 - 1))
-        alternatives = [candidate.candidate_id for candidate in candidates]
+        alternatives = [
+            candidate.candidate_id
+            for candidate in candidates
+            if candidate.candidate_id != tournament.gold_candidate_id
+        ]
         shuffled_gold = alternatives[rng.randrange(len(alternatives))]
         result.append(
             Tournament(
