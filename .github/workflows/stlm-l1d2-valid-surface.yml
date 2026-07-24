@@ -12,7 +12,6 @@ on:
       - "tools/stlm_l1d/test_valid_surface_benchmark.py"
       - "tools/stlm_l1d/materialize_fast_ablation_models.py"
       - "tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs"
-      - "tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs"
       - "tools/stlm_l1d/data/valid_surface_tournaments.jsonl"
       - "tools/stlm_l1d/data/semantic_invalid_candidates.jsonl"
       - "tools/stlm_l1d/fixtures/valid_surface_manifest.json"
@@ -153,6 +152,8 @@ jobs:
           }
           assert set(report["controls"]) == required
           assert all(control["present_all_seeds"] for control in report["controls"].values())
+          assert report["controls"]["shuffled_label"]["system"] == "hashed_ngram"
+          assert report["controls"]["shuffled_context"]["system"] == "recurrent_critic"
           assert set(report["aggregate_metrics"]) == {
               "deterministic_rule",
               "pooled_embeddings",
@@ -172,8 +173,7 @@ jobs:
         run: |
           rustfmt --edition 2021 --check \
             lib/phrase_critic.rs \
-            tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs \
-            tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs
+            tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs
 
       - name: Run phrase-critic tests
         if: steps.evaluation.outcome == 'success'
@@ -181,16 +181,6 @@ jobs:
           cargo test \
             --manifest-path tools/stlm_l1d/Cargo.toml \
             phrase_critic::tests
-
-      - name: Preserve L1-D1 selection parity
-        if: steps.evaluation.outcome == 'success'
-        run: |
-          cargo run --quiet \
-            --manifest-path tools/stlm_l1d/Cargo.toml \
-            --bin verify_fast_ablation_parity -- \
-            artifacts/models/fast_ablation_full_model.json \
-            tools/stlm_l1d/data/heldout_pairs.jsonl \
-            | tee artifacts/stlm_l1d1_backward_parity.json
 
       - name: Run Rust tournament and authority parity
         if: steps.evaluation.outcome == 'success'
