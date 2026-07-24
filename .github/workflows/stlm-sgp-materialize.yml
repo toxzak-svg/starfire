@@ -1,0 +1,76 @@
+name: Materialize Starfire SGP datasets
+
+on:
+  push:
+    branches:
+      - dataset/stlm-sgp-v1
+    paths:
+      - "tools/stlm_l1d/sgp_v1/bootstrap_parts/**"
+      - ".github/workflows/stlm-sgp-materialize.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stlm-sgp-v1-materialize
+  cancel-in-progress: false
+
+jobs:
+  materialize-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out dataset branch
+        uses: actions/checkout@v4
+        with:
+          ref: dataset/stlm-sgp-v1
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Reconstruct deterministic materializer
+        shell: bash
+        run: |
+          cat tools/stlm_l1d/sgp_v1/bootstrap_parts/part-*.part > /tmp/materialize_bundle.py
+          python -m py_compile /tmp/materialize_bundle.py
+          cp /tmp/materialize_bundle.py tools/stlm_l1d/sgp_v1/materialize_bundle.py
+
+      - name: Materialize complete bundle
+        run: |
+          python /tmp/materialize_bundle.py \
+            --source-root tools/stlm_l1d/sgp_v1/source \
+            --output-root tools/stlm_l1d/data/sgp_v1
+
+      - name: Compile and validate tooling
+        run: |
+          python -m py_compile tools/stlm_l1d/sgp_v1/source/tooling/*.py
+          python tools/stlm_l1d/sgp_v1/source/tooling/validate_datasets.py \
+            tools/stlm_l1d/data/sgp_v1
+          python tools/stlm_l1d/sgp_v1/source/tooling/check_starfire_rnn_compat.py \
+            tools/stlm_l1d/data/sgp_v1/rnn_phrase_ranker/train.jsonl
+
+      - name: Commit expanded corpora and bundle
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/stlm_l1d/sgp_v1/materialize_bundle.py \
+            tools/stlm_l1d/sgp_v1/source \
+            tools/stlm_l1d/data/sgp_v1
+          if git diff --cached --quiet; then
+            echo "Dataset already materialized at the frozen digest."
+            exit 0
+          fi
+          git commit -m "data(language): materialize silver gold platinum CNN and RNN corpora"
+          git push origin HEAD:dataset/stlm-sgp-v1
+
+      - name: Upload Kaggle-ready archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: starfire-sgp-cnn-rnn-training-bundle-v1
+          path: tools/stlm_l1d/data/sgp_v1/starfire_sgp_cnn_rnn_training_bundle_v1.zip
+          if-no-files-found: error
