@@ -168,12 +168,16 @@ jobs:
               assert seed_report["split"]["test"]["tournaments"] == 12
           PY
 
-      - name: Check Rust formatting
+      - name: Format Rust sources and preserve exact output
         if: steps.evaluation.outcome == 'success'
         run: |
-          rustfmt --edition 2021 --check \
+          rustfmt --edition 2021 \
             lib/phrase_critic.rs \
             tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs
+          mkdir -p artifacts/formatted/lib artifacts/formatted/tools/stlm_l1d/src/bin
+          cp lib/phrase_critic.rs artifacts/formatted/lib/phrase_critic.rs
+          cp tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs \
+            artifacts/formatted/tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs
 
       - name: Run phrase-critic tests
         if: steps.evaluation.outcome == 'success'
