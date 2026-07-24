@@ -126,9 +126,22 @@ def evaluate_seed(
     }
     metrics = {name: evaluate_ranker(test, scorer) for name, scorer in scorers.items()}
 
+    shuffled_ngram_ranker, shuffled_ngram_hyperparameters = choose_linear_ranker(
+        shuffled_labels(train, seed + 211),
+        shuffled_labels(dev, seed + 223),
+        hashed_ngram_features,
+        HASH_DIMENSION,
+        seed + 227,
+    )
+    shuffled_label_metrics = evaluate_ranker(
+        test,
+        lambda tournament, candidate: shuffled_ngram_ranker.score(
+            hashed_ngram_features(candidate.text, tournament.context)
+        ),
+    )
+
     control_sets = {
         "shuffled_context": shuffled_contexts(test, seed + 101),
-        "shuffled_label": shuffled_labels(test, seed + 211),
         "punctuation_normalized": [
             transformed_tournament(item, transform_punctuation) for item in test
         ],
@@ -139,10 +152,20 @@ def evaluate_seed(
             transformed_tournament(item, transform_unicode) for item in test
         ],
     }
-    controlled = {}
+    controlled = {
+        "shuffled_label": {
+            "system": "hashed_ngram",
+            "hyperparameters": shuffled_ngram_hyperparameters,
+            "metrics": shuffled_label_metrics,
+            "selection_stability_bps": selection_stability(
+                metrics["hashed_ngram"], shuffled_label_metrics
+            ),
+        }
+    }
     for name, controlled_tournaments in control_sets.items():
         controlled_metrics = evaluate_ranker(controlled_tournaments, scorers["recurrent_critic"])
         controlled[name] = {
+            "system": "recurrent_critic",
             "metrics": controlled_metrics,
             "selection_stability_bps": selection_stability(
                 metrics["recurrent_critic"], controlled_metrics
@@ -155,8 +178,9 @@ def evaluate_seed(
         if max(len(candidate.text.encode("utf-8")) for candidate in item.candidates)
         <= 1.25 * min(len(candidate.text.encode("utf-8")) for candidate in item.candidates)
     ]
-    controlled["length_only"] = {"metrics": metrics["length_only"]}
+    controlled["length_only"] = {"system": "length_only", "metrics": metrics["length_only"]}
     controlled["length_matched_subset"] = {
+        "system": "recurrent_critic,bounded_residual",
         "tournaments": len(length_matched),
         "recurrent_critic_metrics": evaluate_ranker(length_matched, scorers["recurrent_critic"]),
         "bounded_residual_metrics": evaluate_ranker(length_matched, scorers["bounded_residual"]),
@@ -202,7 +226,11 @@ def control_summary(seed_reports: Sequence[Mapping[str, Any]]) -> dict[str, Any]
     for control in REQUIRED_CONTROLS:
         if control in {"length_only", "length_matched_subset"}:
             present = all(control in report["controls"] for report in seed_reports)
-            summary[control] = {"present_all_seeds": present}
+            systems = {report["controls"][control]["system"] for report in seed_reports}
+            summary[control] = {
+                "present_all_seeds": present,
+                "system": next(iter(systems)) if len(systems) == 1 else "inconsistent",
+            }
             continue
         accuracy = [
             report["controls"][control]["metrics"]["top1_accuracy_bps"]
@@ -212,9 +240,11 @@ def control_summary(seed_reports: Sequence[Mapping[str, Any]]) -> dict[str, Any]
             report["controls"][control]["selection_stability_bps"]
             for report in seed_reports
         ]
+        systems = {report["controls"][control]["system"] for report in seed_reports}
         summary[control] = {
             "present_all_seeds": True,
-            "recurrent_top1_accuracy_mean_bps": round(statistics.fmean(accuracy)),
+            "system": next(iter(systems)) if len(systems) == 1 else "inconsistent",
+            "top1_accuracy_mean_bps": round(statistics.fmean(accuracy)),
             "selection_stability_mean_bps": round(statistics.fmean(stability)),
         }
     return summary
@@ -327,18 +357,18 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             "",
             "## Controls",
             "",
-            "| Control | Present all seeds | Recurrent top-1 | Selection stability |",
-            "|---|---:|---:|---:|",
+            "| Control | System | Present all seeds | Top-1 | Selection stability |",
+            "|---|---|---:|---:|---:|",
         ]
     )
     for name in REQUIRED_CONTROLS:
         control = report["controls"][name]
-        accuracy = control.get("recurrent_top1_accuracy_mean_bps")
+        accuracy = control.get("top1_accuracy_mean_bps")
         stability = control.get("selection_stability_mean_bps")
         accuracy_text = f"{accuracy / 100:.2f}%" if accuracy is not None else "n/a"
         stability_text = f"{stability / 100:.2f}%" if stability is not None else "n/a"
         lines.append(
-            f"| `{name}` | {control['present_all_seeds']} | "
+            f"| `{name}` | `{control.get('system', 'n/a')}` | {control['present_all_seeds']} | "
             f"{accuracy_text} | {stability_text} |"
         )
     lines.extend(
