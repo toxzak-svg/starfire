@@ -105,6 +105,12 @@ No quality score is a structural pass condition. This avoids turning a weak chec
 
 ## Run locally
 
+Materialize the digest-bound benchmark corpora:
+
+```bash
+python tools/stlm_l1d/materialize_valid_surface_corpora.py
+```
+
 Materialize the existing digest-bound L1-D1 checkpoint:
 
 ```bash
