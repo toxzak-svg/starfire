@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "candidate_a": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "candidate_b": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "compression_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "directness_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "energy_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "identity_relevance_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "novelty_pressure_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "playfulness_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "semantic_specificity_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "warmth_bps": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "directness_bps",
+        "warmth_bps",
+        "energy_bps",
+        "compression_bps",
+        "playfulness_bps",
+        "novelty_pressure_bps",
+        "identity_relevance_bps",
+        "semantic_specificity_bps"
+      ],
+      "type": "object"
+    },
+    "eligibility": {
+      "type": "object"
+    },
+    "failure_labels": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "mirror_group_id": {
+      "type": "string"
+    },
+    "mirror_side": {
+      "enum": [
+        "a_context",
+        "b_context"
+      ]
+    },
+    "preferred": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "preferred_candidate": {
+      "enum": [
+        "A",
+        "B"
+      ]
+    },
+    "quality_tier": {
+      "enum": [
+        "silver",
+        "gold",
+        "platinum"
+      ]
+    },
+    "rejected": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    },
+    "semantic_plan": {
+      "type": "object"
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "train",
+        "dev",
+        "test"
+      ]
+    }
+  },
+  "required": [
+    "source_id",
+    "mirror_group_id",
+    "quality_tier",
+    "split",
+    "context",
+    "semantic_plan",
+    "candidate_a",
+    "candidate_b",
+    "preferred_candidate",
+    "preferred",
+    "rejected",
+    "failure_labels",
+    "eligibility"
+  ],
+  "title": "Starfire mirrored valid-surface preference pair",
+  "type": "object"
+}

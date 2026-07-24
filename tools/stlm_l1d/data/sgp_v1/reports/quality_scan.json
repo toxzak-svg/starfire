@@ -1,0 +1,55 @@
+{
+  "report": {
+    "cnn": {
+      "ascii_only": true,
+      "bad_phrase_counts": {
+        "  ": 0,
+        "First, The": 0,
+        "is completed": 0,
+        "record records": 0,
+        "reports report": 0,
+        "source lists": 0,
+        "source shows": 0
+      },
+      "context_mirror_l1": {
+        "max": 22043,
+        "mean": 11148.82,
+        "min": 4183
+      },
+      "mirror_side_counts": {
+        "a_context": 1800,
+        "b_context": 1800
+      },
+      "preferred_candidate_counts": {
+        "A": 1800,
+        "B": 1800
+      }
+    },
+    "rnn": {
+      "ascii_only": true,
+      "bad_phrase_counts": {
+        "  ": 0,
+        "First, The": 0,
+        "is completed": 0,
+        "record records": 0,
+        "reports report": 0,
+        "source lists": 0,
+        "source shows": 0
+      },
+      "context_mirror_l1": {
+        "max": 18635,
+        "mean": 10805.31,
+        "min": 5414
+      },
+      "mirror_side_counts": {
+        "a_context": 1800,
+        "b_context": 1800
+      },
+      "preferred_candidate_counts": {
+        "A": 1800,
+        "B": 1800
+      }
+    }
+  },
+  "status": "PASS"
+}

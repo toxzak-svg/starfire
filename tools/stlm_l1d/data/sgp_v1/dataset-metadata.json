@@ -1,0 +1,7 @@
+{
+  "title": "Starfire Silver Gold Platinum CNN and RNN Training Corpora",
+  "id": "zacharymaronek/starfire-sgp-cnn-rnn-training-corpora",
+  "licenses": [{"name": "CC-BY-4.0"}],
+  "keywords": ["artificial-intelligence", "natural-language-processing", "rnn", "cnn", "preference-learning", "jsonl"],
+  "subtitle": "Mirrored valid-surface preference corpora for Starfire phrase-ranking research"
+}
