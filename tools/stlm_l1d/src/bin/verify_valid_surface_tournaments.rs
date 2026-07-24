@@ -201,8 +201,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         && invalid_candidates_total > 0
         && residual_boundary_passed
         && !boundary.learned_primary_rank
-        && boundary.learned_residual_limit_bps
-            == PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS as u16
+        && boundary.learned_residual_limit_bps == PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS as u16
         && !boundary.hard_semantic_gate_override
         && !boundary.runtime_chat_influence
         && !boundary.http_response_influence;
