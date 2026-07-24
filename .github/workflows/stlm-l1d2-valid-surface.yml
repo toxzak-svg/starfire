@@ -1,0 +1,234 @@
+name: STLM L1-D2 valid-surface benchmark
+
+on:
+  pull_request:
+    paths:
+      - "lib/phrase_critic.rs"
+      - "tools/stlm_l1d/run_valid_surface_benchmark.py"
+      - "tools/stlm_l1d/test_valid_surface_benchmark.py"
+      - "tools/stlm_l1d/materialize_fast_ablation_models.py"
+      - "tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs"
+      - "tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs"
+      - "tools/stlm_l1d/data/valid_surface_tournaments.jsonl"
+      - "tools/stlm_l1d/data/semantic_invalid_candidates.jsonl"
+      - "tools/stlm_l1d/fixtures/valid_surface_manifest.json"
+      - "tools/stlm_l1d/fixtures/fast_ablation_*"
+      - "docs/experiments/STLM_L1D2_VALID_SURFACE_PREFLIGHT.md"
+      - ".github/workflows/stlm-l1d2-valid-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  valid-surface-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt,clippy
+
+      - name: Validate Python tools
+        run: |
+          python -m py_compile tools/stlm_l1d/run_valid_surface_benchmark.py
+          python -m py_compile tools/stlm_l1d/test_valid_surface_benchmark.py
+          python -m py_compile tools/stlm_l1d/materialize_fast_ablation_models.py
+
+      - name: Verify frozen benchmark identity
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path("tools/stlm_l1d/fixtures/valid_surface_manifest.json").read_text(encoding="utf-8")
+          )
+          for key in ("surface_corpus", "semantic_invalid_corpus"):
+              record = manifest[key]
+              path = Path(record["path"])
+              observed = hashlib.sha256(path.read_bytes()).hexdigest()
+              assert observed == record["file_sha256"], f"{path}: {observed} != {record['file_sha256']}"
+
+          assert manifest["surface_corpus"]["tournaments"] == 36
+          assert manifest["surface_corpus"]["candidates"] == 172
+          assert manifest["surface_corpus"]["groups"] == 36
+          assert manifest["surface_corpus"]["minimum_candidates"] == 4
+          assert manifest["surface_corpus"]["maximum_candidates"] == 8
+          assert manifest["semantic_invalid_corpus"]["quality_metric_influence"] is False
+          assert manifest["evaluation"]["seeds"] == [1729, 2718, 3141, 5772, 8119]
+          assert manifest["critic_v2"]["learned_primary_rank"] is False
+          assert manifest["critic_v2"]["learned_residual_limit_bps"] == 250
+          assert manifest["critic_v2"]["maximum_pairwise_learned_swing_bps"] == 500
+          assert manifest["authority"]["runtime_chat_influence"] is False
+          assert manifest["authority"]["http_response_influence"] is False
+          PY
+
+      - name: Run benchmark unit tests
+        working-directory: tools/stlm_l1d
+        run: python -m unittest -v test_valid_surface_benchmark.py
+
+      - name: Materialize digest-bound checkpoint
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/models
+          python tools/stlm_l1d/materialize_fast_ablation_models.py \
+            --manifest tools/stlm_l1d/fixtures/fast_ablation_manifest.json \
+            --output-dir artifacts/models \
+            2>&1 | tee artifacts/stlm_l1d2_materialization.log
+          test -s artifacts/models/fast_ablation_full_model.json
+
+      - name: Run five-seed valid-surface benchmark
+        id: evaluation
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/stlm_l1d/run_valid_surface_benchmark.py \
+            --model artifacts/models/fast_ablation_full_model.json \
+            --surface-corpus tools/stlm_l1d/data/valid_surface_tournaments.jsonl \
+            --semantic-invalid-corpus tools/stlm_l1d/data/semantic_invalid_candidates.jsonl \
+            --output-json artifacts/stlm_l1d2_report.json \
+            --output-md artifacts/stlm_l1d2_report.md \
+            --seeds 1729,2718,3141,5772,8119 \
+            --max-runtime-seconds 90 \
+            2>&1 | tee artifacts/stlm_l1d2_evaluation.log
+
+      - name: Verify complete benchmark report
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("artifacts/stlm_l1d2_report.json").read_text())
+          assert report["structural_gate_passed"] is True
+          assert report["deterministic_full_report_replay"] is True
+          assert report["within_runtime_budget"] is True
+          assert report["grouped_split_integrity"] is True
+          assert report["seeds"] == [1729, 2718, 3141, 5772, 8119]
+          assert report["surface_corpus"]["tournaments"] == 36
+          assert report["surface_corpus"]["surface_candidates"] == 172
+          assert report["surface_corpus"]["groups"] == 36
+          assert report["surface_corpus"]["minimum_candidates"] == 4
+          assert report["surface_corpus"]["maximum_candidates"] == 8
+          assert report["surface_corpus"]["all_surface_candidates_semantic_valid"] is True
+          assert report["semantic_invalid_probe"]["passed"] is True
+          assert report["semantic_invalid_probe"]["probes"] == 12
+          assert report["semantic_invalid_probe"]["invalid_candidates_rejected"] == 36
+          assert report["bounded_residual_preflight"]["passed"] is True
+          assert report["authority"]["learned_rank_is_primary"] is False
+          assert report["authority"]["learned_rank_is_bounded_residual"] is True
+          assert report["authority"]["per_candidate_residual_limit_bps"] == 250
+          assert report["authority"]["maximum_pairwise_learned_swing_bps"] == 500
+          assert report["authority"]["semantic_invalid_corpus_separate"] is True
+          assert report["quality_can_enable_live_authority"] is False
+
+          required = set(report["required_controls"])
+          assert required == {
+              "shuffled_context",
+              "shuffled_label",
+              "punctuation_normalized",
+              "whitespace_normalized",
+              "unicode_normalized",
+              "length_only",
+              "length_matched_subset",
+          }
+          assert set(report["controls"]) == required
+          assert all(control["present_all_seeds"] for control in report["controls"].values())
+          assert set(report["aggregate_metrics"]) == {
+              "deterministic_rule",
+              "pooled_embeddings",
+              "recurrent_critic",
+              "bounded_residual",
+              "hashed_ngram",
+              "length_only",
+          }
+          for seed_report in report["seed_reports"]:
+              assert seed_report["split"]["train"]["tournaments"] == 18
+              assert seed_report["split"]["dev"]["tournaments"] == 6
+              assert seed_report["split"]["test"]["tournaments"] == 12
+          PY
+
+      - name: Check Rust formatting
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          rustfmt --edition 2021 --check \
+            lib/phrase_critic.rs \
+            tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs \
+            tools/stlm_l1d/src/bin/verify_fast_ablation_parity.rs
+
+      - name: Run phrase-critic tests
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          cargo test \
+            --manifest-path tools/stlm_l1d/Cargo.toml \
+            phrase_critic::tests
+
+      - name: Preserve L1-D1 selection parity
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          cargo run --quiet \
+            --manifest-path tools/stlm_l1d/Cargo.toml \
+            --bin verify_fast_ablation_parity -- \
+            artifacts/models/fast_ablation_full_model.json \
+            tools/stlm_l1d/data/heldout_pairs.jsonl \
+            | tee artifacts/stlm_l1d1_backward_parity.json
+
+      - name: Run Rust tournament and authority parity
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          cargo run --quiet \
+            --manifest-path tools/stlm_l1d/Cargo.toml \
+            --bin verify_valid_surface_tournaments -- \
+            artifacts/models/fast_ablation_full_model.json \
+            tools/stlm_l1d/data/valid_surface_tournaments.jsonl \
+            tools/stlm_l1d/data/semantic_invalid_candidates.jsonl \
+            | tee artifacts/stlm_l1d2_rust_preflight.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("artifacts/stlm_l1d2_rust_preflight.json").read_text())
+          assert report["gate_passed"] is True
+          assert report["surface_tournaments"] == 36
+          assert report["surface_candidates"] == 172
+          assert report["surface_groups"] == 36
+          assert report["surface_categories"] == 6
+          assert report["surface_exact_replays"] == 36
+          assert report["surface_residual_bounds"] == 36
+          assert report["semantic_invalid_probes"] == 12
+          assert report["semantic_invalid_probe_matches"] == 12
+          assert report["invalid_candidates_total"] == 36
+          assert report["invalid_candidates_rejected"] == 36
+          assert report["learned_primary_rank"] is False
+          assert report["learned_residual_limit_bps"] == 250
+          assert report["maximum_pairwise_learned_swing_bps"] == 500
+          assert report["runtime_chat_influence"] is False
+          PY
+
+      - name: Run scoped Clippy
+        if: steps.evaluation.outcome == 'success'
+        run: |
+          cargo clippy \
+            --manifest-path tools/stlm_l1d/Cargo.toml \
+            --all-targets -- \
+            -D warnings
+
+      - name: Upload benchmark reports and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stlm-l1d2-valid-surface
+          path: artifacts
+          if-no-files-found: error
+
+      - name: Enforce evaluation success
+        if: steps.evaluation.outcome != 'success'
+        run: exit 1
