@@ -5,6 +5,10 @@ on:
     paths:
       - "lib/phrase_critic.rs"
       - "tools/stlm_l1d/run_valid_surface_benchmark.py"
+      - "tools/stlm_l1d/l1d2_core.py"
+      - "tools/stlm_l1d/l1d2_rankers.py"
+      - "tools/stlm_l1d/l1d2_evaluation.py"
+      - "tools/stlm_l1d/materialize_valid_surface_corpora.py"
       - "tools/stlm_l1d/test_valid_surface_benchmark.py"
       - "tools/stlm_l1d/materialize_fast_ablation_models.py"
       - "tools/stlm_l1d/src/bin/verify_valid_surface_tournaments.rs"
@@ -36,8 +40,15 @@ jobs:
       - name: Validate Python tools
         run: |
           python -m py_compile tools/stlm_l1d/run_valid_surface_benchmark.py
+          python -m py_compile tools/stlm_l1d/l1d2_core.py
+          python -m py_compile tools/stlm_l1d/l1d2_rankers.py
+          python -m py_compile tools/stlm_l1d/l1d2_evaluation.py
+          python -m py_compile tools/stlm_l1d/materialize_valid_surface_corpora.py
           python -m py_compile tools/stlm_l1d/test_valid_surface_benchmark.py
           python -m py_compile tools/stlm_l1d/materialize_fast_ablation_models.py
+
+      - name: Materialize digest-bound corpora
+        run: python tools/stlm_l1d/materialize_valid_surface_corpora.py
 
       - name: Verify frozen benchmark identity
         run: |
