@@ -1,10 +1,10 @@
 //! STLM L1-D offline recurrent phrase critic.
 //!
-//! The critic ranks candidate wording only after external semantic verification,
-//! slot preservation, and identity-conflict checks have passed. Learned scores
-//! cannot override those hard gates. This module is feature-gated, default-off,
-//! and has no Runtime::chat, HTTP response, persistence, routing, tool, belief,
-//! ontology, CHARGE, or autonomous-action authority.
+//! The critic receives only candidates that already passed external semantic,
+//! slot-preservation, and identity-conflict checks. Its learned score is a
+//! bounded residual on top of the deterministic rule score, never the primary
+//! authority. The module remains default-off and has no Runtime::chat, HTTP,
+//! persistence, routing, tool, belief, ontology, CHARGE, or action authority.
 
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -16,6 +16,9 @@ pub const PHRASE_CRITIC_VOCABULARY_SIZE: usize = 128;
 pub const MAX_PHRASE_CRITIC_HIDDEN_SIZE: usize = 128;
 pub const MAX_PHRASE_CRITIC_CANDIDATES: usize = 32;
 pub const MAX_PHRASE_CRITIC_TEXT_BYTES: usize = 1_024;
+pub const PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS: i32 = 250;
+pub const PHRASE_CRITIC_MAX_PAIRWISE_LEARNED_SWING_BPS: i32 =
+    PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS * 2;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhraseCriticModel {
@@ -212,7 +215,9 @@ impl PhraseCriticCandidate {
 pub struct PhraseCriticSelection {
     pub selected_candidate_id: u16,
     pub learned_score_bps: i32,
+    pub learned_residual_bps: i32,
     pub rule_score: i64,
+    pub combined_score: i64,
     pub complete_candidates_scored: u16,
     pub candidates_rejected_by_hard_gate: u16,
 }
@@ -221,7 +226,9 @@ pub struct PhraseCriticSelection {
 struct ScoredCandidate {
     candidate_id: u16,
     learned_score_bps: i32,
+    learned_residual_bps: i32,
     rule_score: i64,
+    combined_score: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -253,10 +260,16 @@ impl PhraseCritic {
                 continue;
             }
             let learned_score_bps = self.model.score_text(context, &candidate.text)?;
+            let learned_residual_bps = bounded_learned_residual(learned_score_bps);
+            let combined_score = candidate
+                .rule_score
+                .saturating_add(i64::from(learned_residual_bps));
             scored.push(ScoredCandidate {
                 candidate_id: candidate.candidate_id,
                 learned_score_bps,
+                learned_residual_bps,
                 rule_score: candidate.rule_score,
+                combined_score,
             });
         }
         if scored.is_empty() {
@@ -267,7 +280,9 @@ impl PhraseCritic {
         Ok(PhraseCriticSelection {
             selected_candidate_id: selected.candidate_id,
             learned_score_bps: selected.learned_score_bps,
+            learned_residual_bps: selected.learned_residual_bps,
             rule_score: selected.rule_score,
+            combined_score: selected.combined_score,
             complete_candidates_scored: u16::try_from(scored.len())
                 .map_err(|_| PhraseCriticError::CandidateBudgetExceeded)?,
             candidates_rejected_by_hard_gate: rejected,
@@ -275,10 +290,22 @@ impl PhraseCritic {
     }
 }
 
+#[must_use]
+pub const fn bounded_learned_residual(learned_score_bps: i32) -> i32 {
+    let centered = learned_score_bps - 5_000;
+    if centered < -PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS {
+        -PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS
+    } else if centered > PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS {
+        PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS
+    } else {
+        centered
+    }
+}
+
 fn compare_scored_candidates(left: &ScoredCandidate, right: &ScoredCandidate) -> Ordering {
     right
-        .learned_score_bps
-        .cmp(&left.learned_score_bps)
+        .combined_score
+        .cmp(&left.combined_score)
         .then_with(|| right.rule_score.cmp(&left.rule_score))
         .then_with(|| left.candidate_id.cmp(&right.candidate_id))
 }
@@ -288,6 +315,8 @@ pub struct PhraseCriticAuthorityBoundary {
     pub verified_candidate_text_access: bool,
     pub bounded_context_access: bool,
     pub learned_wording_rank: bool,
+    pub learned_primary_rank: bool,
+    pub learned_residual_limit_bps: u16,
     pub hard_semantic_gate_override: bool,
     pub identity_conflict_override: bool,
     pub selected_text_return: bool,
@@ -308,6 +337,8 @@ pub const fn authority_boundary() -> PhraseCriticAuthorityBoundary {
         verified_candidate_text_access: true,
         bounded_context_access: true,
         learned_wording_rank: true,
+        learned_primary_rank: false,
+        learned_residual_limit_bps: PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS as u16,
         hard_semantic_gate_override: false,
         identity_conflict_override: false,
         selected_text_return: false,
@@ -389,12 +420,13 @@ mod tests {
             .unwrap();
         assert_eq!(first, second);
         assert_eq!(first.selected_candidate_id, 2);
+        assert!(first.learned_residual_bps.abs() <= PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS);
     }
 
     #[test]
-    fn hard_gates_override_a_higher_learned_score() {
+    fn hard_gates_override_any_rule_or_learned_score() {
         let critic = PhraseCritic::new(toy_model()).unwrap();
-        let mut drifted = candidate(1, "Different claim!", 1_000);
+        let mut drifted = candidate(1, "Different claim!", i64::MAX);
         drifted.semantic_verified = false;
         let valid = candidate(2, "Same claim.", 0);
         let selected = critic
@@ -407,11 +439,39 @@ mod tests {
     #[test]
     fn identity_conflicts_are_not_rankable() {
         let critic = PhraseCritic::new(toy_model()).unwrap();
-        let mut conflict = candidate(1, "Identity contradiction!", 100);
+        let mut conflict = candidate(1, "Identity contradiction!", i64::MAX);
         conflict.identity_conflicts = 1;
         let valid = candidate(2, "Identity-consistent wording.", 0);
         let selected = critic
             .select(&PhraseCriticContext::default(), &[conflict, valid])
+            .unwrap();
+        assert_eq!(selected.selected_candidate_id, 2);
+    }
+
+    #[test]
+    fn rule_score_remains_primary_outside_residual_band() {
+        let critic = PhraseCritic::new(toy_model()).unwrap();
+        let rule_winner = candidate(1, "Lower learned score.", 1_000);
+        let learned_winner = candidate(2, "Higher learned score!", 499);
+        let selected = critic
+            .select(
+                &PhraseCriticContext::default(),
+                &[rule_winner, learned_winner],
+            )
+            .unwrap();
+        assert_eq!(selected.selected_candidate_id, 1);
+    }
+
+    #[test]
+    fn learned_residual_can_resolve_a_near_tie() {
+        let critic = PhraseCritic::new(toy_model()).unwrap();
+        let rule_winner = candidate(1, "Lower learned score.", 1_000);
+        let learned_winner = candidate(2, "Higher learned score!", 501);
+        let selected = critic
+            .select(
+                &PhraseCriticContext::default(),
+                &[rule_winner, learned_winner],
+            )
             .unwrap();
         assert_eq!(selected.selected_candidate_id, 2);
     }
@@ -427,9 +487,14 @@ mod tests {
     }
 
     #[test]
-    fn authority_boundary_is_closed() {
+    fn authority_boundary_is_closed_and_residual_only() {
         let boundary = authority_boundary();
         assert!(boundary.learned_wording_rank);
+        assert!(!boundary.learned_primary_rank);
+        assert_eq!(
+            boundary.learned_residual_limit_bps,
+            PHRASE_CRITIC_LEARNED_RESIDUAL_LIMIT_BPS as u16
+        );
         assert!(!boundary.hard_semantic_gate_override);
         assert!(!boundary.identity_conflict_override);
         assert!(!boundary.selected_text_return);
